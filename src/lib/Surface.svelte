@@ -1,5 +1,6 @@
 <script>
   import { setContext } from 'svelte';
+  import { tick } from 'svelte';
 
   let {
     entry_session,
@@ -44,18 +45,29 @@
     entry_session.set(path, event.target.innerText);
   }
 
-  function onbeforeinput(event) {
+  async function onbeforeinput(event) {
     console.log('onbeforeinput', event);
     const selection = window.getSelection();
-    // console.log('selection', );
+    console.log('selection', selection);
     const path = JSON.parse(selection.focusNode.parentElement.dataset.path);
     console.log(path, event.data);
 
     const inserted_char = event.data;
 
+    // console.log('selection.focusOffset', selection.focusOffset, 'selection.anchorOffset', selection.anchorOffset);
+    
     entry_session.insert_text(path, [selection.anchorOffset, selection.focusOffset], inserted_char);
+    const newOffset = selection.anchorOffset + 1;
 
     event.preventDefault();
+
+    // Set the DOM selection after inserting the text
+    await tick();
+    const range = document.createRange();
+    range.setStart(selection.focusNode, newOffset);
+    range.setEnd(selection.focusNode, newOffset);
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   function onselectionchange(event) {

@@ -15,13 +15,10 @@
 
 </script>
 
-
-<button onclick={() => entry_session.set(['body', 0, 'description'], 'lalalala la')}>Make a change</button>
 <button onclick={() => entry_session.undo()}>Undo</button>
 <button onclick={() => entry_session.redo()}>Redo</button>
 
 <Surface {entry_session} editable={true}>
   <Text path={['title']} />
-
   <Text path={['body', 0, 'description']} />
 </Surface>
