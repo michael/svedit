@@ -8,6 +8,6 @@
   } = $props();
 </script>
 
-<div contenteditable="true" data-path={JSON.stringify(path)}>
+<div contenteditable="true" data-path={path.join('.')}>
   {surface.entry_session.get(path)}
 </div>

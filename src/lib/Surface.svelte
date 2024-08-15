@@ -5,7 +5,8 @@
   let {
     entry_session,
     children,
-    editable = false
+    editable = false,
+    ref = $bindable(),
   } = $props();
 
   setContext("surface", {
@@ -14,64 +15,31 @@
     }
   });
 
-  // setContext("app", get entry_session());
-  // insert_text: function(path, value) {
-  //   // TODO: Implement
-  // },
-  // resolve_path(path) {
-  //   return entry[path];
-  // }
-
-  function oninput(event) {
-    // event.stopPropagation();
-    // event.preventDefault();
-
-    console.log('event.data', event.data);
-    console.log('innerText', event.target.innerText)
-    // if (!event.data) return
-
-    // return;
-    // console.log('input', event);
-    // const path = JSON.parse(event.target.getAttribute('data-path'));
-
-    const selection = window.getSelection();
-    const path = JSON.parse(selection.focusNode.parentElement.dataset.path);
-
-    // console.log('focusnode', selection.focusNode.parentElement);
-    console.log(path);
-
-    // entry_session.set(path, event.target.innerText);
-    
-    entry_session.set(path, event.target.innerText);
-  }
-
   async function onbeforeinput(event) {
-    console.log('onbeforeinput', event);
     const selection = window.getSelection();
-    console.log('selection', selection);
-    const path = JSON.parse(selection.focusNode.parentElement.dataset.path);
-    console.log(path, event.data);
-
+    const path = selection.focusNode.parentElement.dataset.path.split('.');
     const inserted_char = event.data;
-
-    // console.log('selection.focusOffset', selection.focusOffset, 'selection.anchorOffset', selection.anchorOffset);
     
     entry_session.insert_text(path, [selection.anchorOffset, selection.focusOffset], inserted_char);
     const newOffset = selection.anchorOffset + 1;
-
     event.preventDefault();
 
     // Set the DOM selection after inserting the text
     await tick();
-    const range = document.createRange();
-    range.setStart(selection.focusNode, newOffset);
-    range.setEnd(selection.focusNode, newOffset);
-    selection.removeAllRanges();
-    selection.addRange(range);
+
+    // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
+    entry_session.selection = {
+      type: 'text',
+      path,
+      anchor_index: newOffset,
+      focus_index: newOffset,
+    };
   }
 
+  // Map selection to model
   function onselectionchange(event) {
     console.log('selectionchange', event);
+    // TODO: Map selection to model
     
     // const selection = window.getSelection();
     // console.log(selection);
@@ -79,16 +47,41 @@
     //   cursorPosition = selection.getRangeAt(0).startOffset;
     // }
     // console.log('cursorPosition', cursorPosition);
-
   }
+
+  function render_selection() {
+    const dom_selection = window.getSelection();
+    const selection = entry_session.selection;
+    if (!selection) {
+      if (dom_selection) {
+        dom_selection.removeAllRanges();
+      }
+    } else if (selection?.type === 'text') {
+      console.log('rendering DOM selection', entry_session.selection.path);
+
+      const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
+      const first_text_node = contenteditable_el.childNodes[0];
+      const range = document.createRange();
+      range.setStart(first_text_node, selection.anchor_index);
+      range.setEnd(first_text_node, selection.focus_index);
+      dom_selection.removeAllRanges();
+      dom_selection.addRange(range);
+    } else {
+      console.log('unsupported selection type', selection.type);
+    }
+  }
+
+  // Whenever the model selection changes, render the selection
+  $effect(() => {
+    render_selection();
+  });
 
 </script>
 
-
 <svelte:document {onselectionchange} />
 
-<!-- {oninput} -->
 <div
+bind:this={ref}
   {onbeforeinput}
   contenteditable={editable ? 'true' : 'false'}
   onselectionchange={onselectionchange}
