@@ -57,8 +57,7 @@
         dom_selection.removeAllRanges();
       }
     } else if (selection?.type === 'text') {
-      console.log('rendering DOM selection', entry_session.selection.path);
-
+      console.log('rendering text selection', $state.snapshot(entry_session.selection.path));
       const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
       const first_text_node = contenteditable_el.childNodes[0];
       const range = document.createRange();
@@ -71,6 +70,21 @@
     }
   }
 
+  function onkeydown(e) {
+    
+    if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+      console.log('undoing');
+      entry_session.undo();
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      console.log('redoing');
+      entry_session.redo();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
   // Whenever the model selection changes, render the selection
   $effect(() => {
     render_selection();
@@ -79,6 +93,8 @@
 </script>
 
 <svelte:document {onselectionchange} />
+
+<svelte:window {onkeydown} />
 
 <div
 bind:this={ref}
