@@ -22,3 +22,6 @@
   <Text path={['title']} />
   <Text path={['body', 0, 'description']} />
 </Surface>
+
+
+Selection: {JSON.stringify(entry_session.selection)}

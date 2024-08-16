@@ -83,7 +83,6 @@ export default class EntrySession {
     // Directly update entry and selection with previous state
     this.entry = previous.entry;
     this.selection = previous.selection;
-    
     this.history = this.history.slice(0, -1);
     this.future = [current_copy, ...this.future];
   }

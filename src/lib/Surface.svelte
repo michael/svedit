@@ -1,6 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import { tick } from 'svelte';
+  import { untrack } from "svelte";
 
   let {
     entry_session,
@@ -20,8 +21,9 @@
     const path = selection.focusNode.parentElement.dataset.path.split('.');
     const inserted_char = event.data;
     
+    // TODO: We could now use the model selection to figure out where to insert the text at current cursor position
     entry_session.insert_text(path, [selection.anchorOffset, selection.focusOffset], inserted_char);
-    const newOffset = selection.anchorOffset + 1;
+    const new_offset = selection.anchorOffset + 1;
     event.preventDefault();
 
     // Set the DOM selection after inserting the text
@@ -31,33 +33,69 @@
     entry_session.selection = {
       type: 'text',
       path,
-      anchor_index: newOffset,
-      focus_index: newOffset,
+      anchor_index: new_offset,
+      focus_index: new_offset,
     };
   }
 
   // Map selection to model
-  function onselectionchange(event) {
-    console.log('selectionchange', event);
-    // TODO: Map selection to model
+  async function onselectionchange(event) {
+    const selection = window.getSelection();
+    let new_selection;
+    let path;
+    if (selection.focusNode === selection.anchorNode) {
+      path = selection.focusNode?.parentElement?.dataset?.path?.split('.');
+    }
     
-    // const selection = window.getSelection();
-    // console.log(selection);
-    // if (selection.rangeCount > 0 && selection.anchorNode === editor.firstChild) {
-    //   cursorPosition = selection.getRangeAt(0).startOffset;
-    // }
-    // console.log('cursorPosition', cursorPosition);
+    // Now we know this is a text selection
+    if (path) {
+      // This is only to keep the model in sync with the latest DOM selection
+      // In this case we don't want to re-render the selection and prevent and infinite loop
+      new_selection = {
+        type: 'text',
+        path,
+        anchor_index: selection.anchorOffset,
+        focus_index: selection.focusOffset,
+      };
+      // console.log('model selection updated', $state.snapshot(entry_session.selection));
+    } else {
+      // console.log('Unknown DOM selection. Clear selection.');
+      new_selection = null;
+    }
+
+    entry_session.selection = new_selection;
+    await tick();
   }
 
   function render_selection() {
-    const dom_selection = window.getSelection();
+    
     const selection = entry_session.selection;
+    const dom_selection = window.getSelection();
+
+    
+    const path = dom_selection.focusNode?.parentElement?.dataset?.path?.split('.');
+
+    const new_selection = {
+      type: 'text',
+      path,
+      anchor_index: dom_selection.anchorOffset,
+      focus_index: dom_selection.focusOffset,
+    };
+
     if (!selection) {
-      if (dom_selection) {
-        dom_selection.removeAllRanges();
-      }
-    } else if (selection?.type === 'text') {
-      console.log('rendering text selection', $state.snapshot(entry_session.selection.path));
+      console.log('No selection to render');
+      return;
+    }
+
+    if (JSON.stringify(selection) === JSON.stringify(new_selection)) {
+      console.log('SELECTION RERENDER SKIPPED.');
+      return; // No need to re-render
+    }
+
+    console.log('RENRENDER SELECTION');
+    
+    if (selection?.type === 'text') {
+      // console.log('rendering text selection', $state.snapshot(selection.path));
       const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
       const first_text_node = contenteditable_el.childNodes[0];
       const range = document.createRange();
@@ -71,14 +109,11 @@
   }
 
   function onkeydown(e) {
-    
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-      console.log('undoing');
       entry_session.undo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-      console.log('redoing');
       entry_session.redo();
       e.preventDefault();
       e.stopPropagation();
@@ -100,7 +135,6 @@
 bind:this={ref}
   {onbeforeinput}
   contenteditable={editable ? 'true' : 'false'}
-  onselectionchange={onselectionchange}
 >
   {@render children()}
 </div>
