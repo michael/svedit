@@ -11,3 +11,9 @@
 <div contenteditable="true" data-path={path.join('.')}>
   {surface.entry_session.get(path)}
 </div>
+
+<style>
+  div {
+    white-space: pre-line;
+  }
+</style>
