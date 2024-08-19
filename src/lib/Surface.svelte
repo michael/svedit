@@ -16,30 +16,18 @@
     }
   });
 
-  async function onbeforeinput(event) {
-    const selection = window.getSelection();
-    const path = selection.focusNode.parentElement.dataset.path.split('.');
+  function onbeforeinput(event) {
+    // const selection = window.getSelection();
+    // const path = selection.focusNode.parentElement.dataset.path.split('.');
     const inserted_char = event.data;
+    event.preventDefault();
     
     // TODO: We could now use the model selection to figure out where to insert the text at current cursor position
-    entry_session.insert_text(path, [selection.anchorOffset, selection.focusOffset], inserted_char);
-    const new_offset = selection.anchorOffset + 1;
-    event.preventDefault();
-
-    // Set the DOM selection after inserting the text
-    await tick();
-
-    // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
-    entry_session.selection = {
-      type: 'text',
-      path,
-      anchor_index: new_offset,
-      focus_index: new_offset,
-    };
+    entry_session.insert_text(inserted_char);
   }
 
   // Map selection to model
-  async function onselectionchange(event) {
+  function onselectionchange(event) {
     const selection = window.getSelection();
     let new_selection;
     let path;
@@ -62,19 +50,14 @@
       // console.log('Unknown DOM selection. Clear selection.');
       new_selection = null;
     }
-
     entry_session.selection = new_selection;
-    await tick();
   }
 
+
   function render_selection() {
-    
     const selection = entry_session.selection;
     const dom_selection = window.getSelection();
-
-    
     const path = dom_selection.focusNode?.parentElement?.dataset?.path?.split('.');
-
     const new_selection = {
       type: 'text',
       path,
@@ -109,12 +92,19 @@
   }
 
   function onkeydown(e) {
+
+    console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       entry_session.undo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
       entry_session.redo();
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      console.log('Enter key pressed with ctrl or meta');
+      entry_session.insert_text('\n');
       e.preventDefault();
       e.stopPropagation();
     }

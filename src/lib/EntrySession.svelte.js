@@ -58,18 +58,30 @@ export default class EntrySession {
     }
   
     current[path[path.length - 1]] = value;
-
     this.history = [...this.history, history_copy];
     this.future = [];
 
     return current;
   }
 
-  insert_text(path, selection, replaced_text) {
-    const value = this.get(path);
-    const [start, end] = selection;
+  insert_text(replaced_text) {
+    if (this.selection.type !== 'text') return;
+    
+    const value = this.get(this.selection.path);
+    const [start, end] = [
+      Math.min(this.selection.anchor_index, this.selection.focus_index),
+      Math.max(this.selection.anchor_index, this.selection.focus_index)
+    ];
     const new_value = value.slice(0, start) + replaced_text + value.slice(end);
-    this.set(path, new_value); // this will update the current state and create a history entry
+    this.set(this.selection.path, new_value); // this will update the current state and create a history entry
+
+    // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
+    this.selection = {
+      type: 'text',
+      path: this.selection.path,
+      anchor_index: start + 1,
+      focus_index: start + 1,
+    };
   }
 
   undo() {
