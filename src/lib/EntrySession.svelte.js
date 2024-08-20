@@ -67,13 +67,16 @@ export default class EntrySession {
   insert_text(replaced_text) {
     if (this.selection.type !== 'text') return;
     
-    const value = this.get(this.selection.path);
+    const annotated_text = this.get(this.selection.path);
     const [start, end] = [
       Math.min(this.selection.anchor_offset, this.selection.focus_offset),
       Math.max(this.selection.anchor_offset, this.selection.focus_offset)
     ];
-    const new_value = value.slice(0, start) + replaced_text + value.slice(end);
-    this.set(this.selection.path, new_value); // this will update the current state and create a history entry
+
+    annotated_text[0] = annotated_text[0].slice(0, start) + replaced_text + annotated_text[0].slice(end);
+
+    // const new_value = value.slice(0, start) + replaced_text + value.slice(end);
+    this.set(this.selection.path, annotated_text); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
     this.selection = {

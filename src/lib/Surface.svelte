@@ -33,25 +33,15 @@
   }
 
   function render_selection() {
-    // const selection = entry_session.selection;
-    // const dom_selection = window.getSelection();
-    // const path = dom_selection.focusNode?.parentElement?.dataset?.path?.split('.');
-    // const new_selection = {
-    //   type: 'text',
-    //   path,
-    //   anchor_offset: dom_selection.anchorOffset,
-    //   focus_offset: dom_selection.focusOffset,
-    // };
-    let new_selection = __get_text_selection_from_dom();
+    const selection = entry_session.selection;
+    let next_selection = __get_text_selection_from_dom();
 
-    console.log('new_selection', new_selection);
-
-    if (!new_selection) {
+    if (!next_selection) {
       console.log('No selection to render');
       return;
     }
 
-    if (JSON.stringify(selection) === JSON.stringify(new_selection)) {
+    if (JSON.stringify(selection) === JSON.stringify(next_selection)) {
       console.log('SELECTION RERENDER SKIPPED.');
       return; // No need to re-render
     }
@@ -60,24 +50,12 @@
     
     if (selection?.type === 'text') {
       __render_text_selection();
-      // console.log('rendering text selection', $state.snapshot(selection.path));
-      // const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
-      // const first_text_node = contenteditable_el.children[0];
-      // console.log('first_text_node', contenteditable_el);
-      // console.log('selection.anchor_offset', selection.anchor_offset);
-      // console.log('selection.focus_offset', selection.focus_offset);
-      // const range = document.createRange();
-      // range.setStart(contenteditable_el, selection.anchor_offset);
-      // range.setEnd(contenteditable_el, selection.focus_offset);
-      // dom_selection.removeAllRanges();
-      // dom_selection.addRange(range);
     } else {
       console.log('unsupported selection type', selection.type);
     }
   }
 
   function onkeydown(e) {
-
     console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       entry_session.undo();
@@ -179,7 +157,7 @@
         const nodeLength = node.length;
         
         // Check if this node contains the start offset
-        if (!anchorNode && currentOffset + nodeLength > start_offset) {
+        if (!anchorNode && currentOffset + nodeLength >= start_offset) {
           if (is_backward) {
             focusNode = node;
             focusNodeOffset = start_offset - currentOffset;
@@ -202,6 +180,10 @@
         }
         
         currentOffset += nodeLength;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const childNode of node.childNodes) {
+          if (processNode(childNode)) return true; // Stop iteration if end found
+        }
       }
       return false; // Continue iteration
     }
@@ -209,6 +191,12 @@
     // Iterate through child nodes
     for (const childNode of el.childNodes) {
       if (processNode(childNode)) break;
+    }
+
+    // Handle edge case: cursor at the end of an annotation
+    if (anchorNode && !focusNode && currentOffset === end_offset) {
+      focusNode = anchorNode.nextSibling || anchorNode;
+      focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
     }
 
     // Set the range if both start and end were found
