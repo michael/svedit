@@ -5,7 +5,7 @@
 
   let entry_session = new EntrySession({
     type: 'page',
-    title: 'I am a heading',
+    title: ['Hello world', [[6, 11, 'emphasis']]],
     description: 'Some text here.',
     body: [
       {type: 'story', description: 'first para'},
@@ -20,7 +20,7 @@
 
 <Surface {entry_session} editable={true}>
   <Text path={['title']} />
-  <Text path={['body', 0, 'description']} />
+  <!-- <Text path={['body', 0, 'description']} /> -->
 </Surface>
 
 

@@ -6,10 +6,59 @@
   let {
     path
   } = $props();
+
+  function render_annotated_text(text, annotations) {    
+    let fragments = [];
+    let last_index = 0;
+
+    // Sort annotations by start_offset
+    const sorted_annotations = $state.snapshot(annotations).sort((a, b) => a[0] - b[0]);
+    console.log(sorted_annotations);
+
+    for (let annotation of sorted_annotations) {
+      // Add text before the annotation
+      if (annotation[0] > last_index) {
+        fragments.push(text.slice(last_index, annotation[0]));
+      }
+
+      // Add the annotated text
+      const annotated_content = text.slice(annotation[0], annotation[1]);
+      fragments.push({
+        type: annotation[2],
+        content: annotated_content
+      });
+
+      last_index = annotation[1];
+    }
+
+    // Add any remaining text after the last annotation
+    if (last_index < text.length) {
+      fragments.push(text.slice(last_index));
+    }
+
+    return fragments;
+  }
+
+  let fragments = $derived(render_annotated_text(surface.entry_session.get(path)[0], surface.entry_session.get(path)[1]));
+
 </script>
 
 <div contenteditable="true" data-path={path.join('.')}>
-  {surface.entry_session.get(path)}
+  {#each fragments as fragment}
+    {#if typeof fragment === 'string'}
+      {fragment}
+    {:else if fragment.type === 'emphasis'}
+      <em>{fragment.content}</em>
+    {:else if fragment.type === 'strong'}
+      <strong>{fragment.content}</strong>
+    {:else if fragment.type === 'link'}
+      <a href={fragment.href}>{fragment.content}</a>
+    {:else}
+      {fragment.content}
+    {/if}
+  {/each}
+
+  <!-- {@html surface.entry_session.get(path)} -->
 </div>
 
 <style>

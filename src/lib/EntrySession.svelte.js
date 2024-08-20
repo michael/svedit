@@ -8,16 +8,16 @@ export default class EntrySession {
   // ContainerSelection:
   // {
   //   type: 'container',
-  //   anchor_index: 2,
-  //   focus_index: 5,
+  //   anchor_offset: 2,
+  //   focus_offset: 5,
   // }
   
-  // Field selection (text selection inside a block)
+  // Text selection (text selection inside a block or root field)
   // {
   //   type: 'text',
   //   path: ['body', 3, 'title'],
-  //   anchor_index: 3, // maybe later (currently not reliable)
-  //   focus_index: 5, // maybe later (currently not reliable)
+  //   anchor_offset: 3, // maybe later (currently not reliable)
+  //   focus_offset: 5, // maybe later (currently not reliable)
   // }
 
   constructor(entry) {
@@ -69,8 +69,8 @@ export default class EntrySession {
     
     const value = this.get(this.selection.path);
     const [start, end] = [
-      Math.min(this.selection.anchor_index, this.selection.focus_index),
-      Math.max(this.selection.anchor_index, this.selection.focus_index)
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
     ];
     const new_value = value.slice(0, start) + replaced_text + value.slice(end);
     this.set(this.selection.path, new_value); // this will update the current state and create a history entry
@@ -79,8 +79,8 @@ export default class EntrySession {
     this.selection = {
       type: 'text',
       path: this.selection.path,
-      anchor_index: start + 1,
-      focus_index: start + 1,
+      anchor_offset: start + 1,
+      focus_offset: start + 1,
     };
   }
 

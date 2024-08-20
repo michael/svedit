@@ -28,44 +28,25 @@
 
   // Map selection to model
   function onselectionchange(event) {
-    const selection = window.getSelection();
-    let new_selection;
-    let path;
-    if (selection.focusNode === selection.anchorNode) {
-      path = selection.focusNode?.parentElement?.dataset?.path?.split('.');
-    }
-    
-    // Now we know this is a text selection
-    if (path) {
-      // This is only to keep the model in sync with the latest DOM selection
-      // In this case we don't want to re-render the selection and prevent and infinite loop
-      new_selection = {
-        type: 'text',
-        path,
-        anchor_index: selection.anchorOffset,
-        focus_index: selection.focusOffset,
-      };
-      // console.log('model selection updated', $state.snapshot(entry_session.selection));
-    } else {
-      // console.log('Unknown DOM selection. Clear selection.');
-      new_selection = null;
-    }
-    entry_session.selection = new_selection;
+    let selection = __get_text_selection_from_dom();
+    entry_session.selection = selection;
   }
 
-
   function render_selection() {
-    const selection = entry_session.selection;
-    const dom_selection = window.getSelection();
-    const path = dom_selection.focusNode?.parentElement?.dataset?.path?.split('.');
-    const new_selection = {
-      type: 'text',
-      path,
-      anchor_index: dom_selection.anchorOffset,
-      focus_index: dom_selection.focusOffset,
-    };
+    // const selection = entry_session.selection;
+    // const dom_selection = window.getSelection();
+    // const path = dom_selection.focusNode?.parentElement?.dataset?.path?.split('.');
+    // const new_selection = {
+    //   type: 'text',
+    //   path,
+    //   anchor_offset: dom_selection.anchorOffset,
+    //   focus_offset: dom_selection.focusOffset,
+    // };
+    let new_selection = __get_text_selection_from_dom();
 
-    if (!selection) {
+    console.log('new_selection', new_selection);
+
+    if (!new_selection) {
       console.log('No selection to render');
       return;
     }
@@ -78,14 +59,18 @@
     console.log('RENRENDER SELECTION');
     
     if (selection?.type === 'text') {
+      __render_text_selection();
       // console.log('rendering text selection', $state.snapshot(selection.path));
-      const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
-      const first_text_node = contenteditable_el.childNodes[0];
-      const range = document.createRange();
-      range.setStart(first_text_node, selection.anchor_index);
-      range.setEnd(first_text_node, selection.focus_index);
-      dom_selection.removeAllRanges();
-      dom_selection.addRange(range);
+      // const contenteditable_el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
+      // const first_text_node = contenteditable_el.children[0];
+      // console.log('first_text_node', contenteditable_el);
+      // console.log('selection.anchor_offset', selection.anchor_offset);
+      // console.log('selection.focus_offset', selection.focus_offset);
+      // const range = document.createRange();
+      // range.setStart(contenteditable_el, selection.anchor_offset);
+      // range.setEnd(contenteditable_el, selection.focus_offset);
+      // dom_selection.removeAllRanges();
+      // dom_selection.addRange(range);
     } else {
       console.log('unsupported selection type', selection.type);
     }
@@ -110,15 +95,143 @@
     }
   }
 
+  function __get_text_selection_from_dom() {
+    const dom_selection = window.getSelection();
+    if (dom_selection.rangeCount === 0) return null;
+
+    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path]');
+    if (!focus_root) return null;
+    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path]');
+    if (!anchor_root) return null;
+    
+    if (focus_root !== anchor_root) {
+      return null;
+    }
+
+    const range = dom_selection.getRangeAt(0);
+    const path = focus_root.dataset.path.split('.');
+
+    if (!path) return null;
+
+    let anchorOffset = 0;
+    let focusOffset = 0;
+    let currentOffset = 0;
+
+    function processNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const nodeLength = node.length;
+        
+        if (node === range.startContainer) {
+          anchorOffset = currentOffset + range.startOffset;
+        }
+        if (node === range.endContainer) {
+          focusOffset = currentOffset + range.endOffset;
+        }
+        
+        currentOffset += nodeLength;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const childNode of node.childNodes) {
+          processNode(childNode);
+        }
+      }
+      
+      return (focusOffset !== 0);
+    }
+
+    // Process nodes to find offsets
+    for (const childNode of focus_root.childNodes) {
+      if (processNode(childNode)) break;
+    }
+
+    // Check if it's a backward selection
+    const isBackward = dom_selection.anchorNode === range.endContainer && 
+                      dom_selection.anchorOffset === range.endOffset;
+
+    // Swap offsets if it's a backward selection
+    if (isBackward) {
+      [anchorOffset, focusOffset] = [focusOffset, anchorOffset];
+    }
+
+    return {
+      type: 'text',
+      path,
+      anchor_offset: anchorOffset,
+      focus_offset: focusOffset
+    };
+  }
+
+  function __render_text_selection() {
+    const selection = entry_session.selection;
+    // The element that holds the annotated text
+    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
+
+    const range = document.createRange();
+    const dom_selection = window.getSelection();
+    let currentOffset = 0;
+    let anchorNode, anchorNodeOffset, focusNode, focusNodeOffset;
+    const is_backward = selection.anchor_offset > selection.focus_offset;
+    const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
+    const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
+
+    // Helper function to process each node
+    function processNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const nodeLength = node.length;
+        
+        // Check if this node contains the start offset
+        if (!anchorNode && currentOffset + nodeLength > start_offset) {
+          if (is_backward) {
+            focusNode = node;
+            focusNodeOffset = start_offset - currentOffset;
+          } else {
+            anchorNode = node;
+            anchorNodeOffset = start_offset - currentOffset;
+          }
+        }
+        
+        // Check if this node contains the end offset
+        if (!focusNode && currentOffset + nodeLength >= end_offset) {
+          if (is_backward) {
+            anchorNode = node;
+            anchorNodeOffset = end_offset - currentOffset;
+          } else {
+            focusNode = node;
+            focusNodeOffset = end_offset - currentOffset;
+          }
+          return true; // Stop iteration
+        }
+        
+        currentOffset += nodeLength;
+      }
+      return false; // Continue iteration
+    }
+
+    // Iterate through child nodes
+    for (const childNode of el.childNodes) {
+      if (processNode(childNode)) break;
+    }
+
+    // Set the range if both start and end were found
+    if (anchorNode && focusNode) {
+      range.setStart(anchorNode, anchorNodeOffset);
+      range.setEnd(focusNode, focusNodeOffset);
+      dom_selection.removeAllRanges();
+      dom_selection.addRange(range);
+      if (is_backward) {
+        dom_selection.extend(focusNode, focusNodeOffset);
+      }
+      el.focus();
+    }
+  }
+
   // Whenever the model selection changes, render the selection
   $effect(() => {
+    console.log('yoyoyo');
     render_selection();
   });
-
 </script>
 
 <svelte:document {onselectionchange} />
-
 <svelte:window {onkeydown} />
 
 <div
