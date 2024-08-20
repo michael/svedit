@@ -73,10 +73,70 @@ export default class EntrySession {
       Math.max(this.selection.anchor_offset, this.selection.focus_offset)
     ];
 
+    // Transform the plain text string.
     annotated_text[0] = annotated_text[0].slice(0, start) + replaced_text + annotated_text[0].slice(end);
 
-    // const new_value = value.slice(0, start) + replaced_text + value.slice(end);
-    this.set(this.selection.path, annotated_text); // this will update the current state and create a history entry
+    // Transform the annotations (annotated_text[1])
+    // NOTE: Annotations are stored as [start_offset, end_offset, type]
+    // Cover the following cases for all annotations:
+    // 1. text inserted before the annotation (the annotation should be shifted by replaced_text.length - (end - start))
+    // 2. text inserted inside an annotation (start>=annotation.start_offset und end <=annotation.end_offset)
+    // 3. text inserted after an annotation (the annotation should be unchanged)
+    // 4. the annotation is wrapped in start and end (the annotation should be removed)
+    // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
+    // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
+
+    console.log('annotations', JSON.stringify(annotated_text[1]));
+
+    const delta = replaced_text.length - (end - start);
+    console.log('delta', delta);
+    const new_annotations = annotated_text[1].map(annotation => {
+      const [anno_start, anno_end, type] = annotation;
+
+      // Case 4: annotation is wrapped in start and end (remove it)
+      if (start <= anno_start && end >= anno_end) {
+        return false;
+      }
+
+      // Case 1: text inserted before the annotation
+      if (end <= anno_start) {
+        return [anno_start + delta, anno_end + delta, type];
+      }
+
+      // Case 2: text inserted at the end or inside an annotation
+      if (start >= anno_start && start <= anno_end) {
+        console.log('Case 2: text inserted at the end or inside an annotation');
+        if (start === anno_end) {
+          // Text inserted right after the annotation
+          return [anno_start, anno_end, type];
+        } else {
+          // Text inserted inside the annotation
+          return [anno_start, anno_end + delta, type];
+        }
+      }
+
+      // Case 3: text inserted after the annotation
+      if (start >= anno_end) {
+        return annotation;
+      }
+
+      // Case 5: annotation is partly selected towards right
+      if (start > anno_start && start < anno_end && end > anno_end) {
+        return [anno_start, start, type];
+      }
+
+      // Case 6: annotation is partly selected towards left
+      if (start < anno_start && end > anno_start && end < anno_end) {
+        return [end + delta, anno_end + delta, type];
+      }
+
+      // Default case: shouldn't happen, but keep the annotation unchanged
+      return annotation;
+    });
+
+    console.log('new_annotations', JSON.stringify(new_annotations));
+
+    this.set(this.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
     this.selection = {

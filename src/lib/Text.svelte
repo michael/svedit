@@ -13,7 +13,6 @@
 
     // Sort annotations by start_offset
     const sorted_annotations = $state.snapshot(annotations).sort((a, b) => a[0] - b[0]);
-    console.log(sorted_annotations);
 
     for (let annotation of sorted_annotations) {
       // Add text before the annotation
