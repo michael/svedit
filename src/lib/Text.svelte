@@ -24,7 +24,8 @@
       const annotated_content = text.slice(annotation[0], annotation[1]);
       fragments.push({
         type: annotation[2],
-        content: annotated_content
+        content: annotated_content,
+        ...annotation[3]
       });
 
       last_index = annotation[1];
@@ -39,7 +40,6 @@
   }
 
   let fragments = $derived(render_annotated_text(surface.entry_session.get(path)[0], surface.entry_session.get(path)[1]));
-
 </script>
 
 <div contenteditable="true" data-path={path.join('.')}>
@@ -56,12 +56,10 @@
       {fragment.content}
     {/if}
   {/each}
-
-  <!-- {@html surface.entry_session.get(path)} -->
 </div>
 
 <style>
   div {
-    white-space: pre-line;
+    white-space: pre;
   }
 </style>

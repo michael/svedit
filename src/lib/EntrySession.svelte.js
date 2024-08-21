@@ -64,10 +64,67 @@ export default class EntrySession {
     return current;
   }
 
+  active_annotation(annotation_type) {
+    if (this.selection?.type !== 'text') return null;
+    
+    const [start, end] = [
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
+    ];
+    const annotated_text = this.get(this.selection.path);
+    const annotations = annotated_text[1];
+
+    const active_annotation = annotations.find(([anno_start, anno_end, type]) => 
+      (anno_start <= start && anno_end > start) || 
+      (anno_start < end && anno_end >= end) ||
+      (anno_start >= start && anno_end <= end)
+    ) || null;
+
+    if (annotation_type) {
+      return active_annotation?.[2] === annotation_type;
+    } else {
+      return active_annotation;
+    }
+  }
+
+  annotate_text(annotation_type, annotation_data) {
+    if (this.selection.type !== 'text') return;
+    // You can not annotate text if the selection is collapsed.
+    if (this.selection.focus_offset === this.selection.anchor_offset) return;
+
+    const [start, end] = [
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
+    ];
+    const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
+    const annotations = annotated_text[1];
+    const existingAnnotation = this.active_annotation();
+
+    if (existingAnnotation) {
+      // If there's an existing annotation of the same type, remove it
+      if (existingAnnotation[2] === annotation_type) {
+        const index = annotations.indexOf(existingAnnotation);
+        annotations.splice(index, 1);
+      } else {
+        // If there's an annotation of a different type, don't add a new one
+        return;
+      }
+    } else {
+      // If there's no existing annotation, add the new one
+      annotations.push([start, end, annotation_type, annotation_data]);
+    }
+
+    console.log('annotations', JSON.stringify(annotations));
+
+    // Update the annotated text
+    this.set(this.selection.path, annotated_text);
+    this.selection = { ...this.selection };
+  }
+
   insert_text(replaced_text) {
     if (this.selection.type !== 'text') return;
     
-    const annotated_text = this.get(this.selection.path);
+    const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
     const [start, end] = [
       Math.min(this.selection.anchor_offset, this.selection.focus_offset),
       Math.max(this.selection.anchor_offset, this.selection.focus_offset)
@@ -91,7 +148,7 @@ export default class EntrySession {
     const delta = replaced_text.length - (end - start);
     console.log('delta', delta);
     const new_annotations = annotated_text[1].map(annotation => {
-      const [anno_start, anno_end, type] = annotation;
+      const [anno_start, anno_end, type, anno_data] = annotation;
 
       // Case 4: annotation is wrapped in start and end (remove it)
       if (start <= anno_start && end >= anno_end) {
@@ -100,7 +157,7 @@ export default class EntrySession {
 
       // Case 1: text inserted before the annotation
       if (end <= anno_start) {
-        return [anno_start + delta, anno_end + delta, type];
+        return [anno_start + delta, anno_end + delta, type, anno_data];
       }
 
       // Case 2: text inserted at the end or inside an annotation
@@ -108,10 +165,10 @@ export default class EntrySession {
         console.log('Case 2: text inserted at the end or inside an annotation');
         if (start === anno_end) {
           // Text inserted right after the annotation
-          return [anno_start, anno_end, type];
+          return [anno_start, anno_end, type, anno_data];
         } else {
           // Text inserted inside the annotation
-          return [anno_start, anno_end + delta, type];
+          return [anno_start, anno_end + delta, type, anno_data];
         }
       }
 
@@ -122,29 +179,31 @@ export default class EntrySession {
 
       // Case 5: annotation is partly selected towards right
       if (start > anno_start && start < anno_end && end > anno_end) {
-        return [anno_start, start, type];
+        return [anno_start, start, type, anno_data];
       }
 
       // Case 6: annotation is partly selected towards left
       if (start < anno_start && end > anno_start && end < anno_end) {
-        return [end + delta, anno_end + delta, type];
+        return [end + delta, anno_end + delta, type, anno_data];
       }
 
       // Default case: shouldn't happen, but keep the annotation unchanged
       return annotation;
-    });
+    }).filter(Boolean);
 
     console.log('new_annotations', JSON.stringify(new_annotations));
 
     this.set(this.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
-    this.selection = {
+    const new_selection = {
       type: 'text',
       path: this.selection.path,
       anchor_offset: start + 1,
       focus_offset: start + 1,
     };
+    console.log('new_selection', new_selection);
+    this.selection = new_selection;
   }
 
   undo() {

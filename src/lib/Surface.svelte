@@ -34,14 +34,18 @@
 
   function render_selection() {
     const selection = entry_session.selection;
-    let next_selection = __get_text_selection_from_dom();
+    let prev_selection = __get_text_selection_from_dom();
 
-    if (!next_selection) {
-      console.log('No selection to render');
+    console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
+
+    if (!selection) {
+      console.log('No model selection -> remove dom selection');
+      let dom_selection = window.getSelection();
+      dom_selection.removeAllRanges();
       return;
     }
 
-    if (JSON.stringify(selection) === JSON.stringify(next_selection)) {
+    if (JSON.stringify(selection) === JSON.stringify(prev_selection)) {
       console.log('SELECTION RERENDER SKIPPED.');
       return; // No need to re-render
     }
@@ -68,6 +72,20 @@
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       console.log('Enter key pressed with ctrl or meta');
       entry_session.insert_text('\n');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
+      entry_session.annotate_text('strong');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey)) {
+      entry_session.annotate_text('emphasis');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+      entry_session.annotate_text('link', {
+        href: window.prompt('Enter the URL', 'https://example.com')
+      });
       e.preventDefault();
       e.stopPropagation();
     }
@@ -229,3 +247,9 @@ bind:this={ref}
 >
   {@render children()}
 </div>
+
+<style>
+  div:focus {
+    outline: none;
+  }
+</style>

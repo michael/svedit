@@ -5,23 +5,46 @@
 
   let entry_session = new EntrySession({
     type: 'page',
-    title: ['Hello world', [[6, 11, 'emphasis']]],
-    description: 'Some text here.',
-    body: [
-      {type: 'story', description: 'first para'},
-      {type: 'story', description: 'second para'},
-    ]
+    title: ['Hello world', [
+      [6, 11, 'emphasis']
+    ]],
+    description: ['Some text here', [
+      [5, 9, 'link', {href: 'https://www.google.com'}]
+    ]],
   });
 
+  function insert_link() {
+    entry_session.annotate_text('link', {
+      href: window.prompt('Enter the URL')
+    });
+  }
 </script>
 
-<button onclick={() => entry_session.undo()}>Undo</button>
-<button onclick={() => entry_session.redo()}>Redo</button>
 
-<Surface {entry_session} editable={true}>
-  <Text path={['title']} />
-  <!-- <Text path={['body', 0, 'description']} /> -->
-</Surface>
+<div class="demo-wrapper">
+  <button onclick={() => entry_session.undo()}>Undo</button>
+  <button onclick={() => entry_session.redo()}>Redo</button>
+  <button onclick={() => entry_session.annotate_text('strong')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'strong'}>Bold</button>
+  <button onclick={() => entry_session.annotate_text('emphasis')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'emphasis'}>Italic</button>
+  <button onclick={insert_link} disabled={entry_session.active_annotation()}>Link</button>
+
+  <Surface {entry_session} editable={true}>
+    <div style="display: flex; flex-direction: column; gap: 20px; padding-top: 10px;">
+      <Text path={['title']} />
+      <!-- Important: div must have contenteditable="false" and contain some content, otherwise invalid selections occur. -->
+      <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
+        <div>Some not editable UI...</div>
+      </div>
+      <Text path={['description']} />
+    </div>
+  </Surface>
+  <hr/>
+  <pre style="text-wrap: wrap;"><code>Document: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
+</div>
 
 
-Selection: {JSON.stringify(entry_session.selection)}
+<style>
+  .demo-wrapper {
+    padding: 20px;
+  }
+</style>
