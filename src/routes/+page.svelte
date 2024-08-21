@@ -1,6 +1,7 @@
 <script>
   import Text from '$lib/Text.svelte';
   import Surface from '$lib/Surface.svelte';
+  import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
 
   let entry_session = new EntrySession({
@@ -11,6 +12,10 @@
     description: ['Some text here', [
       [5, 9, 'link', {href: 'https://www.google.com'}]
     ]],
+    body: [
+      { type: 'story', title: ['A story title', []], description: ['A story description', []] },
+      { type: 'story', title: ['A story title', []], description: ['A story description', []] },
+    ]
   });
 
   function insert_link() {
@@ -36,12 +41,12 @@
         <div>Some not editable UI...</div>
       </div>
       <Text path={['description']} />
+      <Container path={['body']} />
     </div>
   </Surface>
   <hr/>
   <pre style="text-wrap: wrap;"><code>Document: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
 </div>
-
 
 <style>
   .demo-wrapper {

@@ -42,7 +42,7 @@
   let fragments = $derived(render_annotated_text(surface.entry_session.get(path)[0], surface.entry_session.get(path)[1]));
 </script>
 
-<div contenteditable="true" data-path={path.join('.')}>
+<div contenteditable="true" data-type="text" data-path={path.join('.')}>
   {#each fragments as fragment}
     {#if typeof fragment === 'string'}
       {fragment}
