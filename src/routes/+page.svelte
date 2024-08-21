@@ -1,8 +1,10 @@
 <script>
   import Text from '$lib/Text.svelte';
+  import Story from '$lib/Story.svelte';
   import Surface from '$lib/Surface.svelte';
   import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
+  import TwoColumnGrid from '$lib/TwoColumnGrid.svelte';
 
   let entry_session = new EntrySession({
     type: 'page',
@@ -14,7 +16,9 @@
     ]],
     body: [
       { type: 'story', title: ['A story title', []], description: ['A story description', []] },
-      { type: 'story', title: ['A story title', []], description: ['A story description', []] },
+      { type: 'story', title: ['A story title 2', []], description: ['A story description 2', []] },
+      { type: 'story', title: ['A story title 3', []], description: ['A story description 3', []] },
+      { type: 'story', title: ['A story title 4', []], description: ['A story description 4', []] },
     ]
   });
 
@@ -41,7 +45,16 @@
         <div>Some not editable UI...</div>
       </div>
       <Text path={['description']} />
-      <Container path={['body']} />
+      <!--  -->
+      <Container path={['body']} Layout={TwoColumnGrid}>
+        {#snippet block(block, path)}
+          {#if block.type === 'story'}
+            <Story {path} />
+          {:else}
+            <Story {path} />
+          {/if}
+        {/snippet}
+      </Container>
     </div>
   </Surface>
   <hr/>

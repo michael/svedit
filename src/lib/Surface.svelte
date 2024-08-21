@@ -17,12 +17,8 @@
   });
 
   function onbeforeinput(event) {
-    // const selection = window.getSelection();
-    // const path = selection.focusNode.parentElement.dataset.path.split('.');
     const inserted_char = event.data;
     event.preventDefault();
-    
-    // TODO: We could now use the model selection to figure out where to insert the text at current cursor position
     entry_session.insert_text(inserted_char);
   }
 
@@ -70,7 +66,6 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      console.log('Enter key pressed with ctrl or meta');
       entry_session.insert_text('\n');
       e.preventDefault();
       e.stopPropagation();
@@ -95,9 +90,9 @@
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path]');
+    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
     if (!focus_root) return null;
-    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path]');
+    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
     if (!anchor_root) return null;
     
     if (focus_root !== anchor_root) {
@@ -159,7 +154,7 @@
   function __render_text_selection() {
     const selection = entry_session.selection;
     // The element that holds the annotated text
-    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"]`);
+    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
 
     const range = document.createRange();
     const dom_selection = window.getSelection();

@@ -12,6 +12,8 @@
 </script>
 
 <div contenteditable="false">
+
+  <div>Block: {JSON.stringify(path)}</div>
   <div class="title">
     <Text path={[...path,'title']} />
   </div>

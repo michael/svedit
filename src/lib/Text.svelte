@@ -61,5 +61,6 @@
 <style>
   div {
     white-space: pre;
+    outline: none;
   }
 </style>

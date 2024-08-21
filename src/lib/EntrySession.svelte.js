@@ -65,6 +65,7 @@ export default class EntrySession {
   }
 
   active_annotation(annotation_type) {
+    console.log('active_annotation (this.selection?.type', this.selection);
     if (this.selection?.type !== 'text') return null;
     
     const [start, end] = [
