@@ -24,20 +24,26 @@
 
   // Map selection to model
   function onselectionchange(event) {
-    let selection = __get_text_selection_from_dom();
-    entry_session.selection = selection;
+    const dom_selection = window.getSelection();
+    // console.log('dom_selection', dom_selection);
+
+    let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+
+    if (selection) {
+      entry_session.selection = selection;
+    }
   }
 
   function render_selection() {
     const selection = entry_session.selection;
-    let prev_selection = __get_text_selection_from_dom();
+    let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
 
     if (!selection) {
-      console.log('No model selection -> remove dom selection');
-      let dom_selection = window.getSelection();
-      dom_selection.removeAllRanges();
+      console.log('No model selection -> just leave things as is');
+      // let dom_selection = window.getSelection();
+      // dom_selection.removeAllRanges();
       return;
     }
 
@@ -50,6 +56,8 @@
     
     if (selection?.type === 'text') {
       __render_text_selection();
+    } else if (selection?.type === 'container') {
+      __render_container_selection();
     } else {
       console.log('unsupported selection type', selection.type);
     }
@@ -84,6 +92,42 @@
       e.preventDefault();
       e.stopPropagation();
     }
+  }
+
+  function __get_container_selection_from_dom() {
+    const dom_selection = window.getSelection();
+    if (dom_selection.rangeCount === 0) return null;
+
+    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="block"]');
+    if (!focus_root) return null;
+
+    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="block"]');
+    if (!anchor_root) return null;
+
+    if (!(focus_root && anchor_root)) {
+      return null;
+    }
+
+    let focus_root_path = focus_root.dataset.path.split('.');
+    let anchor_root_path = anchor_root.dataset.path.split('.');
+
+    const is_same_container = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
+    if (!is_same_container) {
+      console.log('invalid selection, not same container');
+      return null;
+    }
+    console.log('focus_root / anchor_root', focus_root, anchor_root);
+
+    // return focus_root;
+    const result = {
+      type: 'container',
+      path: anchor_root_path.slice(0, -1),
+      anchor_offset: anchor_root_path.at(-1),
+      focus_offset: focus_root_path.at(-1),
+    };
+
+    console.log('container selection', result);
+    return result;
   }
 
   function __get_text_selection_from_dom() {
@@ -149,6 +193,38 @@
       anchor_offset: anchorOffset,
       focus_offset: focusOffset
     };
+  }
+
+  function __render_container_selection() {
+    console.log('render_container_selection', entry_session.selection);
+    const selection = entry_session.selection;
+    const containerEl = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="container"]`);
+    if (!containerEl) return;
+
+    const blocksEl = containerEl.querySelector('.blocks');
+    if (!blocksEl) return;
+
+    const blockElements = blocksEl.children;
+    if (blockElements.length === 0) return;
+
+    const anchorNode = blockElements[selection.anchor_offset];
+    const focusNode = blockElements[selection.focus_offset];
+
+    if (!anchorNode || !focusNode) return;
+
+    const range = document.createRange();
+    range.setStartBefore(anchorNode);
+    range.setEndAfter(focusNode);
+
+    const domSelection = window.getSelection();
+    domSelection.removeAllRanges();
+    domSelection.addRange(range);
+
+    // Ensure the container is focused
+    containerEl.focus();
+    // const selection = entry_session.selection;
+    // const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="container"]`);
+    // el.focus();
   }
 
   function __render_text_selection() {
@@ -221,13 +297,12 @@
       if (is_backward) {
         dom_selection.extend(focusNode, focusNodeOffset);
       }
-      el.focus();
+      el.focus(); // needed?
     }
   }
 
   // Whenever the model selection changes, render the selection
   $effect(() => {
-    console.log('yoyoyo');
     render_selection();
   });
 </script>
@@ -236,7 +311,8 @@
 <svelte:window {onkeydown} />
 
 <div
-bind:this={ref}
+  class:hide-selection={entry_session.selection?.type === 'container'}
+  bind:this={ref}
   {onbeforeinput}
   contenteditable={editable ? 'true' : 'false'}
 >
@@ -246,5 +322,9 @@ bind:this={ref}
 <style>
   div:focus {
     outline: none;
+  }
+
+  div.hide-selection :global(::selection) {
+    background: transparent;
   }
 </style>

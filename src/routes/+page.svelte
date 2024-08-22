@@ -1,6 +1,7 @@
 <script>
   import Text from '$lib/Text.svelte';
-  import Story from '$lib/Story.svelte';
+  import StoryBlock from '$lib/StoryBlock.svelte';
+  import UnknownBlock from '$lib/UnknownBlock.svelte';
   import Surface from '$lib/Surface.svelte';
   import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
@@ -27,12 +28,22 @@
       href: window.prompt('Enter the URL')
     });
   }
+
+  function select_first_two_blocks() {
+    entry_session.selection = {
+      type: 'container',
+      path: ['body'],
+      anchor_offset: 0,
+      focus_offset: 2,
+    }
+  }
 </script>
 
 
 <div class="demo-wrapper">
   <button onclick={() => entry_session.undo()}>Undo</button>
   <button onclick={() => entry_session.redo()}>Redo</button>
+  <button onclick={select_first_two_blocks}>select blocks</button>
   <button onclick={() => entry_session.annotate_text('strong')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'strong'}>Bold</button>
   <button onclick={() => entry_session.annotate_text('emphasis')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'emphasis'}>Italic</button>
   <button onclick={insert_link} disabled={entry_session.active_annotation()}>Link</button>
@@ -45,13 +56,12 @@
         <div>Some not editable UI...</div>
       </div>
       <Text path={['description']} />
-      <!--  -->
       <Container path={['body']} Layout={TwoColumnGrid}>
         {#snippet block(block, path)}
           {#if block.type === 'story'}
-            <Story {path} />
+            <StoryBlock {block} {path} />
           {:else}
-            <Story {path} />
+            <UnknownBlock {block} {path} />
           {/if}
         {/snippet}
       </Container>

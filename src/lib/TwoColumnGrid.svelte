@@ -2,7 +2,7 @@
   const { children } = $props();
 </script>
 
-<div class="two-column-grid">
+<div class="two-column-grid blocks">
   {@render children()}
 </div>
 
