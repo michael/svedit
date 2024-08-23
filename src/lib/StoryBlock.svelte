@@ -24,8 +24,7 @@
 <!-- <div contenteditable="false">Block: {JSON.stringify(path)} {surface.entry_session.selection?.path?.join('.')}</div> -->
 <div data-path={path.join('.')} data-type="block" class:selected={is_selected()} data-index={path.at(-1)}><!--
 --><!--
-  --><Text path={[...path,'title']} /><!--
-  --><Text path={[...path,'description']} /><!--
+  --><div data-type='block-trap' class="wrapper">&#8203;</div><Text path={[...path,'description']} /><!--
 --></div>
 
 <style>
@@ -42,4 +41,12 @@
   .selected {
     outline: 1px solid #0075d5;
   }
+
+  .wrapper {
+    padding: 20px;
+    background-color: #eee;
+  }
+  /* div :global([data-type="text"]) {
+    padding: 10px;
+  } */
 </style>

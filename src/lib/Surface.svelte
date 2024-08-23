@@ -25,9 +25,31 @@
   // Map selection to model
   function onselectionchange(event) {
     const dom_selection = window.getSelection();
-    // console.log('dom_selection', dom_selection);
+    let selection;
+    console.log('dom_selection', dom_selection);
 
-    let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    // // Edge case 1: block trap is focused (selects a single block)
+    // let block_trap_anchor = dom_selection.anchorNode.closest?.('[data-type="block-trap"]');
+    // let block_trap_focus = dom_selection.focusNode.closest?.('[data-type="block-trap"]');
+
+    // if (block_trap_anchor && block_trap_anchor === block_trap_focus) {
+    //   console.log('block trap selection, yo');
+    //   const block_el = dom_selection.anchorNode.parentElement?.closest?.('[data-type="block"]');
+    //   // console.log('block', block_el);
+    //   entry_session.selection = {
+    //     type: 'container',
+    //     path: block_el.dataset.path.split('.').slice(0, -1),
+    //     anchor_offset: block_el.dataset.path.split('.').at(-1),
+    //     focus_offset: block_el.dataset.path.split('.').at(-1),
+    //   };
+    //   __render_container_selection();
+    //   return;
+    //   // console.log('selection', selection);
+    // }
+
+    if (!selection) {
+      selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    }
 
     if (selection) {
       entry_session.selection = selection;
@@ -116,7 +138,7 @@
       console.log('invalid selection, not same container');
       return null;
     }
-    console.log('focus_root / anchor_root', focus_root, anchor_root);
+    // console.log('focus_root / anchor_root', focus_root, anchor_root);
 
     // return focus_root;
     const result = {
@@ -126,7 +148,7 @@
       focus_offset: focus_root_path.at(-1),
     };
 
-    console.log('container selection', result);
+    // console.log('container selection', result);
     return result;
   }
 
