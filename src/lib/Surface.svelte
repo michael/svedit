@@ -10,11 +10,22 @@
     ref = $bindable(),
   } = $props();
 
+  let is_mouse_down = $state(false);
+  let prev_dom_range = $state();
+
   setContext("surface", {
     get entry_session() {
       return entry_session;
     }
   });
+
+  function onmousedown() {
+    is_mouse_down = true;
+  }
+
+  function onmouseup() {
+    is_mouse_down = false;
+  }
 
   function onbeforeinput(event) {
     const inserted_char = event.data;
@@ -26,7 +37,10 @@
   function onselectionchange(event) {
     const dom_selection = window.getSelection();
     let selection;
-    console.log('dom_selection', dom_selection);
+    if (!is_mouse_down) {
+      console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
+    }
+    
 
     // // Edge case 1: block trap is focused (selects a single block)
     // let block_trap_anchor = dom_selection.anchorNode.closest?.('[data-type="block-trap"]');
@@ -51,9 +65,22 @@
       selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
     }
 
+    if (selection?.type === 'container' && !is_mouse_down) {
+
+      console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
+      // Interpretations of new selection (only for container selections)
+      // Case 1: selection was a container selection and new selection focusnode/offset is after the previous focusnode
+      // This we will interpret as a container selection with focus_offset + 1.
+      // Case 2: Like case 1 but new selection focusnode/offset is before the previous focusnode/offset
+      // This we will interpret as a container selection with focus_offset - 1.
+    }
+
+    // Remember the dom selection for later comparison and interpretation of DOM selection changes
+    prev_dom_range = dom_selection.getRangeAt(0);
     if (selection) {
       entry_session.selection = selection;
     }
+    
   }
 
   function render_selection() {
@@ -111,6 +138,11 @@
       entry_session.annotate_text('link', {
         href: window.prompt('Enter the URL', 'https://example.com')
       });
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'Backspace' && entry_session.selection?.type === 'container') {
+      entry_session.delete();
+      console.log('delete container selection');
       e.preventDefault();
       e.stopPropagation();
     }
@@ -217,36 +249,46 @@
     };
   }
 
+  function __get_block_element(container_path, block_offset) {
+    const containerEl = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
+    if (!containerEl) return null;
+
+    const blocksEl = containerEl.querySelector('.blocks');
+    if (!blocksEl) return null;
+
+    const blockElements = blocksEl.children;
+    if (blockElements.length === 0) return null;
+
+    return blockElements[block_offset];
+  }
+
   function __render_container_selection() {
     console.log('render_container_selection', entry_session.selection);
     const selection = entry_session.selection;
-    const containerEl = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="container"]`);
-    if (!containerEl) return;
+    const container_path = selection.path.join('.');
 
-    const blocksEl = containerEl.querySelector('.blocks');
-    if (!blocksEl) return;
+    const anchor_node = __get_block_element(container_path, selection.anchor_offset);
+    const focus_node = __get_block_element(container_path, selection.focus_offset);
 
-    const blockElements = blocksEl.children;
-    if (blockElements.length === 0) return;
-
-    const anchorNode = blockElements[selection.anchor_offset];
-    const focusNode = blockElements[selection.focus_offset];
-
-    if (!anchorNode || !focusNode) return;
+    if (!anchor_node || !focus_node) return;
 
     const range = document.createRange();
-    range.setStartBefore(anchorNode);
-    range.setEndAfter(focusNode);
+    range.setStartBefore(anchor_node);
+    range.setEndAfter(focus_node);
 
-    const domSelection = window.getSelection();
-    domSelection.removeAllRanges();
-    domSelection.addRange(range);
+    const dom_selection = window.getSelection();
+    dom_selection.removeAllRanges();
+    dom_selection.addRange(range);
 
     // Ensure the container is focused
-    containerEl.focus();
-    // const selection = entry_session.selection;
-    // const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="container"]`);
-    // el.focus();
+    const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
+    if (container_el) {
+      container_el.focus();
+      // Scroll the selection into view
+      setTimeout(() => {
+        focus_node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }, 0);
+    }
   }
 
   function __render_text_selection() {
@@ -320,8 +362,23 @@
         dom_selection.extend(focusNode, focusNodeOffset);
       }
       el.focus(); // needed?
+
+      // Scroll the selection into view
+      setTimeout(() => {
+        const selectedElement = dom_selection.focusNode.parentElement;
+        if (selectedElement) {
+          selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      }, 0);
     }
   }
+
+  // Utils
+  // --------------------------
+
+  // function __is_element_before(reference_el, el) {
+  //   return !!(reference_el.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
+  // }
 
   // Whenever the model selection changes, render the selection
   $effect(() => {
@@ -329,7 +386,11 @@
   });
 </script>
 
-<svelte:document {onselectionchange} />
+<svelte:document
+  {onselectionchange}
+  {onmousedown}
+  {onmouseup}
+/>
 <svelte:window {onkeydown} />
 
 <div
@@ -346,7 +407,7 @@
     outline: none;
   }
 
-  div.hide-selection :global(::selection) {
+  /* div.hide-selection :global(::selection) {
     background: transparent;
-  }
+  } */
 </style>

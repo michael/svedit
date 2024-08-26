@@ -18,14 +18,24 @@
     }
     return selected;
   }
+
+  function is_container_cursor_before() {
+    // if (surface.entry_session?.selection?.type === 'container') {
+    //   const block_index = path.at(-1)
+    //   const sel_start = Math.min(surface.entry_session.selection.anchor_offset, surface.entry_session.selection.focus_offset);
+    //   return block_index < sel_start;
+    // }
+    // return false;
+  }
 </script>
 
 
 <!-- <div contenteditable="false">Block: {JSON.stringify(path)} {surface.entry_session.selection?.path?.join('.')}</div> -->
+ <!-- <div data-type='block-trap' class="wrapper">&#8203;</div> -->
 <div data-path={path.join('.')} data-type="block" class:selected={is_selected()} data-index={path.at(-1)}><!--
 --><!--
-  --><div data-type='block-trap' class="wrapper">&#8203;</div><Text path={[...path,'description']} /><!--
---></div>
+  --><Text path={[...path,'title']} /><!--
+--><Text path={[...path,'description']} /></div>
 
 <style>
   /* .title {
@@ -40,6 +50,14 @@
 
   .selected {
     outline: 1px solid #0075d5;
+  }
+
+  .container-cursor-before {
+    border-top: 1px solid blue;
+  }
+
+  .container-cursor-after {
+    border-bottom: 1px solid blue;
   }
 
   .wrapper {
