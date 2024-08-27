@@ -87,6 +87,35 @@ export default class EntrySession {
     }
   }
 
+  move_container_cursor(direction) {
+    if (this.selection?.type !== 'container') return;
+    const container = this.get(this.selection.path); // container is an array of blocks
+
+    const [start, end] = [
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
+    ];
+
+    if (this.selection.anchor_offset !== this.selection.focus_offset) {
+      // If selection is not collapsed, collapse it to the right or the left
+      if (direction === 'forward') {
+        this.selection.focus_offset = end;
+        this.selection.anchor_offset = end;
+      } else if (direction === 'backward') {
+        this.selection.focus_offset = start;
+        this.selection.anchor_offset = start;
+      }
+    } else if (direction === 'forward' && end < container.length) {
+      this.selection.focus_offset = end + 1;
+      this.selection.anchor_offset = end + 1;
+    } else if (direction === 'backward' && start > 0) {
+      this.selection.focus_offset = start - 1;
+      this.selection.anchor_offset = start - 1;
+    }
+
+    console.log($state.snapshot(this.selection));
+  }
+
   annotate_text(annotation_type, annotation_data) {
     if (this.selection.type !== 'text') return;
     // You can not annotate text if the selection is collapsed.
@@ -128,8 +157,17 @@ export default class EntrySession {
     const container = [...this.get(path)]; // container is an array of blocks
 
     // Get the start and end indices for the selection
-    const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+
+    // If selection is collapsed we delete the previous block
+    if (start === end) {
+      if (start > 0) {
+        start = start - 1;
+      } else {
+        return; // cursor is at the very beginning, do nothing.
+      }
+    }
 
     // Remove the selected blocks from the container
     container.splice(start, end - start);
@@ -145,6 +183,42 @@ export default class EntrySession {
       focus_offset: start
     };
 
+  }
+
+  insert_block() {
+    if (this.selection.type !== 'container') return;
+
+    const path = this.selection.path;
+    const container = [...this.get(path)];
+
+    // Get the start and end indices for the selection
+    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+
+    if (start !== end) {
+      // Remove the selected blocks from the container
+      container.splice(start, end - start);
+    }
+
+    // Insert the new block at the start of the selection
+    // NOTE: we initialize with dummy text since empty text nodes are not handled correctly yet
+    container.splice(start, 0, {
+      type: 'story',
+      title: ['enter title', []],
+      description: ['enter description', []],
+    });
+
+    // Update the container in the entry
+    this.set(path, container);
+
+    // Set the cursor at the first text field of the block
+    // TODO: this must not be hardcoded here!
+    this.selection = {
+      type: 'text',
+      path: [...this.selection.path, start, 'title'],
+      anchor_offset: 0,
+      focus_offset: 0
+    };
   }
 
   insert_text(replaced_text) {
@@ -263,3 +337,11 @@ export default class EntrySession {
     this.future = remaining_future;
   }
 }
+
+// UTILS
+// --------------------------------------------
+
+// function __is_selection_collapsed(selection) {
+//   if (!selection) return false;
+//   return selection.anchor_offset === selection.focus_offset;
+// }

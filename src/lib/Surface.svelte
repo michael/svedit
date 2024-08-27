@@ -110,6 +110,7 @@
   }
 
   function onkeydown(e) {
+    const selection = entry_session.selection;
     console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       entry_session.undo();
@@ -137,13 +138,30 @@
       });
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Backspace' && entry_session.selection?.type === 'container') {
+    } else if (e.key === 'Backspace' && selection?.type === 'container') {
       entry_session.delete();
       console.log('delete container selection');
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && entry_session.selection?.type === 'container') {
-      console.log('TODO: Add now default block at '+ entry_session.selection.anchor_offset, entry_session.selection.focus_offset);
+    } else if (e.key === 'Enter' && selection?.type === 'container') {
+      console.log('TODO: Add now default block at '+ selection.anchor_offset, selection.focus_offset);
+      entry_session.insert_block();
+      e.preventDefault();
+      e.stopPropagation();
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && selection?.type === 'container') {
+      // TODO: Problem with this is that once we got into a container selection we can't go back to
+      // a text selection using only the keyboard because we intercept the arrow keys. 
+      // Maybe we could utilize the ESCAPE key to "escape from a container selection". However, I thought
+      // ESCAPE should be the way to select the parent, it could be useful for navigating out to the parent
+      // in nested elements like lists.
+      console.log('Arrow right or down pressed');
+      entry_session.move_container_cursor('forward')
+      e.preventDefault();
+      e.stopPropagation();
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && selection?.type === 'container') {
+      entry_session.move_container_cursor('backward');
+      e.preventDefault();
+      e.stopPropagation();
     }
   }
 
@@ -171,7 +189,16 @@
     }
 
     let anchor_offset = parseInt(anchor_root_path.at(-1));
-    let focus_offset = parseInt(focus_root_path.at(-1)) + 1;
+    let focus_offset = parseInt(focus_root_path.at(-1));
+
+    // Check if it's a reverse selection
+    const is_reverse = anchor_offset > focus_offset;
+
+    if (is_reverse) {
+      anchor_offset += 1;
+    } else {
+      focus_offset += 1;
+    }
 
     const result = {
       type: 'container',
