@@ -132,7 +132,7 @@ export default class EntrySession {
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 
     // Remove the selected blocks from the container
-    container.splice(start, end - start + 1);
+    container.splice(start, end - start);
 
     // Update the container in the entry
     this.set(path, container);
@@ -141,15 +141,10 @@ export default class EntrySession {
     this.selection = {
       type: 'container',
       path: this.selection.path,
-      anchor_offset: start - 1,
-      focus_offset: start -1
+      anchor_offset: start,
+      focus_offset: start
     };
 
-    // const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-    // console.log('path', path);
-
-    // const value = this.get(path);
-    // this.set(path, undefined);
   }
 
   insert_text(replaced_text) {

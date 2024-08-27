@@ -37,9 +37,6 @@
   function onselectionchange(event) {
     const dom_selection = window.getSelection();
     let selection;
-    if (!is_mouse_down) {
-      console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
-    }
     
 
     // // Edge case 1: block trap is focused (selects a single block)
@@ -66,8 +63,8 @@
     }
 
     if (selection?.type === 'container' && !is_mouse_down) {
+      // console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
 
-      console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
       // Interpretations of new selection (only for container selections)
       // Case 1: selection was a container selection and new selection focusnode/offset is after the previous focusnode
       // This we will interpret as a container selection with focus_offset + 1.
@@ -87,21 +84,21 @@
     const selection = entry_session.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
-    console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
+    // console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
 
     if (!selection) {
-      console.log('No model selection -> just leave things as is');
+      // console.log('No model selection -> just leave things as is');
       // let dom_selection = window.getSelection();
       // dom_selection.removeAllRanges();
       return;
     }
 
     if (JSON.stringify(selection) === JSON.stringify(prev_selection)) {
-      console.log('SELECTION RERENDER SKIPPED.');
+      // console.log('SELECTION RERENDER SKIPPED.');
       return; // No need to re-render
     }
 
-    console.log('RENRENDER SELECTION');
+    // console.log('RENRENDER SELECTION');
     
     if (selection?.type === 'text') {
       __render_text_selection();
@@ -145,6 +142,8 @@
       console.log('delete container selection');
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'Enter' && entry_session.selection?.type === 'container') {
+      console.log('TODO: Add now default block at '+ entry_session.selection.anchor_offset, entry_session.selection.focus_offset);
     }
   }
 
@@ -170,17 +169,16 @@
       console.log('invalid selection, not same container');
       return null;
     }
-    // console.log('focus_root / anchor_root', focus_root, anchor_root);
 
-    // return focus_root;
+    let anchor_offset = parseInt(anchor_root_path.at(-1));
+    let focus_offset = parseInt(focus_root_path.at(-1)) + 1;
+
     const result = {
       type: 'container',
       path: anchor_root_path.slice(0, -1),
-      anchor_offset: anchor_root_path.at(-1),
-      focus_offset: focus_root_path.at(-1),
+      anchor_offset: anchor_offset,
+      focus_offset: focus_offset,
     };
-
-    // console.log('container selection', result);
     return result;
   }
 
@@ -273,8 +271,16 @@
     if (!anchor_node || !focus_node) return;
 
     const range = document.createRange();
-    range.setStartBefore(anchor_node);
-    range.setEndAfter(focus_node);
+
+    if (selection.anchor_offset === selection.focus_offset) {
+      // Collapsed selection (cursor between blocks)
+      range.setStartBefore(anchor_node);
+      range.setEndBefore(anchor_node);
+    } else {
+      // Non-collapsed selection
+      range.setStartBefore(anchor_node);
+      range.setEndBefore(focus_node);
+    }
 
     const dom_selection = window.getSelection();
     dom_selection.removeAllRanges();
@@ -286,7 +292,7 @@
       container_el.focus();
       // Scroll the selection into view
       setTimeout(() => {
-        focus_node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        (selection.anchor_offset === selection.focus_offset ? anchor_node : focus_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, 0);
     }
   }

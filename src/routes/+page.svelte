@@ -18,7 +18,7 @@
     body: [
       { type: 'story', title: ['A story title 1', []], description: ['A story description 1', []] },
       { type: 'story', title: ['A story title 2', []], description: ['A story description 2', []] },
-      { type: 'story', title: ['A story title 3', []], description: ['A story description 3', []] },
+      { type: 'story', title: ['A story title 3', []], description: ['', []] },
       { type: 'story', title: ['A story title 4', []], description: ['A story description 4', []] },
       // -- 
       { type: 'story', title: ['A story title 5', []], description: ['A story description 5', []] },
@@ -49,7 +49,7 @@
       type: 'container',
       path: ['body'],
       anchor_offset: 0,
-      focus_offset: 2,
+      focus_offset: 1,
     }
   }
 </script>
