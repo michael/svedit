@@ -11,7 +11,7 @@
   } = $props();
 
   let is_mouse_down = $state(false);
-  let prev_dom_range = $state();
+  let prev_dom_range = $state(); // used to detect certain changes in the dom selection
 
   setContext("surface", {
     get entry_session() {
@@ -148,18 +148,26 @@
       entry_session.insert_block();
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
       // TODO: Problem with this is that once we got into a container selection we can't go back to
       // a text selection using only the keyboard because we intercept the arrow keys. 
       // Maybe we could utilize the ESCAPE key to "escape from a container selection". However, I thought
       // ESCAPE should be the way to select the parent, it could be useful for navigating out to the parent
       // in nested elements like lists.
       console.log('Arrow right or down pressed');
-      entry_session.move_container_cursor('forward')
+      entry_session.move_container_cursor('forward');
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
       entry_session.move_container_cursor('backward');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
+      entry_session.expand_container_selection('forward');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
+      entry_session.expand_container_selection('backward');
       e.preventDefault();
       e.stopPropagation();
     }

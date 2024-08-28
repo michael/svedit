@@ -112,8 +112,18 @@ export default class EntrySession {
       this.selection.focus_offset = start - 1;
       this.selection.anchor_offset = start - 1;
     }
+    // console.log($state.snapshot(this.selection));
+  }
 
-    console.log($state.snapshot(this.selection));
+  expand_container_selection(direction) {
+    if (this.selection.type !== 'container') return;
+    const container = this.get(this.selection.path);
+
+    if (direction === 'forward') {
+      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, container.length);
+    } else if (direction === 'backward') {
+      this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
+    }
   }
 
   annotate_text(annotation_type, annotation_data) {
