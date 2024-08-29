@@ -315,8 +315,13 @@
 
     } else {
       // Non-collapsed selection
-      range.setStartBefore(anchor_node);
-      range.setEndBefore(focus_node);
+      if (selection.anchor_offset > selection.focus_offset) {   
+        range.setStartBefore(focus_node);
+        range.setEndBefore(anchor_node);
+      } else {
+        range.setStartBefore(anchor_node);
+        range.setEndBefore(focus_node);
+      }
     }
 
     const dom_selection = window.getSelection();
@@ -450,7 +455,7 @@
     outline: none;
   }
 
-  div.hide-selection :global(::selection) {
+  /* div.hide-selection :global(::selection) {
     background: transparent;
-  }
+  } */
 </style>
