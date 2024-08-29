@@ -3,6 +3,8 @@ export default class EntrySession {
   entry = $state();
   history = $state();
   future = $state();
+  // When we need information from the user (e.g. which block to insert)
+  prompt = $state();
 
   // Two types of selections are possible:
   // ContainerSelection:
@@ -25,6 +27,7 @@ export default class EntrySession {
     this.entry = entry;
     this.history = [];
     this.future = [];
+    this.prompt = undefined;
   }
 
   get(path) {
@@ -87,6 +90,44 @@ export default class EntrySession {
     }
   }
 
+  move_container_cursor(direction) {
+    if (this.selection?.type !== 'container') return;
+    const container = this.get(this.selection.path); // container is an array of blocks
+
+    const [start, end] = [
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
+    ];
+
+    if (this.selection.anchor_offset !== this.selection.focus_offset) {
+      // If selection is not collapsed, collapse it to the right or the left
+      if (direction === 'forward') {
+        this.selection.focus_offset = end;
+        this.selection.anchor_offset = end;
+      } else if (direction === 'backward') {
+        this.selection.focus_offset = start;
+        this.selection.anchor_offset = start;
+      }
+    } else if (direction === 'forward' && end < container.length) {
+      this.selection.focus_offset = end + 1;
+      this.selection.anchor_offset = end + 1;
+    } else if (direction === 'backward' && start > 0) {
+      this.selection.focus_offset = start - 1;
+      this.selection.anchor_offset = start - 1;
+    }
+  }
+
+  expand_container_selection(direction) {
+    if (this.selection.type !== 'container') return;
+    const container = this.get(this.selection.path);
+
+    if (direction === 'forward') {
+      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, container.length);
+    } else if (direction === 'backward') {
+      this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
+    }
+  }
+
   annotate_text(annotation_type, annotation_data) {
     if (this.selection.type !== 'text') return;
     // You can not annotate text if the selection is collapsed.
@@ -121,6 +162,100 @@ export default class EntrySession {
     this.selection = { ...this.selection };
   }
 
+  delete() {
+    if (!this.selection) return;
+    const path = this.selection.path;
+    // Get the start and end indices for the selection
+    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+
+    // If selection is collapsed we delete the previous block
+    if (start === end) {
+      if (start > 0) {
+        start = start - 1;
+      } else {
+        return; // cursor is at the very beginning, do nothing.
+      }
+    }
+
+    if (this.selection.type === 'container') {
+      const container = [...this.get(path)]; // container is an array of blocks
+
+      // Remove the selected blocks from the container
+      container.splice(start, end - start);
+
+      // Update the container in the entry
+      this.set(path, container);
+
+      // Update the selection to point to the start of the deleted range
+      this.selection = {
+        type: 'container',
+        path,
+        anchor_offset: start,
+        focus_offset: start
+      };
+    } else if (this.selection.type === 'text') {
+      const path = this.selection.path;
+      let text = structuredClone($state.snapshot(this.get(path)));
+
+      text[0] = text[0].slice(0, start) + text[0].slice(end);
+      this.set(path, text);
+
+      this.selection = {
+        type: 'text',
+        path,
+        anchor_offset: start,
+        focus_offset: start
+      };
+    }
+  }
+
+  insert_block() {
+    if (this.selection.type !== 'container') return;
+
+    const path = this.selection.path;
+    const container = [...this.get(path)];
+
+    // TODO: check if there is a parent block
+    console.log('path', $state.snapshot(path));
+
+    // Get the start and end indices for the selection
+    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+
+    if (start !== end) {
+      // Remove the selected blocks from the container
+      container.splice(start, end - start);
+    }
+
+    // HACK: we just assume things here
+    if (path.at(-1) === 'items') {
+      container.splice(start, 0, {
+        type: 'list',
+        description: ['enter description', []],
+      });
+    } else {
+      container.splice(start, 0, {
+        type: 'story',
+        title: ['enter title', []],
+        description: ['enter description', []],
+      });
+    }
+
+    // Update the container in the entry
+    this.set(path, container);
+
+    // Set the cursor at the first text field of the block
+    // TODO: this must not be hardcoded here!
+    this.selection = {
+      type: 'text',
+      // NOTE: we hard code this temporarily as both story and list-item have a description property
+      path: [...this.selection.path, start, 'description'],
+      anchor_offset: 0,
+      focus_offset: 0
+    };
+  }
+
   insert_text(replaced_text) {
     if (this.selection.type !== 'text') return;
     
@@ -143,10 +278,7 @@ export default class EntrySession {
     // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
     // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
 
-    console.log('annotations', JSON.stringify(annotated_text[1]));
-
     const delta = replaced_text.length - (end - start);
-    console.log('delta', delta);
     const new_annotations = annotated_text[1].map(annotation => {
       const [anno_start, anno_end, type, anno_data] = annotation;
 
@@ -191,8 +323,6 @@ export default class EntrySession {
       return annotation;
     }).filter(Boolean);
 
-    console.log('new_annotations', JSON.stringify(new_annotations));
-
     this.set(this.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
@@ -202,7 +332,6 @@ export default class EntrySession {
       anchor_offset: start + 1,
       focus_offset: start + 1,
     };
-    console.log('new_selection', new_selection);
     this.selection = new_selection;
   }
 
@@ -235,5 +364,39 @@ export default class EntrySession {
     
     this.history = [...this.history, current_copy];
     this.future = remaining_future;
+  }
+
+  select_parent() {
+    if (this.selection?.type === 'text') {
+      if (this.selection.path.length > 2) {
+        // For text selections, we need to go up two levels
+        const parentPath = this.selection.path.slice(0, -2);
+        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        this.selection = {
+          type: 'container',
+          path: parentPath,
+          anchor_offset: currentIndex,
+          focus_offset: currentIndex + 1
+        };
+      } else {
+        this.selection = undefined;
+      }
+    } else if (this.selection?.type === 'container') {
+      // For container selections, we go up one level
+      if (this.selection.path.length > 1) {
+        const parentPath = this.selection.path.slice(0, -1);
+        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 1]);
+        this.selection = {
+          type: 'container',
+          path: parentPath,
+          anchor_offset: currentIndex,
+          focus_offset: currentIndex + 1
+        };
+      } else {
+        this.selection = undefined;
+      }
+    } else {
+      this.selection = undefined;
+    }
   }
 }

@@ -40,10 +40,15 @@
   }
 
   let fragments = $derived(render_annotated_text(surface.entry_session.get(path)[0], surface.entry_session.get(path)[1]));
+  let plain_text = $derived(surface.entry_session.get(path)[0]);
 </script>
 
-<div contenteditable="true" data-path={path.join('.')}>
-  {#each fragments as fragment}
+
+<!-- ATTENTION: the weird comment blocks are needed here so no whitespace is rendered. -->
+<div contenteditable="true" data-type="text" data-path={path.join('.')}><!--
+  we need to add a zero width space here so that the text node is not empty and can be selected with the cursor
+-->{#if plain_text.length === 0}&#8203;{/if}<!--
+  -->{#each fragments as fragment}
     {#if typeof fragment === 'string'}
       {fragment}
     {:else if fragment.type === 'emphasis'}
@@ -60,6 +65,7 @@
 
 <style>
   div {
-    white-space: pre;
+    white-space: pre-wrap;
+    outline: none;
   }
 </style>
