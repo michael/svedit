@@ -115,7 +115,6 @@ export default class EntrySession {
       this.selection.focus_offset = start - 1;
       this.selection.anchor_offset = start - 1;
     }
-    // console.log($state.snapshot(this.selection));
   }
 
   expand_container_selection(direction) {
@@ -279,10 +278,7 @@ export default class EntrySession {
     // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
     // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
 
-    console.log('annotations', JSON.stringify(annotated_text[1]));
-
     const delta = replaced_text.length - (end - start);
-    console.log('delta', delta);
     const new_annotations = annotated_text[1].map(annotation => {
       const [anno_start, anno_end, type, anno_data] = annotation;
 
@@ -327,8 +323,6 @@ export default class EntrySession {
       return annotation;
     }).filter(Boolean);
 
-    console.log('new_annotations', JSON.stringify(new_annotations));
-
     this.set(this.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
@@ -338,7 +332,6 @@ export default class EntrySession {
       anchor_offset: start + 1,
       focus_offset: start + 1,
     };
-    console.log('new_selection', new_selection);
     this.selection = new_selection;
   }
 
@@ -372,12 +365,38 @@ export default class EntrySession {
     this.history = [...this.history, current_copy];
     this.future = remaining_future;
   }
+
+  select_parent() {
+    if (this.selection?.type === 'text') {
+      if (this.selection.path.length > 2) {
+        // For text selections, we need to go up two levels
+        const parentPath = this.selection.path.slice(0, -2);
+        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        this.selection = {
+          type: 'container',
+          path: parentPath,
+          anchor_offset: currentIndex,
+          focus_offset: currentIndex + 1
+        };
+      } else {
+        this.selection = undefined;
+      }
+    } else if (this.selection?.type === 'container') {
+      // For container selections, we go up one level
+      if (this.selection.path.length > 1) {
+        const parentPath = this.selection.path.slice(0, -1);
+        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 1]);
+        this.selection = {
+          type: 'container',
+          path: parentPath,
+          anchor_offset: currentIndex,
+          focus_offset: currentIndex + 1
+        };
+      } else {
+        this.selection = undefined;
+      }
+    } else {
+      this.selection = undefined;
+    }
+  }
 }
-
-// UTILS
-// --------------------------------------------
-
-// function __is_selection_collapsed(selection) {
-//   if (!selection) return false;
-//   return selection.anchor_offset === selection.focus_offset;
-// }

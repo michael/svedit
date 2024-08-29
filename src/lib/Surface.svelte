@@ -9,7 +9,7 @@
   } = $props();
 
   let is_mouse_down = $state(false);
-  let prev_dom_range = $state(); // used to detect certain changes in the dom selection
+  // let prev_dom_range = $state(); // used to detect certain changes in the dom selection
 
   setContext("surface", {
     get entry_session() {
@@ -27,8 +27,11 @@
 
   function onbeforeinput(event) {
     const inserted_char = event.data;
+    
     event.preventDefault();
-    entry_session.insert_text(inserted_char);
+    if (inserted_char) {
+      entry_session.insert_text(inserted_char);
+    }
   }
 
   // Map selection to model
@@ -37,41 +40,12 @@
     let selection;
     
 
-    // // Edge case 1: block trap is focused (selects a single block)
-    // let block_trap_anchor = dom_selection.anchorNode.closest?.('[data-type="block-trap"]');
-    // let block_trap_focus = dom_selection.focusNode.closest?.('[data-type="block-trap"]');
-
-    // if (block_trap_anchor && block_trap_anchor === block_trap_focus) {
-    //   console.log('block trap selection, yo');
-    //   const block_el = dom_selection.anchorNode.parentElement?.closest?.('[data-type="block"]');
-    //   // console.log('block', block_el);
-    //   entry_session.selection = {
-    //     type: 'container',
-    //     path: block_el.dataset.path.split('.').slice(0, -1),
-    //     anchor_offset: block_el.dataset.path.split('.').at(-1),
-    //     focus_offset: block_el.dataset.path.split('.').at(-1),
-    //   };
-    //   __render_container_selection();
-    //   return;
-    //   // console.log('selection', selection);
-    // }
-
     if (!selection) {
       selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
     }
 
-    if (selection?.type === 'container' && !is_mouse_down) {
-      // console.log('TODO: interpret selection change - dom_selection/prev_dom_range', dom_selection.getRangeAt(0), prev_dom_range);
-
-      // Interpretations of new selection (only for container selections)
-      // Case 1: selection was a container selection and new selection focusnode/offset is after the previous focusnode
-      // This we will interpret as a container selection with focus_offset + 1.
-      // Case 2: Like case 1 but new selection focusnode/offset is before the previous focusnode/offset
-      // This we will interpret as a container selection with focus_offset - 1.
-    }
-
     // Remember the dom selection for later comparison and interpretation of DOM selection changes
-    prev_dom_range = dom_selection.getRangeAt(0);
+    // prev_dom_range = dom_selection?.getRangeAt(0);
     if (selection) {
       entry_session.selection = selection;
     }
@@ -85,9 +59,9 @@
     // console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
 
     if (!selection) {
-      // console.log('No model selection -> just leave things as is');
-      // let dom_selection = window.getSelection();
-      // dom_selection.removeAllRanges();
+      console.log('No model selection -> just leave things as is');
+      let dom_selection = window.getSelection();
+      dom_selection.removeAllRanges();
       return;
     }
 
@@ -141,17 +115,10 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-      console.log('TODO: Add now default block at '+ selection.anchor_offset, selection.focus_offset);
       entry_session.insert_block();
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
-      // TODO: Problem with this is that once we got into a container selection we can't go back to
-      // a text selection using only the keyboard because we intercept the arrow keys. 
-      // Maybe we could utilize the ESCAPE key to "escape from a container selection". However, I thought
-      // ESCAPE should be the way to select the parent, it could be useful for navigating out to the parent
-      // in nested elements like lists.
-      console.log('Arrow right or down pressed');
       entry_session.move_container_cursor('forward');
       e.preventDefault();
       e.stopPropagation();
@@ -165,6 +132,10 @@
       e.stopPropagation();
     } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
       entry_session.expand_container_selection('backward');
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'Escape' && selection) {
+      entry_session.select_parent();
       e.preventDefault();
       e.stopPropagation();
     }
@@ -293,7 +264,7 @@
   }
 
   function __render_container_selection() {
-    console.log('render_container_selection', entry_session.selection);
+    console.log('render_container_selection', $state.snapshot(entry_session.selection));
     const selection = entry_session.selection;
     const container = entry_session.get(selection.path);
     const container_path = selection.path.join('.');
@@ -331,11 +302,14 @@
     // Ensure the container is focused
     const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
     if (container_el) {
+      console.log('container_el', container_el);
       container_el.focus();
       // Scroll the selection into view
       setTimeout(() => {
-        (selection.anchor_offset === selection.focus_offset ? anchor_node : focus_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        (selection.anchor_offset > selection.focus_offset ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, 0);
+    } else {
+      console.log('no container element found!!');
     }
   }
 
@@ -455,7 +429,7 @@
     outline: none;
   }
 
-  /* div.hide-selection :global(::selection) {
+  div.hide-selection :global(::selection) {
     background: transparent;
-  } */
+  }
 </style>

@@ -7,6 +7,7 @@
     path
   } = $props();
 
+  // TODO: we should render this off-canvas
   function is_selected() {
     let selected = false;
     if (surface.entry_session?.selection?.type === 'container') {
@@ -18,27 +19,17 @@
     }
     return selected;
   }
-
-  function is_container_cursor_before() {
-    // if (surface.entry_session?.selection?.type === 'container') {
-    //   const block_index = path.at(-1)
-    //   const sel_start = Math.min(surface.entry_session.selection.anchor_offset, surface.entry_session.selection.focus_offset);
-    //   return block_index < sel_start;
-    // }
-    // return false;
-  }
 </script>
 
 
-<!-- <div contenteditable="false">Block: {JSON.stringify(path)} {surface.entry_session.selection?.path?.join('.')}</div> -->
- <!-- <div data-type='block-trap' class="wrapper">&#8203;</div> -->
-<div data-path={path.join('.')} data-type="block" class:selected={is_selected()} data-index={path.at(-1)}><!--
---><!--
-  --><Text path={[...path,'title']} /><!--
---><Text path={[...path,'description']} /></div>
+<!-- ATTENTION: Do not format the following line, as whitespace will mess up contenteditable -->
+<div data-path={path.join('.')} data-type="block" class:selected={is_selected()} data-index={path.at(-1)}>
+  <div class="title"><Text path={[...path,'title']} /></div>
+  <div class="description"><Text path={[...path,'description']} /></div>
+</div>
 
 <style>
-  /* .title {
+  .title {
     font-size: 1.5em;
     font-weight: bold;
   }
@@ -46,25 +37,8 @@
   .description {
     font-size: 1em;
     font-weight: normal;
-  } */
-
+  }
   .selected {
     outline: 1px solid #0075d5;
   }
-
-  .container-cursor-before {
-    border-top: 1px solid blue;
-  }
-
-  .container-cursor-after {
-    border-bottom: 1px solid blue;
-  }
-
-  .wrapper {
-    padding: 20px;
-    background-color: #eee;
-  }
-  /* div :global([data-type="text"]) {
-    padding: 10px;
-  } */
 </style>
