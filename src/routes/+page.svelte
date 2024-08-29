@@ -36,9 +36,9 @@
       {
         type: 'list',
         items: [
-          { type: 'list_item', description: ['A list item 1', []] },
-          { type: 'list_item', description: ['A list item 2', []] },
-          { type: 'list_item', description: ['A list item 3', []] },
+          { type: 'list_item', description: ['List item 1', []] },
+          { type: 'list_item', description: ['List item 2', []] },
+          { type: 'list_item', description: ['List item 3', []] },
         ]
       },
       { type: 'story', title: ['A story title 16', []], description: ['A story description 16', []] },

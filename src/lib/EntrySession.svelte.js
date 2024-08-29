@@ -164,11 +164,8 @@ export default class EntrySession {
   }
 
   delete() {
-    if (this.selection.type !== 'container') return;
-
+    if (!this.selection) return;
     const path = this.selection.path;
-    const container = [...this.get(path)]; // container is an array of blocks
-
     // Get the start and end indices for the selection
     let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
@@ -182,20 +179,36 @@ export default class EntrySession {
       }
     }
 
-    // Remove the selected blocks from the container
-    container.splice(start, end - start);
+    if (this.selection.type === 'container') {
+      const container = [...this.get(path)]; // container is an array of blocks
 
-    // Update the container in the entry
-    this.set(path, container);
+      // Remove the selected blocks from the container
+      container.splice(start, end - start);
 
-    // Update the selection to point to the start of the deleted range
-    this.selection = {
-      type: 'container',
-      path: this.selection.path,
-      anchor_offset: start,
-      focus_offset: start
-    };
+      // Update the container in the entry
+      this.set(path, container);
 
+      // Update the selection to point to the start of the deleted range
+      this.selection = {
+        type: 'container',
+        path,
+        anchor_offset: start,
+        focus_offset: start
+      };
+    } else if (this.selection.type === 'text') {
+      const path = this.selection.path;
+      let text = structuredClone($state.snapshot(this.get(path)));
+
+      text[0] = text[0].slice(0, start) + text[0].slice(end);
+      this.set(path, text);
+
+      this.selection = {
+        type: 'text',
+        path,
+        anchor_offset: start,
+        focus_offset: start
+      };
+    }
   }
 
   insert_block() {

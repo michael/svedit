@@ -136,9 +136,8 @@
       });
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Backspace' && selection?.type === 'container') {
+    } else if (e.key === 'Backspace') {
       entry_session.delete();
-      console.log('delete container selection');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
@@ -146,7 +145,7 @@
       entry_session.insert_block();
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
       // TODO: Problem with this is that once we got into a container selection we can't go back to
       // a text selection using only the keyboard because we intercept the arrow keys. 
       // Maybe we could utilize the ESCAPE key to "escape from a container selection". However, I thought
@@ -156,15 +155,15 @@
       entry_session.move_container_cursor('forward');
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
       entry_session.move_container_cursor('backward');
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
       entry_session.expand_container_selection('forward');
       e.preventDefault();
       e.stopPropagation();
-    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
+    } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
       entry_session.expand_container_selection('backward');
       e.preventDefault();
       e.stopPropagation();
@@ -451,7 +450,7 @@
     outline: none;
   }
 
-  /* div.hide-selection :global(::selection) {
+  div.hide-selection :global(::selection) {
     background: transparent;
-  } */
+  }
 </style>
