@@ -1,7 +1,5 @@
 <script>
   import { setContext } from 'svelte';
-  import { tick } from 'svelte';
-  import { untrack } from "svelte";
 
   let {
     entry_session,
@@ -298,19 +296,24 @@
   function __render_container_selection() {
     console.log('render_container_selection', entry_session.selection);
     const selection = entry_session.selection;
+    const container = entry_session.get(selection.path);
     const container_path = selection.path.join('.');
-
     const anchor_node = __get_block_element(container_path, selection.anchor_offset);
     const focus_node = __get_block_element(container_path, selection.focus_offset);
 
     if (!anchor_node || !focus_node) return;
-
     const range = document.createRange();
 
     if (selection.anchor_offset === selection.focus_offset) {
       // Collapsed selection (cursor between blocks)
-      range.setStartBefore(anchor_node);
-      range.setEndBefore(anchor_node);
+      if (selection.anchor_offset === container.length) {
+        range.setStartAfter(anchor_node);
+        range.setEndAfter(anchor_node);
+      } else {
+        range.setStartBefore(anchor_node);
+        range.setEndBefore(anchor_node);
+      }
+
     } else {
       // Non-collapsed selection
       range.setStartBefore(anchor_node);
