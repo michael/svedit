@@ -3,6 +3,8 @@ export default class EntrySession {
   entry = $state();
   history = $state();
   future = $state();
+  // When we need information from the user (e.g. which block to insert)
+  prompt = $state();
 
   // Two types of selections are possible:
   // ContainerSelection:
@@ -25,6 +27,7 @@ export default class EntrySession {
     this.entry = entry;
     this.history = [];
     this.future = [];
+    this.prompt = undefined;
   }
 
   get(path) {
@@ -201,6 +204,9 @@ export default class EntrySession {
     const path = this.selection.path;
     const container = [...this.get(path)];
 
+    // TODO: check if there is a parent block
+    console.log('path', $state.snapshot(path));
+
     // Get the start and end indices for the selection
     let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
@@ -210,13 +216,19 @@ export default class EntrySession {
       container.splice(start, end - start);
     }
 
-    // Insert the new block at the start of the selection
-    // NOTE: we initialize with dummy text since empty text nodes are not handled correctly yet
-    container.splice(start, 0, {
-      type: 'story',
-      title: ['enter title', []],
-      description: ['enter description', []],
-    });
+    // HACK: we just assume things here
+    if (path.at(-1) === 'items') {
+      container.splice(start, 0, {
+        type: 'list',
+        description: ['enter description', []],
+      });
+    } else {
+      container.splice(start, 0, {
+        type: 'story',
+        title: ['enter title', []],
+        description: ['enter description', []],
+      });
+    }
 
     // Update the container in the entry
     this.set(path, container);
@@ -225,7 +237,8 @@ export default class EntrySession {
     // TODO: this must not be hardcoded here!
     this.selection = {
       type: 'text',
-      path: [...this.selection.path, start, 'title'],
+      // NOTE: we hard code this temporarily as both story and list-item have a description property
+      path: [...this.selection.path, start, 'description'],
       anchor_offset: 0,
       focus_offset: 0
     };

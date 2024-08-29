@@ -1,6 +1,7 @@
 <script>
   import Text from '$lib/Text.svelte';
   import StoryBlock from '$lib/StoryBlock.svelte';
+  import ListBlock from '$lib/ListBlock.svelte';
   import UnknownBlock from '$lib/UnknownBlock.svelte';
   import Surface from '$lib/Surface.svelte';
   import Container from '$lib/Container.svelte';
@@ -32,6 +33,14 @@
       { type: 'story', title: ['A story title 13', []], description: ['A story description 13', []] },
       { type: 'story', title: ['A story title 14', []], description: ['A story description 14', []] },
       { type: 'story', title: ['A story title 15', []], description: ['A story description 15', []] },
+      {
+        type: 'list',
+        items: [
+          { type: 'list_item', description: ['A list item 1', []] },
+          { type: 'list_item', description: ['A list item 2', []] },
+          { type: 'list_item', description: ['A list item 3', []] },
+        ]
+      },
       { type: 'story', title: ['A story title 16', []], description: ['A story description 16', []] },
       { type: 'story', title: ['A story title 17', []], description: ['A story description 17', []] },
       { type: 'story', title: ['A story title 18', []], description: ['A story description 18', []] },
@@ -75,6 +84,8 @@
         {#snippet block(block, path)}
           {#if block.type === 'story'}
             <StoryBlock {block} {path} />
+          {:else if block.type === 'list'}
+            <ListBlock {block} {path} />
           {:else}
             <UnknownBlock {block} {path} />
           {/if}
