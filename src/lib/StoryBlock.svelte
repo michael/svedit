@@ -1,7 +1,7 @@
 <script>
   import Text from '$lib/Text.svelte';
   import { getContext } from 'svelte';
-  const surface = getContext('surface');
+  const svedit = getContext('svedit');
 
   let {
     path
@@ -10,11 +10,11 @@
   // TODO: we should render this off-canvas
   function is_selected() {
     let selected = false;
-    if (surface.entry_session?.selection?.type === 'container') {
+    if (svedit.entry_session?.selection?.type === 'container') {
       const block_index = parseInt(path.at(-1));
-      const sel_start = Math.min(surface.entry_session.selection.anchor_offset, surface.entry_session.selection.focus_offset);
-      const sel_end = Math.max(surface.entry_session.selection.anchor_offset, surface.entry_session.selection.focus_offset) - 1;
-      const is_container_selected = surface.entry_session.selection.path.join('.') === path.slice(0, -1).join('.');
+      const sel_start = Math.min(svedit.entry_session.selection.anchor_offset, svedit.entry_session.selection.focus_offset);
+      const sel_end = Math.max(svedit.entry_session.selection.anchor_offset, svedit.entry_session.selection.focus_offset) - 1;
+      const is_container_selected = svedit.entry_session.selection.path.join('.') === path.slice(0, -1).join('.');
       return is_container_selected && block_index >= sel_start && block_index <= sel_end;
     }
     return selected;

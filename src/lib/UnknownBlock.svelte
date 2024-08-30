@@ -1,6 +1,6 @@
 <script>
   import { getContext } from 'svelte';
-  const surface = getContext('surface');
+  const svedit = getContext('svedit');
 
   let {
     path,

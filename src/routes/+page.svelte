@@ -3,7 +3,7 @@
   import StoryBlock from '$lib/StoryBlock.svelte';
   import ListBlock from '$lib/ListBlock.svelte';
   import UnknownBlock from '$lib/UnknownBlock.svelte';
-  import Surface from '$lib/Surface.svelte';
+  import Svedit from '$lib/Svedit.svelte';
   import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
   import TwoColumnGrid from '$lib/TwoColumnGrid.svelte';
@@ -72,7 +72,7 @@
   <button onclick={() => entry_session.annotate_text('emphasis')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'emphasis'}>Italic</button>
   <button onclick={insert_link} disabled={entry_session.active_annotation()}>Link</button>
 
-  <Surface {entry_session} editable={true}>
+  <Svedit {entry_session} editable={true}>
     <div style="display: flex; flex-direction: column; gap: 20px; padding-top: 10px;">
       <Text path={['title']} />
       <!-- Important: div must have contenteditable="false" and contain some content, otherwise invalid selections occur. -->
@@ -92,9 +92,9 @@
         {/snippet}
       </Container>
     </div>
-  </Surface>
+  </Svedit>
   <hr/>
-  <pre style="text-wrap: wrap;"><code>Document: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
+  <pre style="text-wrap: wrap;"><code>Entry: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
 </div>
 
 <style>

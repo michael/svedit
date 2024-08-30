@@ -1,6 +1,6 @@
 <script>
   import { getContext } from 'svelte';
-  const surface = getContext('surface');
+  const svedit = getContext('svedit');
 
   let {
     path,
@@ -11,7 +11,7 @@
 
 <div data-type="container" data-path={path.join('.')}>
   <Layout>
-    {#each surface.entry_session.get(path) as _block, index}
+    {#each svedit.entry_session.get(path) as _block, index}
       {@render block(_block, [...path, index], index)}
     {/each}
   </Layout>

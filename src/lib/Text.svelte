@@ -1,7 +1,7 @@
 <script>
   import { getContext } from 'svelte';
 
-  const surface = getContext('surface');
+  const svedit = getContext('svedit');
 
   let {
     path
@@ -39,29 +39,29 @@
     return fragments;
   }
 
-  let fragments = $derived(render_annotated_text(surface.entry_session.get(path)[0], surface.entry_session.get(path)[1]));
-  let plain_text = $derived(surface.entry_session.get(path)[0]);
+  let fragments = $derived(render_annotated_text(svedit.entry_session.get(path)[0], svedit.entry_session.get(path)[1]));
+  let plain_text = $derived(svedit.entry_session.get(path)[0]);
 </script>
 
 
-<!-- ATTENTION: the weird comment blocks are needed here so no whitespace is rendered. -->
+<!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes containing whitespace. -->
 <div contenteditable="true" data-type="text" data-path={path.join('.')}><!--
-  we need to add a zero width space here so that the text node is not empty and can be selected with the cursor
+--><!-- Zero-width space for empty text nodes --><!--
 -->{#if plain_text.length === 0}&#8203;{/if}<!--
-  -->{#each fragments as fragment}
-    {#if typeof fragment === 'string'}
-      {fragment}
-    {:else if fragment.type === 'emphasis'}
-      <em>{fragment.content}</em>
-    {:else if fragment.type === 'strong'}
-      <strong>{fragment.content}</strong>
-    {:else if fragment.type === 'link'}
-      <a href={fragment.href}>{fragment.content}</a>
-    {:else}
-      {fragment.content}
-    {/if}
-  {/each}
-</div>
+-->{#each fragments as fragment}<!--
+  -->{#if typeof fragment === 'string'}<!--
+    -->{fragment}<!--
+  -->{:else if fragment.type === 'emphasis'}<!--
+    --><em>{fragment.content}</em><!--
+  -->{:else if fragment.type === 'strong'}<!--
+    --><strong>{fragment.content}</strong><!--
+  -->{:else if fragment.type === 'link'}<!--
+    --><a href={fragment.href}>{fragment.content}</a><!--
+  -->{:else}<!--
+    -->{fragment.content}<!--
+  -->{/if}<!--
+-->{/each}<!--
+--></div>
 
 <style>
   div {

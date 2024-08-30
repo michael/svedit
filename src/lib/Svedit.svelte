@@ -11,7 +11,7 @@
   let is_mouse_down = $state(false);
   // let prev_dom_range = $state(); // used to detect certain changes in the dom selection
 
-  setContext("surface", {
+  setContext("svedit", {
     get entry_session() {
       return entry_session;
     }
@@ -83,7 +83,7 @@
 
   function onkeydown(e) {
     const selection = entry_session.selection;
-    console.log('onkeydown', e.key);
+    // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       entry_session.undo();
       e.preventDefault();
