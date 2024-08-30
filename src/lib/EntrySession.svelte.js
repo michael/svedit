@@ -139,12 +139,12 @@ export default class EntrySession {
     ];
     const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
     const annotations = annotated_text[1];
-    const existingAnnotation = this.active_annotation();
+    const existing_annotations = this.active_annotation();
 
-    if (existingAnnotation) {
+    if (existing_annotations) {
       // If there's an existing annotation of the same type, remove it
-      if (existingAnnotation[2] === annotation_type) {
-        const index = annotations.indexOf(existingAnnotation);
+      if (existing_annotations[2] === annotation_type) {
+        const index = annotations.indexOf(existing_annotations);
         annotations.splice(index, 1);
       } else {
         // If there's an annotation of a different type, don't add a new one
@@ -154,8 +154,6 @@ export default class EntrySession {
       // If there's no existing annotation, add the new one
       annotations.push([start, end, annotation_type, annotation_data]);
     }
-
-    console.log('annotations', JSON.stringify(annotations));
 
     // Update the annotated text
     this.set(this.selection.path, annotated_text);
