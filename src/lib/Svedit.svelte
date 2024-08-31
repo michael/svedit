@@ -49,12 +49,8 @@
   }
 
   function render_selection() {
-    console.log('selection changed: ', $state.snapshot(entry_session.selection));
     const selection = entry_session.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
-    console.log('prev_selection', JSON.stringify(prev_selection));
-
-    // console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
 
     if (!selection) {
       console.log('No model selection -> just leave things as is');
@@ -143,23 +139,17 @@
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    console.log('YYYYYY', dom_selection.anchorNode, dom_selection.focusNode);
-
     let focus_node = dom_selection.focusNode;
     let anchor_node = dom_selection.anchorNode;
 
     if (!focus_node.closest) focus_node = focus_node.parentElement;
     if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
 
-    console.log('YYYYYYY2', focus_node, anchor_node);
-
     let focus_root = focus_node.closest('[data-path][data-type="block"]');
     if (!focus_root) return null;
 
     let anchor_root = anchor_node.closest('[data-path][data-type="block"]');
     if (!anchor_root) return null;
-
-    console.log('XXXXXX focus_root, anchor_root', focus_root, anchor_root);
 
     if (!(focus_root && anchor_root)) {
       return null;
@@ -168,7 +158,14 @@
     let focus_root_path = focus_root.dataset.path.split('.');
     let anchor_root_path = anchor_root.dataset.path.split('.');
 
-    console.log('focus_root_path, anchor_root_path', focus_root_path, anchor_root_path);
+    // HACK: this works only for one level nesting - should be done recursively to work generally
+    if (focus_root_path.length > anchor_root_path.length) {
+      focus_root = focus_root.parentElement.closest('[data-path][data-type="block"]');
+      focus_root_path = focus_root.dataset.path.split('.');      
+    } else if (anchor_root_path.length > focus_root_path.length) {
+      anchor_root = anchor_root.parentElement.closest('[data-path][data-type="block"]');
+      anchor_root_path = anchor_root.dataset.path.split('.');
+    }
 
     const is_same_container = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
     if (!is_same_container) {
@@ -276,7 +273,7 @@
   }
 
   function __render_container_selection() {
-    console.log('render_container_selection', $state.snapshot(entry_session.selection));
+    // console.log('render_container_selection', $state.snapshot(entry_session.selection));
     const selection = entry_session.selection;
     const container = entry_session.get(selection.path);
     const container_path = selection.path.join('.');
@@ -287,13 +284,8 @@
     const anchor_node = __get_block_element(container_path, anchor_block_offset);
     const focus_node = __get_block_element(container_path, focus_block_offset);
 
-    console.log('anchor_node', anchor_node);
-    console.log('focus_node', focus_node);
-
-    // AB*C* 2,3 -> 2,2
-    // [3,2] -> 2,2
-
     if (!anchor_node || !focus_node) return;
+    const dom_selection = window.getSelection();
     const range = document.createRange();
 
     if (selection.anchor_offset === selection.focus_offset) {
@@ -305,35 +297,37 @@
         range.setStartBefore(anchor_node);
         range.setEndBefore(anchor_node);
       }
+      dom_selection.removeAllRanges();
+      dom_selection.addRange(range);
 
     } else {
       // Non-collapsed selection
       if (selection.anchor_offset > selection.focus_offset) {   
-        range.setStartBefore(focus_node);
-        range.setEndBefore(anchor_node);
-      } else {
-        console.log('OOOOOO');
-        // range.setStartBefore(anchor_node);
-        // range.setEndBefore(focus_node);
 
+        // find the first text node inside focus node
+        const last_text_node = __find_last_text_node(anchor_node);
+        const first_text_node = __find_first_text_node(focus_node);
+        if (!last_text_node || !first_text_node) {
+          console.error('Selection mapping error: Make sure every block contains at least one text node');
+          return;
+        }
+        range.setStart(first_text_node, 0);
+        range.setEnd(last_text_node, last_text_node.length);
+        dom_selection.removeAllRanges();
+        dom_selection.addRange(range);
+        // Phew, this was a hard not to crack. But with that code the direction can be reversed.
+        dom_selection.setBaseAndExtent(last_text_node, last_text_node.length, first_text_node, 0);
+      } else {
         range.setStart(anchor_node, 0);
-        range.setEnd(focus_node, 1);
-        // console.log('range', range);
-        
-        // range.setEnd(focus_node);
+        range.setEnd(focus_node, focus_node.childNodes.length);
+        dom_selection.removeAllRanges();
+        dom_selection.addRange(range);
       }
     }
-
-    const dom_selection = window.getSelection();
-    dom_selection.removeAllRanges();
-    dom_selection.addRange(range);
-
-    console.log('dom_selection', dom_selection);
 
     // Ensure the container is focused
     const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
     if (container_el) {
-      console.log('container_el', container_el);
       container_el.focus();
       // Scroll the selection into view
       setTimeout(() => {
@@ -433,6 +427,34 @@
   //   return !!(reference_el.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
   // }
 
+  function __find_first_text_node(el) {
+    if (el.nodeType === Node.TEXT_NODE) {
+      return el;
+    }
+    
+    for (let child of el.childNodes) {
+      const textNode = __find_first_text_node(child);
+      if (textNode) {
+        return textNode;
+      }
+    }
+  }
+
+  function __find_last_text_node(el) {
+  // If the element itself is a text node, return it
+  if (el.nodeType === Node.TEXT_NODE) {
+    return el;
+  }
+  
+  // Iterate through child nodes in reverse order
+  for (let i = el.childNodes.length - 1; i >= 0; i--) {
+    const textNode = __find_last_text_node(el.childNodes[i]);
+    if (textNode) {
+      return textNode;
+    }
+  }
+}
+
   // Whenever the model selection changes, render the selection
   $effect(() => {
     render_selection();
@@ -460,7 +482,7 @@
     outline: none;
   }
 
-  /* div.hide-selection :global(::selection) {
+  div.hide-selection :global(::selection) {
     background: transparent;
-  } */
+  }
 </style>
