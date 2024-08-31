@@ -56,9 +56,9 @@
   function select_first_two_blocks() {
     entry_session.selection = {
       type: 'container',
-      path: ['body'],
-      anchor_offset: 0,
-      focus_offset: 1,
+      path: ['body', 15, 'items'],
+      anchor_offset: 1,
+      focus_offset: 2,
     }
   }
 </script>
