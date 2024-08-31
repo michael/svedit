@@ -36,25 +36,23 @@
 
   // Map selection to model
   function onselectionchange(event) {
-    const dom_selection = window.getSelection();
-    let selection;
-    
+    let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
-    if (!selection) {
-      selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
-    }
+    console.log('latest selection from dom', JSON.stringify(selection));
 
     // Remember the dom selection for later comparison and interpretation of DOM selection changes
     // prev_dom_range = dom_selection?.getRangeAt(0);
+
     if (selection) {
       entry_session.selection = selection;
     }
-    
   }
 
   function render_selection() {
+    console.log('selection changed: ', $state.snapshot(entry_session.selection));
     const selection = entry_session.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    console.log('prev_selection', JSON.stringify(prev_selection));
 
     // console.log('render_selection', JSON.stringify(selection), JSON.stringify(prev_selection));
 
@@ -145,11 +143,23 @@
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="block"]');
+    console.log('YYYYYY', dom_selection.anchorNode, dom_selection.focusNode);
+
+    let focus_node = dom_selection.focusNode;
+    let anchor_node = dom_selection.anchorNode;
+
+    if (!focus_node.closest) focus_node = focus_node.parentElement;
+    if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
+
+    console.log('YYYYYYY2', focus_node, anchor_node);
+
+    let focus_root = focus_node.closest('[data-path][data-type="block"]');
     if (!focus_root) return null;
 
-    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="block"]');
+    let anchor_root = anchor_node.closest('[data-path][data-type="block"]');
     if (!anchor_root) return null;
+
+    console.log('XXXXXX focus_root, anchor_root', focus_root, anchor_root);
 
     if (!(focus_root && anchor_root)) {
       return null;
@@ -157,6 +167,8 @@
 
     let focus_root_path = focus_root.dataset.path.split('.');
     let anchor_root_path = anchor_root.dataset.path.split('.');
+
+    console.log('focus_root_path, anchor_root_path', focus_root_path, anchor_root_path);
 
     const is_same_container = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
     if (!is_same_container) {
@@ -268,8 +280,18 @@
     const selection = entry_session.selection;
     const container = entry_session.get(selection.path);
     const container_path = selection.path.join('.');
-    const anchor_node = __get_block_element(container_path, selection.anchor_offset);
-    const focus_node = __get_block_element(container_path, selection.focus_offset);
+
+    // we need to translate the cusor offset to block offsets now
+    let anchor_block_offset = selection.anchor_offset > selection.focus_offset ? selection.anchor_offset - 1 : selection.anchor_offset;
+    let focus_block_offset = selection.focus_offset > selection.anchor_offset ? selection.focus_offset - 1 : selection.focus_offset;
+    const anchor_node = __get_block_element(container_path, anchor_block_offset);
+    const focus_node = __get_block_element(container_path, focus_block_offset);
+
+    console.log('anchor_node', anchor_node);
+    console.log('focus_node', focus_node);
+
+    // AB*C* 2,3 -> 2,2
+    // [3,2] -> 2,2
 
     if (!anchor_node || !focus_node) return;
     const range = document.createRange();
@@ -290,14 +312,23 @@
         range.setStartBefore(focus_node);
         range.setEndBefore(anchor_node);
       } else {
-        range.setStartBefore(anchor_node);
-        range.setEndBefore(focus_node);
+        console.log('OOOOOO');
+        // range.setStartBefore(anchor_node);
+        // range.setEndBefore(focus_node);
+
+        range.setStart(anchor_node, 0);
+        range.setEnd(focus_node, 1);
+        // console.log('range', range);
+        
+        // range.setEnd(focus_node);
       }
     }
 
     const dom_selection = window.getSelection();
     dom_selection.removeAllRanges();
     dom_selection.addRange(range);
+
+    console.log('dom_selection', dom_selection);
 
     // Ensure the container is focused
     const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
@@ -429,7 +460,7 @@
     outline: none;
   }
 
-  div.hide-selection :global(::selection) {
+  /* div.hide-selection :global(::selection) {
     background: transparent;
-  }
+  } */
 </style>
