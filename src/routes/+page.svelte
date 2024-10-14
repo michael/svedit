@@ -6,7 +6,6 @@
   import Svedit from '$lib/Svedit.svelte';
   import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
-  import TwoColumnGrid from '$lib/TwoColumnGrid.svelte';
 
   let entry_session = new EntrySession({
     type: 'page',
@@ -65,6 +64,7 @@
 
 
 <div class="demo-wrapper">
+  <!-- Editor menu -->
   <button onclick={() => entry_session.undo()}>Undo</button>
   <button onclick={() => entry_session.redo()}>Redo</button>
   <button onclick={select_first_two_blocks}>select blocks</button>
@@ -75,12 +75,12 @@
   <Svedit {entry_session} editable={true}>
     <div style="display: flex; flex-direction: column; gap: 20px; padding-top: 10px;">
       <Text path={['title']} />
-      <!-- Important: div must have contenteditable="false" and contain some content, otherwise invalid selections occur. -->
+      <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
       <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
         <div>Some not editable UI...</div>
       </div>
       <Text path={['description']} />
-      <Container path={['body']} Layout={TwoColumnGrid}>
+      <Container class="body" path={['body']}>
         {#snippet block(block, path)}
           {#if block.type === 'story'}
             <StoryBlock {block} {path} />
@@ -97,8 +97,17 @@
   <pre style="text-wrap: wrap;"><code>Entry: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
 </div>
 
+
 <style>
   .demo-wrapper {
     padding: 20px;
+
+    /* We want a two column layout for the block container. */
+    :global(.body) {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      width: 100%;
+    }
   }
 </style>
