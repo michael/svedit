@@ -9,6 +9,28 @@
   } = $props();
 
   let is_mouse_down = $state(false);
+  let container_selection_paths = $derived(get_container_selection_paths());
+  // let container_cursor_paths = $derived(get_container_cursor_paths());
+
+
+  function get_container_selection_paths() {
+    const paths = [];
+    const sel = entry_session.selection;
+    if (!sel) return;
+    
+    // Container selection. Not collapsed.
+    if (sel.type === 'container' && sel.anchor_offset !== sel.focus_offset) {
+      const start = Math.min(sel.anchor_offset, sel.focus_offset);
+      const end = Math.max(sel.anchor_offset, sel.focus_offset);
+
+      for (let index = start; index < end; index++) {
+        paths.push([...sel.path, index]);
+      }
+      return paths;
+    }
+  }
+
+  
 
   setContext("svedit", {
     get entry_session() {
@@ -37,27 +59,28 @@
   function onselectionchange(event) {
     let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
-    console.log('latest selection from dom', JSON.stringify(selection));
+    // console.log('latest selection from dom', JSON.stringify(selection));
 
     if (selection) {
       entry_session.selection = selection;
     }
   }
 
+  // 
   function render_selection() {
     const selection = entry_session.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     if (!selection) {
-      console.log('No model selection -> just leave things as is');
+      // No model selection -> just leave things as they are'
       let dom_selection = window.getSelection();
       dom_selection.removeAllRanges();
       return;
     }
 
     if (JSON.stringify(selection) === JSON.stringify(prev_selection)) {
-      // console.log('SELECTION RERENDER SKIPPED.');
-      return; // No need to re-render
+      // Skip. No need to rerender.
+      return;
     }
 
     // console.log('RENRENDER SELECTION');
@@ -268,6 +291,10 @@
     return blockElements[block_offset];
   }
 
+  function __is_selection_collapsed(sel) {
+    return sel.anchor_offset === sel.focus_offset;
+  }
+
   function __render_container_selection() {
     // console.log('render_container_selection', $state.snapshot(entry_session.selection));
     const selection = entry_session.selection;
@@ -465,6 +492,7 @@
 <svelte:window {onkeydown} />
 
 <div
+  class="svedit-canvas"
   class:hide-selection={entry_session.selection?.type === 'container'}
   bind:this={ref}
   {onbeforeinput}
@@ -472,13 +500,36 @@
 >
   {@render children()}
 </div>
+<div class="svedit-overlays">
+  <!-- Here we render  and other stuff that should lay atop of the canvas -->
+  <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
+  {#if container_selection_paths}
+    <!-- Render container selection fragments (one per selected block)-->
+    {#each container_selection_paths as path}
+      <div class="block-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
+    {/each}
+  {/if}
+</div>
 
 <style>
   div:focus {
     outline: none;
   }
 
-  div.hide-selection :global(::selection) {
-    background: transparent;
+  /* This should be an exact overlay */
+  .block-selection-fragment {
+    position: absolute;
+    background: rgba(9, 144, 203, 0.3);
+    border: 1px solid rgba(9, 144, 203, 0.8);
+    
+    top: anchor(top);
+    left: anchor(left);
+    bottom: anchor(bottom);
+    right: anchor(right);
+    pointer-events: none;
   }
+
+  /* div.hide-selection :global(::selection) {
+    background: transparent;
+  } */
 </style>

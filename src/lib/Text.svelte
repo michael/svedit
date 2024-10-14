@@ -44,9 +44,9 @@
 </script>
 
 
-<!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes containing whitespace. -->
+<!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes with whitespace. -->
 <div contenteditable="true" data-type="text" data-path={path.join('.')}><!--
---><!-- Zero-width space for empty text nodes --><!--
+--><!-- Zero-width space for empty text --><!--
 -->{#if plain_text.length === 0}&#8203;{/if}<!--
 -->{#each fragments as fragment}<!--
   -->{#if typeof fragment === 'string'}<!--
