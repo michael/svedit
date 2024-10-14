@@ -3,8 +3,6 @@ export default class EntrySession {
   entry = $state();
   history = $state();
   future = $state();
-  // When we need information from the user (e.g. which block to insert)
-  prompt = $state();
 
   // Two types of selections are possible:
   // ContainerSelection:
@@ -27,7 +25,6 @@ export default class EntrySession {
     this.entry = entry;
     this.history = [];
     this.future = [];
-    this.prompt = undefined;
   }
 
   get(path) {
