@@ -9,7 +9,6 @@
   } = $props();
 
   let is_mouse_down = $state(false);
-  // let prev_dom_range = $state(); // used to detect certain changes in the dom selection
 
   setContext("svedit", {
     get entry_session() {
@@ -39,9 +38,6 @@
     let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     console.log('latest selection from dom', JSON.stringify(selection));
-
-    // Remember the dom selection for later comparison and interpretation of DOM selection changes
-    // prev_dom_range = dom_selection?.getRangeAt(0);
 
     if (selection) {
       entry_session.selection = selection;
@@ -263,10 +259,10 @@
     const containerEl = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
     if (!containerEl) return null;
 
-    const blocksEl = containerEl.querySelector('.blocks');
-    if (!blocksEl) return null;
+    // const blocksEl = containerEl.querySelector('.blocks');
+    // if (!blocksEl) return null;
 
-    const blockElements = blocksEl.children;
+    const blockElements = containerEl.children;
     if (blockElements.length === 0) return null;
 
     return blockElements[block_offset];
@@ -441,19 +437,19 @@
   }
 
   function __find_last_text_node(el) {
-  // If the element itself is a text node, return it
-  if (el.nodeType === Node.TEXT_NODE) {
-    return el;
-  }
-  
-  // Iterate through child nodes in reverse order
-  for (let i = el.childNodes.length - 1; i >= 0; i--) {
-    const textNode = __find_last_text_node(el.childNodes[i]);
-    if (textNode) {
-      return textNode;
+    // If the element itself is a text node, return it
+    if (el.nodeType === Node.TEXT_NODE) {
+      return el;
+    }
+    
+    // Iterate through child nodes in reverse order
+    for (let i = el.childNodes.length - 1; i >= 0; i--) {
+      const textNode = __find_last_text_node(el.childNodes[i]);
+      if (textNode) {
+        return textNode;
+      }
     }
   }
-}
 
   // Whenever the model selection changes, render the selection
   $effect(() => {
