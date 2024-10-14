@@ -10,7 +10,7 @@
 
   let is_mouse_down = $state(false);
   let container_selection_paths = $derived(get_container_selection_paths());
-  // let container_cursor_paths = $derived(get_container_cursor_paths());
+  let container_cursor_info = $derived(get_container_cursor_info());
 
 
   function get_container_selection_paths() {
@@ -30,7 +30,29 @@
     }
   }
 
-  
+  function get_container_cursor_info() {
+    const sel = entry_session.selection;
+    if (!sel) return;
+
+    if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
+      const container = entry_session.get(sel.path);
+      let block_index, position;
+
+      if (sel.anchor_offset === container.length) {
+        // Edge case: Cursor is at the very end
+        block_index = sel.anchor_offset - 1;
+        position = 'after';
+      } else {
+        block_index = sel.anchor_offset;
+        position = 'before';
+      }
+
+      return {
+        path: [...sel.path, sel.anchor_offset],
+        position,
+      }
+    }
+  }
 
   setContext("svedit", {
     get entry_session() {
@@ -506,8 +528,15 @@
   {#if container_selection_paths}
     <!-- Render container selection fragments (one per selected block)-->
     {#each container_selection_paths as path}
-      <div class="block-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
+      <div class="container-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
     {/each}
+  {:else if container_cursor_info}
+    <div
+      class="container-cursor"
+      class:after={container_cursor_info.position === 'after'}
+      class:before={container_cursor_info.position === 'before'}
+      style="position-anchor: --{container_cursor_info.path.join('-')};"
+    ></div>
   {/if}
 </div>
 
@@ -517,7 +546,7 @@
   }
 
   /* This should be an exact overlay */
-  .block-selection-fragment {
+  .container-selection-fragment {
     position: absolute;
     background: rgba(9, 144, 203, 0.3);
     border: 1px solid rgba(9, 144, 203, 0.8);
@@ -527,6 +556,40 @@
     bottom: anchor(bottom);
     right: anchor(right);
     pointer-events: none;
+  }
+
+  .container-cursor {
+    position: absolute;
+    background: rgba(9, 144, 203, 1);
+    width: 3px;
+    top: anchor(top);
+    bottom: anchor(bottom);
+    pointer-events: none;
+    animation: blink 0.7s infinite;
+  }
+
+  .container-cursor.before {
+    left: anchor(left);
+  }
+
+  .container-cursor.after {
+    right: anchor(right);
+  }
+
+  @keyframes blink {
+    0% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  div.hide-selection {
+    caret-color: transparent;
   }
 
   /* div.hide-selection :global(::selection) {

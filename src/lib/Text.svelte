@@ -1,11 +1,8 @@
 <script>
   import { getContext } from 'svelte';
-
   const svedit = getContext('svedit');
 
-  let {
-    path
-  } = $props();
+  let { path } = $props();
 
   function render_annotated_text(text, annotations) {    
     let fragments = [];
