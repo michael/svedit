@@ -13,13 +13,13 @@
       [6, 11, 'emphasis']
     ]],
     body: [
-      { type: 'story', image: '/images/undraw_happy_feeling_re_e76r.svg', title: ['In-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and have text editable directly in the layout. You only have to follow a few rules.', []] },
-      { type: 'story', image: '/images/undraw_landscape_photographer_blv1.svg', title: ['Container cursors', []], description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.', []] },
-      { type: 'story', image: '/images/undraw_personal_finance_re_ie6k.svg', title: ['Lightweight', []], description: ['The reference implementation uses only about 1000 lines of code. That means you\'ll be able to serve editable web pages.', []] },
-      { type: 'story', image: '/images/undraw_undraw_messaging_7ho8_-2-_5g7e.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
+      { type: 'story', layout: 1, image: '/images/undraw_happy_feeling_re_e76r.svg', title: ['In-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and have text editable directly in the layout. You only have to follow a few rules.', []] },
+      { type: 'story', layout: 2, image: '/images/undraw_landscape_photographer_blv1.svg', title: ['Container cursors', []], description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.', []] },
+      { type: 'story', layout: 1, image: '/images/undraw_personal_finance_re_ie6k.svg', title: ['Lightweight', []], description: ['The reference implementation uses only about 1000 lines of code. That means you\'ll be able to serve editable web pages.', []] },
+      { type: 'story', layout: 2, image: '/images/undraw_undraw_messaging_7ho8_-2-_5g7e.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
       // -- 
-      { type: 'story', image: '/images/undraw_undraw_undraw_undraw_undraw_undraw_undraw_undraw_users_per_minute_1e4q_t22j_-1-_0ngf_-1-_27dv_30ul_legv_-1-_il1l_-2-_0jip.svg', title: ['Alpha version', []], description: ['Donec eget auctor nibh, vel porttitor mauris. Curabitur in feugiat ante. Mauris feugiat pellentesque quam, accumsan condimentum leo viverra nec.', []] },
-      { type: 'story', image: '/images/undraw_winter_skating_re_qouk.svg', title: ['Lorem ipsum dolor sit', []], description: ['Donec eget auctor nibh, vel porttitor mauris. Curabitur in feugiat ante. Mauris feugiat pellentesque quam, accumsan condimentum leo viverra nec.', []] },
+      { type: 'story', layout: 1, image: '/images/undraw_undraw_undraw_undraw_undraw_undraw_undraw_undraw_users_per_minute_1e4q_t22j_-1-_0ngf_-1-_27dv_30ul_legv_-1-_il1l_-2-_0jip.svg', title: ['Alpha version', []], description: ['Donec eget auctor nibh, vel porttitor mauris. Curabitur in feugiat ante. Mauris feugiat pellentesque quam, accumsan condimentum leo viverra nec.', []] },
+      { type: 'story', layout: 2, image: '/images/undraw_winter_skating_re_qouk.svg', title: ['Lorem ipsum dolor sit', []], description: ['Donec eget auctor nibh, vel porttitor mauris. Curabitur in feugiat ante. Mauris feugiat pellentesque quam, accumsan condimentum leo viverra nec.', []] },
       {
         type: 'list',
         items: [
@@ -33,11 +33,15 @@
     ]
   });
 
-
   function insert_link() {
     entry_session.annotate_text('link', {
       href: window.prompt('Enter the URL')
     });
+  }
+
+  function toggle_story_layout() {
+    const block = entry_session.selected_block;
+    block.layout = block.layout === 1 ? 2 : 1;
   }
 
 </script>
@@ -51,6 +55,10 @@
       <button onclick={() => entry_session.annotate_text('strong')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'strong'}>Bold</button>
       <button onclick={() => entry_session.annotate_text('emphasis')} disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'emphasis'}>Italic</button>
       <button onclick={insert_link} disabled={entry_session.active_annotation()}>Link</button>
+      {#if entry_session.selected_block?.type === 'story'}
+        <button onclick={toggle_story_layout}>Toggle Layout</button>
+      {/if}
+
     </div>
   {/if}
 
