@@ -567,19 +567,19 @@
   .container-cursor {
     position: absolute;
     background:  rgba(116, 95, 255, 1);
-    width: 2px;
-    top: anchor(top);
-    bottom: anchor(bottom);
+    height: 2px;
+    left: anchor(left);
+    right: anchor(right);
     pointer-events: none;
     animation: blink 0.7s infinite;
   }
 
   .container-cursor.before {
-    left: anchor(left);
+    top: anchor(top);
   }
 
   .container-cursor.after {
-    right: anchor(right);
+    bottom: anchor(bottom);
   }
 
   @keyframes blink {
