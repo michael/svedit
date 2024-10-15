@@ -1,9 +1,13 @@
 <script>
+  import { getContext } from 'svelte';
   import Text from '$lib/Text.svelte';
+  const svedit = getContext('svedit');
 
   let {
     path
   } = $props();
+
+  let block = $derived(svedit.entry_session.get(path));
 </script>
 
 <div
@@ -15,7 +19,7 @@
 >
   <div contenteditable="false">
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img src="https://picsum.photos/160/90" alt="Random image" />
+    <img width="300" height="300" src={block.image} alt="Random image" />
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
@@ -27,6 +31,7 @@
 <style>
   .story-block {
     display: flex;
+    align-items: center;
   }
 
   .caption {
