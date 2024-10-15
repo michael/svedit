@@ -16,6 +16,7 @@
   data-type="block"
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
+  class:layout-2={block.layout === 2}
 >
   <div contenteditable="false">
     <!-- svelte-ignore a11y_img_redundant_alt -->
@@ -31,7 +32,12 @@
 <style>
   .story-block {
     display: flex;
+    flex-direction: row;
     align-items: center;
+  }
+
+  .story-block.layout-2 {
+    flex-direction: row-reverse;
   }
 
   .caption {

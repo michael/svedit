@@ -1,9 +1,10 @@
 export default class EntrySession {
-  selection = $state();
+  selection = $state();  
   entry = $state();
   history = $state();
   future = $state();
 
+  selected_block = $derived(this.get_selected_block());
   // Two types of selections are possible:
   // ContainerSelection:
   // {
@@ -25,6 +26,17 @@ export default class EntrySession {
     this.entry = entry;
     this.history = [];
     this.future = [];
+  }
+
+  get_selected_block() {
+    let sel = this.selection;
+    if (sel?.type === 'container') {
+      let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+      let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+      if (start + 1 === end) {
+        return this.get([...sel.path, start]);
+      }
+    }
   }
 
   get(path) {
@@ -232,8 +244,9 @@ export default class EntrySession {
     } else {
       container.splice(start, 0, {
         type: 'story',
-        title: ['enter title', []],
-        description: ['enter description', []],
+        image: '/images/undraw_personal_finance_re_ie6k.svg',
+        title: ['Enter title', []],
+        description: ['Enter a description', []],
       });
     }
 
@@ -365,11 +378,11 @@ export default class EntrySession {
     if (this.selection?.type === 'text') {
       if (this.selection.path.length > 2) {
         // For text selections, we need to go up two levels
-        const parentPath = this.selection.path.slice(0, -2);
+        const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
         this.selection = {
           type: 'container',
-          path: parentPath,
+          path: parent_path,
           anchor_offset: currentIndex,
           focus_offset: currentIndex + 1
         };
@@ -379,11 +392,11 @@ export default class EntrySession {
     } else if (this.selection?.type === 'container') {
       // For container selections, we go up one level
       if (this.selection.path.length > 1) {
-        const parentPath = this.selection.path.slice(0, -1);
+        const parent_path = this.selection.path.slice(0, -1);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 1]);
         this.selection = {
           type: 'container',
-          path: parentPath,
+          path: parent_path,
           anchor_offset: currentIndex,
           focus_offset: currentIndex + 1
         };
