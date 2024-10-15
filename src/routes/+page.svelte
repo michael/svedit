@@ -94,9 +94,8 @@
     </div>
   </Svedit>
   <hr/>
-  <pre style="text-wrap: wrap;"><code>Entry: {JSON.stringify(entry_session.entry)}</code><br/><br/><code>Selection: {JSON.stringify(entry_session.selection)}</code></pre>
+  <pre style="text-wrap: wrap;"><code>Selection: {JSON.stringify(entry_session.selection)}</code><br/><br/><code>Entry: {JSON.stringify(entry_session.entry)}</code></pre>
 </div>
-
 
 <style>
   .demo-wrapper {

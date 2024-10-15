@@ -513,43 +513,49 @@
 />
 <svelte:window {onkeydown} />
 
-<div
-  class="svedit-canvas"
-  class:hide-selection={entry_session.selection?.type === 'container'}
-  bind:this={ref}
-  {onbeforeinput}
-  contenteditable={editable ? 'true' : 'false'}
->
-  {@render children()}
-</div>
-<div class="svedit-overlays">
-  <!-- Here we render  and other stuff that should lay atop of the canvas -->
-  <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
-  {#if container_selection_paths}
-    <!-- Render container selection fragments (one per selected block)-->
-    {#each container_selection_paths as path}
-      <div class="container-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
-    {/each}
-  {:else if container_cursor_info}
-    <div
-      class="container-cursor"
-      class:after={container_cursor_info.position === 'after'}
-      class:before={container_cursor_info.position === 'before'}
-      style="position-anchor: --{container_cursor_info.path.join('-')};"
-    ></div>
-  {/if}
+<div class="svedit">
+  <div
+    class="svedit-canvas"
+    class:hide-selection={entry_session.selection?.type === 'container'}
+    bind:this={ref}
+    {onbeforeinput}
+    contenteditable={editable ? 'true' : 'false'}
+  >
+    {@render children()}
+  </div>
+  <div class="svedit-overlays">
+    <!-- Here we render  and other stuff that should lay atop of the canvas -->
+    <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
+    {#if container_selection_paths}
+      <!-- Render container selection fragments (one per selected block)-->
+      {#each container_selection_paths as path}
+        <div class="container-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
+      {/each}
+    {:else if container_cursor_info}
+      <div
+        class="container-cursor"
+        class:after={container_cursor_info.position === 'after'}
+        class:before={container_cursor_info.position === 'before'}
+        style="position-anchor: --{container_cursor_info.path.join('-')};"
+      ></div>
+    {/if}
+  </div>
 </div>
 
 <style>
-  div:focus {
+  .svedit {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .svedit-canvas:focus {
     outline: none;
   }
 
   /* This should be an exact overlay */
   .container-selection-fragment {
     position: absolute;
-    background: rgba(9, 144, 203, 0.3);
-    border: 1px solid rgba(9, 144, 203, 0.8);
+    background:  rgba(116, 95, 255, 0.1);
+    border: 1px solid rgba(116, 95, 255, 1);
     
     top: anchor(top);
     left: anchor(left);
@@ -560,8 +566,8 @@
 
   .container-cursor {
     position: absolute;
-    background: rgba(9, 144, 203, 1);
-    width: 3px;
+    background:  rgba(116, 95, 255, 1);
+    width: 2px;
     top: anchor(top);
     bottom: anchor(bottom);
     pointer-events: none;
@@ -588,8 +594,12 @@
     }
   }
 
-  div.hide-selection {
+  .svedit-canvas.hide-selection {
     caret-color: transparent;
+  }
+
+  .svedit-canvas :global(::selection) {
+    background: color-mix(in srgb, rgba(116, 95, 255, 1), transparent 80%);
   }
 
   /* div.hide-selection :global(::selection) {
