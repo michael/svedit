@@ -407,4 +407,43 @@ export default class EntrySession {
       this.selection = undefined;
     }
   }
+
+
+  move(direction) {
+    if (this.selection?.type !== 'container') return;
+
+    const path = this.selection.path;
+    const container = [...this.get(path)];
+    const [start, end] = [
+      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
+      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
+    ];
+
+    const is_moving_up = direction === 'up';
+    const offset = is_moving_up ? -1 : 1;
+
+    if ((is_moving_up && start > 0) || (!is_moving_up && end < container.length)) {
+      // Move the selected block(s)
+      const moved_items = container.splice(start, end - start);
+      container.splice(start + offset, 0, ...moved_items);
+
+      // Update the container in the entry
+      this.set(path, container);
+
+      // Update the selection
+      this.selection = {
+        ...this.selection,
+        anchor_offset: start + offset,
+        focus_offset: end + offset
+      };
+    }
+  }
+
+  move_up() {
+    this.move('up');
+  }
+
+  move_down() {
+    this.move('down');
+  }
 }
