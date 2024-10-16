@@ -24,9 +24,10 @@
   ];
 
   function handle_layout_change(layout_index) {
-    const block = entry_session.selected_block;
-    if (block) {
-      block.layout = layout_index;
+    const selected_block_path = entry_session.selected_block_path;
+
+    if (selected_block_path) {
+      entry_session.set([...selected_block_path, 'layout'], layout_index);
     }
   }
 
