@@ -13,7 +13,7 @@
       [24, 44, 'emphasis']
     ]],
     body: [
-      { type: 'story', layout: 1, image: '/images/undraw_happy_feeling_re_e76r.svg', title: ['Visual in-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []] },
+      { type: 'story', layout: 1, image: '/images/editable.svg', title: ['Visual in-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []] },
       { type: 'story', layout: 2, image: '/images/lightweight.svg', title: ['Minimal viable editor', []], description: ["The reference implementation uses only about 1000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]] },
       { type: 'story', layout: 1, image: '/images/nested-blocks-illustration.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
       { type: 'story', layout: 2, image: '/images/container-cursors.svg', title: ['Container cursors', []], description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.\n\nTry it by selecting a few blocks, then press ↑ or ↓. Press ↵ to insert a new block or ⌫ to delete the block before the cursor.', []] },
@@ -36,7 +36,7 @@
         
 </script>
 
-<div class="demo-wrapper pbs-6">
+<div class="demo-wrapper pbs-10">
   <TextToolBar {entry_session} />
 
 
