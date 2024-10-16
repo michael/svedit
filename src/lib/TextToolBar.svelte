@@ -95,7 +95,7 @@
       </button>
   {/if}
   {#if entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'story'}
-    <div class="layout-select flex-column">
+
       {#each layout_options as option}
         <button 
           onclick={() => handle_layout_change(option.value)}
@@ -104,11 +104,9 @@
           <Icon name={option.icon} />
         </button>
       {/each}
-    </div>
   {/if}
   {#if entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'list'}
     <hr>
-    <div class="list-style-select flex-column">
       {#each list_style_options as option}
         <button 
           onclick={() => handle_list_style_change(option.value)}
@@ -117,7 +115,6 @@
           <Icon name={option.icon} />
         </button>
       {/each}
-    </div>
   {/if}
 
   {#if entry_session.selection?.type === 'text' 
@@ -157,6 +154,18 @@
     z-index: 50;
     flex-direction: column;
     align-items: center;
+
+    @media (max-width: 768px) {
+      top: auto;
+      bottom: var(--s-4);
+      left: 50%;
+      transform: translateX(-50%);
+      flex-direction: row;
+      max-width: calc(100vw - 2 * var(--s-4));
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
     button {
       height: 100%;
       min-height: 44px;
@@ -173,6 +182,11 @@
       height: 1px;
       border: none;
       margin-block: var(--s-2);
+      @media (max-width: 768px) {
+        width: 1px;
+        height: 100%;
+        margin-inline: var(--s-2);
+      }
     }
   }
 </style>
