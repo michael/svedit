@@ -2,7 +2,7 @@
   import { getContext } from 'svelte';
   const svedit = getContext('svedit');
 
-  let { path } = $props();
+  let { path, class: css_class } = $props();
 
   function render_annotated_text(text, annotations) {    
     let fragments = [];
@@ -42,7 +42,12 @@
 
 
 <!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes with whitespace. -->
-<div contenteditable="true" data-type="text" data-path={path.join('.')}><!--
+<div 
+  contenteditable="true" 
+  data-type="text" 
+  data-path={path.join('.')}
+  class={css_class}
+><!--
 --><!-- Zero-width space for empty text --><!--
 -->{#if plain_text.length === 0}&#8203;{/if}<!--
 -->{#each fragments as fragment}<!--
@@ -62,7 +67,11 @@
 
 <style>
   div {
-    white-space: pre-wrap;
-    outline: none;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    box-sizing: content-box;
+    &.heading1 {
+      text-wrap: var(--text-wrap);
+    }
   }
 </style>

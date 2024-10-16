@@ -2,7 +2,8 @@
   import Container from '$lib/Container.svelte';
   import ListItemBlock from '$lib/ListItemBlock.svelte';
 
-  let { path } = $props();
+  let { path, block } = $props();
+  let list_style = $derived(block.list_style);
 </script>
 
 <div
@@ -14,13 +15,14 @@
   <Container class="list" path={[...path, 'items']}>
     <!-- NOTE: We only allow list items inside list  -->
     {#snippet block(block, path)}
-      <ListItemBlock {block} {path} />
+      <ListItemBlock {block} {path} {list_style} />
     {/snippet}
   </Container>
 </div>
 
 <style>
   div :global(.list) {
-    background: #eee;
+    background: var(--secondary-fill-color);
+    padding: var(--s-4);
   }
 </style>

@@ -6,6 +6,7 @@
     children,
     editable = false,
     ref = $bindable(),
+    class: css_class,
   } = $props();
 
   let is_mouse_down = $state(false);
@@ -151,6 +152,15 @@
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
       entry_session.insert_block();
+      e.preventDefault();
+      e.stopPropagation();
+    // Because of specificity, this has to come before the other arrow key checks
+    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && (e.metaKey || e.ctrlKey) && selection?.type === 'container') {
+      if (e.key === 'ArrowUp') {
+        entry_session.move_up();
+      } else {
+        entry_session.move_down();
+      }
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
@@ -515,7 +525,7 @@
 
 <div class="svedit">
   <div
-    class="svedit-canvas"
+    class="svedit-canvas {css_class}"
     class:hide-selection={entry_session.selection?.type === 'container'}
     bind:this={ref}
     {onbeforeinput}
@@ -543,19 +553,22 @@
 </div>
 
 <style>
-  .svedit {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
 
-  .svedit-canvas:focus {
-    outline: none;
+
+  .svedit-canvas {
+    caret-color: var(--editing-stroke-color);
+    caret-shape: block;
+    &:focus {
+      outline: none;
+    }
   }
 
   /* This should be an exact overlay */
   .container-selection-fragment {
     position: absolute;
-    background:  rgba(116, 95, 255, 0.1);
-    border: 1px solid rgba(116, 95, 255, 1);
+    background:  var(--editing-fill-color);
+    border: 1px solid var(--editing-stroke-color);
+    border-radius: 2px;
     
     top: anchor(top);
     left: anchor(left);
@@ -566,7 +579,7 @@
 
   .container-cursor {
     position: absolute;
-    background:  rgba(116, 95, 255, 1);
+    background:  var(--editing-stroke-color);
     height: 2px;
     left: anchor(left);
     right: anchor(right);
@@ -599,10 +612,11 @@
   }
 
   .svedit-canvas :global(::selection) {
-    background: color-mix(in srgb, rgba(116, 95, 255, 1), transparent 80%);
+    background: var(--editing-fill-color);
   }
 
-  /* div.hide-selection :global(::selection) {
+
+  div.hide-selection :global(::selection) {
     background: transparent;
-  } */
+  }
 </style>
