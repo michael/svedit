@@ -9,7 +9,8 @@
   import TextToolBar from '$lib/TextToolBar.svelte';
   let entry_session = new EntrySession({
     type: 'page',
-    title: ['A template for building rich content editors with Svelte 5', [
+    title: ['Svedit', []],
+    subtitle: ['A template for building rich content editors with Svelte 5', [
       [24, 44, 'emphasis']
     ]],
     body: [
@@ -30,11 +31,11 @@
       },
     ]
   });
-
-
-  
-        
 </script>
+
+<svelte:head>
+  <title>Svedit - A rich content editor for Svelte 5</title>
+</svelte:head>
 
 <div class="demo-wrapper pbs-10">
   <TextToolBar {entry_session} />
@@ -42,6 +43,7 @@
 
   <Svedit {entry_session} editable={true} class='flex-column gap-y-10'>
     <Text path={['title']} class='heading1' />
+    <Text path={['subtitle']} class='heading3' />
     <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
     <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
       <div><div>While in this example title above is editable, this piece of content here is not. Below is a container of Story and List blocks:</div></div>
