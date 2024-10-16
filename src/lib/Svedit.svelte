@@ -49,7 +49,7 @@
       }
 
       return {
-        path: [...sel.path, sel.anchor_offset],
+        path: [...sel.path, block_index],
         position,
       }
     }
@@ -615,8 +615,7 @@
     background: var(--editing-fill-color);
   }
 
-
-  div.hide-selection :global(::selection) {
+  /* div.hide-selection :global(::selection) {
     background: transparent;
-  }
+  } */
 </style>
