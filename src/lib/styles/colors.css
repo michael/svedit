@@ -1,0 +1,9 @@
+:root {
+  --primary-fill-color: oklch(65.51% 0.2334 34.36);
+  --canvas-fill-color: oklch(100% 0 0);
+  --secondary-fill-color: oklch(97% 0 0);
+  --primary-text-color: oklch(32.11% 0 0);
+  --stroke-color: oklch(0 0 0 / 0.1);
+  --editing-fill-color: oklch(59.71% 0.22 283 / 0.1);
+  --editing-stroke-color: oklch(59.71% 0.22 283);
+}

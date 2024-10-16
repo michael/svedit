@@ -11,46 +11,68 @@
 </script>
 
 <div
-  class="story-block"
+  class="story-block layout-{block.layout} p-2"
   data-path={path.join('.')}
   data-type="block"
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
-  class:layout-2={block.layout === 2}
 >
-  <div contenteditable="false">
+  <div class='non-text-content' contenteditable="false">
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img width="300" height="300" src={block.image} alt="Random image" />
+    <img src={block.image} alt="Random image" />
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-    <div class="title"><Text path={[...path,'title']} /></div>
-    <div class="description"><Text path={[...path,'description']} /></div>
+    <Text class='heading2' path={[...path,'title']} />
+    <Text class='body' path={[...path,'description']} />
   </div>
 </div>
 
 <style>
   .story-block {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(30ch, 100%), 1fr));
+    gap: var(--s-10);
+    img {
+      width: 100%;
+      height: auto;
+      /* Don't crop SVGs */
+      &[src*=".svg"] {
+        object-fit: contain;
+        object-position: center;
+      }
+    }
+  }
+
+  .non-text-content {
+    /* for now ignore clicks on the image, until we have non-text selections */
+    pointer-events: none;
     display: flex;
-    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    min-width: 30ch;
+  }
+
+  /* Layout styles */
+  .story-block.layout-2, .story-block.layout-1 {
     align-items: center;
   }
 
-  .story-block.layout-2 {
-    flex-direction: row-reverse;
+  .story-block.layout-2 > div:first-child {
+    order: 2;
   }
 
-  .caption {
-    padding-left: 20px;
+  .story-block.layout-2 > div:last-child {
+    order: 1;
   }
 
-  .title {
-    font-size: 1.5em;
-    font-weight: bold;
+  .story-block.layout-3 > div:first-child {
+    grid-column: 1 / 3;
+    grid-row: 1 / 2;
   }
 
-  .description {
-    font-size: 1em;
-    font-weight: normal;
+  .story-block.layout-3 > div:last-child {
+    grid-column: 1 / 3;
+    grid-row: 2 / 3;
   }
 </style>

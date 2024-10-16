@@ -1,0 +1,90 @@
+:root {
+  --s-05: 0.125rem; /* 2px */
+  --s-1: 0.25rem;   /* 4px */
+  --s-2: 0.5rem;    /* 8px */
+  --s-3: 0.75rem;   /* 12px */
+  --s-4: 1rem;      /* 16px */
+  --s-5: 1.25rem;   /* 20px */
+  --s-6: 1.5rem;    /* 24px */
+  --s-7: 1.75rem;   /* 28px */
+  --s-8: 2rem;      /* 32px */
+  --s-9: 2.25rem;   /* 36px */
+  --s-10: 2.5rem;   /* 40px */
+}
+
+/****************** Margin Utility Classes (Tailwind compatible) ******************/
+
+.m-05  { --m:  var(--s-05)} .ms-05 { --ms: var(--s-05);}  .me-05 { --me: var(--s-05); } .mbs-05 { --mbs: var(--s-05); } .mbe-05 { --mbe: var(--s-05); } .mx-05 { --mx: var(--s-05); } .my-05 { --my: var(--s-05); } 
+.m-1   { --m:  var(--s-1) } .ms-1  { --ms: var(--s-1); }  .me-1  { --me: var(--s-1);  } .mbs-1  { --mbs: var(--s-1);  } .mbe-1  { --mbe: var(--s-1);  } .mx-1  { --mx: var(--s-1);  } .my-1  { --my: var(--s-1);  } 
+.m-2   { --m:  var(--s-2) } .ms-2  { --ms: var(--s-2); }  .me-2  { --me: var(--s-2);  } .mbs-2  { --mbs: var(--s-2);  } .mbe-2  { --mbe: var(--s-2);  } .mx-2  { --mx: var(--s-2);  } .my-2  { --my: var(--s-2);  } 
+.m-3   { --m:  var(--s-3) } .ms-3  { --ms: var(--s-3); }  .me-3  { --me: var(--s-3);  } .mbs-3  { --mbs: var(--s-3);  } .mbe-3  { --mbe: var(--s-3);  } .mx-3  { --mx: var(--s-3);  } .my-3  { --my: var(--s-3);  } 
+.m-4   { --m:  var(--s-4) } .ms-4  { --ms: var(--s-4); }  .me-4  { --me: var(--s-4);  } .mbs-4  { --mbs: var(--s-4);  } .mbe-4  { --mbe: var(--s-4);  } .mx-4  { --mx: var(--s-4);  } .my-4  { --my: var(--s-4);  } 
+.m-5   { --m:  var(--s-5) } .ms-5  { --ms: var(--s-5); }  .me-5  { --me: var(--s-5);  } .mbs-5  { --mbs: var(--s-5);  } .mbe-5  { --mbe: var(--s-5);  } .mx-5  { --mx: var(--s-5);  } .my-5  { --my: var(--s-5);  } 
+.m-6   { --m:  var(--s-6) } .ms-6  { --ms: var(--s-6); }  .me-6  { --me: var(--s-6);  } .mbs-6  { --mbs: var(--s-6);  } .mbe-6  { --mbe: var(--s-6);  } .mx-6  { --mx: var(--s-6);  } .my-6  { --my: var(--s-6);  } 
+.m-7   { --m:  var(--s-7) } .ms-7  { --ms: var(--s-7); }  .me-7  { --me: var(--s-7);  } .mbs-7  { --mbs: var(--s-7);  } .mbe-7  { --mbe: var(--s-7);  } .mx-7  { --mx: var(--s-7);  } .my-7  { --my: var(--s-7);  } 
+.m-8   { --m:  var(--s-8) } .ms-8  { --ms: var(--s-8); }  .me-8  { --me: var(--s-8);  } .mbs-8  { --mbs: var(--s-8);  } .mbe-8  { --mbe: var(--s-8);  } .mx-8  { --mx: var(--s-8);  } .my-8  { --my: var(--s-8);  } 
+.m-9   { --m:  var(--s-9) } .ms-9  { --ms: var(--s-9); }  .me-9  { --me: var(--s-9);  } .mbs-9  { --mbs: var(--s-9);  } .mbe-9  { --mbe: var(--s-9);  } .mx-9  { --mx: var(--s-9);  } .my-9  { --my: var(--s-9);  } 
+.m-10  { --m:  var(--s-10)} .ms-10 { --ms: var(--s-10);}  .me-10 { --me: var(--s-10); } .mbs-10 { --mbs: var(--s-10); } .mbe-10 { --mbe: var(--s-10); } .mx-10 { --mx: var(--s-10); } .my-10 { --my: var(--s-10); } 
+
+
+/* for less than ~10 spacing values, we use the following approach */
+.m-05, .m-1, .m-2, .m-3, .m-4, .m-5, .m-6, .m-7, .m-8, .m-9, .m-10 { margin: var(--m); }
+.mx-05, .mx-1, .mx-2, .mx-3, .mx-4, .mx-5, .mx-6, .mx-7, .mx-8, .mx-9, .mx-10 { margin-inline: var(--mx); }
+.my-05, .my-1, .my-2, .my-3, .my-4, .my-5, .my-6, .my-7, .my-8, .my-9, .my-10 { margin-block: var(--my); }
+.ms-05, .ms-1, .ms-2, .ms-3, .ms-4, .ms-5, .ms-6, .ms-7, .ms-8, .ms-9, .ms-10 { margin-inline-start: var(--ms); }
+.me-05, .me-1, .me-2, .me-3, .me-4, .me-5, .me-6, .me-7, .me-8, .me-9, .me-10 { margin-inline-end: var(--me); }
+.mbs-05, .mbs-1, .mbs-2, .mbs-3, .mbs-4, .mbs-5, .mbs-6, .mbs-7, .mbs-8, .mbs-9, .mbs-10 { margin-block-start: var(--mbs); }
+.mbe-05, .mbe-1, .mbe-2, .mbe-3, .mbe-4, .mbe-5, .mbe-6, .mbe-7, .mbe-8, .mbe-9, .mbe-10 { margin-block-end: var(--mbe); }
+
+/* for more than 10 spacing values, the following approach will be more efficient */
+/* Selector explanation: Start with prefix (^=), prefix preceded by a space (*=" "), end with the specified prefix ($=) */
+/* Note: we can't use [class*="m-"] because it's too greedy and matches too many classes */
+
+/* [class*=" m-"],   [class^="m-"],   [class$="m-"]   { margin: var(--m); }
+[class*=" mx-"],  [class^="mx-"],  [class$="mx-"]  { margin-inline: var(--mx); }
+[class*=" my-"],  [class^="my-"],  [class$="my-"]  { margin-block: var(--my); }
+[class*=" ms-"],  [class^="ms-"],  [class$="ms-"]  { margin-inline-start: var(--ms); }
+[class*=" me-"],  [class^="me-"],  [class$="me-"]  { margin-inline-end: var(--me); }
+[class*=" mbs-"], [class^="mbs-"], [class$="mbs-"] { margin-block-start: var(--mbs); }
+[class*=" mbe-"], [class^="mbe-"], [class$="mbe-"] { margin-block-end: var(--mbe); } */
+
+
+/****************** Padding Utility Classes (Tailwind compatible) ******************/
+
+.p-05  { --p:  var(--s-05)} .ps-05 { --ps: var(--s-05);}  .pe-05 { --pe: var(--s-05); } .pbs-05 { --pbs: var(--s-05); } .pbe-05 { --pbe: var(--s-05); } .px-05 { --px: var(--s-05); } .py-05 { --py: var(--s-05); } 
+.p-1   { --p:  var(--s-1) } .ps-1  { --ps: var(--s-1); }  .pe-1  { --pe: var(--s-1);  } .pbs-1  { --pbs: var(--s-1);  } .pbe-1  { --pbe: var(--s-1);  } .px-1  { --px: var(--s-1);  } .py-1  { --py: var(--s-1);  } 
+.p-2   { --p:  var(--s-2) } .ps-2  { --ps: var(--s-2); }  .pe-2  { --pe: var(--s-2);  } .pbs-2  { --pbs: var(--s-2);  } .pbe-2  { --pbe: var(--s-2);  } .px-2  { --px: var(--s-2);  } .py-2  { --py: var(--s-2);  } 
+.p-3   { --p:  var(--s-3) } .ps-3  { --ps: var(--s-3); }  .pe-3  { --pe: var(--s-3);  } .pbs-3  { --pbs: var(--s-3);  } .pbe-3  { --pbe: var(--s-3);  } .px-3  { --px: var(--s-3);  } .py-3  { --py: var(--s-3);  } 
+.p-4   { --p:  var(--s-4) } .ps-4  { --ps: var(--s-4); }  .pe-4  { --pe: var(--s-4);  } .pbs-4  { --pbs: var(--s-4);  } .pbe-4  { --pbe: var(--s-4);  } .px-4  { --px: var(--s-4);  } .py-4  { --py: var(--s-4);  } 
+.p-5   { --p:  var(--s-5) } .ps-5  { --ps: var(--s-5); }  .pe-5  { --pe: var(--s-5);  } .pbs-5  { --pbs: var(--s-5);  } .pbe-5  { --pbe: var(--s-5);  } .px-5  { --px: var(--s-5);  } .py-5  { --py: var(--s-5);  } 
+.p-6   { --p:  var(--s-6) } .ps-6  { --ps: var(--s-6); }  .pe-6  { --pe: var(--s-6);  } .pbs-6  { --pbs: var(--s-6);  } .pbe-6  { --pbe: var(--s-6);  } .px-6  { --px: var(--s-6);  } .py-6  { --py: var(--s-6);  } 
+.p-7   { --p:  var(--s-7) } .ps-7  { --ps: var(--s-7); }  .pe-7  { --pe: var(--s-7);  } .pbs-7  { --pbs: var(--s-7);  } .pbe-7  { --pbe: var(--s-7);  } .px-7  { --px: var(--s-7);  } .py-7  { --py: var(--s-7);  } 
+.p-8   { --p:  var(--s-8) } .ps-8  { --ps: var(--s-8); }  .pe-8  { --pe: var(--s-8);  } .pbs-8  { --pbs: var(--s-8);  } .pbe-8  { --pbe: var(--s-8);  } .px-8  { --px: var(--s-8);  } .py-8  { --py: var(--s-8);  } 
+.p-9   { --p:  var(--s-9) } .ps-9  { --ps: var(--s-9); }  .pe-9  { --pe: var(--s-9);  } .pbs-9  { --pbs: var(--s-9);  } .pbe-9  { --pbe: var(--s-9);  } .px-9  { --px: var(--s-9);  } .py-9  { --py: var(--s-9);  } 
+.p-10  { --p:  var(--s-10)} .ps-10 { --ps: var(--s-10);}  .pe-10 { --pe: var(--s-10); } .pbs-10 { --pbs: var(--s-10); } .pbe-10 { --pbe: var(--s-10); } .px-10 { --px: var(--s-10); } .py-10 { --py: var(--s-10); } 
+
+.p-05, .p-1, .p-2, .p-3, .p-4, .p-5, .p-6, .p-7, .p-8, .p-9, .p-10 { padding: var(--p); }
+.px-05, .px-1, .px-2, .px-3, .px-4, .px-5, .px-6, .px-7, .px-8, .px-9, .px-10 { padding-inline: var(--px); }
+.py-05, .py-1, .py-2, .py-3, .py-4, .py-5, .py-6, .py-7, .py-8, .py-9, .py-10 { padding-block: var(--py); }
+.ps-05, .ps-1, .ps-2, .ps-3, .ps-4, .ps-5, .ps-6, .ps-7, .ps-8, .ps-9, .ps-10 { padding-inline-start: var(--ps); }
+.pe-05, .pe-1, .pe-2, .pe-3, .pe-4, .pe-5, .pe-6, .pe-7, .pe-8, .pe-9, .pe-10 { padding-inline-end: var(--pe); }
+.pbs-05, .pbs-1, .pbs-2, .pbs-3, .pbs-4, .pbs-5, .pbs-6, .pbs-7, .pbs-8, .pbs-9, .pbs-10 { padding-block-start: var(--pbs); }
+.pbe-05, .pbe-1, .pbe-2, .pbe-3, .pbe-4, .pbe-5, .pbe-6, .pbe-7, .pbe-8, .pbe-9, .pbe-10 { padding-block-end: var(--pbe); }
+
+/****************** Gap Utility Classes (Tailwind compatible) ******************/
+
+.gap-05 { --gx: var(--s-05); } .gap-x-05 { --gx: var(--s-05); } .gap-y-05 { --gy: var(--s-05); } 
+.gap-1  { --gx: var(--s-1);  } .gap-x-1  { --gx: var(--s-1);  } .gap-y-1  { --gy: var(--s-1);  } 
+.gap-2  { --gx: var(--s-2);  } .gap-x-2  { --gx: var(--s-2);  } .gap-y-2  { --gy: var(--s-2);  } 
+.gap-3  { --gx: var(--s-3);  } .gap-x-3  { --gx: var(--s-3);  } .gap-y-3  { --gy: var(--s-3);  } 
+.gap-4  { --gx: var(--s-4);  } .gap-x-4  { --gx: var(--s-4);  } .gap-y-4  { --gy: var(--s-4);  } 
+.gap-5  { --gx: var(--s-5);  } .gap-x-5  { --gx: var(--s-5);  } .gap-y-5  { --gy: var(--s-5);  } 
+.gap-6  { --gx: var(--s-6);  } .gap-x-6  { --gx: var(--s-6);  } .gap-y-6  { --gy: var(--s-6);  } 
+.gap-7  { --gx: var(--s-7);  } .gap-x-7  { --gx: var(--s-7);  } .gap-y-7  { --gy: var(--s-7);  } 
+.gap-8  { --gx: var(--s-8);  } .gap-x-8  { --gx: var(--s-8);  } .gap-y-8  { --gy: var(--s-8);  } 
+.gap-9  { --gx: var(--s-9);  } .gap-x-9  { --gx: var(--s-9);  } .gap-y-9  { --gy: var(--s-9);  } 
+.gap-10 { --gx: var(--s-10); } .gap-x-10 { --gx: var(--s-10); } .gap-y-10 { --gy: var(--s-10); } 
+
+.gap-05, .gap-1, .gap-2, .gap-3, .gap-4, .gap-5, .gap-6, .gap-7, .gap-8, .gap-9, .gap-10 { gap: var(--g); }
+.gap-x-05, .gap-x-1, .gap-x-2, .gap-x-3, .gap-x-4, .gap-x-5, .gap-x-6, .gap-x-7, .gap-x-8, .gap-x-9, .gap-x-10 { column-gap: var(--gx); }
+.gap-y-05, .gap-y-1, .gap-y-2, .gap-y-3, .gap-y-4, .gap-y-5, .gap-y-6, .gap-y-7, .gap-y-8, .gap-y-9, .gap-y-10 { row-gap: var(--gy); }
