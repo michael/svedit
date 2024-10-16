@@ -1,0 +1,41 @@
+<svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('/fonts/JetBrainsMono[wght].woff2') format('woff2');
+      font-weight: 100 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    #svedit-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 48px;
+      animation: fontWeight 4s infinite alternate;
+    }
+    @keyframes fontWeight {
+      0% { 
+        font-variation-settings: 'wght' 100; 
+        font-weight: 100;
+      }
+      100% { 
+        font-variation-settings: 'wght' 800; 
+        font-weight: 800;
+      }
+    }
+    #slider-circle {
+      animation: moveSlider 4s infinite alternate;
+    }
+    @keyframes moveSlider {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(200px); }
+    }
+  </style>
+  
+  <text id="svedit-text" x="150" y="70" text-anchor="middle" fill="currentColor">Svedit</text>
+  
+  <!-- Slider bar -->
+  <rect x="50" y="100" width="200" height="4" rx="2" fill="#ccc" />
+  
+  <!-- Slider circle -->
+  <circle id="slider-circle" cx="50" cy="102" r="8" fill="currentColor" />
+</svg>

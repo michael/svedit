@@ -13,13 +13,13 @@
       [24, 44, 'emphasis']
     ]],
     body: [
-      { type: 'story', layout: 1, image: '/images/undraw_happy_feeling_re_e76r.svg', title: ['In-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and have text editable directly in the layout. You only have to follow a few rules.', []] },
+      { type: 'story', layout: 1, image: '/images/undraw_happy_feeling_re_e76r.svg', title: ['Visual in-place editing', []], description: ['Model your content in JSON, render it with Svelte components, and have text editable directly in the layout. Extend with custom components to render Vimeo Embeds, Forms, Tables, & more.', []] },
+      { type: 'story', layout: 2, image: '/images/lightweight.svg', title: ['Lightweight', []], description: ['The reference implementation uses only about 1000 lines of code. That means you\'ll be able to serve editable web pages.', []] },
+      { type: 'story', layout: 1, image: '/images/nested-blocks-illustration.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
       { type: 'story', layout: 2, image: '/images/container-cursors.svg', title: ['Container cursors', []], description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.', []] },
-      { type: 'story', layout: 1, image: '/images/lightweight.jpg', title: ['Lightweight', []], description: ['The reference implementation uses only about 1000 lines of code. That means you\'ll be able to serve editable web pages.', []] },
-      { type: 'story', layout: 2, image: '/images/nested-blocks-illustration.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
       // -- 
-      { type: 'story', layout: 1, image: '/images/undraw_undraw_undraw_undraw_undraw_undraw_undraw_undraw_users_per_minute_1e4q_t22j_-1-_0ngf_-1-_27dv_30ul_legv_-1-_il1l_-2-_0jip.svg', title: ['Alpha version', []], description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.', []] },
-      { type: 'story', layout: 2, image: '/images/undraw_winter_skating_re_qouk.svg', title: ['Lorem ipsum dolor sit', []], description: ['Donec eget auctor nibh, vel porttitor mauris. Curabitur in feugiat ante. Mauris feugiat pellentesque quam, accumsan condimentum leo viverra nec.', []] },
+      { type: 'story', layout: 1, image: '/images/svelte-logo.svg', title: ['Made for Svelte 5', []], description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, "link", {"href": "https://svelte.dev/"}], [80, 93, "emphasis", null] ]] },
+      { type: 'story', layout: 2, image: '/images/undraw_undraw_undraw_undraw_undraw_undraw_undraw_undraw_users_per_minute_1e4q_t22j_-1-_0ngf_-1-_27dv_30ul_legv_-1-_il1l_-2-_0jip.svg', title: ['Alpha version', []], description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.', []] },
       {
         type: 'list',
         list_style: 'decimal-leading-zero',
@@ -86,7 +86,7 @@
   }
   .debug-info {
     text-wrap: wrap;
-    max-height: 20lh;
+    height: 10lh;
     overflow-y: auto;
     color: white;
     background: var(--primary-fill-color);
