@@ -44,7 +44,7 @@
     <Text path={['title']} class='heading1' />
     <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
     <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
-      <div>Some not editable UI...</div>
+      <div><div>While in this example title above is editable, this piece of content here is not. Below is a container of Story and List blocks:</div></div>
     </div>
     <Container class="body flex-column gap-y-10" path={['body']}>
       {#snippet block(block, path)}
