@@ -51,6 +51,9 @@
     align-items: center;
     justify-content: center;
     min-width: 30ch;
+    @media (max-width: 768px) {
+      min-width: 100%;
+    }
   }
 
   /* Layout styles */
