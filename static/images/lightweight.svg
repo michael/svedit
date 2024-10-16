@@ -1,37 +1,42 @@
 <svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
   <style>
-    @font-face {
-      font-family: 'JetBrains Mono';
-      src: url('/fonts/JetBrainsMono[wght].woff2') format('woff2');
-      font-weight: 100 800;
-      font-style: normal;
-      font-display: swap;
-    }
-    #svedit-text {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 48px;
-      animation: fontWeight 4s infinite alternate;
-    }
-    @keyframes fontWeight {
-      0% { 
-        font-variation-settings: 'wght' 100; 
-        font-weight: 100;
+  #slider-circle {
+        animation: moveSlider 4s infinite alternate;
       }
-      100% { 
-        font-variation-settings: 'wght' 800; 
-        font-weight: 800;
+      @keyframes moveSlider {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(200px); }
       }
-    }
-    #slider-circle {
-      animation: moveSlider 4s infinite alternate;
-    }
-    @keyframes moveSlider {
-      0% { transform: translateX(0); }
-      100% { transform: translateX(200px); }
-    }
   </style>
   
-  <text id="svedit-text" x="150" y="70" text-anchor="middle" fill="currentColor">Svedit</text>
+  <foreignObject x="0" y="20" width="300" height="80">
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <style>
+        #svedit-text {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 48px;
+          text-align: center;
+          color: currentColor;
+          animation: fontWeight 4s infinite linear both;
+          will-change:font-variation-settings;
+          transition: all 0.2s ease-in-out;
+        }
+        @keyframes fontWeight {
+          from { 
+            opacity: 0.2; 
+            font-variation-settings: 'wght' 100; 
+            font-weight: 100;
+          }
+          to { 
+            opacity: 1; 
+            font-variation-settings: 'wght' 800; 
+            font-weight: 800;
+          }
+        }
+      </style>
+      <div id="svedit-text">Svedit</div>
+    </div>
+  </foreignObject>
   
   <!-- Slider bar -->
   <rect x="50" y="100" width="200" height="4" rx="2" fill="#ccc" />
