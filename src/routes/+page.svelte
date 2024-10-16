@@ -18,7 +18,6 @@
       { type: 'story', layout: 2, image: '/images/lightweight.svg', title: ['Minimal viable editor', []], description: ["The reference implementation uses only about 1000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]] },
       { type: 'story', layout: 1, image: '/images/nested-blocks-illustration.svg', title: ['Nested blocks', []], description: ['A block can embed a container of other blocks. For instance the list block below has a container of list items.', []] },
       { type: 'story', layout: 2, image: '/images/container-cursors.svg', title: ['Container cursors', []], description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.\n\nTry it by selecting a few blocks, then press ↑ or ↓. Press ↵ to insert a new block or ⌫ to delete the block before the cursor.', []] },
-      // -- 
       { type: 'story', layout: 1, image: '/images/svelte-logo.svg', title: ['Made for Svelte 5', []], description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, "link", {"href": "https://svelte.dev/"}], [80, 93, "emphasis", null] ]] },
       { type: 'story', layout: 2, image: '/images/extendable.svg', title: ['Alpha version', []], description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\n Find below a list of known issues we\'ll be working to get fixed next:', []] },
       {
@@ -46,7 +45,7 @@
     <Text path={['subtitle']} class='heading3' />
     <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
     <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
-      <div><div>While in this example title above is editable, this piece of content here is not. Below is a container of Story and List blocks:</div></div>
+      <div><div>In this example the title above is editable but this piece of content here is not. Below is a container of Story and List blocks:</div></div>
     </div>
     <Container class="body flex-column gap-y-10" path={['body']}>
       {#snippet block(block, path)}
@@ -88,7 +87,7 @@
   }
   .debug-info {
     text-wrap: wrap;
-    height: 10lh;
+    height: 12lh;
     overflow-y: auto;
     color: white;
     background: var(--primary-fill-color);
