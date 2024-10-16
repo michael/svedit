@@ -3,14 +3,14 @@
   src: url('/fonts/JetBrainsMono-Italic[wght].woff2') format('woff2');
   font-weight: 100 800;
   font-style: italic;
-  font-display: swap;
+  font-display: fallback;
 }
 @font-face {
   font-family: 'JetBrains Mono';
   src: url('/fonts/JetBrainsMono[wght].woff2') format('woff2');
   font-weight: 100 800;
   font-style: normal;
-  font-display: swap;
+  font-display: fallback;
 }
 
 :root {
@@ -19,7 +19,7 @@
 }
 
 body {
-  font-family: 'JetBrains Mono', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'JetBrains Mono', Verdana, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-weight: 400;
   font-stretch: 100%;
   font-style: normal;
