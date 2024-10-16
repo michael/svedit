@@ -253,7 +253,7 @@ export default class EntrySession {
     } else {
       container.splice(start, 0, {
         type: 'story',
-        image: '/images/undraw_personal_finance_re_ie6k.svg',
+        image: '/images//images/container-cursors.svg',
         title: ['Enter title', []],
         description: ['Enter a description', []],
       });
