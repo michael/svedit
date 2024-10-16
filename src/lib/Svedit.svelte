@@ -553,11 +553,9 @@
 </div>
 
 <style>
-
-
   .svedit-canvas {
     caret-color: var(--editing-stroke-color);
-    caret-shape: block;
+    /* caret-shape: block; */
     &:focus {
       outline: none;
     }

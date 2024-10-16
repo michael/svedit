@@ -18,8 +18,7 @@
   style="anchor-name: --{path.join('-')};"
 >
   <div class='non-text-content' contenteditable="false">
-    <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img src={block.image} alt="Random image" />
+    <!-- <img width={block.image_width} height={block.image_height} src={block.image} alt={block.title} /> -->
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
@@ -36,7 +35,6 @@
     img {
       width: 100%;
       height: auto;
-      /* Don't crop SVGs */
       &[src*=".svg"] {
         object-fit: contain;
         object-position: center;
