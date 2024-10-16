@@ -253,7 +253,7 @@ export default class EntrySession {
     } else {
       container.splice(start, 0, {
         type: 'story',
-        image: '/images//images/container-cursors.svg',
+        image: '/images/container-cursors.svg',
         title: ['Enter title', []],
         description: ['Enter a description', []],
       });
