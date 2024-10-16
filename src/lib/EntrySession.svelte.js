@@ -4,7 +4,9 @@ export default class EntrySession {
   history = $state();
   future = $state();
 
+  selected_block_path = $derived(this.get_selected_block_path());
   selected_block = $derived(this.get_selected_block());
+  
   // Two types of selections are possible:
   // ContainerSelection:
   // {
@@ -28,16 +30,23 @@ export default class EntrySession {
     this.future = [];
   }
 
-  get_selected_block() {
+  get_selected_block_path() {
     let sel = this.selection;
     if (sel?.type === 'container') {
       let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
       let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
       if (start + 1 === end) {
-        return this.get([...sel.path, start]);
+        return [...sel.path, start];
       }
     }
   }
+
+  get_selected_block() {
+    if (this.selected_block_path) {
+      return this.get(this.selected_block_path);
+    }
+  }
+
 
   get(path) {
     let current = this.entry;
@@ -407,7 +416,6 @@ export default class EntrySession {
       this.selection = undefined;
     }
   }
-
 
   move(direction) {
     if (this.selection?.type !== 'container') return;
