@@ -7,13 +7,13 @@
 <path d="M175 132H125V182M175 132V182M175 132L183 140V190M175 182H125M175 182L183 190M125 182L133 190H183" stroke="black" stroke-width="2"/>
 
 <rect x="40" y="118" width="135" height="2" fill="#FF3F00">
-  <animate attributeName="opacity" values="1;0;1" dur="0.9s" repeatCount="5" begin="0s" />
+  <animate attributeName="opacity" values="1;0;1" dur="0.9s" repeatCount="10" begin="0s" />
 </rect>
 <rect x="111" y="183" width="52" height="2" transform="rotate(-90 111 183)" fill="#FF3F00">
-  <animate attributeName="opacity" values="1;0;1" dur="1.1s" repeatCount="5" begin="4.5s" />
+  <animate attributeName="opacity" values="1;0;1" dur="1.1s" repeatCount="10" begin="9s" />
 </rect>
 <path d="M118 75L118 59L116 59V57H122V59L120 59L120 75H122V77H116V75H118Z" fill="#FF3F00">
-  <animate attributeName="opacity" values="1;0;1" dur="0.95s" repeatCount="5" begin="10s" />
+  <animate attributeName="opacity" values="1;0;1" dur="0.95s" repeatCount="10" begin="20s" />
 </path>
 
 
