@@ -26,6 +26,8 @@
         items: [
           { type: 'list_item', description: ['Images can not yet be selected and changed. We\'ll solve this by making any non-text property selectable on the canvas, and show a popover (e.g. an image selector, or a math formula editor) to make changes, which will then be reflected in the canvas display immediately.' , []] },
           { type: 'list_item', description: ['Container selections inside nested blocks (e.g. list items in this list) do not work reliably yet.', []] },
+          { type: 'list_item', description: ['Only the latest Chrome is supported at the moment as we rely on CSS Anchor Positioning for overlays.', []] },
+          { type: 'list_item', description: ['Full mobile support is considered in our design, but not yet implemented.', []] },
         ]
       },
     ]
@@ -45,7 +47,7 @@
     <Text path={['subtitle']} class='heading3' />
     <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
     <div contenteditable="false" style="background: #eee; opacity: 0.5; padding: 20px;">
-      <div><div>In this example the title above is editable but this piece of content here is not. Below is a container of Story and List blocks:</div></div>
+      <div><div>In this example the title and subtitle above are editable, but this piece of content here is not. Below is a container of Story and List blocks:</div></div>
     </div>
     <Container class="body flex-column gap-y-10" path={['body']}>
       {#snippet block(block, path)}
