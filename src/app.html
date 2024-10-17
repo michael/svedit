@@ -4,6 +4,11 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script type="module">
+			if (!("anchorName" in document.documentElement.style)) {
+				import("https://unpkg.com/@oddbird/css-anchor-positioning");
+			}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" spellcheck="false">

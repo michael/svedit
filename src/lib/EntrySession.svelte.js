@@ -24,7 +24,14 @@ export default class EntrySession {
   // }
 
   constructor(entry) {
-    this.selection = null;
+    this.selection = {
+      "type": "container",
+      "path": [
+        "body"
+      ],
+      "anchor_offset": 0,
+      "focus_offset": 1
+    };
     this.entry = entry;
     this.history = [];
     this.future = [];
