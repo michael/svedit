@@ -1,18 +1,60 @@
-# create-svelte
+# svedit
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+Svedit (think Svelte Edit) is a template for building rich content editors with Svelte 5. You can model your content in JSON, render it with custom Svelte components, and edit it directly in the layout. Try the demo at [svedit.vercel.app](https://svedit.vercel.app).
 
-## Creating a project
+## Quick intro
 
-If you're seeing this, you've probably already done this step. Congrats!
+Pass a piece of JSON to the `EntrySession` contructor. There are only a few rules for the format, such as a specific notation for annotated text (see the value of `subtitle`) and containers of blocks, where you need an array of objects, each featuring a type property (see `body`). Otherwise the format is completely freeform. You can nest containers into blocks to create hiearchy (see `<ListBlock>`).
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
+```js
+  let entry_session = new EntrySession({
+    type: 'page',
+    title: ['Svedit', []],
+    subtitle: ['A template for building rich content editors with Svelte 5', [
+      [24, 44, 'emphasis']
+    ]],
+    body: [
+      { type: 'story', layout: 1, title: ['First title', []], description: ['First description', []] },
+      { type: 'story', layout: 2, title: ['Second title', []], description: ['Second description', []] },
+      {
+        type: 'list',
+        list_style: 'decimal-leading-zero',
+        items: [
+          { type: 'list_item', description: ['List item 1' , []] },
+          { type: 'list_item', description: ['List item 2', []] },
+        ]
+      },
+    ]
+  });
 ```
+
+Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<Text>` component can be used to render and edit annotated text.
+
+```js
+<div class="my-page">
+  <FloatingToolBar {entry_session} />
+
+  <Svedit {entry_session} editable={true} class='flex-column gap-y-10'>
+    <div class="header">
+      <Text path={['title']} class='heading1' />
+      <Text path={['subtitle']} class='heading3' />
+    </div>
+    <Container class="body flex-column gap-y-10" path={['body']}>
+      {#snippet block(block, path)}
+        {#if block.type === 'story'}
+          <StoryBlock {block} {path} />
+        {:else if block.type === 'list'}
+          <ListBlock {block} {path} />
+        {:else}
+          <UnknownBlock {block} {path} />
+        {/if}
+      {/snippet}
+    </Container>
+  </Svedit>
+</div>
+```
+
+Is there more documentation? No. Just read the code, copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point, that you're supposed to adjust to your needs. Enjoy!
 
 ## Developing
 
@@ -36,3 +78,7 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+## Contribute?
+
+At the very moment, the best way to help at the moment is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more weeks to stabilize it.
