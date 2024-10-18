@@ -1,6 +1,8 @@
 # svedit
 
-Svedit (think Svelte Edit) is a template for building rich content editors with Svelte 5. You can model your content in JSON, render it with custom Svelte components, and edit it directly in the layout. Try the demo at [svedit.vercel.app](https://svedit.vercel.app).
+Svedit (think Svelte Edit) is a template for building rich content editors with Svelte 5. You can model your content in JSON, render it with custom Svelte components, and edit it directly in the layout.
+
+Try the demo at [svedit.vercel.app](https://svedit.vercel.app).
 
 ## Quick intro
 
@@ -79,6 +81,6 @@ You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
 
-## Contribute?
+## Contributing
 
-At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months to stabilize it. Please get in touch personally.
+At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months, in order to make this stable. Please get in touch personally. Find my contact details [here](https://editable.website).
