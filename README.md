@@ -22,7 +22,7 @@ Pass a piece of JSON to the `EntrySession` contructor. There are only a few rule
         type: 'list',
         list_style: 'decimal-leading-zero',
         items: [
-          { type: 'list_item', description: ['List item 1' , []] },
+          { type: 'list_item', description: ['List item 1', []] },
           { type: 'list_item', description: ['List item 2', []] },
         ]
       },
@@ -78,6 +78,6 @@ You can preview the production build with `npm run preview`.
 
 ## Contributing
 
-At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months, in order to make this stable. Please get in touch personally.
+At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months. Please get in touch personally.
 
 Find my contact details [here](https://editable.website).
