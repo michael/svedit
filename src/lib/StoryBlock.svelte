@@ -11,13 +11,16 @@
 </script>
 
 <div
-  class="story-block layout-{block.layout} p-2"
+  class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full"
   data-path={path.join('.')}
   data-type="block"
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
 >
-  <div class='non-text-content' contenteditable="false">
+  <div
+    class='non-text-content' 
+    contenteditable="false"
+  >
     <!-- svelte-ignore a11y_img_redundant_alt -->
     <img src={block.image} alt="Random image" />
   </div>
@@ -30,18 +33,28 @@
 
 <style>
   .story-block {
+    container-type: inline-size;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(30ch, 100%), 1fr));
-    gap: var(--s-10);
-    img {
-      width: 100%;
-      height: auto;
-      /* Don't crop SVGs */
-      &[src*=".svg"] {
-        object-fit: contain;
-        object-position: center;
-      }
+    grid-template-columns: 1fr;      
+    /* Apply padding on the sides of the block, but only on devices that need it, e.g. iPhone with notch */
+    /* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
+    padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
+    padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
+    padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
+    padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
+    @media (min-width: 680px) {
+      grid-template-columns: 1fr 1fr;      
     }
+    /* gap: var(--s-10); */
+  }
+  .story-block img {
+    width: 100%;
+    height: auto;
+  }
+  /* Don't crop SVGs */
+  .story-block img[src*=".svg"] {
+    object-fit: contain;
+    object-position: center;
   }
 
   .non-text-content {
@@ -50,8 +63,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 30ch;
-    @media (max-width: 768px) {
+    min-width: 340px;
+    @media (max-width: 680px) {
       min-width: 100%;
     }
   }
@@ -61,12 +74,14 @@
     align-items: center;
   }
 
-  .story-block.layout-2 > div:first-child {
-    order: 2;
-  }
-
-  .story-block.layout-2 > div:last-child {
-    order: 1;
+  @container (min-width: 680px) {
+    /* on mobile display image on top of text */
+    .story-block.layout-2 > div:first-child {
+      order: 2;
+    }
+    .story-block.layout-2 > div:last-child {
+      order: 1;
+    }
   }
 
   .story-block.layout-3 > div:first-child {
