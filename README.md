@@ -4,7 +4,7 @@ Svedit (think Svelte Edit) is a template for building rich content editors with 
 
 ## Quick intro
 
-Pass a piece of JSON to the `EntrySession` contructor. There are only a few rules for the format, such as a specific notation for annotated text (see the value of `subtitle`) and containers of blocks, where you need an array of objects, each featuring a type property (see `body`). Otherwise the format is completely freeform. You can nest containers into blocks to create hiearchy (see `<ListBlock>`).
+Pass a piece of JSON to the `EntrySession` contructor. There are only a few rules for the format, such as a specific notation for annotated text (see the value of `subtitle`) and containers of blocks, where you need an array of objects, each featuring a `type` property (see `body`). Otherwise the shape is completely up to you. You can nest containers into blocks to create hiearchy (see `<ListBlock>`).
 
 ```js
   let entry_session = new EntrySession({
@@ -54,7 +54,7 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 </div>
 ```
 
-Is there more documentation? No. Just read the code, copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point, that you're supposed to adjust to your needs. Enjoy!
+Is there more documentation? No. Just read the code (it's only a couple of files with less than 1500LOC in total), copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
 
 ## Developing
 
@@ -81,4 +81,4 @@ You can preview the production build with `npm run preview`.
 
 ## Contribute?
 
-At the very moment, the best way to help at the moment is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more weeks to stabilize it.
+At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months to stabilize it. Please get in touch personally.
