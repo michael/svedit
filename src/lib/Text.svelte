@@ -67,7 +67,7 @@
 
 <style>
   div {
-    white-space: pre-line;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
     box-sizing: content-box;
     &.heading1 {
