@@ -44,8 +44,6 @@
     });
   }
 
-  $inspect(entry_session.selection);
-
 </script>
     
 

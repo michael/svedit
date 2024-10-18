@@ -13,7 +13,6 @@
   let container_selection_paths = $derived(get_container_selection_paths());
   let container_cursor_info = $derived(get_container_cursor_info());
 
-
   function get_container_selection_paths() {
     const paths = [];
     const sel = entry_session.selection;
@@ -81,15 +80,80 @@
   // Map selection to model
   function onselectionchange(event) {
     let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
-
     // console.log('latest selection from dom', JSON.stringify(selection));
-
     if (selection) {
       entry_session.selection = selection;
     }
   }
 
-  // 
+
+  function oncopy(event, delete_selection = false) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    let plain_text, html, json_data;
+
+    if (entry_session.selection?.type === 'text') {
+      plain_text = entry_session.get_selected_plain_text();
+      html = plain_text;
+      console.log('selected_plain_text', plain_text);
+    } else if (entry_session.selection?.type === 'container') {
+      const selected_blocks = entry_session.get_selected_blocks();
+      json_data = selected_blocks;
+    }
+
+    // Create a ClipboardItem with multiple formats
+    const data = {
+      'text/plain': new Blob([plain_text], {type: 'text/plain'}),
+      'text/html': new Blob([html], {type: 'text/html'}),
+    };
+
+    if (json_data) {
+      const json_blob = new Blob([JSON.stringify(json_data)], {type: 'application/json'});
+      data['web application/json'] = json_blob;
+    }
+    const clipboard_item_raw = new ClipboardItem(data);
+
+    // Write to clipboard
+    navigator.clipboard.write([clipboard_item_raw]).then(() => {
+      console.log('Data copied to clipboard successfully');
+    }).catch(err => {
+      console.error('Failed to copy data: ', err);
+    });
+
+    if (delete_selection) {
+      entry_session.delete();
+    }
+  }
+
+  function oncut(event) {
+    oncopy(event, true);
+  }
+
+  async function onpaste(event) {
+    event.preventDefault();
+    const clipboardItems = await navigator.clipboard.read();
+
+    let pasted_json;
+
+    // Wrapping this in a try-catch as this API only works in Chrome. We fallback to 
+    // plaintext copy and pasting for all other situations.
+    try {
+      const json_blob = await clipboardItems[0].getType('web application/json');
+      pasted_json = JSON.parse(await json_blob.text());
+    } catch(e) {}
+    if (pasted_json) {
+      // ATM we assume when we get JSON, that we are dealing with a sequence of blocks that was copied
+      const blocks = pasted_json;
+      entry_session.insert_blocks(blocks);
+    } else {
+      const plain_text_blob = await clipboardItems[0].getType('text/plain');
+      // Convert the Blob to text
+      const plain_text = await plain_text_blob.text();
+      entry_session.insert_text(plain_text);
+    }
+  }
+
   function render_selection() {
     const selection = entry_session.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
@@ -105,8 +169,6 @@
       // Skip. No need to rerender.
       return;
     }
-
-    // console.log('RENRENDER SELECTION');
     
     if (selection?.type === 'text') {
       __render_text_selection();
@@ -151,7 +213,28 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-      entry_session.insert_block();
+      const path = selection.path;
+      // HACK: we need a way to generalize insertion. Possibly we need
+      // a bit of schema introspection. E.g. to determine the default_block_type
+      // based on a certain context
+      if (path.at(-1) === 'items') {
+        entry_session.insert_blocks([
+          {
+            type: 'list',
+            description: ['enter description', []],
+          }
+        ]);
+      } else {
+        entry_session.insert_blocks([
+          {
+            type: 'story',
+            image: '/images/container-cursors.svg',
+            title: ['Enter title', []],
+            description: ['Enter a description', []],
+          }
+        ]);
+      }
+
       e.preventDefault();
       e.stopPropagation();
     // Because of specificity, this has to come before the other arrow key checks
@@ -478,10 +561,6 @@
   // Utils
   // --------------------------
 
-  // function __is_element_before(reference_el, el) {
-  //   return !!(reference_el.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
-  // }
-
   function __find_first_text_node(el) {
     if (el.nodeType === Node.TEXT_NODE) {
       return el;
@@ -516,14 +595,24 @@
   });
 </script>
 
+<!--
+  TODO: We must get rid of the global handlers here, so Svedit doesn't conflict
+  with any app-specific event handling.
+-->
 <svelte:document
   {onselectionchange}
   {onmousedown}
   {onmouseup}
+  {oncut}
+  {oncopy}
+  {onpaste}
 />
 <svelte:window {onkeydown} />
 
-<div class="svedit">
+<!-- TODO: move oncut/copy/paste handlers inside .svedit -->
+<div
+  class="svedit"
+>
   <div
     class="svedit-canvas {css_class}"
     class:hide-selection={entry_session.selection?.type === 'container'}
@@ -553,8 +642,6 @@
 </div>
 
 <style>
-
-
   .svedit-canvas {
     caret-color: var(--editing-stroke-color);
     caret-shape: block;

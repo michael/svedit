@@ -19,19 +19,12 @@ export default class EntrySession {
   // {
   //   type: 'text',
   //   path: ['body', 3, 'title'],
-  //   anchor_offset: 3, // maybe later (currently not reliable)
-  //   focus_offset: 5, // maybe later (currently not reliable)
+  //   anchor_offset: 3,
+  //   focus_offset: 5,
   // }
 
   constructor(entry) {
-    this.selection = {
-      "type": "container",
-      "path": [
-        "body"
-      ],
-      "anchor_offset": 0,
-      "focus_offset": 1
-    };
+    this.selection = undefined;
     this.entry = entry;
     this.history = [];
     this.future = [];
@@ -113,6 +106,26 @@ export default class EntrySession {
     } else {
       return active_annotation;
     }
+  }
+
+  // TODO: think about ways how we can also turn a container
+  // selection into plain text.
+  get_selected_plain_text() {
+    if (this.selection?.type !== 'text') return null;
+
+    const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    const annotated_text = this.get(this.selection.path);
+    return annotated_text[0].slice(start, end);
+  }
+
+  get_selected_blocks() {
+    if (this.selection?.type !== 'container') return null;
+
+    const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    const container = this.get(this.selection.path);
+    return $state.snapshot(container.slice(start, end));
   }
 
   move_container_cursor(direction) {
@@ -233,14 +246,11 @@ export default class EntrySession {
     }
   }
 
-  insert_block() {
+  insert_blocks(blocks) {
     if (this.selection.type !== 'container') return;
 
     const path = this.selection.path;
     const container = [...this.get(path)];
-
-    // TODO: check if there is a parent block
-    console.log('path', $state.snapshot(path));
 
     // Get the start and end indices for the selection
     let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
@@ -251,35 +261,22 @@ export default class EntrySession {
       container.splice(start, end - start);
     }
 
-    // HACK: we just assume things here
-    if (path.at(-1) === 'items') {
-      container.splice(start, 0, {
-        type: 'list',
-        description: ['enter description', []],
-      });
-    } else {
-      container.splice(start, 0, {
-        type: 'story',
-        image: '/images/container-cursors.svg',
-        title: ['Enter title', []],
-        description: ['Enter a description', []],
-      });
-    }
+    container.splice(start, 0, ...blocks);
 
     // Update the container in the entry
     this.set(path, container);
 
-    // Set the cursor at the first text field of the block
-    // TODO: this must not be hardcoded here!
     this.selection = {
-      type: 'text',
+      type: 'container',
       // NOTE: we hard code this temporarily as both story and list-item have a description property
-      path: [...this.selection.path, start, 'description'],
-      anchor_offset: 0,
-      focus_offset: 0
+      path: [...this.selection.path],
+      anchor_offset: start,
+      focus_offset: start + blocks.length
     };
   }
-
+  
+  // TODO: we need to also support annotations attached to replaced_text. This is needed to
+  // support copy&paste including annotations. Currently the annotations are lost on paste.
   insert_text(replaced_text) {
     if (this.selection.type !== 'text') return;
     
@@ -353,8 +350,8 @@ export default class EntrySession {
     const new_selection = {
       type: 'text',
       path: this.selection.path,
-      anchor_offset: start + 1,
-      focus_offset: start + 1,
+      anchor_offset: start + replaced_text.length,
+      focus_offset: start + replaced_text.length,
     };
     this.selection = new_selection;
   }
