@@ -41,7 +41,7 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
       <Text path={['title']} class='heading1' />
       <Text path={['subtitle']} class='heading3' />
     </div>
-    <Container class="body flex-column gap-y-10" path={['body']}>
+    <Container path={['body']} class="body flex-column gap-y-10">
       {#snippet block(block, path)}
         {#if block.type === 'story'}
           <StoryBlock {block} {path} />
@@ -60,13 +60,10 @@ Is there more documentation? No. Just read the code (it's only a couple of files
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once you've created a project and installed dependencies with `npm install`, start a development server:
 
 ```bash
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
 ## Building
@@ -79,8 +76,8 @@ npm run build
 
 You can preview the production build with `npm run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
-
 ## Contributing
 
-At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months, in order to make this stable. Please get in touch personally. Find my contact details [here](https://editable.website).
+At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months, in order to make this stable. Please get in touch personally.
+
+Find my contact details [here](https://editable.website).
