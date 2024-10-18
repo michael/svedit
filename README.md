@@ -1,4 +1,4 @@
-# svedit
+# Svedit
 
 Svedit (think Svelte Edit) is a template for building rich content editors with Svelte 5. You can model your content in JSON, render it with custom Svelte components, and edit it directly in the layout.
 
