@@ -596,6 +596,8 @@
     // Get the range of the dom_selection
     const range = dom_selection.getRangeAt(0);
 
+    if (range.collapsed) return false;
+
     // Create a new range for comparison
     const comparisonRange = range.cloneRange();
 
