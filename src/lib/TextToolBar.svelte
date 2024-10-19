@@ -37,7 +37,7 @@
   // Bug report for Safari:
   // https://bugs.webkit.org/show_bug.cgi?id=230225
 
-  
+
   function updateViewport() {
     if (browser) {
       const viewport_height = window.visualViewport?.height || window.innerHeight;
@@ -199,22 +199,23 @@
 
 <style>
   /* only use the javascript visual viewport placement technique when the contenteditable is focused */
-  :global(body:has(:is([contenteditable="true"]):focus)) {
-    .editor-toolbar {
-      top: var(--toolbar-top-position);
-      bottom: auto;
+  @media (max-width: 768px) {
+    :global(body:has(:is([contenteditable="true"]):focus)) {
+      .editor-toolbar {
+        top: var(--toolbar-top-position);
+        bottom: auto;
+      }
     }
   }
 
   .editor-toolbar {
     --toolbar-height: 44px;
     --toolbar-bottom-offset: var(--s-4);
-    height: var(--toolbar-height);
     color: var(--primary-text-color);
     background-color: var(--canvas-fill-color);
     width: fit-content;
     position: fixed;
-    top: var(--toolbar-top-position);
+    top: 50%;
     transform: translateY(-50%);
     left: var(--s-4);
     border-radius: 9999px;
@@ -226,7 +227,7 @@
     transition: all 0.1s ease-in-out 200ms;
     overflow-y: hidden;
 
-    @media (max-width: 768px) {      
+    @media (max-width: 768px) {
       top: auto;
       /* alternative css only approach for Chromium / Android */
       bottom: max(calc(env(keyboard-inset-height, 0px) + var(--toolbar-bottom-offset)), var(--toolbar-bottom-offset));
@@ -234,6 +235,7 @@
       transform: translateX(-50%);
       flex-direction: row;
       max-width: calc(100vw - 2 * var(--s-4));
+      height: var(--toolbar-height);
       overflow-x: auto;
       scrollbar-width: thin;
     }
