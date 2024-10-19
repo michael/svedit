@@ -73,5 +73,8 @@
     &.heading1 {
       text-wrap: var(--text-wrap);
     }
+    a {
+      cursor: text;
+    }
   }
 </style>
