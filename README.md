@@ -83,6 +83,10 @@ At the very moment, the best way to help is to donate or sponsor us, so we can b
 Find my contact details [here](https://editable.website).
 
 
+## Alpha version
+
+It's very early. Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.
+
 ## Credits
 
 Svedit is a co-creation of [Michael Aufreiter](https://michaelaufreiter.com) and [Johannes Mutter](https://mutter.co).
