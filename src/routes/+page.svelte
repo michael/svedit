@@ -30,6 +30,19 @@
           { type: 'list_item', description: ['Full mobile support is considered in our design, but not yet implemented.', []] },
         ]
       },
+      {
+        type: 'story',
+        layout: 1,
+        image: '/images/github.svg',
+        title: ['Star us on GitHub', []],
+        description: ['Please star Svedit on GitHub to receive updates on the stable release. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
+          [
+            [0, 28, "link", {"href": "https://github.com/michael/svedit/"}],
+            [89, 106, "link", {"href": "https://michaelaufreiter.com"}],
+            [111,126, "link", {"href": "https://mutter.co"}],
+          ]
+        ]
+      },
     ]
   });
 </script>

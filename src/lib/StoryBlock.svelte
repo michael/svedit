@@ -22,7 +22,7 @@
     contenteditable="false"
   >
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img src={block.image} alt="Random image" />
+    <img src={block.image} alt={svedit.entry_session.get([...path, 'title'])[0]} />
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
