@@ -3,7 +3,14 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<!-- Challenge: Show the toolbar when the virtual keyboard is visible.-->
+		<!-- Solution: enable the VirtualKeyboard: overlaysContent property -->
+		<!-- Caveat: This only works in Chrome (Android) so far -->
+		<meta 
+			name="viewport" 
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+		>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" spellcheck="false">

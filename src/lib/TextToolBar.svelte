@@ -1,10 +1,66 @@
 <script>
   import { fly } from 'svelte/transition';
   import Icon from '$lib/Icon.svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
 
-  let {
-    entry_session,
-  } = $props();
+  let { entry_session } = $props();
+
+  // Visual Viewport handling:
+  // Position the toolbar above the soft keyboard
+  // This prevents the keyboard from overlapping the toolbar on mobile devices
+  // 
+  // Issue with current approach:
+  // When changing scroll direction, browsers (e.g., Safari) initially adjust the visual viewport
+  // instead of scrolling the page. This continues until the viewport shift equals the difference
+  // between the initial scroll position and the screen height minus the visual viewport height.
+  // 
+  // During this adjustment period, the toolbar's position appears incorrect:
+  // - When scrolling up: Not an issue, as the toolbar is temporarily hidden below the keyboard.
+  // - When scrolling down: The toolbar appears above the content, away from the visual viewport's
+  //   bottom edge. This creates a risk of users accidentally tapping toolbar buttons while scrolling.
+  //
+  // The toolbar's position only normalizes once actual page scrolling begins.
+  //
+  // Workarounds:
+  // - checking the scroll direction and temporarily hiding the toolbar could be a workaround. But there seems to be also a delay…
+  // Using this new API (not yet supported): navigator.virtualKeyboard.addEventListener("geometrychange", () => {})
+  //
+  // Related resources to this open issue:
+  // https://developer.chrome.com/docs/web-platform/virtual-keyboard
+  // https://ishadeed.com/article/virtual-keyboard-api/
+  // https://developer.chrome.com/blog/viewport-resize-behavior
+  // https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/VirtualKeyboardAPI/explainer.md
+  // https://www.bram.us/2021/09/13/prevent-items-from-being-hidden-underneath-the-virtual-keyboard-by-means-of-the-virtualkeyboard-api/
+  // https://blog.opendigerati.com/the-eccentric-ways-of-ios-safari-with-the-keyboard-b5aa3f34228d
+  // 
+  // Bug report for Safari:
+  // https://bugs.webkit.org/show_bug.cgi?id=230225
+
+  
+  function updateViewport() {
+    if (browser) {
+      const viewport_height = window.visualViewport?.height || window.innerHeight;
+      const viewport_offset = window.visualViewport?.offsetTop || 0;
+      const toolbar_top_position = viewport_height + viewport_offset - 60; // 44 (toolbar height) + 16 (bottom offset)
+      document.documentElement.style.setProperty('--toolbar-top-position', `${toolbar_top_position}px`);
+    }
+  }
+
+  onMount(() => {
+    if (browser) {
+      updateViewport();
+      window.visualViewport?.addEventListener('resize', updateViewport);
+      window.visualViewport?.addEventListener('scroll', updateViewport);
+    }
+  });
+
+  onDestroy(() => {
+    if (browser) {
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
+    }
+  });
 
   const layout_options = [
     { value: 1, label: 'Image left', icon: 'image-left' },
@@ -47,7 +103,11 @@
 </script>
     
 
-<div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }}>
+<div
+  class="editor-toolbar p-1" 
+  in:fly={{ duration: 100, y: 5 }} 
+  out:fly={{ duration: 100, y: 5 }}
+>
   {#if entry_session.selection?.type === 'container'}
     <button 
       title='Move up'
@@ -138,12 +198,23 @@
 </div>
 
 <style>
+  /* only use the javascript visual viewport placement technique when the contenteditable is focused */
+  :global(body:has(:is([contenteditable="true"]):focus)) {
+    .editor-toolbar {
+      top: var(--toolbar-top-position);
+      bottom: auto;
+    }
+  }
+
   .editor-toolbar {
+    --toolbar-height: 44px;
+    --toolbar-bottom-offset: var(--s-4);
+    height: var(--toolbar-height);
     color: var(--primary-text-color);
     background-color: var(--canvas-fill-color);
     width: fit-content;
     position: fixed;
-    top: 50%;
+    top: var(--toolbar-top-position);
     transform: translateY(-50%);
     left: var(--s-4);
     border-radius: 9999px;
@@ -152,10 +223,13 @@
     z-index: 50;
     flex-direction: column;
     align-items: center;
+    transition: all 0.1s ease-in-out 200ms;
+    overflow-y: hidden;
 
-    @media (max-width: 768px) {
+    @media (max-width: 768px) {      
       top: auto;
-      bottom: var(--s-4);
+      /* alternative css only approach for Chromium / Android */
+      bottom: max(calc(env(keyboard-inset-height, 0px) + var(--toolbar-bottom-offset)), var(--toolbar-bottom-offset));
       left: 50%;
       transform: translateX(-50%);
       flex-direction: row;
@@ -166,7 +240,7 @@
 
     button {
       height: 100%;
-      min-height: 44px;
+      min-height: var(--toolbar-height);
       --icon-color: var(--primary-text-color);
       position: relative;
       &.active {
