@@ -35,7 +35,7 @@
         layout: 1,
         image: '/images/github.svg',
         title: ['Star us on GitHub', []],
-        description: ['Please star Svedit on GitHub to receive updates on the stable release. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
+        description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
           [
             [0, 28, "link", {"href": "https://github.com/michael/svedit/"}],
             [89, 106, "link", {"href": "https://michaelaufreiter.com"}],
