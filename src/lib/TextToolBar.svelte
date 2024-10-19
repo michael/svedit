@@ -39,9 +39,19 @@
   }
 
   function insert_link() {
-    entry_session.annotate_text('link', {
-      href: window.prompt('Enter the URL')
-    });
+    // if the user cancels the prompt it will use the previous link
+    const current_link = entry_session.active_annotation()?.[2] === 'link' 
+      ? entry_session.active_annotation()[3].href 
+      : '';
+    
+    const new_url = window.prompt('Enter the URL', current_link);
+
+    // Update if the user didn't cancel the prompt
+    if (new_url !== null) {
+      entry_session.annotate_text('link', {
+        href: new_url // Pass the new_url directly, even if it's an empty string
+      });
+    }
   }
 
 </script>
@@ -147,7 +157,7 @@
     transform: translateY(-50%);
     left: var(--s-4);
     border-radius: 9999px;
-    box-shadow: 0 0 1px oklch(0 0 0 / 0.3), 0 0 2px oklch(0 0 0 / 0.1), 0 0 10px oklch(0 0 0 / 0.05);
+    box-shadow: var(--shadow-2);
     display: flex;
     z-index: 50;
     flex-direction: column;

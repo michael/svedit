@@ -33,8 +33,7 @@ export default class EntrySession {
   get_selected_block_path() {
     let sel = this.selection;
     if (sel?.type === 'container') {
-      let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-      let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+      const { start, end } = this.get_selection_range();
       if (start + 1 === end) {
         return [...sel.path, start];
       }
@@ -88,10 +87,7 @@ export default class EntrySession {
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
     
-    const [start, end] = [
-      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
-      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
-    ];
+    const { start, end } = this.get_selection_range();
     const annotated_text = this.get(this.selection.path);
     const annotations = annotated_text[1];
 
@@ -132,10 +128,7 @@ export default class EntrySession {
     if (this.selection?.type !== 'container') return;
     const container = this.get(this.selection.path); // container is an array of blocks
 
-    const [start, end] = [
-      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
-      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
-    ];
+    const { start, end } = this.get_selection_range();
 
     if (this.selection.anchor_offset !== this.selection.focus_offset) {
       // If selection is not collapsed, collapse it to the right or the left
@@ -168,22 +161,67 @@ export default class EntrySession {
 
   annotate_text(annotation_type, annotation_data) {
     if (this.selection.type !== 'text') return;
-    // You can not annotate text if the selection is collapsed.
-    if (this.selection.focus_offset === this.selection.anchor_offset) return;
 
-    const [start, end] = [
-      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
-      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
-    ];
+    const { start, end } = this.get_selection_range();
+
     const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
     const annotations = annotated_text[1];
     const existing_annotations = this.active_annotation();
 
+
+    // Special annotation type handling should probably be done in a separate function.
+    // The goal is to keep the core logic simple and allow developer to extend and pick only what they need.
+    // It could also be abstracted to not check for type (e.g. "link") but for a special attribute 
+    // e.g. "zero-range-updatable" for annotations that are updatable without a range selection change.
+
+
+    // Special handling for links when there's no selection range
+    // Links should be updatable by just clicking on them without a range selection
+    if (annotation_type === 'link' && start === end && existing_annotations) {
+      
+      // Use findIndex for deep comparison of annotation properties (comparison of annotation properties rather than object reference via indexOf)
+      const index = annotations.findIndex(anno => 
+        anno[0] === existing_annotations[0] && 
+        anno[1] === existing_annotations[1] && 
+        anno[2] === existing_annotations[2]
+      );
+      // const index = annotations.indexOf(existing_annotations);
+
+      if (index !== -1) {
+        if (annotation_data.href === '') {
+          // Remove the annotation if the href is empty
+          annotations.splice(index, 1);
+        } else {
+          annotations[index] = [
+            existing_annotations[0],
+            existing_annotations[1],
+            'link',
+            { ...existing_annotations[3], ...annotation_data }
+          ];
+        }
+
+        this.set(this.selection.path, annotated_text);
+        return;
+      }
+    }
+
+    // Regular annotation handling
+    if (start === end) {
+      // For non-link annotations: You can not annotate text if the selection is collapsed.
+      return;
+    }
+
     if (existing_annotations) {
       // If there's an existing annotation of the same type, remove it
       if (existing_annotations[2] === annotation_type) {
-        const index = annotations.indexOf(existing_annotations);
-        annotations.splice(index, 1);
+        const index = annotations.findIndex(anno => 
+          anno[0] === existing_annotations[0] && 
+          anno[1] === existing_annotations[1] && 
+          anno[2] === existing_annotations[2]
+        );
+        if (index !== -1) {
+          annotations.splice(index, 1);
+        }
       } else {
         // If there's an annotation of a different type, don't add a new one
         return;
@@ -281,10 +319,7 @@ export default class EntrySession {
     if (this.selection.type !== 'text') return;
     
     const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-    const [start, end] = [
-      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
-      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
-    ];
+    const { start, end } = this.get_selection_range();
 
     // Transform the plain text string.
     annotated_text[0] = annotated_text[0].slice(0, start) + replaced_text + annotated_text[0].slice(end);
@@ -426,10 +461,7 @@ export default class EntrySession {
 
     const path = this.selection.path;
     const container = [...this.get(path)];
-    const [start, end] = [
-      Math.min(this.selection.anchor_offset, this.selection.focus_offset),
-      Math.max(this.selection.anchor_offset, this.selection.focus_offset)
-    ];
+    const { start, end } = this.get_selection_range();
 
     const is_moving_up = direction === 'up';
     const offset = is_moving_up ? -1 : 1;
@@ -457,5 +489,18 @@ export default class EntrySession {
 
   move_down() {
     this.move('down');
+  }
+
+  get_selection_range() {
+    if (!this.selection) return null;
+    
+    const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    
+    return {
+      start,
+      end,
+      length: end - start
+    };
   }
 }

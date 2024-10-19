@@ -11,7 +11,7 @@
     // Sort annotations by start_offset
     const sorted_annotations = $state.snapshot(annotations).sort((a, b) => a[0] - b[0]);
 
-    for (let annotation of sorted_annotations) {
+    for (let [index, annotation] of sorted_annotations.entries()) {
       // Add text before the annotation
       if (annotation[0] > last_index) {
         fragments.push(text.slice(last_index, annotation[0]));
@@ -22,6 +22,7 @@
       fragments.push({
         type: annotation[2],
         content: annotated_content,
+        annotation_index: index,
         ...annotation[3]
       });
 
@@ -38,6 +39,7 @@
 
   let fragments = $derived(render_annotated_text(svedit.entry_session.get(path)[0], svedit.entry_session.get(path)[1]));
   let plain_text = $derived(svedit.entry_session.get(path)[0]);
+
 </script>
 
 
@@ -46,11 +48,12 @@
   contenteditable="true" 
   data-type="text" 
   data-path={path.join('.')}
+  style="anchor-name: --{path.join('-')};"
   class={css_class}
 ><!--
 --><!-- Zero-width space for empty text --><!--
 -->{#if plain_text.length === 0}&#8203;{/if}<!--
--->{#each fragments as fragment}<!--
+-->{#each fragments as fragment, index}<!--
   -->{#if typeof fragment === 'string'}<!--
     -->{fragment}<!--
   -->{:else if fragment.type === 'emphasis'}<!--
@@ -58,7 +61,7 @@
   -->{:else if fragment.type === 'strong'}<!--
     --><strong>{fragment.content}</strong><!--
   -->{:else if fragment.type === 'link'}<!--
-    --><a href={fragment.href}>{fragment.content}</a><!--
+    --><a onclick={(e)=> {e.preventDefault()}} style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};" href={fragment.href}>{fragment.content}</a><!--
   -->{:else}<!--
     -->{fragment.content}<!--
   -->{/if}<!--

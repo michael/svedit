@@ -1,5 +1,6 @@
 <script>
   import { setContext } from 'svelte';
+  import Icon from '$lib/Icon.svelte';
 
   let {
     entry_session,
@@ -12,6 +13,7 @@
   let is_mouse_down = $state(false);
   let container_selection_paths = $derived(get_container_selection_paths());
   let container_cursor_info = $derived(get_container_cursor_info());
+  let text_selection_info = $derived(get_text_selection_info());
 
   function get_container_selection_paths() {
     const paths = [];
@@ -51,6 +53,29 @@
         path: [...sel.path, block_index],
         position,
       }
+    }
+  }
+
+  function get_text_selection_info() {
+    const sel = entry_session.selection;
+    if (!sel || sel.type !== 'text') return null;
+
+    const active_annotation = entry_session.active_annotation();
+    if (active_annotation && active_annotation[2] === 'link') {
+      const annotated_text = entry_session.get(sel.path);
+      const annotation_index = annotated_text[1].indexOf(active_annotation);
+      return {
+        path: sel.path,
+        annotation: active_annotation,
+        annotation_index: annotation_index
+      };
+    }
+    return null;
+  }
+
+  function open_link() {
+    if (text_selection_info?.annotation?.[3]?.href) {
+      window.open(text_selection_info.annotation[3].href, '_blank');
     }
   }
 
@@ -658,6 +683,15 @@
         style="position-anchor: --{container_cursor_info.path.join('-')};"
       ></div>
     {/if}
+    
+    {#if text_selection_info}
+      <div
+        class="text-selection-overlay"
+        style="position-anchor: --{text_selection_info.path.join('-') + '-' + text_selection_info.annotation_index};"
+      >
+        <button onclick={open_link} class="small"><Icon name="external-link" /></button>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -725,4 +759,19 @@
   /* div.hide-selection :global(::selection) {
     background: transparent;
   } */
+
+  .text-selection-overlay {
+    position: absolute;
+    top: anchor(top);
+    left: anchor(right);
+    pointer-events: auto;
+    transform: translateX(var(--s-1)) translateY(-12px);
+    z-index: 10;
+  }
+
+  .text-selection-overlay button {
+    color: var(--primary-text-color);
+    --icon-color: var(--primary-text-color);
+    box-shadow: var(--shadow-2);
+  }
 </style>

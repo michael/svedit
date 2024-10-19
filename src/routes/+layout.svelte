@@ -3,6 +3,7 @@
   import '$lib/styles/typography.css';
   import '$lib/styles/colors.css';
   import '$lib/styles/spacing.css';
+  import '$lib/styles/shadows.css';
 
   let { children } = $props();
 </script>
