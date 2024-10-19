@@ -97,7 +97,15 @@ em, i, .italic {
 
 button {
   border-radius: 9999px;
+  font-size: calc(var(--base-size) / var(--scale-ratio));
+  background-color: var(--canvas-fill-color);
+  font-weight: 400;
   padding-inline: var(--s-3);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s ease-in-out;
   &:focus, &:focus-visible {
     outline: none;
   }
@@ -107,6 +115,12 @@ button {
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  &:not(:disabled):hover {
+    background-color: oklch(from var(--canvas-fill-color) calc(l - 0.05) c h);
+  }
+  &.small {
+    min-height: 36px;
   }
 }
 
