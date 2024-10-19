@@ -11,6 +11,7 @@
   data-type="block"
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
+  class='p-10 max-w-screen-md mx-auto'
 >
   <Container class="list" path={[...path, 'items']}>
     <!-- NOTE: We only allow list items inside list  -->
