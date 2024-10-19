@@ -38,8 +38,8 @@
         description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
           [
             [0, 28, "link", {"href": "https://github.com/michael/svedit/"}],
-            [89, 106, "link", {"href": "https://michaelaufreiter.com"}],
-            [111,126, "link", {"href": "https://mutter.co"}],
+            [95, 112, "link", {"href": "https://michaelaufreiter.com"}],
+            [117,132, "link", {"href": "https://mutter.co"}],
           ]
         ]
       },
