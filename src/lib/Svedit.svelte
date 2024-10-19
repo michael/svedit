@@ -310,10 +310,9 @@
     let anchor_offset = parseInt(anchor_root_path.at(-1));
     let focus_offset = parseInt(focus_root_path.at(-1));
 
-    // Check if it's a reverse selection
-    const is_reverse = anchor_offset > focus_offset;
-
-    if (is_reverse) {
+    // Check if it's a backwards selection
+    const is_bwackwards = __is_dom_selection_backwards();
+    if (is_bwackwards) {
       anchor_offset += 1;
     } else {
       focus_offset += 1;
@@ -397,9 +396,6 @@
     const containerEl = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
     if (!containerEl) return null;
 
-    // const blocksEl = containerEl.querySelector('.blocks');
-    // if (!blocksEl) return null;
-
     const blockElements = containerEl.children;
     if (blockElements.length === 0) return null;
 
@@ -440,11 +436,11 @@
 
     } else {
       // Non-collapsed selection
-      if (selection.anchor_offset > selection.focus_offset) {   
+      if (selection.anchor_offset > selection.focus_offset) {
+        // Backwards selection
+        let last_text_node = __find_last_text_node(anchor_node);
+        let first_text_node = __find_first_text_node(focus_node);
 
-        // find the first text node inside focus node
-        const last_text_node = __find_last_text_node(anchor_node);
-        const first_text_node = __find_first_text_node(focus_node);
         if (!last_text_node || !first_text_node) {
           console.error('Selection mapping error: Make sure every block contains at least one text node');
           return;
@@ -453,9 +449,11 @@
         range.setEnd(last_text_node, last_text_node.length);
         dom_selection.removeAllRanges();
         dom_selection.addRange(range);
+
         // Phew, this was a hard not to crack. But with that code the direction can be reversed.
         dom_selection.setBaseAndExtent(last_text_node, last_text_node.length, first_text_node, 0);
       } else {
+        // Regular foward selection
         range.setStart(anchor_node, 0);
         range.setEnd(focus_node, focus_node.childNodes.length);
         dom_selection.removeAllRanges();
@@ -587,6 +585,26 @@
         return textNode;
       }
     }
+  }
+
+  function __is_dom_selection_backwards() {
+    const dom_selection = window.getSelection();
+    
+    // If there's no dom_selection, return false
+    if (dom_selection.rangeCount === 0) return false;
+
+    // Get the range of the dom_selection
+    const range = dom_selection.getRangeAt(0);
+
+    // Create a new range for comparison
+    const comparisonRange = range.cloneRange();
+
+    // Set the comparison range to start at the dom_selection's anchor and end at its focus
+    comparisonRange.setStart(dom_selection.anchorNode, dom_selection.anchorOffset);
+    comparisonRange.setEnd(dom_selection.focusNode, dom_selection.focusOffset);
+
+    // If the comparison range is collapsed, the selection is backwards
+    return comparisonRange.collapsed;
   }
 
   // Whenever the model selection changes, render the selection
