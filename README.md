@@ -81,3 +81,8 @@ You can preview the production build with `npm run preview`.
 At the very moment, the best way to help is to donate or sponsor us, so we can buy time to work on this exclusively for a couple of more months. Please get in touch personally.
 
 Find my contact details [here](https://editable.website).
+
+
+## Credits
+
+Svedit is a co-creation of [Michael Aufreiter](https://michaelaufreiter.com) and [Johannes Mutter](https://mutter.co).
