@@ -133,6 +133,12 @@ button {
 .flex-row {
   flex-direction: row;
 }
+.items-center {
+  align-items: center;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
 
 a {
   text-decoration: underline;

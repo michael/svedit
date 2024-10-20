@@ -32,6 +32,7 @@
 .me-auto { margin-inline-end: auto; }
 .mbs-auto { margin-block-start: auto; }
 .mbe-auto { margin-block-end: auto; }
+.m-0 { margin: 0; }
 
 
 /* for less than ~10 spacing values, we use the following approach */
@@ -80,17 +81,17 @@
 
 /****************** Gap Utility Classes (Tailwind compatible) ******************/
 
-.gap-05 { --gx: var(--s-05); } .gap-x-05 { --gx: var(--s-05); } .gap-y-05 { --gy: var(--s-05); } 
-.gap-1  { --gx: var(--s-1);  } .gap-x-1  { --gx: var(--s-1);  } .gap-y-1  { --gy: var(--s-1);  } 
-.gap-2  { --gx: var(--s-2);  } .gap-x-2  { --gx: var(--s-2);  } .gap-y-2  { --gy: var(--s-2);  } 
-.gap-3  { --gx: var(--s-3);  } .gap-x-3  { --gx: var(--s-3);  } .gap-y-3  { --gy: var(--s-3);  } 
-.gap-4  { --gx: var(--s-4);  } .gap-x-4  { --gx: var(--s-4);  } .gap-y-4  { --gy: var(--s-4);  } 
-.gap-5  { --gx: var(--s-5);  } .gap-x-5  { --gx: var(--s-5);  } .gap-y-5  { --gy: var(--s-5);  } 
-.gap-6  { --gx: var(--s-6);  } .gap-x-6  { --gx: var(--s-6);  } .gap-y-6  { --gy: var(--s-6);  } 
-.gap-7  { --gx: var(--s-7);  } .gap-x-7  { --gx: var(--s-7);  } .gap-y-7  { --gy: var(--s-7);  } 
-.gap-8  { --gx: var(--s-8);  } .gap-x-8  { --gx: var(--s-8);  } .gap-y-8  { --gy: var(--s-8);  } 
-.gap-9  { --gx: var(--s-9);  } .gap-x-9  { --gx: var(--s-9);  } .gap-y-9  { --gy: var(--s-9);  } 
-.gap-10 { --gx: var(--s-10); } .gap-x-10 { --gx: var(--s-10); } .gap-y-10 { --gy: var(--s-10); } 
+.gap-05 { --g: var(--s-05); } .gap-x-05 { --gx: var(--s-05); } .gap-y-05 { --gy: var(--s-05); } 
+.gap-1  { --g: var(--s-1);  } .gap-x-1  { --gx: var(--s-1);  } .gap-y-1  { --gy: var(--s-1);  } 
+.gap-2  { --g: var(--s-2);  } .gap-x-2  { --gx: var(--s-2);  } .gap-y-2  { --gy: var(--s-2);  } 
+.gap-3  { --g: var(--s-3);  } .gap-x-3  { --gx: var(--s-3);  } .gap-y-3  { --gy: var(--s-3);  } 
+.gap-4  { --g: var(--s-4);  } .gap-x-4  { --gx: var(--s-4);  } .gap-y-4  { --gy: var(--s-4);  } 
+.gap-5  { --g: var(--s-5);  } .gap-x-5  { --gx: var(--s-5);  } .gap-y-5  { --gy: var(--s-5);  } 
+.gap-6  { --g: var(--s-6);  } .gap-x-6  { --gx: var(--s-6);  } .gap-y-6  { --gy: var(--s-6);  } 
+.gap-7  { --g: var(--s-7);  } .gap-x-7  { --gx: var(--s-7);  } .gap-y-7  { --gy: var(--s-7);  } 
+.gap-8  { --g: var(--s-8);  } .gap-x-8  { --gx: var(--s-8);  } .gap-y-8  { --gy: var(--s-8);  } 
+.gap-9  { --g: var(--s-9);  } .gap-x-9  { --gx: var(--s-9);  } .gap-y-9  { --gy: var(--s-9);  } 
+.gap-10 { --g: var(--s-10); } .gap-x-10 { --gx: var(--s-10); } .gap-y-10 { --gy: var(--s-10); } 
 
 .gap-05, .gap-1, .gap-2, .gap-3, .gap-4, .gap-5, .gap-6, .gap-7, .gap-8, .gap-9, .gap-10 { gap: var(--g); }
 .gap-x-05, .gap-x-1, .gap-x-2, .gap-x-3, .gap-x-4, .gap-x-5, .gap-x-6, .gap-x-7, .gap-x-8, .gap-x-9, .gap-x-10 { column-gap: var(--gx); }

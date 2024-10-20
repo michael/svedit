@@ -2,7 +2,11 @@
   import { getContext } from 'svelte';
   const svedit = getContext('svedit');
 
-  let { path, class: css_class } = $props();
+  let { 
+    path, 
+    class: css_class,
+    editable = true
+  } = $props();
 
   function render_annotated_text(text, annotations) {    
     let fragments = [];
@@ -40,12 +44,17 @@
   let fragments = $derived(render_annotated_text(svedit.entry_session.get(path)[0], svedit.entry_session.get(path)[1]));
   let plain_text = $derived(svedit.entry_session.get(path)[0]);
 
+  function handle_link_click(e) {
+    if (editable) {
+      e.preventDefault();
+    }
+  }
 </script>
 
 
 <!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes with whitespace. -->
 <div 
-  contenteditable="true" 
+  contenteditable={editable} 
   data-type="text" 
   data-path={path.join('.')}
   style="anchor-name: --{path.join('-')};"
@@ -61,7 +70,7 @@
   -->{:else if fragment.type === 'strong'}<!--
     --><strong>{fragment.content}</strong><!--
   -->{:else if fragment.type === 'link'}<!--
-    --><a onclick={(e)=> {e.preventDefault()}} style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};" href={fragment.href}>{fragment.content}</a><!--
+    --><a onclick={handle_link_click} style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};" href={fragment.href} target={fragment.target || '_self'}>{fragment.content}</a><!--
   -->{:else}<!--
     -->{fragment.content}<!--
   -->{/if}<!--
@@ -76,8 +85,10 @@
     &.heading1 {
       text-wrap: var(--text-wrap);
     }
-    a {
-      cursor: text;
+    [contenteditable="true"] {
+      a {
+        cursor: text;
+      } 
     }
   }
 </style>

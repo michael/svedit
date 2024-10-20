@@ -33,13 +33,14 @@
       {
         type: 'story',
         layout: 1,
+        editable: false,
         image: '/images/github.svg',
         title: ['Star us on GitHub', []],
         description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
           [
-            [0, 28, "link", {"href": "https://github.com/michael/svedit/"}],
-            [95, 112, "link", {"href": "https://michaelaufreiter.com"}],
-            [117,132, "link", {"href": "https://mutter.co"}],
+            [0, 28, "link", {"href": "https://github.com/michael/svedit/", target: "_blank"}],
+            [95, 112, "link", {"href": "https://michaelaufreiter.com", target: "_blank"}],
+            [117,132, "link", {"href": "https://mutter.co", target: "_blank"}],
           ]
         ]
       },
@@ -49,6 +50,7 @@
 
 <svelte:head>
   <title>Svedit - A rich content editor for Svelte 5</title>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </svelte:head>
 
 <div class="demo-wrapper">
@@ -56,7 +58,10 @@
 
   <Svedit {entry_session} editable={true} class='flex-column'>
     <div class='flex-column gap-y-10 p-10 max-w-screen-lg mx-auto w-full'>
-      <Text path={['title']} class='heading1' />
+      <div class='flex-row flex-wrap gap-5 items-center'>
+        <Text path={['title']} class='heading1 m-0' />
+        <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
+      </div>
       <Text path={['subtitle']} class='heading3' />
     </div>
     <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->

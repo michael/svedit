@@ -26,8 +26,8 @@
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-    <Text class='heading2' path={[...path,'title']} />
-    <Text class='body' path={[...path,'description']} />
+    <Text class='heading2' path={[...path,'title']} editable={block.editable} />
+    <Text class='body' path={[...path,'description']} editable={block.editable} />
   </div>
 </div>
 
