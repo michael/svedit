@@ -7,6 +7,71 @@
   import Container from '$lib/Container.svelte';
   import EntrySession from '$lib/EntrySession.svelte';
   import TextToolBar from '$lib/TextToolBar.svelte';
+
+  import document_schema from '$lib/document_schema.js';
+  import SveditDocument from '$lib/SveditDocument.svelte.js';
+
+  const raw_document = [
+    {
+      id: 'document_nav_item_1',
+      type: 'document_nav_item',
+      document_id: 'page_1',
+      label: 'Home',
+    },
+    {
+      id: 'nav_1',
+      type: 'nav',
+      nav_items: ['document_nav_item_1'],
+    },
+    {
+      id: 'paragraph_1',
+      content: ['Hello world.', []],
+    },
+    {
+      id: 'list_item_1',
+      type: 'list_item',
+      content: ['first list item', []],
+    },
+    {
+      id: 'list_item_2',
+      type: 'list_item',
+      content: ['second list item', []],
+    },
+    {
+      id: 'list_1',
+      type: 'list',
+      list_items: ['list_item_1', 'list_item_2'],
+    },
+    // IMPORTANT: The root node (entry point) must be the last one in the array
+    {
+      id: 'page_1',
+      type: 'page',
+      body: ['nav_1', 'paragraph_1', 'list_1'],
+    },
+  ];
+
+
+  const doc = new SveditDocument(document_schema, raw_document);
+
+  console.log('meeh');
+  // get the body (=array of node ids)
+  const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
+  console.log($state.snapshot(body));
+  const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
+  console.log('nav.nav_items before:', $state.snapshot(nav.nav_items));
+  // Delete the last nav item and store in the graph
+  const new_nav_items = nav.nav_items.splice(0, -1);
+  doc.set(['nav_1', 'nav_items'], new_nav_items);
+  console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
+
+  
+  
+  // // remove 
+  // doc.set(['nav_1', 'nav_items'], ['nav_1', 'paragraph_1']);
+
+  // doc.get('page_1', 'body', 0)
+
+
   let entry_session = new EntrySession({
     type: 'page',
     title: ['Svedit', []],
@@ -54,7 +119,7 @@
 </svelte:head>
 
 <div class="demo-wrapper">
-  <TextToolBar {entry_session} />
+  <!-- <TextToolBar {entry_session} /> -->
 
   <Svedit {entry_session} editable={true} class='flex-column'>
     <div class='flex-column gap-y-10 p-10 max-w-screen-lg mx-auto w-full'>
@@ -63,10 +128,6 @@
         <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
       </div>
       <Text path={['subtitle']} class='heading3' />
-    </div>
-    <!-- NOTE: non-editable island must have contenteditable="false" and contain some text content, otherwise invalid selections occur. -->
-    <div contenteditable="false" style="background: #eee; opacity: 0.5;" class='p-10 max-w-screen-lg mx-auto'>
-      <div><div>In this example the title and subtitle above are editable, but this piece of content here is not. Below is a container of Story and List blocks:</div></div>
     </div>
     <Container class="body flex-column gap-y-10" path={['body']}>
       {#snippet block(block, path)}
