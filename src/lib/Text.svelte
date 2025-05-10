@@ -41,8 +41,8 @@
     return fragments;
   }
 
-  let fragments = $derived(render_annotated_text(svedit.entry_session.get(path)[0], svedit.entry_session.get(path)[1]));
-  let plain_text = $derived(svedit.entry_session.get(path)[0]);
+  let fragments = $derived(render_annotated_text(svedit.document.get(path)[0], svedit.document.get(path)[1]));
+  let plain_text = $derived(svedit.document.get(path)[0]);
 
   function handle_link_click(e) {
     if (editable) {

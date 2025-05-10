@@ -4,30 +4,30 @@
   const svedit = getContext('svedit');
 
   let {
-    path
+    block,
+    index,
   } = $props();
-
-  let block = $derived(svedit.entry_session.get(path));
+  // let block = $derived(svedit.document.get(path));
 </script>
 
 <div
   class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full"
-  data-path={path.join('.')}
+  data-path={block.id}
   data-type="block"
-  data-index={path.at(-1)}
-  style="anchor-name: --{path.join('-')};"
+  data-index={index}
+  style="anchor-name: --{block.id};"
 >
   <div
     class='non-text-content' 
     contenteditable="false"
   >
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img src={block.image} alt={svedit.entry_session.get([...path, 'title'])[0]} />
+    <img src={block.image} alt={block.title[0]} />
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-    <Text class='heading2' path={[...path,'title']} editable={block.editable} />
-    <Text class='body' path={[...path,'description']} editable={block.editable} />
+    <Text class='heading2' path={[block.id,'title']} editable={block.editable} />
+    <Text class='body' path={[block.id,'description']} editable={block.editable} />
   </div>
 </div>
 
