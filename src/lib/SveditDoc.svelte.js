@@ -34,17 +34,25 @@ export default class SveditDoc {
       for (let i = 2; i < path.length; i++) {
         if (!val) return undefined
         val = val[path[i]];
+        // HACK: For now if the current path fragment is a number and the resolved value is a string,
+        // we assume it was a node_id (reference to another node) inside a multiref
+        // E.g. ['page_1', 'body', 0] would return the full node object not just the id.
+        // TODO: we need to ask the schema for that to do this reliably
+        if (parseInt(path[i]) !== NaN && typeof val === 'string') {
+          val = this.nodes[val];
+        }
       }
       return val;
     }
   }
 
   // Set a property of a node to a new value
-  // doc.set('list_1', 'list_items',  [1, 2, 3] })
+  // doc.set(["list_1", "list_items"],  [1, 2, 3] })
+  // doc.set(["page_1", "body", "0", "description"], ["adsfasdf", []])
   set (path, value) {
-    const node = this.get(path[0]);
+    const node = this.get(path.slice(0, -1));
     // TODO: We need to remember the old value and make an entry to the undo stack
-    node[path[1]] = value;
+    node[path.at(-1)] = value;
   }
 
   create(node) {
@@ -53,7 +61,6 @@ export default class SveditDoc {
     // NOTE: This is why the order of nodes in the raw_doc matters
     this.nodes[node.id] = node;
   }
-
 
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
@@ -396,6 +403,7 @@ export default class SveditDoc {
   select_parent() {
     if (this.selection?.type === 'text') {
       if (this.selection.path.length > 2) {
+        
         // For text selections, we need to go up two levels
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
