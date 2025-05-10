@@ -8,7 +8,7 @@
     class: css_class,
   } = $props();
 
-  let blocks = $derived(svedit.document.get(path).map(block_id => svedit.document.get(block_id)));
+  let blocks = $derived(svedit.doc.get(path).map(block_id => svedit.doc.get(block_id)));
 
   $inspect(blocks);
 </script>

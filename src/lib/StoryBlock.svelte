@@ -7,7 +7,7 @@
     block,
     index,
   } = $props();
-  // let block = $derived(svedit.document.get(path));
+  // let block = $derived(svedit.doc.get(path));
 </script>
 
 <div

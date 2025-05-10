@@ -3,7 +3,7 @@
   import Icon from '$lib/Icon.svelte';
 
   let {
-    document,
+    doc,
     children,
     editable = false,
     ref = $bindable(),
@@ -17,7 +17,7 @@
 
   function get_container_selection_paths() {
     const paths = [];
-    const sel = document.selection;
+    const sel = doc.selection;
     if (!sel) return;
     
     // Container selection. Not collapsed.
@@ -33,11 +33,11 @@
   }
 
   function get_container_cursor_info() {
-    const sel = document.selection;
+    const sel = doc.selection;
     if (!sel) return;
 
     if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
-      const container = document.get(sel.path);
+      const container = doc.get(sel.path);
       let block_index, position;
 
       if (sel.anchor_offset === container.length) {
@@ -57,12 +57,12 @@
   }
 
   function get_text_selection_info() {
-    const sel = document.selection;
+    const sel = doc.selection;
     if (!sel || sel.type !== 'text') return null;
 
-    const active_annotation = document.active_annotation();
+    const active_annotation = doc.active_annotation();
     if (active_annotation && active_annotation[2] === 'link') {
-      const annotated_text = document.get(sel.path);
+      const annotated_text = doc.get(sel.path);
       const annotation_index = annotated_text[1].indexOf(active_annotation);
       return {
         path: sel.path,
@@ -80,8 +80,8 @@
   }
 
   setContext("svedit", {
-    get document() {
-      return document;
+    get doc() {
+      return doc;
     }
   });
 
@@ -98,7 +98,7 @@
     
     event.preventDefault();
     if (inserted_char) {
-      document.insert_text(inserted_char);
+      doc.insert_text(inserted_char);
     }
   }
 
@@ -107,7 +107,7 @@
     let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
     // console.log('latest selection from dom', JSON.stringify(selection));
     if (selection) {
-      document.selection = selection;
+      doc.selection = selection;
     }
   }
 
@@ -118,12 +118,12 @@
 
     let plain_text, html, json_data;
 
-    if (document.selection?.type === 'text') {
-      plain_text = document.get_selected_plain_text();
+    if (doc.selection?.type === 'text') {
+      plain_text = doc.get_selected_plain_text();
       html = plain_text;
       console.log('selected_plain_text', plain_text);
-    } else if (document.selection?.type === 'container') {
-      const selected_blocks = document.get_selected_blocks();
+    } else if (doc.selection?.type === 'container') {
+      const selected_blocks = doc.get_selected_blocks();
       json_data = selected_blocks;
     }
 
@@ -147,7 +147,7 @@
     });
 
     if (delete_selection) {
-      document.delete();
+      doc.delete();
     }
   }
 
@@ -170,17 +170,17 @@
     if (pasted_json) {
       // ATM we assume when we get JSON, that we are dealing with a sequence of blocks that was copied
       const blocks = pasted_json;
-      document.insert_blocks(blocks);
+      doc.insert_blocks(blocks);
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
       const plain_text = await plain_text_blob.text();
-      document.insert_text(plain_text);
+      doc.insert_text(plain_text);
     }
   }
 
   function render_selection() {
-    const selection = document.selection;
+    const selection = doc.selection;
     let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     if (!selection) {
@@ -205,36 +205,36 @@
   }
 
   function onkeydown(e) {
-    const selection = document.selection;
+    const selection = doc.selection;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-      document.undo();
+      doc.undo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-      document.redo();
+      doc.redo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      document.insert_text('\n');
+      doc.insert_text('\n');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
-      document.annotate_text('strong');
+      doc.annotate_text('strong');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'i' && (e.ctrlKey || e.metaKey)) {
-      document.annotate_text('emphasis');
+      doc.annotate_text('emphasis');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      document.annotate_text('link', {
+      doc.annotate_text('link', {
         href: window.prompt('Enter the URL', 'https://example.com')
       });
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
-      document.delete();
+      doc.delete();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
@@ -243,14 +243,14 @@
       // a bit of schema introspection. E.g. to determine the default_block_type
       // based on a certain context
       if (path.at(-1) === 'items') {
-        document.insert_blocks([
+        doc.insert_blocks([
           {
             type: 'list',
             description: ['enter description', []],
           }
         ]);
       } else {
-        document.insert_blocks([
+        doc.insert_blocks([
           {
             type: 'story',
             image: '/images/container-cursors.svg',
@@ -265,30 +265,30 @@
     // Because of specificity, this has to come before the other arrow key checks
     } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && (e.metaKey || e.ctrlKey) && selection?.type === 'container') {
       if (e.key === 'ArrowUp') {
-        document.move_up();
+        doc.move_up();
       } else {
-        document.move_down();
+        doc.move_down();
       }
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
-      document.move_container_cursor('forward');
+      doc.move_container_cursor('forward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
-      document.move_container_cursor('backward');
+      doc.move_container_cursor('backward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
-      document.expand_container_selection('forward');
+      doc.expand_container_selection('forward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
-      document.expand_container_selection('backward');
+      doc.expand_container_selection('backward');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
-      document.select_parent();
+      doc.select_parent();
       e.preventDefault();
       e.stopPropagation();
     }
@@ -401,11 +401,11 @@
     }
 
     // Check if it's a backward selection
-    const isBackward = dom_selection.anchorNode === range.endContainer && 
+    const is_backward = dom_selection.anchorNode === range.endContainer && 
                       dom_selection.anchorOffset === range.endOffset;
 
     // Swap offsets if it's a backward selection
-    if (isBackward) {
+    if (is_backward) {
       [anchorOffset, focusOffset] = [focusOffset, anchorOffset];
     }
 
@@ -432,9 +432,9 @@
   }
 
   function __render_container_selection() {
-    // console.log('render_container_selection', $state.snapshot(document.selection));
-    const selection = document.selection;
-    const container = document.get(selection.path);
+    // console.log('render_container_selection', $state.snapshot(doc.selection));
+    const selection = doc.selection;
+    const container = doc.get(selection.path);
     const container_path = selection.path.join('.');
 
     // we need to translate the cusor offset to block offsets now
@@ -500,7 +500,7 @@
   }
 
   function __render_text_selection() {
-    const selection = document.selection;
+    const selection = doc.selection;
     // The element that holds the annotated text
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
 
@@ -660,7 +660,7 @@
 >
   <div
     class="svedit-canvas {css_class}"
-    class:hide-selection={document.selection?.type === 'container'}
+    class:hide-selection={doc.selection?.type === 'container'}
     bind:this={ref}
     {onbeforeinput}
     contenteditable={editable ? 'true' : 'false'}

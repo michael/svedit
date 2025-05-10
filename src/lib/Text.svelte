@@ -2,7 +2,7 @@
   import { getContext } from 'svelte';
   const svedit = getContext('svedit');
 
-  let { 
+  let {
     path, 
     class: css_class,
     editable = true
@@ -41,8 +41,8 @@
     return fragments;
   }
 
-  let fragments = $derived(render_annotated_text(svedit.document.get(path)[0], svedit.document.get(path)[1]));
-  let plain_text = $derived(svedit.document.get(path)[0]);
+  let fragments = $derived(render_annotated_text(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
+  let plain_text = $derived(svedit.doc.get(path)[0]);
 
   function handle_link_click(e) {
     if (editable) {

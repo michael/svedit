@@ -1,20 +1,20 @@
 
-export default class SveditDocument {
+export default class SveditDoc {
   selection = $state();  
-  document_id = $state();
+  doc_id = $state();
   nodes = $state();
 
-  constructor(schema, raw_document) {
+  constructor(schema, raw_doc) {
     this.selection = undefined;
     this.schema = schema;
     this.nodes = {};
 
-    for (const node of raw_document) {
+    for (const node of raw_doc) {
       this.create(node);
     }
 
-    // The last element in the raw_document is the document itself (the root node)
-    this.document_id = raw_document.at(-1).id;
+    // The last element in the raw_doc is the document itself (the root node)
+    this.doc_id = raw_doc.at(-1).id;
   }
 
   // doc.get('list_1')
@@ -50,7 +50,7 @@ export default class SveditDocument {
   create(node) {
     // TODO: check if node is valid according to schema
     // If other nodes are referenced, those have to be in the graph already
-    // NOTE: This is why the order of nodes in the raw_document matters
+    // NOTE: This is why the order of nodes in the raw_doc matters
     this.nodes[node.id] = node;
   }
 

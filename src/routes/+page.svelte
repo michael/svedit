@@ -6,20 +6,20 @@
   import Container from '$lib/Container.svelte';
   import TextToolBar from '$lib/TextToolBar.svelte';
 
-  import document_schema from '$lib/document_schema.js';
-  import SveditDocument from '$lib/SveditDocument.svelte.js';
+  import doc_schema from '$lib/doc_schema.js';
+  import SveditDoc from '$lib/SveditDoc.svelte.js';
 
-  const raw_document = [
+  const raw_doc = [
     // {
-    //   id: 'document_nav_item_1',
-    //   type: 'document_nav_item',
-    //   document_id: 'page_1',
+    //   id: 'doc_nav_item_1',
+    //   type: 'doc_nav_item',
+    //   doc_id: 'page_1',
     //   label: 'Home',
     // },
     // {
     //   id: 'nav_1',
     //   type: 'nav',
-    //   nav_items: ['document_nav_item_1'],
+    //   nav_items: ['doc_nav_item_1'],
     // },
     // {
     //   id: 'story_1',
@@ -52,12 +52,12 @@
     {
       id: 'page_1',
       type: 'page',
-      body: [/*'nav_1', */'story_1' /*, 'list_1'*/],
+      body: [/*'nav_1', */'story_1', 'story_1' /*, 'list_1'*/],
     },
   ];
 
 
-  const document = new SveditDocument(document_schema, raw_document);
+  const doc = new SveditDoc(doc_schema, raw_doc);
 
   // get the body (=array of node ids)
   // const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
@@ -118,15 +118,15 @@
 <div class="demo-wrapper">
   <!-- <TextToolBar {entry_session} /> -->
 
-  <Svedit {document} editable={true} class='flex-column'>
+  <Svedit {doc} editable={true} class='flex-column'>
     <Container class="body flex-column gap-y-10" path={['page_1', 'body']}>
       {#snippet block(block, index)}
         {#if block.type === 'story'}
-          <StoryBlock {block} />
+          <StoryBlock {block} {index} />
         {:else if block.type === 'list'}
-          <ListBlock {block} />
+          <ListBlock {block} {index} />
         {:else}
-          <UnknownBlock {block} />
+          <UnknownBlock {block} {index} />
         {/if}
       {/snippet}
     </Container>
@@ -134,12 +134,12 @@
 
   <hr/>
   
-  <!-- <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
+  <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
     <p>Selection:</p>
-    <pre class='debug-info p-4'>{JSON.stringify(entry_session.selection || {}, null, '  ')}</pre>
-    <p>Entry:</p>
-    <pre class='debug-info p-4'>{JSON.stringify(entry_session.entry, null, '  ')}</pre>
-  </div> -->
+    <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>
+    <p>Nodes:</p>
+    <pre class='debug-info p-4'>{JSON.stringify(doc.nodes, null, '  ')}</pre>
+  </div>
 </div>
 
 <style>
