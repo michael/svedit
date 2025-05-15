@@ -285,7 +285,7 @@ CREATE TABLE document_previews (
 
     --- 
     
-    > **Comment by J:**
+    > **1. Comment by J:**
     >
     > My main goal is: Unified Editing Flow (WYSIWYG) for all content: Authors can edit everything in one go. No context switching.
     > 
@@ -313,6 +313,8 @@ CREATE TABLE document_previews (
     >   - c) Dumb autocomplete: The Block has a property that says "insert_by_default_in_new_docs: true" (the "new_doc" function then fetches any block that has this property and inserts it as shared block).
     > - Will Svelte re-render blocks like the NavigationBlock that appear (at the same position) in different sub routes or does it smartly compare the differences in the root Svedit JSON and only re-render what changed?
 
+ > **2. Comment by J:**
+ > If above doen't work maybe we need a `LayoutDoc` and a `PageDoc` equivalent to `+layout.svelte` and `+page.svelte`. Users can add NavBlock in `LayoutDoc` but don't have to. Both would be accessible via the same `Edit` action. Both would behave the same in terms of editing/inserting blocks.
 
 
 ## Crazy ideas for the future
