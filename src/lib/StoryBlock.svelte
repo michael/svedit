@@ -12,7 +12,7 @@
 
 <div
   class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full"
-  data-path={block.id}
+  data-path={path.join('.')}
   data-type="block"
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"

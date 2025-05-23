@@ -304,117 +304,153 @@
     if (!focus_node.closest) focus_node = focus_node.parentElement;
     if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
 
-    let focus_root = focus_node.closest('[data-path][data-type="block"]');
-    if (!focus_root) return null;
+    // Get the container element that holds the blocks
+    const container_el = ref.querySelector('[data-type="container"]');
+    if (!container_el) return null;
 
-    let anchor_root = anchor_node.closest('[data-path][data-type="block"]');
-    if (!anchor_root) return null;
-
-    if (!(focus_root && anchor_root)) {
-      return null;
-    }
-
-    let focus_root_path = focus_root.dataset.path.split('.');
-    let anchor_root_path = anchor_root.dataset.path.split('.');
-
-    // HACK: this works only for one level nesting - should be done recursively to work generally
-    if (focus_root_path.length > anchor_root_path.length) {
-      focus_root = focus_root.parentElement.closest('[data-path][data-type="block"]');
-      focus_root_path = focus_root.dataset.path.split('.');      
-    } else if (anchor_root_path.length > focus_root_path.length) {
-      anchor_root = anchor_root.parentElement.closest('[data-path][data-type="block"]');
-      anchor_root_path = anchor_root.dataset.path.split('.');
-    }
-
-    const is_same_container = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
-    if (!is_same_container) {
-      console.log('invalid selection, not same container');
-      return null;
-    }
-
-    let anchor_offset = parseInt(anchor_root_path.at(-1));
-    let focus_offset = parseInt(focus_root_path.at(-1));
-
+    // Get the container path from the data-path attribute
+    const container_path = container_el.dataset.path ? container_el.dataset.path.split('.') : [];
+    
+    // Get all block elements within the container
+    const block_elements = Array.from(container_children(container_el));
+    
+    // Find the focused and anchored blocks using their data-path attributes
+    const focus_block = focus_node.closest('[data-path]');
+    const anchor_block = anchor_node.closest('[data-path]');
+    
+    if (!focus_block || !anchor_block) return null;
+    
+    // Get the full paths of the blocks
+    const focus_path = focus_block.dataset.path ? focus_block.dataset.path.split('.') : [];
+    const anchor_path = anchor_block.dataset.path ? anchor_block.dataset.path.split('.') : [];
+    
+    // Find the indices of the blocks in the container by matching their full paths
+    const focus_index = block_elements.findIndex(el => {
+      const el_path = el.dataset.path ? el.dataset.path.split('.') : [];
+      return el_path.join('.') === focus_path.join('.');
+    });
+    
+    const anchor_index = block_elements.findIndex(el => {
+      const el_path = el.dataset.path ? el.dataset.path.split('.') : [];
+      return el_path.join('.') === anchor_path.join('.');
+    });
+    
+    if (focus_index === -1 || anchor_index === -1) return null;
+    
     // Check if it's a backwards selection
     const is_backwards = __is_dom_selection_backwards();
-    if (is_backwards) {
-      anchor_offset += 1;
-    } else {
-      focus_offset += 1;
-    }
-
-    const result = {
-      type: 'container',
-      path: anchor_root_path.slice(0, -1),
-      anchor_offset: anchor_offset,
-      focus_offset: focus_offset,
-    };
-    return result;
-  }
-
-  function __get_text_selection_from_dom() {
-    const dom_selection = window.getSelection();
-    if (dom_selection.rangeCount === 0) return null;
-
-    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
-    if (!focus_root) return null;
-    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
-    if (!anchor_root) return null;
     
-    if (focus_root !== anchor_root) {
-      return null;
-    }
-
-    const range = dom_selection.getRangeAt(0);
-    const path = focus_root.dataset.path.split('.');
-
-    if (!path) return null;
-
-    let anchorOffset = 0;
-    let focusOffset = 0;
-    let currentOffset = 0;
-
-    function processNode(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const nodeLength = node.length;
-        
-        if (node === range.startContainer) {
-          anchorOffset = currentOffset + range.startOffset;
-        }
-        if (node === range.endContainer) {
-          focusOffset = currentOffset + range.endOffset;
-        }
-        
-        currentOffset += nodeLength;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const childNode of node.childNodes) {
-          processNode(childNode);
-        }
-      }
-      
-      return (focusOffset !== 0);
-    }
-
-    // Process nodes to find offsets
-    for (const childNode of focus_root.childNodes) {
-      if (processNode(childNode)) break;
-    }
-
-    // Check if it's a backward selection
-    const is_backward = dom_selection.anchorNode === range.endContainer && 
-                      dom_selection.anchorOffset === range.endOffset;
-
-    // Swap offsets if it's a backward selection
-    if (is_backward) {
-      [anchorOffset, focusOffset] = [focusOffset, anchorOffset];
+    // Determine the selection range
+    let start_index, end_index;
+    if (is_backwards) {
+      start_index = Math.min(focus_index, anchor_index);
+      end_index = Math.max(focus_index, anchor_index) + 1; // +1 because selection is exclusive at the end
+    } else {
+      start_index = Math.min(focus_index, anchor_index);
+      end_index = Math.max(focus_index, anchor_index) + 1; // +1 because selection is exclusive at the end
     }
 
     return {
-      type: 'text',
-      path,
-      anchor_offset: anchorOffset,
-      focus_offset: focusOffset
+      type: 'container',
+      path: container_path,
+      anchor_offset: is_backwards ? end_index : start_index,
+      focus_offset: is_backwards ? start_index : end_index,
     };
+  }
+  
+  // Helper function to get direct children of a container, skipping any nested containers
+  function container_children(container) {
+    return Array.from(container.children).filter(child => 
+      child.hasAttribute('data-id') || child.querySelector('[data-id]')
+    );
+  }
+
+  function __get_text_selection_from_dom() {
+    try {
+      const dom_selection = window.getSelection();
+      if (!dom_selection || dom_selection.rangeCount === 0) return null;
+
+      // Helper function to safely get the closest element with data-path
+      const getClosestPathElement = (node) => {
+        try {
+          if (!node) return null;
+          
+          let element = node;
+          
+          // If it's a text node, get its parent element
+          if (node.nodeType === Node.TEXT_NODE) {
+            if (!node.parentElement) return null;
+            element = node.parentElement;
+          }
+          
+          // Ensure we have an element node
+          if (element.nodeType !== Node.ELEMENT_NODE) return null;
+          
+          // Find the closest element with data-path
+          return element.closest('[data-path]');
+        } catch (error) {
+          console.error('Error in getClosestPathElement:', error);
+          return null;
+        }
+      };
+
+      // Get the closest elements with data-path
+      const focus_element = getClosestPathElement(dom_selection.focusNode);
+      const anchor_element = getClosestPathElement(dom_selection.anchorNode);
+      
+      // If we can't find elements or the selection spans multiple paths, return null
+      if (!focus_element || !anchor_element) return null;
+      
+      // Get the hierarchical path from the data-path attribute
+      const focus_path = focus_element.dataset?.path?.split('.') || [];
+      const anchor_path = anchor_element.dataset?.path?.split('.') || [];
+      
+      // For now, we only support selections within the same text field
+      if (focus_path.join('.') !== anchor_path.join('.')) return null;
+      
+      // Find the text element within the block
+      const text_el = dom_selection.focusNode.nodeType === Node.ELEMENT_NODE 
+        ? dom_selection.focusNode.closest('[data-type="text"]')
+        : dom_selection.focusNode.parentElement?.closest('[data-type="text"]');
+      
+      if (!text_el) return null;
+      
+      const range = dom_selection.getRangeAt(0);
+      const text_content = text_el.textContent || '';
+      
+      // Get the offset of the selection within the text element
+      const range_start = range.startContainer === text_el
+        ? range.startOffset
+        : range.startOffset + (range.startContainer.textContent?.substring(0, range.startOffset).length || 0);
+        
+      const range_end = range.endContainer === text_el
+        ? range.endOffset
+        : range.endOffset + (range.endContainer.textContent?.substring(0, range.endOffset).length || 0);
+      
+      // Ensure the range is ordered correctly (start <= end)
+      const [start, end] = range_start <= range_end 
+        ? [range_start, range_end] 
+        : [range_end, range_start];
+      
+      // If the selection is collapsed, return null
+      if (start === end) return null;
+      
+      // Check if it's a backward selection
+      const is_backward = dom_selection.anchorNode === range.endContainer && 
+                        dom_selection.anchorOffset === range.endOffset;
+
+      return {
+        type: 'text',
+        path: focus_path,
+        start: is_backward ? end : start,
+        end: is_backward ? start : end,
+        text: text_content.substring(start, end)
+      };
+      
+    } catch (error) {
+      console.error('Error in __get_text_selection_from_dom:', error);
+      return null;
+    }
   }
 
   function __get_block_element(container_path, block_offset) {
@@ -432,82 +468,120 @@
   }
 
   function __render_container_selection() {
-    // console.log('render_container_selection', $state.snapshot(doc.selection));
     const selection = doc.selection;
+    if (!selection) return;
+    
     const container = doc.get(selection.path);
-    const container_path = selection.path.join('.');
-
-    // we need to translate the cusor offset to block offsets now
-    let anchor_block_offset = selection.anchor_offset > selection.focus_offset ? selection.anchor_offset - 1 : selection.anchor_offset;
-    let focus_block_offset = selection.focus_offset > selection.anchor_offset ? selection.focus_offset - 1 : selection.focus_offset;
-    const anchor_node = __get_block_element(container_path, anchor_block_offset);
-    const focus_node = __get_block_element(container_path, focus_block_offset);
-
-    if (!anchor_node || !focus_node) return;
+    if (!container) {
+      console.error('Container not found for path:', selection.path);
+      return;
+    }
+    
+    // Find the container element by its data-path
+    const container_path_str = selection.path.join('.');
+    const container_el = ref.querySelector(`[data-path="${container_path_str}"][data-type="container"]`);
+    if (!container_el) {
+      console.error('Container element not found in DOM for path:', container_path_str);
+      return;
+    }
+    
+    // Get all block elements within the container
+    const block_elements = Array.from(container_children(container_el));
+    
+    // Get the start and end indices for the selection
+    const start = Math.min(selection.anchor_offset, selection.focus_offset);
+    const end = Math.max(selection.anchor_offset, selection.focus_offset);
+    
+    // Get the anchor and focus nodes based on the selection direction
+    const anchor_node = block_elements[start === selection.anchor_offset ? start : end - 1];
+    const focus_node = block_elements[start === selection.anchor_offset ? end - 1 : start];
+    
+    if (!anchor_node || !focus_node) {
+      console.error('Anchor or focus node not found in DOM');
+      return;
+    }
+    
     const dom_selection = window.getSelection();
     const range = window.document.createRange();
-
+    
     if (selection.anchor_offset === selection.focus_offset) {
       // Collapsed selection (cursor between blocks)
-      if (selection.anchor_offset === container.length) {
-        range.setStartAfter(anchor_node);
-        range.setEndAfter(anchor_node);
+      if (selection.anchor_offset >= block_elements.length) {
+        // Cursor at the end of the container
+        if (block_elements.length > 0) {
+          range.setStartAfter(block_elements[block_elements.length - 1]);
+          range.setEndAfter(block_elements[block_elements.length - 1]);
+        } else {
+          // Empty container, set range inside the container
+          range.setStart(container_el, 0);
+          range.setEnd(container_el, 0);
+        }
       } else {
-        range.setStartBefore(anchor_node);
-        range.setEndBefore(anchor_node);
+        // Cursor before a block
+        range.setStartBefore(block_elements[selection.anchor_offset]);
+        range.setEndBefore(block_elements[selection.anchor_offset]);
       }
       dom_selection.removeAllRanges();
       dom_selection.addRange(range);
-
     } else {
       // Non-collapsed selection
       if (selection.anchor_offset > selection.focus_offset) {
         // Backwards selection
-        let last_text_node = __find_last_text_node(anchor_node);
-        let first_text_node = __find_first_text_node(focus_node);
+        const last_text_node = __find_last_text_node(anchor_node);
+        const first_text_node = __find_first_text_node(focus_node);
 
         if (!last_text_node || !first_text_node) {
           console.error('Selection mapping error: Make sure every block contains at least one text node');
           return;
         }
+        
         range.setStart(first_text_node, 0);
         range.setEnd(last_text_node, last_text_node.length);
         dom_selection.removeAllRanges();
         dom_selection.addRange(range);
-
-        // Phew, this was a hard not to crack. But with that code the direction can be reversed.
+        
+        // Set the selection direction to backwards
         dom_selection.setBaseAndExtent(last_text_node, last_text_node.length, first_text_node, 0);
       } else {
-        // Regular foward selection
+        // Regular forward selection
         range.setStart(anchor_node, 0);
         range.setEnd(focus_node, focus_node.childNodes.length);
         dom_selection.removeAllRanges();
         dom_selection.addRange(range);
       }
     }
-
+    
     // Ensure the container is focused
-    const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
-    if (container_el) {
-      container_el.focus();
-      // Scroll the selection into view
-      setTimeout(() => {
-        (selection.anchor_offset > selection.focus_offset ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }, 0);
-    } else {
-      console.log('no container element found!!');
-    }
+    container_el.focus();
+    
+    // Scroll the selection into view
+    setTimeout(() => {
+      const node_to_scroll = selection.anchor_offset > selection.focus_offset ? focus_node : anchor_node;
+      if (node_to_scroll) {
+        node_to_scroll.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+      }
+    }, 0);
   }
 
   function __render_text_selection() {
     const selection = doc.selection;
-    // The element that holds the annotated text
-    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
+    if (!selection) return;
+    
+    // The path is a hierarchical path like ['page_1', 'body', 0, 'title']
+    const path = selection.path;
+    const path_str = path.join('.');
+    
+    // Find the text element by its data-path attribute
+    const text_el = ref.querySelector(`[data-path="${path_str}"][data-type="text"]`);
+    if (!text_el) {
+      console.error('Text element not found for path:', path_str);
+      return;
+    }
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
     let currentOffset = 0;
-    let anchorNode, anchorNodeOffset, focusNode, focusNodeOffset;
+    let anchorNode = null, anchorNodeOffset = 0, focusNode = null, focusNodeOffset = 0;
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
@@ -541,20 +615,27 @@
         }
         
         currentOffset += nodeLength;
+        return false;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
+        // Skip processing if this is a non-text element with data-type attribute
+        if (node.hasAttribute('data-type') && node.getAttribute('data-type') !== 'text') {
+          return false;
+        }
+        
+        // Process child nodes
         for (const childNode of node.childNodes) {
-          if (processNode(childNode)) return true; // Stop iteration if end found
+          if (processNode(childNode)) return true;
         }
       }
       return false; // Continue iteration
     }
 
-    // Iterate through child nodes
-    for (const childNode of el.childNodes) {
+    // Iterate through direct child nodes of the text element
+    for (const childNode of text_el.childNodes) {
       if (processNode(childNode)) break;
     }
 
-    // Handle edge case: cursor at the end of an annotation
+    // Handle edge case: cursor at the end of the text
     if (anchorNode && !focusNode && currentOffset === end_offset) {
       focusNode = anchorNode.nextSibling || anchorNode;
       focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
@@ -562,22 +643,31 @@
 
     // Set the range if both start and end were found
     if (anchorNode && focusNode) {
-      range.setStart(anchorNode, anchorNodeOffset);
-      range.setEnd(focusNode, focusNodeOffset);
-      dom_selection.removeAllRanges();
-      dom_selection.addRange(range);
-      if (is_backward) {
-        dom_selection.extend(focusNode, focusNodeOffset);
-      }
-      el.focus(); // needed?
-
-      // Scroll the selection into view
-      setTimeout(() => {
-        const selectedElement = dom_selection.focusNode.parentElement;
-        if (selectedElement) {
-          selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      try {
+        range.setStart(anchorNode, Math.min(anchorNodeOffset, anchorNode.length));
+        range.setEnd(focusNode, Math.min(focusNodeOffset, focusNode.length || 0));
+        
+        dom_selection.removeAllRanges();
+        dom_selection.addRange(range);
+        
+        // Set the selection direction for backward selections
+        if (is_backward) {
+          dom_selection.extend(focusNode, focusNodeOffset);
         }
-      }, 0);
+        
+        // Focus the text element
+        text_el.focus();
+        
+        // Scroll the selection into view
+        setTimeout(() => {
+          const selectedElement = dom_selection.focusNode?.parentElement || text_el;
+          if (selectedElement) {
+            selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+          }
+        }, 0);
+      } catch (e) {
+        console.error('Error setting text selection range:', e);
+      }
     }
   }
 
@@ -585,31 +675,53 @@
   // --------------------------
 
   function __find_first_text_node(el) {
+    if (!el) return null;
+    
     if (el.nodeType === Node.TEXT_NODE) {
       return el;
     }
     
-    for (let child of el.childNodes) {
+    // Skip elements with data-type that's not 'text'
+    if (el.nodeType === Node.ELEMENT_NODE && 
+        el.hasAttribute('data-type') && 
+        el.getAttribute('data-type') !== 'text') {
+      return null;
+    }
+    
+    for (let i = 0; i < el.childNodes.length; i++) {
+      const child = el.childNodes[i];
       const textNode = __find_first_text_node(child);
       if (textNode) {
         return textNode;
       }
     }
+    return null;
   }
 
   function __find_last_text_node(el) {
+    if (!el) return null;
+    
     // If the element itself is a text node, return it
     if (el.nodeType === Node.TEXT_NODE) {
       return el;
     }
     
-    // Iterate through child nodes in reverse order
+    // If this is a non-text element with data-type, skip it
+    if (el.nodeType === Node.ELEMENT_NODE && 
+        el.hasAttribute('data-type') && 
+        el.getAttribute('data-type') !== 'text') {
+      return null;
+    }
+    
+    // Check children in reverse order to find the last text node
     for (let i = el.childNodes.length - 1; i >= 0; i--) {
       const textNode = __find_last_text_node(el.childNodes[i]);
       if (textNode) {
         return textNode;
       }
     }
+    
+    return null;
   }
 
   function __is_dom_selection_backwards() {
