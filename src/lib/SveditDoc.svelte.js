@@ -9,6 +9,9 @@ export default class SveditDoc {
     this.schema = schema;
     this.nodes = {};
 
+    this.history = [];
+    this.future = [];
+
     for (const node of raw_doc) {
       this.create(node);
     }
@@ -48,11 +51,22 @@ export default class SveditDoc {
 
   // Set a property of a node to a new value
   // doc.set(["list_1", "list_items"],  [1, 2, 3] })
-  // doc.set(["page_1", "body", "0", "description"], ["adsfasdf", []])
+  // doc.set(["page_1", "body", "0", "description"], ["Hello world", []])
   set (path, value) {
     const node = this.get(path.slice(0, -1));
-    // TODO: We need to remember the old value and make an entry to the undo stack
+
+    // Just to be sure, make a deep copy of the old value
+    const previous_value = structuredClone($state.snapshot(node[path.at(-1)]));
+
+    const previous_change = {
+      path,
+      value: previous_value,
+      selection: structuredClone($state.snapshot(this.selection)),
+    };
+
     node[path.at(-1)] = value;
+    this.history = [ ...this.history, previous_change ];
+    this.future = [];
   }
 
   create(node) {
@@ -371,32 +385,37 @@ export default class SveditDoc {
 
   undo() {
     if (this.history.length === 0) return;
-    const previous = this.history[this.history.length - 1];
-    const current_copy = {
-      entry: structuredClone($state.snapshot(this.entry)),
+    const previous_change = this.history[this.history.length - 1];
+    const node = this.get(previous_change.path.slice(0, -1));
+    const next_value = structuredClone($state.snapshot(node[previous_change.path.at(-1)]));
+    const next_change = {
+      path: previous_change.path,
+      value: next_value,
       selection: structuredClone($state.snapshot(this.selection)),
     };
-    
-    // Directly update entry and selection with previous state
-    this.entry = previous.entry;
-    this.selection = previous.selection;
+
+    // Apply the undo change
+    node[previous_change.path.at(-1)] = previous_change.value;
+    this.selection = previous_change.selection;
     this.history = this.history.slice(0, -1);
-    this.future = [current_copy, ...this.future];
+    this.future = [next_change, ...this.future];
   }
 
   redo() {
     if (this.future.length === 0) return;
-    const [next, ...remaining_future] = this.future;
-    const current_copy = {
-      entry: structuredClone($state.snapshot(this.entry)),
+    const [next_change, ...remaining_future] = this.future;
+    const node = this.get(next_change.path.slice(0, -1));
+    const previous_value = structuredClone($state.snapshot(node[next_change.path.at(-1)]));
+    const previous_change = {
+      path: next_change.path,
+      value: previous_value,
       selection: structuredClone($state.snapshot(this.selection)),
     };
     
-    // Directly update entry and selection with next state
-    this.entry = next.entry;
-    this.selection = next.selection;
-    
-    this.history = [...this.history, current_copy];
+    // Apply the redo change
+    node[next_change.path.at(-1)] = next_change.value;
+    this.selection = next_change.selection;
+    this.history = [...this.history, previous_change];
     this.future = remaining_future;
   }
 
