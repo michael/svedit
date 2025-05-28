@@ -59,6 +59,7 @@
 
   const doc = new SveditDoc(doc_schema, raw_doc);
 
+
   // get the body (=array of node ids)
   // const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
   // console.log($state.snapshot(body));
@@ -68,8 +69,6 @@
   // const new_nav_items = nav.nav_items.splice(0, -1);
   // doc.set(['nav_1', 'nav_items'], new_nav_items);
   // console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
-
-
 
   // const flat_description = doc.get(['story_1', 'description']);
   // console.log('flat_description:', $state.snapshot(flat_description));
@@ -82,6 +81,9 @@
   // const story_node_deep = doc.get(['page_1', 'body', 0]);
   // console.log('story_node_deep:', $state.snapshot(story_node_deep));
 
+  $effect(() => {
+    console.log('serialized_doc', doc.to_json());
+  })
 </script>
 
 <svelte:head>

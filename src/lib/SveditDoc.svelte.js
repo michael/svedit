@@ -1,6 +1,7 @@
+import SveditTransaction from './SveditTransaction.svelte.js';
 
 export default class SveditDoc {
-  selection = $state();  
+  selection = $state();
   doc_id = $state();
   nodes = $state();
 
@@ -9,15 +10,85 @@ export default class SveditDoc {
     this.schema = schema;
     this.nodes = {};
 
+    // These do not need to be reactive
     this.history = [];
-    this.future = [];
+    this.history_index = -1;
 
+    // Initialize the nodes
     for (const node of raw_doc) {
-      this.create(node);
+      this.nodes[node.id] = node;
     }
 
     // The last element in the raw_doc is the document itself (the root node)
     this.doc_id = raw_doc.at(-1).id;
+  }
+
+  // Internal unsafe function: Never call this directly
+  _apply_op(op) {
+    const [type, ...args] = op;
+    if (type === 'set') {
+      const node = this.get(args[0].slice(0, -1));
+      node[args[0].at(-1)] = args[1];
+    } else if (type === 'create') {
+      this.nodes[args[0].id] = args[0];
+    } else if (type === 'delete') {
+      delete this.nodes[args[0]];
+    }
+  }
+
+  // Creates a new transaction
+  get tr() {
+    // We create a copy of the current document to avoid modifying the original
+    const transaction_doc = new SveditDoc(this.schema, this.to_json());
+    return new SveditTransaction(transaction_doc);
+  }
+
+  // Applies a transaction
+  apply(transaction) {
+    this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
+    this.selection = transaction.doc.selection;
+    if (this.history_index < this.history.length - 1) {
+      this.history = this.history.slice(0, this.history_index + 1);
+    }
+    this.history.push({
+      ops: transaction.ops,
+      inverse_ops: transaction.inverse_ops,
+      selection_before: transaction.selection_before,
+      selection_after: this.selection
+    });
+    this.history_index++;
+    return this;
+  }
+
+  undo() {
+    if (this.history_index < 0) {
+      console.warn('No changes to undo');
+      return;
+    }
+    const change = this.history[this.history_index];
+    const tr = this.tr;
+    change.inverse_ops.forEach(op => tr.doc._apply_op(op));
+    tr.set_selection(change.selection_before);
+    this.nodes = tr.doc.nodes;
+    this.selection = change.selection_before;
+    this.history_index--;
+    return this;
+  }
+
+  redo() {
+    if (this.history_index >= this.history.length - 1) {
+      console.warn('No changes to redo');
+      return;
+    }
+    this.history_index++;
+    const change = this.history[this.history_index];
+    const tr = this.tr;
+    change.ops.forEach(op => tr.doc._apply_op(op));
+    tr.set_selection(change.selection_after);
+    
+    this.nodes = tr.doc.nodes;
+    this.selection = change.selection_after;
+    return this;
   }
 
   // doc.get('list_1')
@@ -47,33 +118,6 @@ export default class SveditDoc {
       }
       return val;
     }
-  }
-
-  // Set a property of a node to a new value
-  // doc.set(["list_1", "list_items"],  [1, 2, 3] })
-  // doc.set(["page_1", "body", "0", "description"], ["Hello world", []])
-  set (path, value) {
-    const node = this.get(path.slice(0, -1));
-
-    // Just to be sure, make a deep copy of the old value
-    const previous_value = structuredClone($state.snapshot(node[path.at(-1)]));
-
-    const previous_change = {
-      path,
-      value: previous_value,
-      selection: structuredClone($state.snapshot(this.selection)),
-    };
-
-    node[path.at(-1)] = value;
-    this.history = [ ...this.history, previous_change ];
-    this.future = [];
-  }
-
-  create(node) {
-    // TODO: check if node is valid according to schema
-    // If other nodes are referenced, those have to be in the graph already
-    // NOTE: This is why the order of nodes in the raw_doc matters
-    this.nodes[node.id] = node;
   }
 
   active_annotation(annotation_type) {
@@ -151,278 +195,10 @@ export default class SveditDoc {
     }
   }
 
-  annotate_text(annotation_type, annotation_data) {
-    if (this.selection.type !== 'text') return;
-
-    const { start, end } = this.get_selection_range();
-
-    const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-    const annotations = annotated_text[1];
-    const existing_annotations = this.active_annotation();
-
-
-    // Special annotation type handling should probably be done in a separate function.
-    // The goal is to keep the core logic simple and allow developer to extend and pick only what they need.
-    // It could also be abstracted to not check for type (e.g. "link") but for a special attribute 
-    // e.g. "zero-range-updatable" for annotations that are updatable without a range selection change.
-
-
-    // Special handling for links when there's no selection range
-    // Links should be updatable by just clicking on them without a range selection
-    if (annotation_type === 'link' && start === end && existing_annotations) {
-      
-      // Use findIndex for deep comparison of annotation properties (comparison of annotation properties rather than object reference via indexOf)
-      const index = annotations.findIndex(anno => 
-        anno[0] === existing_annotations[0] && 
-        anno[1] === existing_annotations[1] && 
-        anno[2] === existing_annotations[2]
-      );
-      // const index = annotations.indexOf(existing_annotations);
-
-      if (index !== -1) {
-        if (annotation_data.href === '') {
-          // Remove the annotation if the href is empty
-          annotations.splice(index, 1);
-        } else {
-          annotations[index] = [
-            existing_annotations[0],
-            existing_annotations[1],
-            'link',
-            { ...existing_annotations[3], ...annotation_data }
-          ];
-        }
-
-        this.set(this.selection.path, annotated_text);
-        return;
-      }
-    }
-
-    // Regular annotation handling
-    if (start === end) {
-      // For non-link annotations: You can not annotate text if the selection is collapsed.
-      return;
-    }
-
-    if (existing_annotations) {
-      // If there's an existing annotation of the same type, remove it
-      if (existing_annotations[2] === annotation_type) {
-        const index = annotations.findIndex(anno => 
-          anno[0] === existing_annotations[0] && 
-          anno[1] === existing_annotations[1] && 
-          anno[2] === existing_annotations[2]
-        );
-        if (index !== -1) {
-          annotations.splice(index, 1);
-        }
-      } else {
-        // If there's an annotation of a different type, don't add a new one
-        return;
-      }
-    } else {
-      // If there's no existing annotation, add the new one
-      annotations.push([start, end, annotation_type, annotation_data]);
-    }
-
-    // Update the annotated text
-    this.set(this.selection.path, annotated_text);
-    this.selection = { ...this.selection };
-  }
-
-  delete() {
-    if (!this.selection) return;
-    const path = this.selection.path;
-    // Get the start and end indices for the selection
-    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-    // If selection is collapsed we delete the previous block
-    if (start === end) {
-      if (start > 0) {
-        start = start - 1;
-      } else {
-        return; // cursor is at the very beginning, do nothing.
-      }
-    }
-
-    if (this.selection.type === 'container') {
-      const container = [...this.get(path)]; // container is an array of blocks
-
-      // Remove the selected blocks from the container
-      container.splice(start, end - start);
-
-      // Update the container in the entry
-      this.set(path, container);
-
-      // Update the selection to point to the start of the deleted range
-      this.selection = {
-        type: 'container',
-        path,
-        anchor_offset: start,
-        focus_offset: start
-      };
-    } else if (this.selection.type === 'text') {
-      const path = this.selection.path;
-      let text = structuredClone($state.snapshot(this.get(path)));
-
-      text[0] = text[0].slice(0, start) + text[0].slice(end);
-      this.set(path, text);
-
-      this.selection = {
-        type: 'text',
-        path,
-        anchor_offset: start,
-        focus_offset: start
-      };
-    }
-  }
-
-  insert_blocks(blocks) {
-    if (this.selection.type !== 'container') return;
-
-    const path = this.selection.path;
-    const container = [...this.get(path)];
-
-    // Get the start and end indices for the selection
-    let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-    let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-    if (start !== end) {
-      // Remove the selected blocks from the container
-      container.splice(start, end - start);
-    }
-
-    container.splice(start, 0, ...blocks);
-
-    // Update the container in the entry
-    this.set(path, container);
-
-    this.selection = {
-      type: 'container',
-      // NOTE: we hard code this temporarily as both story and list-item have a description property
-      path: [...this.selection.path],
-      anchor_offset: start,
-      focus_offset: start + blocks.length
-    };
-  }
-  
-  // TODO: we need to also support annotations attached to replaced_text. This is needed to
-  // support copy&paste including annotations. Currently the annotations are lost on paste.
-  insert_text(replaced_text) {
-    if (this.selection.type !== 'text') return;
-    
-    const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-    const { start, end } = this.get_selection_range();
-
-    // Transform the plain text string.
-    annotated_text[0] = annotated_text[0].slice(0, start) + replaced_text + annotated_text[0].slice(end);
-
-    // Transform the annotations (annotated_text[1])
-    // NOTE: Annotations are stored as [start_offset, end_offset, type]
-    // Cover the following cases for all annotations:
-    // 1. text inserted before the annotation (the annotation should be shifted by replaced_text.length - (end - start))
-    // 2. text inserted inside an annotation (start>=annotation.start_offset und end <=annotation.end_offset)
-    // 3. text inserted after an annotation (the annotation should be unchanged)
-    // 4. the annotation is wrapped in start and end (the annotation should be removed)
-    // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
-    // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
-
-    const delta = replaced_text.length - (end - start);
-    const new_annotations = annotated_text[1].map(annotation => {
-      const [anno_start, anno_end, type, anno_data] = annotation;
-
-      // Case 4: annotation is wrapped in start and end (remove it)
-      if (start <= anno_start && end >= anno_end) {
-        return false;
-      }
-
-      // Case 1: text inserted before the annotation
-      if (end <= anno_start) {
-        return [anno_start + delta, anno_end + delta, type, anno_data];
-      }
-
-      // Case 2: text inserted at the end or inside an annotation
-      if (start >= anno_start && start <= anno_end) {
-        console.log('Case 2: text inserted at the end or inside an annotation');
-        if (start === anno_end) {
-          // Text inserted right after the annotation
-          return [anno_start, anno_end, type, anno_data];
-        } else {
-          // Text inserted inside the annotation
-          return [anno_start, anno_end + delta, type, anno_data];
-        }
-      }
-
-      // Case 3: text inserted after the annotation
-      if (start >= anno_end) {
-        return annotation;
-      }
-
-      // Case 5: annotation is partly selected towards right
-      if (start > anno_start && start < anno_end && end > anno_end) {
-        return [anno_start, start, type, anno_data];
-      }
-
-      // Case 6: annotation is partly selected towards left
-      if (start < anno_start && end > anno_start && end < anno_end) {
-        return [end + delta, anno_end + delta, type, anno_data];
-      }
-
-      // Default case: shouldn't happen, but keep the annotation unchanged
-      return annotation;
-    }).filter(Boolean);
-
-    this.set(this.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
-
-    // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
-    const new_selection = {
-      type: 'text',
-      path: this.selection.path,
-      anchor_offset: start + replaced_text.length,
-      focus_offset: start + replaced_text.length,
-    };
-    this.selection = new_selection;
-  }
-
-  undo() {
-    if (this.history.length === 0) return;
-    const previous_change = this.history[this.history.length - 1];
-    const node = this.get(previous_change.path.slice(0, -1));
-    const next_value = structuredClone($state.snapshot(node[previous_change.path.at(-1)]));
-    const next_change = {
-      path: previous_change.path,
-      value: next_value,
-      selection: structuredClone($state.snapshot(this.selection)),
-    };
-
-    // Apply the undo change
-    node[previous_change.path.at(-1)] = previous_change.value;
-    this.selection = previous_change.selection;
-    this.history = this.history.slice(0, -1);
-    this.future = [next_change, ...this.future];
-  }
-
-  redo() {
-    if (this.future.length === 0) return;
-    const [next_change, ...remaining_future] = this.future;
-    const node = this.get(next_change.path.slice(0, -1));
-    const previous_value = structuredClone($state.snapshot(node[next_change.path.at(-1)]));
-    const previous_change = {
-      path: next_change.path,
-      value: previous_value,
-      selection: structuredClone($state.snapshot(this.selection)),
-    };
-    
-    // Apply the redo change
-    node[next_change.path.at(-1)] = next_change.value;
-    this.selection = next_change.selection;
-    this.history = [...this.history, previous_change];
-    this.future = remaining_future;
-  }
 
   select_parent() {
     if (this.selection?.type === 'text') {
       if (this.selection.path.length > 2) {
-        
         // For text selections, we need to go up two levels
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
@@ -502,4 +278,35 @@ export default class SveditDoc {
     };
   }
 
+  // Traverses the document and returns a JSON representation.
+  // IMPORTANT: Leaf nodes must go first, branches second and the root node last (depth-first traversal)
+  // NOTE: Nodes that are not reachable from the root node will be purged on serialization.
+  to_json() {
+    const json = [];
+    const visited = {};
+    const visit = (node) => {
+      if (!node || visited[node.id]) {
+        return;
+      }
+      visited[node.id] = true;
+      for (const [key, value] of Object.entries(node)) {
+        // TODO: Use schema inspection and do this only for properties of type `multiref`
+        if (Array.isArray(value)) {
+          for (const v of value) {
+            if (typeof v === 'string') {
+              visit($state.snapshot(this.get(v)));
+            }
+          }
+        } else if (typeof value === 'string') {
+          // TODO: Use schema inspection and do this only for properties of type `ref`
+          visit($state.snapshot(this.get(value)));
+        }
+      }
+      // Finally add the node to the result.
+      // We use a deep clone, so we make sure nothing of the original document is referenced.
+      json.push(structuredClone(node));
+    }
+    visit($state.snapshot(this.get(this.doc_id)));
+    return json;
+  }
 }

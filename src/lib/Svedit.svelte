@@ -98,7 +98,9 @@
     
     event.preventDefault();
     if (inserted_char) {
-      doc.insert_text(inserted_char);
+      const tr = doc.tr;
+      tr.insert_text(inserted_char);
+      doc.apply(tr);
     }
   }
 
@@ -220,17 +222,17 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
-      doc.annotate_text('strong');
+      doc.apply(doc.tr.annotate_text('strong'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'i' && (e.ctrlKey || e.metaKey)) {
-      doc.annotate_text('emphasis');
+      doc.apply(doc.tr.annotate_text('emphasis'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      doc.annotate_text('link', {
+      doc.apply(doc.tr.annotate_text('link', {
         href: window.prompt('Enter the URL', 'https://example.com')
-      });
+      }));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
