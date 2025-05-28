@@ -10,6 +10,14 @@ export default class SveditTransaction {
     this.selection_before = this.doc.selection;
   }
 
+  get(path) {
+    return this.doc.get(path);
+  }
+
+  get selection() {
+    return this.doc.selection;
+  }
+
   // Set a property of a node to a new value
   // doc.set(["list_1", "list_items"],  [1, 2, 3] })
   // doc.set(["page_1", "body", "0", "description"], ["Hello world", []])
