@@ -151,7 +151,7 @@ export default class SveditDoc {
     return annotated_text[0].slice(start, end);
   }
 
-  get_selected_blocks() {
+  get_selected_nodes() {
     if (this.selection?.type !== 'container') return null;
 
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);

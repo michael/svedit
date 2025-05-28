@@ -197,8 +197,12 @@ export default class SveditTransaction {
       container.splice(start, end - start);
     }
 
-    // First create the new blocks
-    blocks.forEach(block => this.create(block));
+    // First create the new blocks (unless they already exists e.g. in case of cut+paste)
+    blocks.forEach(block => {
+      if (!this.doc.get(block.id)) {
+        this.create(block);
+      }
+    });
     const block_ids = blocks.map(block => block.id);
     container.splice(start, 0, ...block_ids);
 
@@ -218,9 +222,9 @@ export default class SveditTransaction {
   // TODO: we need to also support annotations attached to replaced_text. This is needed to
   // support copy&paste including annotations. Currently the annotations are lost on paste.
   insert_text(replaced_text) {
-    if (this.selection.type !== 'text') return;
+    if (this.doc.selection.type !== 'text') return;
     
-    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.selection.path)));
+    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const { start, end } = this.doc.get_selection_range();
 
     // Transform the plain text string.

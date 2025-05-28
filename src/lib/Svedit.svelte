@@ -126,8 +126,20 @@
       html = plain_text;
       console.log('selected_plain_text', plain_text);
     } else if (doc.selection?.type === 'container') {
-      const selected_blocks = doc.get_selected_blocks();
-      json_data = selected_blocks;
+      const selected_nodes = doc.get_selected_nodes();
+      json_data = [];
+      selected_nodes.forEach(node_id => {
+        const node = doc.get(node_id);
+        // On cut we keep the ids of the selection, on copy we generate new ids for the nodes to be pasted.
+        const id = delete_selection ? node.id : uuid();
+        json_data.push({
+          ...node,
+          id,
+        });
+      });
+
+      console.log(json_data);
+      
     }
 
     // Create a ClipboardItem with multiple formats
@@ -173,12 +185,12 @@
     if (pasted_json) {
       // ATM we assume when we get JSON, that we are dealing with a sequence of blocks that was copied
       const blocks = pasted_json;
-      doc.insert_blocks(blocks);
+      doc.apply(doc.tr.insert_blocks(blocks));
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
       const plain_text = await plain_text_blob.text();
-      doc.insert_text(plain_text);
+      doc.apply(doc.tr.insert_text(plain_text));
     }
   }
 
@@ -219,7 +231,7 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      doc.insert_text('\n');
+      doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
