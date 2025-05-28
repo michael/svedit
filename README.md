@@ -40,7 +40,7 @@ const doc_schema = {
     }
   },
   paragraph: {
-    content: { type: 'annotatd-text' }
+    content: { type: 'annotated-text' }
   },
   list: {
     list_items: {
