@@ -9,7 +9,6 @@
   } = $props();
   let block = $derived(svedit.doc.get(path));
 
-  $inspect(path);
 </script>
 
 <div
@@ -37,7 +36,7 @@
   .story-block {
     container-type: inline-size;
     display: grid;
-    grid-template-columns: 1fr;      
+    grid-template-columns: 1fr;
     /* Apply padding on the sides of the block, but only on devices that need it, e.g. iPhone with notch */
     /* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
     padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
