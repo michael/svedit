@@ -129,7 +129,8 @@ export default class SveditTransaction {
     return this;
   }
 
-  delete() {
+  // Deletes selected text or nodes
+  delete_selection() {
     if (!this.doc.selection) return;
     const path = this.doc.selection.path;
     // Get the start and end indices for the selection
@@ -175,44 +176,51 @@ export default class SveditTransaction {
         focus_offset: start
       });
     }
+    return this;
   }
 
-  // TODO: Copied nodes need to get fresh ids.
-  // insert_blocks(blocks) {
-  //   if (this.selection.type !== 'container') return;
+  // NOTE: We assume that we only insert new nodes, not reference existing ones
+  insert_blocks(blocks) {
+    if (this.doc.selection.type !== 'container') return;
 
-  //   const path = this.selection.path;
-  //   const container = [...this.get(path)];
+    const path = this.doc.selection.path;
+    const container = [...this.doc.get(path)];
 
-  //   // Get the start and end indices for the selection
-  //   let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-  //   let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    // Get the start and end indices for the selection
+    let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
+    let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
 
-  //   if (start !== end) {
-  //     // Remove the selected blocks from the container
-  //     container.splice(start, end - start);
-  //   }
+    if (start !== end) {
+      // Remove the currently selected blocks from the container
+      // NOTE: We are okay that only the refernces are removed and nodes potentially become orphaned. 
+      // They'll be purged on doc.to_json() anyways.
+      container.splice(start, end - start);
+    }
 
-  //   container.splice(start, 0, ...blocks);
+    // First create the new blocks
+    blocks.forEach(block => this.create(block));
+    const block_ids = blocks.map(block => block.id);
+    container.splice(start, 0, ...block_ids);
 
-  //   // Update the container in the entry
-  //   this.set(path, container);
+    // Update the container in the entry
+    this.set(path, container);
 
-  //   this.selection = {
-  //     type: 'container',
-  //     // NOTE: we hard code this temporarily as both story and list-item have a description property
-  //     path: [...this.selection.path],
-  //     anchor_offset: start,
-  //     focus_offset: start + blocks.length
-  //   };
-  // }
+    this.doc.selection = {
+      type: 'container',
+      // NOTE: we hard code this temporarily as both story and list-item have a description property
+      path: [...this.doc.selection.path],
+      anchor_offset: start,
+      focus_offset: start + blocks.length
+    };
+    return this;
+  }
   
   // TODO: we need to also support annotations attached to replaced_text. This is needed to
   // support copy&paste including annotations. Currently the annotations are lost on paste.
   insert_text(replaced_text) {
-    if (this.doc.selection.type !== 'text') return;
+    if (this.selection.type !== 'text') return;
     
-    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
+    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.selection.path)));
     const { start, end } = this.doc.get_selection_range();
 
     // Transform the plain text string.

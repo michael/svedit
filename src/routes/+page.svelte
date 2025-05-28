@@ -80,10 +80,6 @@
   // console.log('story_node_flat:', $state.snapshot(story_node_flat));
   // const story_node_deep = doc.get(['page_1', 'body', 0]);
   // console.log('story_node_deep:', $state.snapshot(story_node_deep));
-
-  $effect(() => {
-    console.log('serialized_doc', doc.to_json());
-  })
 </script>
 
 <svelte:head>

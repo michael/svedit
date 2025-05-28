@@ -1,6 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import Icon from '$lib/Icon.svelte';
+  import { uuid } from '$lib/util.js';
 
   let {
     doc,
@@ -149,7 +150,7 @@
     });
 
     if (delete_selection) {
-      doc.delete();
+      doc.apply(doc.tr.delete_selection());
     }
   }
 
@@ -236,7 +237,7 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
-      doc.delete();
+      doc.apply(doc.tr.delete_selection());
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
@@ -245,21 +246,23 @@
       // a bit of schema introspection. E.g. to determine the default_block_type
       // based on a certain context
       if (path.at(-1) === 'items') {
-        doc.insert_blocks([
+        doc.apply(doc.tr.insert_blocks([
           {
+            id: uuid(),
             type: 'list',
             description: ['enter description', []],
           }
-        ]);
+        ]));
       } else {
-        doc.insert_blocks([
+        doc.apply(doc.tr.insert_blocks([
           {
+            id: uuid(),
             type: 'story',
             image: '/images/container-cursors.svg',
             title: ['Enter title', []],
             description: ['Enter a description', []],
           }
-        ]);
+        ]));
       }
 
       e.preventDefault();
