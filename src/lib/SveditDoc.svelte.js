@@ -5,9 +5,9 @@ export default class SveditDoc {
   doc_id = $state();
   nodes = $state();
 
-  constructor(schema, raw_doc) {
-    this.selection = undefined;
+  constructor(schema, raw_doc, selection) {
     this.schema = schema;
+    this.selection = selection;
     this.nodes = {};
 
     // These do not need to be reactive
@@ -39,7 +39,7 @@ export default class SveditDoc {
   // Creates a new transaction
   get tr() {
     // We create a copy of the current document to avoid modifying the original
-    const transaction_doc = new SveditDoc(this.schema, this.to_json());
+    const transaction_doc = new SveditDoc(this.schema, this.to_json(), this.selection);
     return new SveditTransaction(transaction_doc);
   }
 

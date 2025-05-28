@@ -1,13 +1,8 @@
 import { is_valid_uuid } from '$lib/util.js';
 
-export default class TheTransaction {
+export default class SveditTransaction {
   constructor(doc) {
-    // NOTE: We need to unpack the proxy and make a deep clone of the nodes, so the original doc is not modified
-    // this.doc = new SveditDoc(doc.schema, doc.to_json());
     this.doc = doc;
-    // Set the selection on the doc
-    // this.doc.selection = structuredClone($state.snapshot(doc.selection));
-    // this.schema = doc.schema;
     // Here we track the ops during the transaction
     this.ops = [];
     this.inverse_ops = [];
