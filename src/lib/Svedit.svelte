@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import Icon from '$lib/Icon.svelte';
-  import { uuid } from '$lib/util.js';
+  import { svid } from '$lib/util.js';
 
   let {
     doc,
@@ -131,15 +131,12 @@
       selected_nodes.forEach(node_id => {
         const node = doc.get(node_id);
         // On cut we keep the ids of the selection, on copy we generate new ids for the nodes to be pasted.
-        const id = delete_selection ? node.id : uuid();
+        const id = delete_selection ? node.id : svid();
         json_data.push({
           ...node,
           id,
         });
       });
-
-      console.log(json_data);
-      
     }
 
     // Create a ClipboardItem with multiple formats
@@ -260,7 +257,7 @@
       if (path.at(-1) === 'items') {
         doc.apply(doc.tr.insert_blocks([
           {
-            id: uuid(),
+            id: svid(),
             type: 'list',
             description: ['enter description', []],
           }
@@ -268,7 +265,7 @@
       } else {
         doc.apply(doc.tr.insert_blocks([
           {
-            id: uuid(),
+            id: svid(),
             type: 'story',
             image: '/images/container-cursors.svg',
             title: ['Enter title', []],

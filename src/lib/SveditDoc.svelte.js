@@ -1,4 +1,5 @@
 import SveditTransaction from './SveditTransaction.svelte.js';
+import { validate_node } from './util.js';
 
 export default class SveditDoc {
   selection = $state();
@@ -16,6 +17,7 @@ export default class SveditDoc {
 
     // Initialize the nodes
     for (const node of raw_doc) {
+      validate_node(node, this.schema);
       this.nodes[node.id] = node;
     }
 
@@ -30,6 +32,7 @@ export default class SveditDoc {
       const node = this.get(args[0].slice(0, -1));
       node[args[0].at(-1)] = args[1];
     } else if (type === 'create') {
+      
       this.nodes[args[0].id] = args[0];
     } else if (type === 'delete') {
       delete this.nodes[args[0]];

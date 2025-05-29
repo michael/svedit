@@ -1,4 +1,4 @@
-import { is_valid_uuid } from '$lib/util.js';
+import { is_valid_svid } from '$lib/util.js';
 
 export default class SveditTransaction {
   constructor(doc) {
@@ -34,8 +34,8 @@ export default class SveditTransaction {
   }
 
   create(node) {
-    if (!is_valid_uuid(node.id)) {
-      throw new Error('Each node must have a valid UUID provided');
+    if (!is_valid_svid(node.id)) {
+      throw new Error('Each node must have a valid SVID provided');
     }
     if (this.doc.get(node.id)) {
       throw new Error('Node with id ' + node.id + ' already exists');

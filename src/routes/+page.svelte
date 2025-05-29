@@ -5,9 +5,38 @@
   import Svedit from '$lib/Svedit.svelte';
   import Container from '$lib/Container.svelte';
   import TextToolBar from '$lib/TextToolBar.svelte';
-
-  import doc_schema from '$lib/doc_schema.js';
   import SveditDoc from '$lib/SveditDoc.svelte.js';
+
+
+  const doc_schema = {
+    page: {
+      body: {
+        type: 'multiref',
+        ref_types: ['paragraph', 'story', 'list'],
+        default_ref_type: 'paragraph',
+      },
+    },
+    paragraph: {
+      content: { type: 'annotated-text' },
+    },
+    story: {
+      layout: { type: 'integer' },
+      title: { type: 'annotated-text' },
+      description: { type: 'annotated-text' },
+      image: { type: 'string' }, // a dedicated type asset would be better
+      
+    },
+    list_item: {
+      content: { type: 'annotated-text' },
+    },
+    list: {
+      list_items: {
+        type: 'multiref',
+        ref_types: ['list_item'],
+        default_ref_type: 'list_item',
+      },
+    },
+  };
 
   const raw_doc = [
     // {
@@ -26,7 +55,7 @@
     //   content: ['Hello world.', []],
     // },
     {
-      id: 'story_1',
+      id: 'yFqVnXLChZjsTPBkwRgSxMQ99',
       type: 'story',
       layout: 1,
       image: '/images/editable.svg',
@@ -50,9 +79,9 @@
     // },
     // IMPORTANT: The root node (entry point) must be the last one in the array
     {
-      id: 'page_1',
+      id: 'WJrmDlGkQtsHZyNBCXpOfav',
       type: 'page',
-      body: [/*'nav_1', */'story_1', 'story_1' /*, 'list_1'*/],
+      body: ['yFqVnXLChZjsTPBkwRgSxMQ', 'yFqVnXLChZjsTPBkwRgSxMQ'],
     },
   ];
 
