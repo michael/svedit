@@ -4,10 +4,11 @@
   const svedit = getContext('svedit');
 
   let {
-    path
+    path,
+    index,
   } = $props();
+  let block = $derived(svedit.doc.get(path));
 
-  let block = $derived(svedit.entry_session.get(path));
 </script>
 
 <div
@@ -22,7 +23,7 @@
     contenteditable="false"
   >
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img src={block.image} alt={svedit.entry_session.get([...path, 'title'])[0]} />
+    <img src={block.image} alt={block.title[0]} />
   </div>
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
@@ -35,7 +36,7 @@
   .story-block {
     container-type: inline-size;
     display: grid;
-    grid-template-columns: 1fr;      
+    grid-template-columns: 1fr;
     /* Apply padding on the sides of the block, but only on devices that need it, e.g. iPhone with notch */
     /* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
     padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));

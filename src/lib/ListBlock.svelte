@@ -1,8 +1,11 @@
 <script>
   import Container from '$lib/Container.svelte';
   import ListItemBlock from '$lib/ListItemBlock.svelte';
-
-  let { path, block } = $props();
+  import { getContext } from 'svelte';
+  
+  const svedit = getContext('svedit');
+  let { path } = $props();
+  let block = $derived(svedit.doc.get(path));
   let list_style = $derived(block.list_style);
 </script>
 
@@ -13,7 +16,7 @@
   style="anchor-name: --{path.join('-')};"
   class='p-10 max-w-screen-md mx-auto'
 >
-  <Container class="list" path={[...path, 'items']}>
+  <Container class="list" path={[...path, 'list_items']}>
     <!-- NOTE: We only allow list items inside list  -->
     {#snippet block(block, path)}
       <ListItemBlock {block} {path} {list_style} />
