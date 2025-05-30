@@ -89,37 +89,6 @@
   ];
 
   const doc = new SveditDoc(doc_schema, raw_doc);
-
-  $effect(() => {
-    // Test 1: Getting a multiref property should get you the raw ids
-    const body =  doc.get([page_1_id, 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
-    console.log('body',$state.snapshot(body));
-
-    // Test 2: Accessing a multiref by id should get you the resolved node
-    const fist_story = doc.get([page_1_id, 'body', 0]); // => returns resolved node
-    console.log('first story', $state.snapshot(fist_story));
-
-    const fist_story_title = doc.get([page_1_id, 'body', 0, 'title']);
-    console.log('first story title', $state.snapshot(fist_story_title));
-
-    const daily_visitors = doc.get([page_1_id, 'daily_visitors']);
-    console.log('daily visitors', $state.snapshot(daily_visitors));
-
-    const daily_visitors_first_day = doc.get([page_1_id, 'daily_visitors', 0]);
-    console.log('daily visitors first day', $state.snapshot(daily_visitors_first_day));
-
-    const keywords = doc.get([page_1_id, 'keywords']);
-    console.log('keywords', $state.snapshot(keywords));
-
-    const first_keyword = doc.get([page_1_id, 'keywords', 0]);
-    console.log('first_keyword', $state.snapshot(first_keyword));
-
-    const list_items_of_first_list = doc.get([page_1_id, 'body', 2, 'list_items']);
-    console.log('list_items_of_first_list', $state.snapshot(list_items_of_first_list));
-
-    const first_list_item_content = doc.get([page_1_id, 'body', 2, 'list_items', 0, 'content']);
-    console.log('first_list_item_content', $state.snapshot(first_list_item_content));
-  });
 </script>
 
 <svelte:head>
@@ -127,6 +96,8 @@
 </svelte:head>
 
 <div class="demo-wrapper">
+
+  <h1>Svedit Test</h1>
   <!-- <TextToolBar {entry_session} /> -->
 
   <Svedit {doc} editable={true} class='flex-column'>

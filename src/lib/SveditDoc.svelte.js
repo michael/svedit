@@ -112,7 +112,6 @@ export default class SveditDoc {
     for (let i = 1; i < path.length; i++) {
       const path_segment = path[i];
       if (val_type === 'node') {
-        console.log('property type', path_segment, this.property_type(val.type, path_segment));
         if (this.property_type(val.type, path_segment) === 'multiref') {
           val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
           val_type = 'multiref';

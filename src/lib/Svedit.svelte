@@ -269,6 +269,7 @@
             type: 'story',
             image: '/images/container-cursors.svg',
             title: ['Enter title', []],
+            layout: 1,
             description: ['Enter a description', []],
           }
         ]));

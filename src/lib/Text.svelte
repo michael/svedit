@@ -85,7 +85,7 @@
     &.heading1 {
       text-wrap: var(--text-wrap);
     }
-    [contenteditable="true"] {
+    :global([contenteditable="true"]) {
       a {
         cursor: text;
       } 
