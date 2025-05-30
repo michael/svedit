@@ -94,33 +94,49 @@ export default class SveditDoc {
     return this;
   }
 
-  // doc.get('list_1')
-  // doc.get('list_1')
-  // doc.get(['list_1', 'list_items'])
-  get (path) {
-    if (!path) return undefined
+  // doc.get('list_1') => { type: 'list', id: 'list_1', ... }
+  // doc.get(['list_1', 'list_items']) => [ 'list_item_1', 'list_item_2' ]
+  // doc.get(['page_1', 'body', 3, 'list_items', 0]) => { type: 'list_item', id: 'list_item_1', ... }
+  // doc.get(['page_1', 'cover', 'title']) => ['Hello world', []]
+  get(path) {
     if (typeof path === 'string') {
-      return this.nodes[path];
-    } else if (path.length === 1) {
-      return this.nodes[path[0]];
-    } else if (path.length > 1) {
-      const node = this.nodes[path[0]];
-      let val = node[path[1]];
-      // This is used when the property value is an object,
-      // so you can traverse the object (e.g. an array)
-      for (let i = 2; i < path.length; i++) {
-        if (!val) return undefined
-        val = val[path[i]];
-        // HACK: For now if the current path fragment is a number and the resolved value is a string,
-        // we assume it was a node_id (reference to another node) inside a multiref
-        // E.g. ['page_1', 'body', 0] would return the full node object not just the id.
-        // TODO: we need to ask the schema for that to do this reliably
-        if (parseInt(path[i]) !== NaN && typeof val === 'string') {
-          val = this.nodes[val];
-        }
-      }
-      return val;
+      path = [ path ];
     }
+    if (!(Array.isArray(path) && path.length >= 1)) {
+      throw new Error('Invalid path provided');
+    }
+
+    let val = this.nodes[path[0]];
+    let val_type = 'node';
+
+    for (let i = 1; i < path.length; i++) {
+      const path_segment = path[i];
+      if (val_type === 'node') {
+        console.log('property type', path_segment, this.property_type(val.type, path_segment));
+        if (this.property_type(val.type, path_segment) === 'multiref') {
+          val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
+          val_type = 'multiref';
+        } else if (this.property_type(val.type, path_segment) === 'ref') {
+          val = this.nodes[val[path_segment]];
+          val_type = 'node';
+        } else if (['string_array', 'integer_array'].includes(this.property_type(val.type, path_segment))) {
+          val = val[path_segment];
+          val_type = 'value_array';
+        } else {
+          // Resolve value properties sucha as string, integer, datetime
+          val = val[path_segment];
+          val_type = 'value';
+        }
+      } else if (val_type === 'multiref') {
+        // We expect the val to be an array of node ids and the path_segment to be an array index
+        val = this.nodes[val[path_segment]];
+        val_type = 'node';
+      } else if (val_type === 'value_array') {
+        val = val[path_segment];
+        val_type = 'value';
+      }
+    }
+    return val;
   }
 
   active_annotation(annotation_type) {
@@ -197,7 +213,6 @@ export default class SveditDoc {
       this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
     }
   }
-
 
   select_parent() {
     if (this.selection?.type === 'text') {
@@ -309,7 +324,20 @@ export default class SveditDoc {
       // We use a deep clone, so we make sure nothing of the original document is referenced.
       json.push(structuredClone(node));
     }
+    // Start with the root node (doc_id)
     visit($state.snapshot(this.get(this.doc_id)));
     return json;
+  }
+
+  // property_type('page', 'body') => 'multiref'
+  // property_type('paragraph', 'content') => 'annotated-text'
+  property_type(type, property) {
+    if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
+    if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
+
+    if (!this.schema[type]) throw new Error(`Type ${type} not found in schema`);
+    if (!this.schema[type][property]) throw new Error(`Property ${property} not found in type ${type}`);
+
+    return this.schema[type][property].type;
   }
 }

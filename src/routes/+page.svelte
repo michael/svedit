@@ -6,7 +6,7 @@
   import Container from '$lib/Container.svelte';
   import TextToolBar from '$lib/TextToolBar.svelte';
   import SveditDoc from '$lib/SveditDoc.svelte.js';
-
+  import { svid } from '$lib/util.js';
 
   const doc_schema = {
     page: {
@@ -15,19 +15,28 @@
         ref_types: ['paragraph', 'story', 'list'],
         default_ref_type: 'paragraph',
       },
+      keywords: {
+        type: 'string_array',
+      },
+      daily_visitors: {
+        type: 'integer_array',
+      },
+      created_at: {
+        type: 'datetime'
+      }
     },
     paragraph: {
-      content: { type: 'annotated-text' },
+      content: { type: 'annotated_text' },
     },
     story: {
       layout: { type: 'integer' },
-      title: { type: 'annotated-text' },
-      description: { type: 'annotated-text' },
+      title: { type: 'annotated_text' },
+      description: { type: 'annotated_text' },
       image: { type: 'string' }, // a dedicated type asset would be better
       
     },
     list_item: {
-      content: { type: 'annotated-text' },
+      content: { type: 'annotated_text' },
     },
     list: {
       list_items: {
@@ -38,77 +47,79 @@
     },
   };
 
+  const story_1_id = svid();
+  const page_1_id = svid();
+  const list_1_id = svid();
+  const list_item_1_id = svid();
+  const list_item_2_id = svid();
+
   const raw_doc = [
-    // {
-    //   id: 'doc_nav_item_1',
-    //   type: 'doc_nav_item',
-    //   doc_id: 'page_1',
-    //   label: 'Home',
-    // },
-    // {
-    //   id: 'nav_1',
-    //   type: 'nav',
-    //   nav_items: ['doc_nav_item_1'],
-    // },
-    // {
-    //   id: 'story_1',
-    //   content: ['Hello world.', []],
-    // },
     {
-      id: 'yFqVnXLChZjsTPBkwRgSxMQ99',
+      id: story_1_id,
       type: 'story',
       layout: 1,
       image: '/images/editable.svg',
       title: ['Visual inplace editing', []],
       description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []]
     },
-    // {
-    //   id: 'list_item_1',
-    //   type: 'list_item',
-    //   content: ['first list item', []],
-    // },
-    // {
-    //   id: 'list_item_2',
-    //   type: 'list_item',
-    //   content: ['second list item', []],
-    // },
-    // {
-    //   id: 'list_1',
-    //   type: 'list',
-    //   list_items: ['list_item_1', 'list_item_2'],
-    // },
+    {
+      id: list_item_1_id,
+      type: 'list_item',
+      content: ['first list item', []],
+    },
+    {
+      id: list_item_2_id,
+      type: 'list_item',
+      content: ['second list item', []],
+    },
+    {
+      id: list_1_id,
+      type: 'list',
+      list_items: [list_item_1_id, list_item_2_id],
+    },
     // IMPORTANT: The root node (entry point) must be the last one in the array
     {
-      id: 'WJrmDlGkQtsHZyNBCXpOfav',
+      id: page_1_id,
       type: 'page',
-      body: ['yFqVnXLChZjsTPBkwRgSxMQ', 'yFqVnXLChZjsTPBkwRgSxMQ'],
+      body: [story_1_id, story_1_id, list_1_id],
+      keywords: ['svelte', 'editor', 'rich content'],
+      daily_visitors: [10, 20, 30, 100],
+      created_at: '2025-05-30T10:39:59.987Z'
     },
   ];
 
-
   const doc = new SveditDoc(doc_schema, raw_doc);
 
+  $effect(() => {
+    // Test 1: Getting a multiref property should get you the raw ids
+    const body =  doc.get([page_1_id, 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
+    console.log('body',$state.snapshot(body));
 
-  // get the body (=array of node ids)
-  // const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
-  // console.log($state.snapshot(body));
-  // const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
-  // console.log('nav.nav_items before:', $state.snapshot(nav.nav_items));
-  // // Delete the last nav item and store in the graph
-  // const new_nav_items = nav.nav_items.splice(0, -1);
-  // doc.set(['nav_1', 'nav_items'], new_nav_items);
-  // console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
+    // Test 2: Accessing a multiref by id should get you the resolved node
+    const fist_story = doc.get([page_1_id, 'body', 0]); // => returns resolved node
+    console.log('first story', $state.snapshot(fist_story));
 
-  // const flat_description = doc.get(['story_1', 'description']);
-  // console.log('flat_description:', $state.snapshot(flat_description));
+    const fist_story_title = doc.get([page_1_id, 'body', 0, 'title']);
+    console.log('first story title', $state.snapshot(fist_story_title));
 
-  // const deep_description = doc.get(['page_1', 'body', 0, 'description']);
-  // console.log('deep_description:', $state.snapshot(deep_description));
+    const daily_visitors = doc.get([page_1_id, 'daily_visitors']);
+    console.log('daily visitors', $state.snapshot(daily_visitors));
 
-  // const story_node_flat = doc.get(['story_1']);
-  // console.log('story_node_flat:', $state.snapshot(story_node_flat));
-  // const story_node_deep = doc.get(['page_1', 'body', 0]);
-  // console.log('story_node_deep:', $state.snapshot(story_node_deep));
+    const daily_visitors_first_day = doc.get([page_1_id, 'daily_visitors', 0]);
+    console.log('daily visitors first day', $state.snapshot(daily_visitors_first_day));
+
+    const keywords = doc.get([page_1_id, 'keywords']);
+    console.log('keywords', $state.snapshot(keywords));
+
+    const first_keyword = doc.get([page_1_id, 'keywords', 0]);
+    console.log('first_keyword', $state.snapshot(first_keyword));
+
+    const list_items_of_first_list = doc.get([page_1_id, 'body', 2, 'list_items']);
+    console.log('list_items_of_first_list', $state.snapshot(list_items_of_first_list));
+
+    const first_list_item_content = doc.get([page_1_id, 'body', 2, 'list_items', 0, 'content']);
+    console.log('first_list_item_content', $state.snapshot(first_list_item_content));
+  });
 </script>
 
 <svelte:head>

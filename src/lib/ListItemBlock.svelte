@@ -17,7 +17,7 @@
   data-type='block'
   data-index={path.at(-1)}
   style='anchor-name: --{path.join('-')};'
-><Text path={[...path,'description']} /></div>
+><Text path={[...path,'content']} /></div>
 
 <style>
   div {
