@@ -87,6 +87,8 @@ function __create_test_doc() {
 
 describe('SveditDoc.svelte.js', () => {
   it('should be traversable', () => {
+    console.log('Tests running in the browser??');
+    
     const doc = __create_test_doc();
 
     // Resolve node by id
