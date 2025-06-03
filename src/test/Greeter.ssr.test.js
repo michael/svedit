@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, } from 'svelte/server';
-import Greeter from '$lib/Greeter.svelte';
+import { render } from 'svelte/server';
+import Greeter from '../lib/Greeter.svelte';
 
 describe('Greeter.svelte SSR', () => {
   it('renders name', () => {

@@ -1,6 +1,6 @@
 <script>
-  import Container from '$lib/Container.svelte';
-  import ListItemBlock from '$lib/ListItemBlock.svelte';
+  import Container from './Container.svelte';
+  import ListItemBlock from './ListItemBlock.svelte';
   import { getContext } from 'svelte';
   
   const svedit = getContext('svedit');

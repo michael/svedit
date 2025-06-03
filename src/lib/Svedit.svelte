@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
-  import Icon from '$lib/Icon.svelte';
-  import { svid } from '$lib/util.js';
+  import Icon from './Icon.svelte';
+  import { svid } from './util.js';
 
   let {
     doc,

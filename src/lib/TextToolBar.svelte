@@ -1,6 +1,6 @@
 <script>
   import { fly } from 'svelte/transition';
-  import Icon from '$lib/Icon.svelte';
+  import Icon from './Icon.svelte';
 
   let {
     entry_session,

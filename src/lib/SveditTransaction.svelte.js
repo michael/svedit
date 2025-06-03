@@ -1,4 +1,4 @@
-import { is_valid_svid } from '$lib/util.js';
+import { is_valid_svid } from './util.js';
 
 export default class SveditTransaction {
   constructor(doc) {

@@ -1,5 +1,5 @@
 <script>
-  import Text from '$lib/Text.svelte';
+  import Text from './Text.svelte';
 
   let {
     path,

@@ -1,5 +1,5 @@
-// import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -7,13 +7,16 @@ export default defineConfig({
 	test: {
 		projects: [
 			{
-				extends: './vite.config.js',
+				// NOTE: Here we only use the Svelte plugin, not Sveltekit for more isolated component tests
+				// extends: './vite.config.js',
+				plugins: [svelte()],
 				test: {
 					name: 'client',
 					environment: 'browser',
 					browser: {
 						enabled: true,
-						provider: 'playwright',
+						// NOTE: We don't need play
+						// provider: 'playwright',
 						instances: [{
 							browser: 'chromium',
 						}],
@@ -21,7 +24,6 @@ export default defineConfig({
 					clearMocks: true,
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
 					exclude: ['src/lib/server/**'],
-					setupFiles: ['vitest-browser-svelte'],
 				}
 			},
 			{
@@ -30,9 +32,9 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
 				}
 			}
 		]
-	}
+	},
 });

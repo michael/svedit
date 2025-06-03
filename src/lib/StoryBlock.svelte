@@ -1,6 +1,6 @@
 <script>
   import { getContext } from 'svelte';
-  import Text from '$lib/Text.svelte';
+  import Text from './Text.svelte';
   const svedit = getContext('svedit');
 
   let {
