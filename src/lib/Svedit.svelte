@@ -105,10 +105,12 @@
     }
   }
 
-  // Map selection to model
+  // Map DOM selection to internal model
   function onselectionchange(event) {
-    let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
-    // console.log('latest selection from dom', JSON.stringify(selection));
+    // console.log('dom selection', window.getSelection());
+    // return;
+    let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    console.log('latest selection from dom', JSON.stringify(selection));
     if (selection) {
       doc.selection = selection;
     }
@@ -193,7 +195,7 @@
 
   function render_selection() {
     const selection = doc.selection;
-    let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     if (!selection) {
       // No model selection -> just leave things as they are'
@@ -211,6 +213,8 @@
       __render_text_selection();
     } else if (selection?.type === 'container') {
       __render_container_selection();
+    } else if (selection?.type === 'property') {
+      __render_property_selection();
     } else {
       console.log('unsupported selection type', selection.type);
     }
@@ -367,6 +371,24 @@
     return result;
   }
 
+  function __get_property_selection_from_dom() {
+    const dom_selection = window.getSelection();
+    if (dom_selection.rangeCount === 0) return null;
+
+    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="property"]');
+    if (!focus_root) return null;
+    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="property"]');
+    if (!anchor_root) return null;
+
+    if (focus_root === anchor_root) {
+      return {
+        type: 'property',
+        path: focus_root.dataset.path.split('.')
+      }
+    }
+    return null;
+  }
+
   function __get_text_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
@@ -512,6 +534,13 @@
     } else {
       console.log('no container element found!!');
     }
+  }
+
+  function __render_property_selection() {
+    const selection = doc.selection;
+    // The element that holds the annotated text
+    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
+    el.querySelector('.cursor-trap').focus();
   }
 
   function __render_text_selection() {
@@ -683,6 +712,9 @@
     {@render children()}
   </div>
   <div class="svedit-overlays">
+    {#if doc.selection?.type === 'property'}
+      <div class="property-selection-overlay" style="position-anchor: --{doc.selection.path.join('-')};"></div>
+    {/if}
     <!-- Here we render  and other stuff that should lay atop of the canvas -->
     <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
     {#if container_selection_paths}
@@ -720,7 +752,7 @@
   }
 
   /* This should be an exact overlay */
-  .container-selection-fragment {
+  .container-selection-fragment, .property-selection-overlay {
     position: absolute;
     background:  var(--editing-fill-color);
     border: 1px solid var(--editing-stroke-color);

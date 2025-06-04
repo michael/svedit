@@ -30,4 +30,24 @@ describe('Svedit.svelte', () => {
     expect(dom_selection.anchorOffset).toBe(7);
     expect(dom_selection.focusOffset).toBe(7);
   });
+
+  it('should map property selection to DOM', async () => {
+    const doc = create_test_doc();
+    const { container }  = render(SveditTest, { props: { doc } });
+
+    // Now set property selection
+    doc.selection = {
+      type: 'property',
+      path: [doc.doc_id, 'body', 0, 'image'],
+    };
+
+    // Wait for the selection to be updated
+    await Promise.resolve();
+
+    const dom_selection = window.getSelection();
+    console.log('dom_selection', dom_selection);
+    expect(dom_selection).not.toBeNull();
+    expect(dom_selection.isCollapsed).toBe(true);
+    expect(dom_selection.type).toBe('Caret');
+  });
 });

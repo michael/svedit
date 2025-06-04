@@ -1,6 +1,7 @@
 <script>
   import { getContext } from 'svelte';
   import Text from './Text.svelte';
+  import Property from './Property.svelte';
   const svedit = getContext('svedit');
 
   let {
@@ -8,7 +9,6 @@
     index,
   } = $props();
   let block = $derived(svedit.doc.get(path));
-
 </script>
 
 <div
@@ -18,13 +18,10 @@
   data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
 >
-  <div
-    class='non-text-content' 
-    contenteditable="false"
-  >
-    <!-- svelte-ignore a11y_img_redundant_alt -->
+  <Property class="image-wrapper" path={[...path,'image']}>
     <img src={block.image} alt={block.title[0]} />
-  </div>
+  </Property>
+
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
     <Text class='heading2' path={[...path,'title']} editable={block.editable} />
@@ -44,7 +41,7 @@
     padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
     padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
     @media (min-width: 680px) {
-      grid-template-columns: 1fr 1fr;      
+      grid-template-columns: 1fr 1fr;
     }
     /* gap: var(--s-10); */
   }
@@ -58,9 +55,9 @@
     object-position: center;
   }
 
-  .non-text-content {
+  .story-block :global(.image-wrapper) {
     /* for now ignore clicks on the image, until we have non-text selections */
-    pointer-events: none;
+    /* pointer-events: none; */
     display: flex;
     align-items: center;
     justify-content: center;

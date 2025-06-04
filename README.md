@@ -116,6 +116,7 @@ const raw_doc = [
 ]
 ```
 
+
 ## API to read/traverse and write the document graph
 
 
@@ -161,6 +162,91 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 ```
 
 Is there more documentation? No. Just read the code (it's only a couple of files with less than 1500LOC in total), copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
+
+
+## Selection mapping
+
+When you call doc.set_selection(new_sel) we map that internal selection to an "ideal DOM selection". 
+
+### Text selections
+
+Here's how an editable text property is rendered in the DOM (some unrelated attributes ommited):
+
+```html
+<div contenteditable="true" data-type="text" data-path="QMFSqKsYMYxGyYbRYrTCtYr.body.1.description">First story description.</div>
+```
+
+Let's assume "First story" is selected. Then the ideal DOM selection would be:
+
+```js
+// Internal text selection
+{
+  type:"text",
+  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
+  anchor_offset:0,
+  focus_offset:11
+}
+// Maps to DOM selection
+{
+  type: 'Range',
+  anchorNode: text // the text node that holds "First story description"
+  anchorOffset: 0,
+  focusNode: text, // the text node that holds "First story description"
+  focusOffset: 11,
+  isCollapsed: false
+}
+```
+
+If the were a collapsed cursor at the beginning of the text:
+
+```js
+// Internal text selection
+{
+  type:"text",
+  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
+  anchor_offset:0,
+  focus_offset:11
+}
+// Maps to DOM selection
+{
+  type: 'Range',
+  anchorNode: text // the text node that holds "First story description"
+  anchorOffset: 0,
+  focusNode: text, // the text node that holds "First story description"
+  focusOffset: 0,
+  isCollapsed: true
+}
+```
+
+### Container selections
+
+Here's how a container with the same block referenced twice (`body: ['story_1', 'story_1']`) looks like in the DOM (notice the data-index attribute):
+
+```html
+<div data-type="container" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
+  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
+    <div class="non-text-content" contenteditable="false">
+      <img src="..." alt="First story">
+    </div>
+    <div class="caption">
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.title" class="heading2">First story</div>
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
+    </div>
+  </div>
+  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1" data-index="1">
+    <div class="non-text-content" contenteditable="false">
+      <img src="..." alt="First story">
+    </div>
+    <div class="caption">
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1.title" class="heading2">First story</div>
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
+    </div>
+  </div>
+</div>
+```
+
+
+
 
 ## Developing
 
