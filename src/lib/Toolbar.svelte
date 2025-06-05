@@ -83,10 +83,45 @@
   // Reactive variable for selected block
   let selected_block = $derived(get_selected_block());
 
+  // Check if we should show the image URL input
+  let show_image_input = $derived(
+    doc.selection?.type === 'property' && 
+    doc.selection.path.at(-1) === 'image' &&
+    doc.get(doc.selection.path.slice(0, -1))?.type === 'story'
+  );
+
+  // Get current image URL value
+  let current_image_url = $derived(
+    show_image_input ? doc.get(doc.selection.path) : ''
+  );
+
+  function update_image_url(event) {
+    if (!show_image_input) return;
+    
+    const tr = doc.tr;
+    tr.set(doc.selection.path, event.target.value);
+    doc.apply(tr);
+  }
+
 </script>
     
 
 <div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }}>
+  
+  {#if show_image_input}
+    <div class="contextual-input">
+      <label>
+        Image URL:
+        <input 
+          type="url" 
+          value={current_image_url}
+          onchange={update_image_url}
+          placeholder="Enter image URL"
+        />
+      </label>
+    </div>
+    <hr>
+  {/if}
   {#if doc.selection?.type === 'container'}
     <button 
       title='Move up'
@@ -182,26 +217,18 @@
     background-color: var(--canvas-fill-color);
     width: fit-content;
     position: fixed;
-    top: 50%;
-    transform: translateY(-50%);
-    left: var(--s-4);
-    border-radius: 9999px;
+    bottom: var(--s-4);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: var(--s-2);
     box-shadow: var(--shadow-2);
     display: flex;
     z-index: 50;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-
-    @media (max-width: 768px) {
-      top: auto;
-      bottom: var(--s-4);
-      left: 50%;
-      transform: translateX(-50%);
-      flex-direction: row;
-      max-width: calc(100vw - 2 * var(--s-4));
-      overflow-x: auto;
-      scrollbar-width: thin;
-    }
+    max-width: calc(100vw - 2 * var(--s-4));
+    overflow-x: auto;
+    scrollbar-width: thin;
 
     button {
       height: 100%;
@@ -213,17 +240,42 @@
         --icon-color: var(--editing-stroke-color);
       }
     }
+
+    .contextual-input {
+      display: flex;
+      align-items: center;
+      gap: var(--s-2);
+      
+      label {
+        display: flex;
+        align-items: center;
+        gap: var(--s-1);
+        font-size: 14px;
+        white-space: nowrap;
+      }
+      
+      input {
+        padding: var(--s-1) var(--s-2);
+        border: 1px solid var(--stroke-color);
+        border-radius: var(--s-1);
+        background: var(--canvas-fill-color);
+        color: var(--primary-text-color);
+        font-size: 14px;
+        width: 200px;
+        
+        &:focus {
+          outline: none;
+          border-color: var(--editing-stroke-color);
+        }
+      }
+    }
+    
     hr {
       background-color: var(--stroke-color);
-      width: 100%;
-      height: 1px;
+      width: 1px;
+      height: 100%;
       border: none;
-      margin-block: var(--s-2);
-      @media (max-width: 768px) {
-        width: 1px;
-        height: 100%;
-        margin-inline: var(--s-2);
-      }
+      margin-inline: var(--s-2);
     }
   }
 </style>
