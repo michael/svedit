@@ -214,9 +214,10 @@ export default class SveditDoc {
   }
 
   select_parent() {
-    if (this.selection?.type === 'text') {
-      if (this.selection.path.length > 2) {
-        // For text selections, we need to go up two levels
+    if (['text', 'property'].includes(this.selection?.type)) {
+      // For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
+      // in the path
+      if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
         this.selection = {
@@ -230,9 +231,10 @@ export default class SveditDoc {
       }
     } else if (this.selection?.type === 'container') {
       // For container selections, we go up one level
-      if (this.selection.path.length > 1) {
-        const parent_path = this.selection.path.slice(0, -1);
-        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 1]);
+      if (this.selection.path.length > 3) {
+        const parent_path = this.selection.path.slice(0, -2);
+        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        
         this.selection = {
           type: 'container',
           path: parent_path,
