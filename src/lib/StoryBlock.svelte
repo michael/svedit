@@ -19,7 +19,11 @@
   style="anchor-name: --{path.join('-')};"
 >
   <Property class="image-wrapper" path={[...path,'image']}>
-    <img src={block.image} alt={block.title[0]} />
+    <img 
+      src={block.image || '/icons/image-placeholder.svg'} 
+      alt={block.title[0]} 
+      class:placeholder={!block.image}
+    />
   </Property>
 
   <div class="caption">
@@ -41,9 +45,10 @@
     padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
     padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
     @media (min-width: 680px) {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 2fr;
     }
-    /* gap: var(--s-10); */
+    gap: var(--s-8);
+    padding: var(--s-6);
   }
   .story-block img {
     width: 100%;
@@ -54,6 +59,15 @@
     object-fit: contain;
     object-position: center;
   }
+  
+  /* Placeholder styling */
+  .story-block img.placeholder {
+    opacity: 0.7;
+    border: 2px dashed var(--stroke-color);
+    border-radius: var(--s-2);
+    padding: var(--s-4);
+    background: var(--canvas-fill-color);
+  }
 
   .story-block :global(.image-wrapper) {
     /* for now ignore clicks on the image, until we have non-text selections */
@@ -61,9 +75,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 340px;
+    min-width: 280px;
+    max-width: 320px;
     @media (max-width: 680px) {
       min-width: 100%;
+      max-width: 100%;
     }
   }
 
