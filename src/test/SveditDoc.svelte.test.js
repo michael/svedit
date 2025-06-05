@@ -54,4 +54,157 @@ describe('SveditDoc.svelte.js', () => {
     const first_list_item_content = doc.get([page_1_id, 'body', 2, 'list_items', 0, 'content']);
     expect(first_list_item_content).toEqual(['first list item', []]);
   });
+
+  describe('Deletion scenarios', () => {
+    it('should delete unreferenced nodes and their children when deleting from container', () => {
+      const doc = create_test_doc();
+      
+      // Initial state: body has [story_1_id, story_1_id, list_1_id]
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id, list_1_id]);
+      expect(doc.get(list_1_id)).toBeDefined();
+      expect(doc.get(list_item_1_id)).toBeDefined();
+      expect(doc.get(list_item_2_id)).toBeDefined();
+      
+      // Delete the list (index 2) - it has no other references
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 2,
+        focus_offset: 3
+      };
+      
+      const tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      // Body should no longer contain the list
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id]);
+      
+      // List and its children should be deleted since no other references exist
+      expect(doc.get(list_1_id)).toBeUndefined();
+      expect(doc.get(list_item_1_id)).toBeUndefined();
+      expect(doc.get(list_item_2_id)).toBeUndefined();
+    });
+
+    it('should only remove reference when deleting multiply-referenced nodes', () => {
+      const doc = create_test_doc();
+      
+      // Initial state: story is referenced twice
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id, list_1_id]);
+      expect(doc.get(story_1_id)).toBeDefined();
+      
+      // Delete first story reference (index 0)
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 0,
+        focus_offset: 1
+      };
+      
+      const tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      // Body should only have one story reference now
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, list_1_id]);
+      
+      // Story node should still exist since it's still referenced
+      expect(doc.get(story_1_id)).toBeDefined();
+    });
+
+    it('should delete nodes when all references are removed', () => {
+      const doc = create_test_doc();
+      
+      // Initial state: story is referenced twice
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id, list_1_id]);
+      expect(doc.get(story_1_id)).toBeDefined();
+      
+      // Delete both story references (index 0 and 1)
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 0,
+        focus_offset: 2
+      };
+      
+      const tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      // Body should only contain the list
+      expect(doc.get([page_1_id, 'body'])).toEqual([list_1_id]);
+      
+      // Story node should be deleted since no references remain
+      expect(doc.get(story_1_id)).toBeUndefined();
+    });
+
+    it('should properly restore deleted nodes and references on undo', () => {
+      const doc = create_test_doc();
+      
+      // Delete the list
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 2,
+        focus_offset: 3
+      };
+      
+      const tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      // Verify deletion
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id]);
+      expect(doc.get(list_1_id)).toBeUndefined();
+      expect(doc.get(list_item_1_id)).toBeUndefined();
+      expect(doc.get(list_item_2_id)).toBeUndefined();
+      
+      // Undo the deletion
+      doc.undo();
+      
+      // Everything should be restored
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, story_1_id, list_1_id]);
+      expect(doc.get(list_1_id)).toBeDefined();
+      expect(doc.get(list_item_1_id)).toBeDefined();
+      expect(doc.get(list_item_2_id)).toBeDefined();
+      expect(doc.get(list_1_id).list_items).toEqual([list_item_1_id, list_item_2_id]);
+    });
+
+    it('should handle complex nested deletion scenarios', () => {
+      const doc = create_test_doc();
+      
+      // Delete one story reference first
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 0,
+        focus_offset: 1
+      };
+      
+      let tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      expect(doc.get([page_1_id, 'body'])).toEqual([story_1_id, list_1_id]);
+      expect(doc.get(story_1_id)).toBeDefined(); // Should still exist
+      
+      // Now delete the remaining story and list
+      doc.selection = {
+        type: 'container',
+        path: [page_1_id, 'body'],
+        anchor_offset: 0,
+        focus_offset: 2
+      };
+      
+      tr = doc.tr;
+      tr.delete_selection();
+      doc.apply(tr);
+      
+      expect(doc.get([page_1_id, 'body'])).toEqual([]);
+      expect(doc.get(story_1_id)).toBeUndefined(); // Now should be deleted
+      expect(doc.get(list_1_id)).toBeUndefined();
+      expect(doc.get(list_item_1_id)).toBeUndefined();
+      expect(doc.get(list_item_2_id)).toBeUndefined();
+    });
+  });
 });

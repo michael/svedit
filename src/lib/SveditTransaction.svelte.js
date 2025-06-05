@@ -156,12 +156,18 @@ export default class SveditTransaction {
 
     if (this.doc.selection.type === 'container') {
       const container = [...this.doc.get(path)]; // container is an array of blocks
+      
+      // Get the node IDs that will be removed
+      const removed_node_ids = container.slice(start, end);
 
       // Remove the selected blocks from the container
       container.splice(start, end - start);
 
       // Update the container in the entry (this implicitly records an op via this.set)
       this.set(path, container);
+
+      // Now check which nodes should be deleted based on reference counting
+      this._cascade_delete_unreferenced_nodes(removed_node_ids);
 
       // Update the selection to point to the start of the deleted range
       this.doc.selection = {
@@ -304,5 +310,59 @@ export default class SveditTransaction {
     };
     this.doc.selection = new_selection;
     return this;
+  }
+
+  // Helper method to recursively delete unreferenced nodes
+  _cascade_delete_unreferenced_nodes(node_ids) {
+    const nodes_to_delete = new Set();
+    const to_check = [...node_ids];
+    
+    while (to_check.length > 0) {
+      const node_id = to_check.pop();
+      
+      // Skip if already marked for deletion
+      if (nodes_to_delete.has(node_id)) continue;
+      
+      // Count references excluding nodes already marked for deletion
+      const ref_count = this._count_references_excluding_deleted(node_id, nodes_to_delete);
+      
+      if (ref_count === 0) {
+        // No more references, safe to delete this node
+        nodes_to_delete.add(node_id);
+        
+        // Also check all nodes referenced by this node
+        const referenced_nodes = this.doc.get_referenced_nodes(node_id);
+        to_check.push(...referenced_nodes);
+      }
+    }
+    
+    // Delete all unreferenced nodes
+    for (const node_id of nodes_to_delete) {
+      this.delete(node_id);
+    }
+  }
+
+  // Count references to a node, excluding nodes that are marked for deletion
+  _count_references_excluding_deleted(target_node_id, nodes_to_delete) {
+    let count = 0;
+    
+    for (const node of Object.values(this.doc.nodes)) {
+      // Skip nodes that are marked for deletion
+      if (nodes_to_delete.has(node.id)) continue;
+      
+      for (const [property, value] of Object.entries(node)) {
+        if (property === 'id' || property === 'type') continue;
+        
+        const prop_type = this.doc.property_type(node.type, property);
+        
+        if (prop_type === 'multiref' && Array.isArray(value)) {
+          count += value.filter(id => id === target_node_id).length;
+        } else if (prop_type === 'ref' && value === target_node_id) {
+          count += 1;
+        }
+      }
+    }
+    
+    return count;
   }
 }

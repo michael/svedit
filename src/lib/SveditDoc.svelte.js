@@ -340,4 +340,54 @@ export default class SveditDoc {
 
     return this.schema[type][property].type;
   }
+
+  // Count how many times a node is referenced in the document
+  count_references(node_id) {
+    let count = 0;
+    
+    for (const node of Object.values(this.nodes)) {
+      for (const [property, value] of Object.entries(node)) {
+        if (property === 'id' || property === 'type') continue;
+        
+        const prop_type = this.property_type(node.type, property);
+        
+        if (prop_type === 'multiref' && Array.isArray(value)) {
+          count += value.filter(id => id === node_id).length;
+        } else if (prop_type === 'ref' && value === node_id) {
+          count += 1;
+        }
+      }
+    }
+    
+    return count;
+  }
+
+  // Get all nodes referenced by a given node (recursively)
+  get_referenced_nodes(node_id, visited = new Set()) {
+    if (visited.has(node_id)) return [];
+    visited.add(node_id);
+    
+    const node = this.nodes[node_id];
+    if (!node) return [];
+    
+    const referenced = [];
+    
+    for (const [property, value] of Object.entries(node)) {
+      if (property === 'id' || property === 'type') continue;
+      
+      const prop_type = this.property_type(node.type, property);
+      
+      if (prop_type === 'multiref' && Array.isArray(value)) {
+        for (const ref_id of value) {
+          referenced.push(ref_id);
+          referenced.push(...this.get_referenced_nodes(ref_id, visited));
+        }
+      } else if (prop_type === 'ref' && typeof value === 'string') {
+        referenced.push(value);
+        referenced.push(...this.get_referenced_nodes(value, visited));
+      }
+    }
+    
+    return referenced;
+  }
 }
