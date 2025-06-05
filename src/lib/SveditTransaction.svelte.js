@@ -180,7 +180,46 @@ export default class SveditTransaction {
       const path = this.doc.selection.path;
       let text = structuredClone($state.snapshot(this.doc.get(path)));
 
+      // Update the text content
       text[0] = text[0].slice(0, start) + text[0].slice(end);
+      
+      // Update annotation offsets for deletion
+      const deletion_length = end - start;
+      const new_annotations = text[1].map(annotation => {
+        const [anno_start, anno_end, type, anno_data] = annotation;
+
+        // Adjust start offset
+        let new_start = anno_start;
+        if (anno_start >= end) {
+          // Start is after deletion - shift back
+          new_start = anno_start - deletion_length;
+        } else if (anno_start >= start) {
+          // Start is within deletion - move to deletion point
+          new_start = start;
+        }
+        // If start is before deletion, keep unchanged
+
+        // Adjust end offset
+        let new_end = anno_end;
+        if (anno_end >= end) {
+          // End is after deletion - shift back
+          new_end = anno_end - deletion_length;
+        } else if (anno_end > start) {
+          // End is within deletion - move to deletion point
+          new_end = start;
+        }
+        // If end is before deletion, keep unchanged
+
+        // Remove annotation if it becomes invalid (start >= end)
+        if (new_start >= new_end) {
+          return false;
+        }
+
+        return [new_start, new_end, type, anno_data];
+      }).filter(Boolean);
+
+      text[1] = new_annotations;
+      
       // Update the text in the entry (this implicitly records an op via this.set)
       this.set(path, text);
       this.set_selection({
