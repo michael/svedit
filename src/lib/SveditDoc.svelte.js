@@ -71,7 +71,6 @@ export default class SveditDoc {
     const change = this.history[this.history_index];
     const tr = this.tr;
     change.inverse_ops.forEach(op => tr.doc._apply_op(op));
-    tr.set_selection(change.selection_before);
     this.nodes = tr.doc.nodes;
     this.selection = change.selection_before;
     this.history_index--;
