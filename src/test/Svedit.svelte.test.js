@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import { create_test_doc } from './create_test_doc.js';
 
@@ -16,15 +17,16 @@ describe('Svedit.svelte', () => {
       focus_offset: 1,
     };
 
-    // Wait for the selection to be updated
-    await Promise.resolve();
+    // Wait for Svelte effects to complete
+    await tick();
+    
+    // Give browser time to update DOM selection after focus
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     const dom_selection = window.getSelection();
     expect(dom_selection).not.toBeNull();
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
-
-    // console.log('dom_selection', dom_selection);
     expect(dom_selection.anchorNode.attributes['data-path'].value).toBe(`${doc.doc_id}.body`);
     expect(dom_selection.focusNode.attributes['data-path'].value).toBe(`${doc.doc_id}.body`);
     expect(dom_selection.anchorOffset).toBe(7);
@@ -41,11 +43,13 @@ describe('Svedit.svelte', () => {
       path: [doc.doc_id, 'body', 0, 'image'],
     };
 
-    // Wait for the selection to be updated
-    await Promise.resolve();
+    // Wait for Svelte effects to complete
+    await tick();
+    
+    // Give browser time to update DOM selection after focus
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     const dom_selection = window.getSelection();
-    console.log('dom_selection', dom_selection);
     expect(dom_selection).not.toBeNull();
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
