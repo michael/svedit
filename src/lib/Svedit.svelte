@@ -107,6 +107,13 @@
 
   // Map DOM selection to internal model
   function onselectionchange(event) {
+    // Only handle selection changes if selection is within the canvas
+    const dom_selection = window.getSelection();
+    if (!dom_selection.rangeCount) return;
+    
+    const range = dom_selection.getRangeAt(0);
+    if (!ref?.contains(range.commonAncestorContainer)) return;
+    
     // console.log('dom selection', window.getSelection());
     // return;
     let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
@@ -118,6 +125,9 @@
 
 
   function oncopy(event, delete_selection = false) {
+    // Only handle copy events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
     event.preventDefault();
     event.stopPropagation();
 
@@ -170,6 +180,9 @@
   }
 
   async function onpaste(event) {
+    // Only handle paste events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
     event.preventDefault();
     const clipboardItems = await navigator.clipboard.read();
 
@@ -221,6 +234,9 @@
   }
 
   function onkeydown(e) {
+    // Only handle keyboard events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
     const selection = doc.selection;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
