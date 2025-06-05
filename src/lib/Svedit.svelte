@@ -266,7 +266,15 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
-      doc.apply(doc.tr.delete_selection());
+      if (selection?.type === 'property') {
+        // For property selections, clear the property value
+        const tr = doc.tr;
+        tr.set(selection.path, '');
+        doc.apply(tr);
+      } else {
+        // For other selections, use the normal delete behavior
+        doc.apply(doc.tr.delete_selection());
+      }
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
