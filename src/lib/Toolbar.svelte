@@ -197,15 +197,15 @@
   {/if}
   <button 
     title='Undo'
-    onclick={() => doc.undo()}
-    disabled={doc.history_index < 0}
+    onclick={() => { console.log('Undo clicked, can_undo:', doc.can_undo, 'history_index:', doc.history_index); doc.undo(); }}
+    disabled={!doc.can_undo}
   >
     <Icon name="rotate-left" />
   </button>
   <button 
     title='Redo'
-    onclick={() => doc.redo()}
-    disabled={doc.history_index >= doc.history.length - 1}
+    onclick={() => { console.log('Redo clicked, can_redo:', doc.can_redo, 'history_index:', doc.history_index, 'history_length:', doc.history.length); doc.redo(); }}
+    disabled={!doc.can_redo}
   >
     <Icon name="rotate-right" />
   </button>

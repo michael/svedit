@@ -5,15 +5,17 @@ export default class SveditDoc {
   selection = $state();
   doc_id = $state();
   nodes = $state();
+  history = $state([]);
+  history_index = $state(-1);
+
+  // Reactive helpers for UI state
+  can_undo = $derived(this.history_index >= 0);
+  can_redo = $derived(this.history_index < this.history.length - 1);
 
   constructor(schema, raw_doc, selection) {
     this.schema = schema;
     this.selection = selection;
     this.nodes = {};
-
-    // These do not need to be reactive
-    this.history = [];
-    this.history_index = -1;
 
     // Initialize the nodes
     for (const node of raw_doc) {
