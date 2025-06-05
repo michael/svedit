@@ -1,14 +1,18 @@
 <script>
   import { setContext } from 'svelte';
-  import Icon from '$lib/Icon.svelte';
+  import Icon from './Icon.svelte';
+  import { svid } from './util.js';
 
   let {
-    entry_session,
+    doc,
     children,
     editable = false,
     ref = $bindable(),
     class: css_class,
   } = $props();
+
+  // Expose focus_canvas method to parent component
+  export { focus_canvas };
 
   let is_mouse_down = $state(false);
   let container_selection_paths = $derived(get_container_selection_paths());
@@ -17,7 +21,7 @@
 
   function get_container_selection_paths() {
     const paths = [];
-    const sel = entry_session.selection;
+    const sel = doc.selection;
     if (!sel) return;
     
     // Container selection. Not collapsed.
@@ -33,11 +37,11 @@
   }
 
   function get_container_cursor_info() {
-    const sel = entry_session.selection;
+    const sel = doc.selection;
     if (!sel) return;
 
     if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
-      const container = entry_session.get(sel.path);
+      const container = doc.get(sel.path);
       let block_index, position;
 
       if (sel.anchor_offset === container.length) {
@@ -57,12 +61,12 @@
   }
 
   function get_text_selection_info() {
-    const sel = entry_session.selection;
+    const sel = doc.selection;
     if (!sel || sel.type !== 'text') return null;
 
-    const active_annotation = entry_session.active_annotation();
+    const active_annotation = doc.active_annotation();
     if (active_annotation && active_annotation[2] === 'link') {
-      const annotated_text = entry_session.get(sel.path);
+      const annotated_text = doc.get(sel.path);
       const annotation_index = annotated_text[1].indexOf(active_annotation);
       return {
         path: sel.path,
@@ -80,8 +84,8 @@
   }
 
   setContext("svedit", {
-    get entry_session() {
-      return entry_session;
+    get doc() {
+      return doc;
     }
   });
 
@@ -98,33 +102,52 @@
     
     event.preventDefault();
     if (inserted_char) {
-      entry_session.insert_text(inserted_char);
+      const tr = doc.tr;
+      tr.insert_text(inserted_char);
+      doc.apply(tr);
     }
   }
 
-  // Map selection to model
+  // Map DOM selection to internal model
   function onselectionchange(event) {
-    let selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
-    // console.log('latest selection from dom', JSON.stringify(selection));
+    // Only handle selection changes if selection is within the canvas
+    const dom_selection = window.getSelection();
+    if (!dom_selection.rangeCount) return;
+    
+    const range = dom_selection.getRangeAt(0);
+    if (!ref?.contains(range.commonAncestorContainer)) return;
+    let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
     if (selection) {
-      entry_session.selection = selection;
+      doc.selection = selection;
     }
   }
 
 
   function oncopy(event, delete_selection = false) {
+    // Only handle copy events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
     event.preventDefault();
     event.stopPropagation();
 
     let plain_text, html, json_data;
 
-    if (entry_session.selection?.type === 'text') {
-      plain_text = entry_session.get_selected_plain_text();
+    if (doc.selection?.type === 'text') {
+      plain_text = doc.get_selected_plain_text();
       html = plain_text;
       console.log('selected_plain_text', plain_text);
-    } else if (entry_session.selection?.type === 'container') {
-      const selected_blocks = entry_session.get_selected_blocks();
-      json_data = selected_blocks;
+    } else if (doc.selection?.type === 'container') {
+      const selected_nodes = doc.get_selected_nodes();
+      json_data = [];
+      selected_nodes.forEach(node_id => {
+        const node = doc.get(node_id);
+        // On cut we keep the ids of the selection, on copy we generate new ids for the nodes to be pasted.
+        const id = delete_selection ? node.id : svid();
+        json_data.push({
+          ...node,
+          id,
+        });
+      });
     }
 
     // Create a ClipboardItem with multiple formats
@@ -147,7 +170,7 @@
     });
 
     if (delete_selection) {
-      entry_session.delete();
+      doc.apply(doc.tr.delete_selection());
     }
   }
 
@@ -156,6 +179,9 @@
   }
 
   async function onpaste(event) {
+    // Only handle paste events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
     event.preventDefault();
     const clipboardItems = await navigator.clipboard.read();
 
@@ -170,18 +196,18 @@
     if (pasted_json) {
       // ATM we assume when we get JSON, that we are dealing with a sequence of blocks that was copied
       const blocks = pasted_json;
-      entry_session.insert_blocks(blocks);
+      doc.apply(doc.tr.insert_blocks(blocks));
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
       const plain_text = await plain_text_blob.text();
-      entry_session.insert_text(plain_text);
+      doc.apply(doc.tr.insert_text(plain_text));
     }
   }
 
   function render_selection() {
-    const selection = entry_session.selection;
-    let prev_selection = __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    const selection = doc.selection;
+    let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
 
     if (!selection) {
       // No model selection -> just leave things as they are'
@@ -190,7 +216,8 @@
       return;
     }
 
-    if (JSON.stringify(selection) === JSON.stringify(prev_selection)) {
+    // NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
+    if (JSON.stringify(selection) === JSON.stringify(prev_selection) && ref?.contains(document.activeElement)) {
       // Skip. No need to rerender.
       return;
     }
@@ -199,96 +226,145 @@
       __render_text_selection();
     } else if (selection?.type === 'container') {
       __render_container_selection();
+    } else if (selection?.type === 'property') {
+      __render_property_selection();
     } else {
       console.log('unsupported selection type', selection.type);
     }
   }
 
+  function focus_toolbar() {
+    // Find the first interactive element in the toolbar and focus it
+    const toolbar = document.querySelector('.editor-toolbar');
+    if (toolbar) {
+      const firstInteractive = toolbar.querySelector('input, button, select, textarea');
+      if (firstInteractive) {
+        firstInteractive.focus();
+      }
+    }
+  }
+
+  function focus_canvas() {
+    // We just render the selection (which will return focus to the canvas) implicitly
+    render_selection();
+  }
+
   function onkeydown(e) {
-    const selection = entry_session.selection;
+    // Only handle keyboard events if focus is within the canvas
+    if (!ref?.contains(document.activeElement)) return;
+    
+    const selection = doc.selection;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-      entry_session.undo();
+      doc.undo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-      entry_session.redo();
+      doc.redo();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      entry_session.insert_text('\n');
+      doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
-      entry_session.annotate_text('strong');
+      doc.apply(doc.tr.annotate_text('strong'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'i' && (e.ctrlKey || e.metaKey)) {
-      entry_session.annotate_text('emphasis');
+      doc.apply(doc.tr.annotate_text('emphasis'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      entry_session.annotate_text('link', {
+      doc.apply(doc.tr.annotate_text('link', {
         href: window.prompt('Enter the URL', 'https://example.com')
-      });
+      }));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
-      entry_session.delete();
+      if (selection?.type === 'property') {
+        // For property selections, clear the property value only if it's not already falsy
+        if (doc.get(selection.path)) {
+          const tr = doc.tr;
+          tr.set(selection.path, '');
+          doc.apply(tr);
+        }
+      } else {
+        // For other selections, use the normal delete behavior
+        doc.apply(doc.tr.delete_selection());
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'Enter' && selection?.type === 'property') {
+      // Focus toolbar for property selections
+      focus_toolbar();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-      const path = selection.path;
-      // HACK: we need a way to generalize insertion. Possibly we need
-      // a bit of schema introspection. E.g. to determine the default_block_type
-      // based on a certain context
-      if (path.at(-1) === 'items') {
-        entry_session.insert_blocks([
-          {
-            type: 'list',
-            description: ['enter description', []],
-          }
-        ]);
-      } else {
-        entry_session.insert_blocks([
-          {
-            type: 'story',
-            image: '/images/container-cursors.svg',
-            title: ['Enter title', []],
-            description: ['Enter a description', []],
-          }
-        ]);
+      const isCollapsed = selection.anchor_offset === selection.focus_offset;
+      const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
+      
+      if (isCollapsed) {
+        // Collapsed container selection (container cursor) - insert new block
+        const path = selection.path;
+        // HACK: we need a way to generalize insertion. Possibly we need
+        // a bit of schema introspection. E.g. to determine the default_block_type
+        // based on a certain context
+        if (path.at(-1) === 'items') {
+          doc.apply(doc.tr.insert_blocks([
+            {
+              id: svid(),
+              type: 'list',
+              description: ['enter description', []],
+            }
+          ]));
+        } else {
+          doc.apply(doc.tr.insert_blocks([
+            {
+              id: svid(),
+              type: 'story',
+              image: '/images/container-cursors.svg',
+              title: ['Enter title', []],
+              layout: 1,
+              description: ['Enter a description', []],
+            }
+          ]));
+        }
+      } else if (spanLength === 1) {
+        // Container selection with exactly one node - focus toolbar
+        focus_toolbar();
       }
-
+      // Container selections with multiple nodes do nothing on Enter
+      
       e.preventDefault();
       e.stopPropagation();
     // Because of specificity, this has to come before the other arrow key checks
     } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && (e.metaKey || e.ctrlKey) && selection?.type === 'container') {
       if (e.key === 'ArrowUp') {
-        entry_session.move_up();
+        doc.move_up();
       } else {
-        entry_session.move_down();
+        doc.move_down();
       }
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
-      entry_session.move_container_cursor('forward');
+      doc.move_container_cursor('forward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
-      entry_session.move_container_cursor('backward');
+      doc.move_container_cursor('backward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
-      entry_session.expand_container_selection('forward');
+      doc.expand_container_selection('forward');
       e.preventDefault();
       e.stopPropagation();
     } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
-      entry_session.expand_container_selection('backward');
+      doc.expand_container_selection('backward');
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
-      entry_session.select_parent();
+      doc.select_parent();
       e.preventDefault();
       e.stopPropagation();
     }
@@ -336,8 +412,8 @@
     let focus_offset = parseInt(focus_root_path.at(-1));
 
     // Check if it's a backwards selection
-    const is_bwackwards = __is_dom_selection_backwards();
-    if (is_bwackwards) {
+    const is_backwards = __is_dom_selection_backwards();
+    if (is_backwards) {
       anchor_offset += 1;
     } else {
       focus_offset += 1;
@@ -350,6 +426,24 @@
       focus_offset: focus_offset,
     };
     return result;
+  }
+
+  function __get_property_selection_from_dom() {
+    const dom_selection = window.getSelection();
+    if (dom_selection.rangeCount === 0) return null;
+
+    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="property"]');
+    if (!focus_root) return null;
+    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="property"]');
+    if (!anchor_root) return null;
+
+    if (focus_root === anchor_root) {
+      return {
+        type: 'property',
+        path: focus_root.dataset.path.split('.')
+      }
+    }
+    return null;
   }
 
   function __get_text_selection_from_dom() {
@@ -401,11 +495,11 @@
     }
 
     // Check if it's a backward selection
-    const isBackward = dom_selection.anchorNode === range.endContainer && 
+    const is_backward = dom_selection.anchorNode === range.endContainer && 
                       dom_selection.anchorOffset === range.endOffset;
 
     // Swap offsets if it's a backward selection
-    if (isBackward) {
+    if (is_backward) {
       [anchorOffset, focusOffset] = [focusOffset, anchorOffset];
     }
 
@@ -432,9 +526,9 @@
   }
 
   function __render_container_selection() {
-    // console.log('render_container_selection', $state.snapshot(entry_session.selection));
-    const selection = entry_session.selection;
-    const container = entry_session.get(selection.path);
+    // console.log('render_container_selection', $state.snapshot(doc.selection));
+    const selection = doc.selection;
+    const container = doc.get(selection.path);
     const container_path = selection.path.join('.');
 
     // we need to translate the cusor offset to block offsets now
@@ -445,7 +539,7 @@
 
     if (!anchor_node || !focus_node) return;
     const dom_selection = window.getSelection();
-    const range = document.createRange();
+    const range = window.document.createRange();
 
     if (selection.anchor_offset === selection.focus_offset) {
       // Collapsed selection (cursor between blocks)
@@ -499,12 +593,19 @@
     }
   }
 
+  function __render_property_selection() {
+    const selection = doc.selection;
+    // The element that holds the annotated text
+    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
+    el.querySelector('.cursor-trap').focus();
+  }
+
   function __render_text_selection() {
-    const selection = entry_session.selection;
+    const selection = doc.selection;
     // The element that holds the annotated text
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
 
-    const range = document.createRange();
+    const range = window.document.createRange();
     const dom_selection = window.getSelection();
     let currentOffset = 0;
     let anchorNode, anchorNodeOffset, focusNode, focusNodeOffset;
@@ -660,7 +761,7 @@
 >
   <div
     class="svedit-canvas {css_class}"
-    class:hide-selection={entry_session.selection?.type === 'container'}
+    class:hide-selection={doc.selection?.type === 'container'}
     bind:this={ref}
     {onbeforeinput}
     contenteditable={editable ? 'true' : 'false'}
@@ -668,6 +769,9 @@
     {@render children()}
   </div>
   <div class="svedit-overlays">
+    {#if doc.selection?.type === 'property'}
+      <div class="property-selection-overlay" style="position-anchor: --{doc.selection.path.join('-')};"></div>
+    {/if}
     <!-- Here we render  and other stuff that should lay atop of the canvas -->
     <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
     {#if container_selection_paths}
@@ -705,7 +809,7 @@
   }
 
   /* This should be an exact overlay */
-  .container-selection-fragment {
+  .container-selection-fragment, .property-selection-overlay {
     position: absolute;
     background:  var(--editing-fill-color);
     border: 1px solid var(--editing-stroke-color);
