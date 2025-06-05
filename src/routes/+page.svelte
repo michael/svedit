@@ -4,7 +4,7 @@
   import UnknownBlock from '$lib/UnknownBlock.svelte';
   import Svedit from '$lib/Svedit.svelte';
   import Container from '$lib/Container.svelte';
-  import TextToolBar from '$lib/TextToolBar.svelte';
+  import Toolbar from '$lib/Toolbar.svelte';
   import SveditDoc from '$lib/SveditDoc.svelte.js';
   import { svid } from '$lib/util.js';
 
@@ -98,7 +98,7 @@
 <div class="demo-wrapper">
 
   <h1>Svedit Test</h1>
-  <!-- <TextToolBar {entry_session} /> -->
+  <Toolbar {doc} />
 
   <Svedit {doc} editable={true} class='flex-column'>
     <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>

@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte';
 
   let {
-    entry_session,
+    doc,
   } = $props();
 
   const layout_options = [
@@ -24,124 +24,153 @@
   ];
 
   function handle_layout_change(layout_index) {
-    const selected_block_path = entry_session.selected_block_path;
-
-    if (selected_block_path) {
-      entry_session.set([...selected_block_path, 'layout'], layout_index);
+    if (!doc.selection || doc.selection.type !== 'container') return;
+    
+    const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
+    const container = doc.get(doc.selection.path);
+    const block_id = container[start];
+    
+    if (block_id) {
+      const tr = doc.tr;
+      tr.set([block_id, 'layout'], layout_index);
+      doc.apply(tr);
     }
   }
 
   function handle_list_style_change(list_style) {
-    const block = entry_session.selected_block;
-    if (block) {
-      block.list_style = list_style;
+    if (!doc.selection || doc.selection.type !== 'container') return;
+    
+    const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
+    const container = doc.get(doc.selection.path);
+    const block_id = container[start];
+    
+    if (block_id) {
+      const tr = doc.tr;
+      tr.set([block_id, 'list_style'], list_style);
+      doc.apply(tr);
     }
   }
 
   function insert_link() {
     // if the user cancels the prompt it will use the previous link
-    const current_link = entry_session.active_annotation()?.[2] === 'link' 
-      ? entry_session.active_annotation()[3].href 
+    const current_link = doc.active_annotation()?.[2] === 'link' 
+      ? doc.active_annotation()[3].href 
       : '';
     
     const new_url = window.prompt('Enter the URL', current_link);
 
     // Update if the user didn't cancel the prompt
     if (new_url !== null) {
-      entry_session.annotate_text('link', {
+      const tr = doc.tr;
+      tr.annotate_text('link', {
         href: new_url // Pass the new_url directly, even if it's an empty string
       });
+      doc.apply(tr);
     }
   }
+
+  // Helper function to get the currently selected block
+  function get_selected_block() {
+    if (!doc.selection || doc.selection.type !== 'container') return null;
+    
+    const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
+    const container = doc.get(doc.selection.path);
+    const block_id = container[start];
+    
+    return block_id ? doc.get(block_id) : null;
+  }
+
+  // Reactive variable for selected block
+  let selected_block = $derived(get_selected_block());
 
 </script>
     
 
 <div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }}>
-  {#if entry_session.selection?.type === 'container'}
+  {#if doc.selection?.type === 'container'}
     <button 
       title='Move up'
-      onclick={() => entry_session.move_up()}
-      disabled={entry_session.selection.anchor_offset === 0}
+      onclick={() => doc.move_up()}
+      disabled={doc.selection.anchor_offset === 0}
       >
         <Icon name="arrow-up-tail" />
       </button>
       <button 
         title='Move down'
-        onclick={() => entry_session.move_down()}
-        disabled={Math.max(entry_session.selection.anchor_offset, entry_session.selection.focus_offset) === entry_session.get(entry_session.selection.path).length}
+        onclick={() => doc.move_down()}
+        disabled={Math.max(doc.selection.anchor_offset, doc.selection.focus_offset) === doc.get(doc.selection.path).length}
         >
         <Icon name="arrow-down-tail" />
       </button>
   {/if}
-  {#if entry_session.selection?.type === 'text'}
+  {#if doc.selection?.type === 'text'}
     <button 
       title='Bold'
       class='bold'
-      onclick={() => entry_session.annotate_text('strong')} 
-      disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'strong'}
-      class:active={entry_session.active_annotation() && entry_session.active_annotation()?.[2] === 'strong'}
+      onclick={() => { const tr = doc.tr; tr.annotate_text('strong'); doc.apply(tr); }}
+      disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'strong'}
+      class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'strong'}
     >
       <Icon name="bold" />
     </button>
     <button 
       title='Italic'
       class='italic'
-      onclick={() => entry_session.annotate_text('emphasis')} 
-      disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'emphasis'}
-      class:active={entry_session.active_annotation() && entry_session.active_annotation()?.[2] === 'emphasis'}
+      onclick={() => { const tr = doc.tr; tr.annotate_text('emphasis'); doc.apply(tr); }}
+      disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'emphasis'}
+      class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'emphasis'}
     >
       <Icon name="italic" />
     </button>
     <button 
       title='Link'
       onclick={insert_link} 
-      disabled={entry_session.active_annotation() && entry_session.active_annotation()?.[2] !== 'link'}
-      class:active={entry_session.active_annotation() && entry_session.active_annotation()?.[2] === 'link'}
+      disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'link'}
+      class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'link'}
     >
         <Icon name="link" />
       </button>
   {/if}
-  {#if entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'story'}
+  {#if doc.selection?.type === 'container' && selected_block?.type === 'story'}
 
       {#each layout_options as option}
         <button 
           onclick={() => handle_layout_change(option.value)}
-          class:active={entry_session.selected_block.layout === option.value}
+          class:active={selected_block.layout === option.value}
         >
           <Icon name={option.icon} />
         </button>
       {/each}
   {/if}
-  {#if entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'list'}
+  {#if doc.selection?.type === 'container' && selected_block?.type === 'list'}
     <hr>
       {#each list_style_options as option}
         <button 
           onclick={() => handle_list_style_change(option.value)}
-          class:active={entry_session.selected_block.list_style === option.value}
+          class:active={selected_block.list_style === option.value}
         >
           <Icon name={option.icon} />
         </button>
       {/each}
   {/if}
 
-  {#if entry_session.selection?.type === 'text' 
-    || (entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'story') 
-    || (entry_session.selection?.type === 'container' && entry_session.selected_block?.type === 'list')
+  {#if doc.selection?.type === 'text' 
+    || (doc.selection?.type === 'container' && selected_block?.type === 'story') 
+    || (doc.selection?.type === 'container' && selected_block?.type === 'list')
   }
     <hr>
   {/if}
   <button 
     title='Undo'
-    onclick={() => entry_session.undo()}
-    disabled={entry_session.history.length === 0}
+    onclick={() => doc.undo()}
+    disabled={doc.history_index < 0}
   >
     <Icon name="rotate-left" />
   </button>
   <button 
     title='Redo'
-    onclick={() => entry_session.redo()}
-    disabled={entry_session.future.length === 0}
+    onclick={() => doc.redo()}
+    disabled={doc.history_index >= doc.history.length - 1}
   >
     <Icon name="rotate-right" />
   </button>
