@@ -11,6 +11,9 @@
     class: css_class,
   } = $props();
 
+  // Expose focus_canvas method to parent component
+  export { focus_canvas };
+
   let is_mouse_down = $state(false);
   let container_selection_paths = $derived(get_container_selection_paths());
   let container_cursor_info = $derived(get_container_cursor_info());
@@ -113,11 +116,7 @@
     
     const range = dom_selection.getRangeAt(0);
     if (!ref?.contains(range.commonAncestorContainer)) return;
-    
-    // console.log('dom selection', window.getSelection());
-    // return;
     let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
-    console.log('latest selection from dom', JSON.stringify(selection));
     if (selection) {
       doc.selection = selection;
     }
@@ -217,7 +216,8 @@
       return;
     }
 
-    if (JSON.stringify(selection) === JSON.stringify(prev_selection)) {
+    // NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
+    if (JSON.stringify(selection) === JSON.stringify(prev_selection) && ref?.contains(document.activeElement)) {
       // Skip. No need to rerender.
       return;
     }
@@ -231,6 +231,22 @@
     } else {
       console.log('unsupported selection type', selection.type);
     }
+  }
+
+  function focus_toolbar() {
+    // Find the first interactive element in the toolbar and focus it
+    const toolbar = document.querySelector('.editor-toolbar');
+    if (toolbar) {
+      const firstInteractive = toolbar.querySelector('input, button, select, textarea');
+      if (firstInteractive) {
+        firstInteractive.focus();
+      }
+    }
+  }
+
+  function focus_canvas() {
+    // We just render the selection (which will return focus to the canvas) implicitly
+    render_selection();
   }
 
   function onkeydown(e) {
@@ -279,32 +295,47 @@
       }
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'Enter' && selection?.type === 'property') {
+      // Focus toolbar for property selections
+      focus_toolbar();
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-      const path = selection.path;
-      // HACK: we need a way to generalize insertion. Possibly we need
-      // a bit of schema introspection. E.g. to determine the default_block_type
-      // based on a certain context
-      if (path.at(-1) === 'items') {
-        doc.apply(doc.tr.insert_blocks([
-          {
-            id: svid(),
-            type: 'list',
-            description: ['enter description', []],
-          }
-        ]));
-      } else {
-        doc.apply(doc.tr.insert_blocks([
-          {
-            id: svid(),
-            type: 'story',
-            image: '/images/container-cursors.svg',
-            title: ['Enter title', []],
-            layout: 1,
-            description: ['Enter a description', []],
-          }
-        ]));
+      const isCollapsed = selection.anchor_offset === selection.focus_offset;
+      const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
+      
+      if (isCollapsed) {
+        // Collapsed container selection (container cursor) - insert new block
+        const path = selection.path;
+        // HACK: we need a way to generalize insertion. Possibly we need
+        // a bit of schema introspection. E.g. to determine the default_block_type
+        // based on a certain context
+        if (path.at(-1) === 'items') {
+          doc.apply(doc.tr.insert_blocks([
+            {
+              id: svid(),
+              type: 'list',
+              description: ['enter description', []],
+            }
+          ]));
+        } else {
+          doc.apply(doc.tr.insert_blocks([
+            {
+              id: svid(),
+              type: 'story',
+              image: '/images/container-cursors.svg',
+              title: ['Enter title', []],
+              layout: 1,
+              description: ['Enter a description', []],
+            }
+          ]));
+        }
+      } else if (spanLength === 1) {
+        // Container selection with exactly one node - focus toolbar
+        focus_toolbar();
       }
-
+      // Container selections with multiple nodes do nothing on Enter
+      
       e.preventDefault();
       e.stopPropagation();
     // Because of specificity, this has to come before the other arrow key checks

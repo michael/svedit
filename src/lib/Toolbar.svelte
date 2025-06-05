@@ -4,6 +4,7 @@
 
   let {
     doc,
+    focus_canvas,
   } = $props();
 
   const layout_options = [
@@ -103,10 +104,27 @@
     doc.apply(tr);
   }
 
+  function handle_toolbar_keydown(event) {
+    if (event.key === 'Enter') {
+      // Apply the change and return focus to canvas
+      update_image_url(event);
+      focus_canvas();
+      event.preventDefault();
+      event.stopPropagation();
+    } else if (event.key === 'Escape') {
+      // console.log('aosdfhsdof');
+      // Cancel and return focus to canvas without applying changes
+      event.preventDefault();
+      event.stopPropagation();
+      focus_canvas();
+    }
+  }
+
 </script>
     
 
-<div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }} onkeydown={handle_toolbar_keydown}>
   
   {#if show_image_input}
     <div class="contextual-input">

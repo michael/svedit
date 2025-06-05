@@ -164,6 +164,14 @@
   ];
 
   const doc = new SveditDoc(doc_schema, raw_doc);
+  
+  let svedit_ref;
+  
+  function focus_canvas() {
+    if (svedit_ref) {
+      svedit_ref.focus_canvas();
+    }
+  }
 </script>
 
 <svelte:head>
@@ -171,8 +179,8 @@
 </svelte:head>
 
 <div class="demo-wrapper">
-  <Toolbar {doc} />
-  <Svedit {doc} editable={true} class='flex-column'>
+  <Toolbar {doc} {focus_canvas} />
+  <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
     <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'story'}
