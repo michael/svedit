@@ -122,22 +122,6 @@
     </div>
     <hr>
   {/if}
-  {#if doc.selection?.type === 'container'}
-    <button 
-      title='Move up'
-      onclick={() => doc.move_up()}
-      disabled={doc.selection.anchor_offset === 0}
-      >
-        <Icon name="arrow-up-tail" />
-      </button>
-      <button 
-        title='Move down'
-        onclick={() => doc.move_down()}
-        disabled={Math.max(doc.selection.anchor_offset, doc.selection.focus_offset) === doc.get(doc.selection.path).length}
-        >
-        <Icon name="arrow-down-tail" />
-      </button>
-  {/if}
   {#if doc.selection?.type === 'text'}
     <button 
       title='Bold'
