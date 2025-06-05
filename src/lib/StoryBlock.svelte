@@ -47,7 +47,7 @@
     @media (min-width: 680px) {
       grid-template-columns: 1fr 2fr;
     }
-    gap: var(--s-8);
+    gap: var(--s-10);
     padding: var(--s-6);
   }
   .story-block img {
@@ -88,13 +88,17 @@
     align-items: center;
   }
 
-  @container (min-width: 680px) {
-    /* on mobile display image on top of text */
-    .story-block.layout-2 > div:first-child {
-      order: 2;
+  @media (min-width: 680px) {
+    /* Layout 2: Image on the right - use grid areas */
+    .story-block.layout-2 {
+      grid-template-columns: 2fr 1fr;
+      grid-template-areas: "content image";
     }
-    .story-block.layout-2 > div:last-child {
-      order: 1;
+    .story-block.layout-2 > :first-child {
+      grid-area: image;
+    }
+    .story-block.layout-2 > :last-child {
+      grid-area: content;
     }
   }
 

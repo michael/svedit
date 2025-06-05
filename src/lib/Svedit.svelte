@@ -267,10 +267,12 @@
       e.stopPropagation();
     } else if (e.key === 'Backspace') {
       if (selection?.type === 'property') {
-        // For property selections, clear the property value
-        const tr = doc.tr;
-        tr.set(selection.path, '');
-        doc.apply(tr);
+        // For property selections, clear the property value only if it's not already falsy
+        if (doc.get(selection.path)) {
+          const tr = doc.tr;
+          tr.set(selection.path, '');
+          doc.apply(tr);
+        }
       } else {
         // For other selections, use the normal delete behavior
         doc.apply(doc.tr.delete_selection());
