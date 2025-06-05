@@ -171,10 +171,7 @@
 </svelte:head>
 
 <div class="demo-wrapper">
-
-  <h1>Svedit Test</h1>
   <Toolbar {doc} />
-
   <Svedit {doc} editable={true} class='flex-column'>
     <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
