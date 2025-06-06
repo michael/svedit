@@ -67,7 +67,6 @@ export default class SveditDoc {
 
   undo() {
     if (this.history_index < 0) {
-      console.warn('No changes to undo');
       return;
     }
     const change = this.history[this.history_index];
@@ -81,7 +80,6 @@ export default class SveditDoc {
 
   redo() {
     if (this.history_index >= this.history.length - 1) {
-      console.warn('No changes to redo');
       return;
     }
     this.history_index++;

@@ -19,13 +19,12 @@
   style="anchor-name: --{path.join('-')};"
 >
   <Property class="image-wrapper" path={[...path,'image']}>
-    <img 
+    <img
       src={block.image || '/icons/image-placeholder.svg'} 
       alt={block.title[0]} 
       class:placeholder={!block.image}
     />
   </Property>
-
   <div class="caption">
     <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
     <Text class='heading2' path={[...path,'title']} editable={block.editable} />

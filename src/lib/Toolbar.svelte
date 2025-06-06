@@ -7,6 +7,8 @@
     focus_canvas,
   } = $props();
 
+  let input_ref = $state();
+
   const layout_options = [
     { value: 1, label: 'Image left', icon: 'image-left' },
     { value: 2, label: 'Image right', icon: 'image-right' },
@@ -96,21 +98,22 @@
     show_image_input ? doc.get(doc.selection.path) : ''
   );
 
-  function update_image_url(event) {
-    if (!show_image_input) return;
-    
+  function update_image_url() {
+    console.log('input_ref.value', input_ref.value);
     const tr = doc.tr;
-    tr.set(doc.selection.path, event.target.value);
+    tr.set(doc.selection.path, input_ref.value);
     doc.apply(tr);
   }
 
   function handle_toolbar_keydown(event) {
+    console.log('toolbar keydown', event.key);
     if (event.key === 'Enter') {
-      // Apply the change and return focus to canvas
-      update_image_url(event);
-      focus_canvas();
+      console.log('enter pressed');
+      update_image_url();
       event.preventDefault();
       event.stopPropagation();
+      // Apply the change and return focus to canvas
+      focus_canvas();
     } else if (event.key === 'Escape') {
       // console.log('aosdfhsdof');
       // Cancel and return focus to canvas without applying changes
@@ -119,10 +122,8 @@
       focus_canvas();
     }
   }
-
 </script>
     
-
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="editor-toolbar p-1" in:fly={{ duration: 100, y: 5 }} out:fly={{ duration: 100, y: 5 }} onkeydown={handle_toolbar_keydown}>
   
@@ -131,6 +132,7 @@
       <label>
         Image URL:
         <input 
+          bind:this={input_ref}
           type="url" 
           value={current_image_url}
           onchange={update_image_url}

@@ -595,9 +595,18 @@
 
   function __render_property_selection() {
     const selection = doc.selection;
-    // The element that holds the annotated text
+    // The element that holds the property
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
-    el.querySelector('.cursor-trap').focus();
+    const cursor_trap = el.querySelector('.cursor-trap');
+    
+    const range = window.document.createRange();
+    const dom_selection = window.getSelection();
+    
+    // Select the entire cursor trap element contents and collapse to start
+    range.selectNodeContents(cursor_trap);
+    range.collapse(true); // Collapse to start position
+    dom_selection.removeAllRanges();
+    dom_selection.addRange(range);
   }
 
   function __render_text_selection() {
