@@ -1,13 +1,9 @@
 <script>
-  import '$lib/styles/reset.css';
-  import '$lib/styles/typography.css';
-  import '$lib/styles/colors.css';
-  import '$lib/styles/spacing.css';
-  import '$lib/styles/shadows.css';
+  import Layout from '$lib/Layout.svelte';
 
   let { children } = $props();
 </script>
 
-<div class='layout-container'>
+<Layout>
   {@render children()}
-</div>
+</Layout>
