@@ -9,7 +9,7 @@
   } = $props();
 </script>
 
-<!-- NOTE: It's super crucial that there is no extra whitespace, to not introduce additional cursor positions in contenteditable   -->
+<!-- NOTE: It's super crucial that there is no extra whitespace, to not introduce additional cursor positions in contenteditable -->
 <div
   class="property {css_class}"
   data-type="property"
@@ -30,7 +30,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 1;
+    /* z-index: 1; */
     outline: none;
   }
   .property-content {

@@ -21,7 +21,7 @@
   <Property class="image-wrapper" path={[...path,'image']}>
     <img
       src={block.image || '/icons/image-placeholder.svg'} 
-      alt={block.title[0]} 
+      alt={block.title[0]}
       class:placeholder={!block.image}
     />
   </Property>

@@ -339,30 +339,30 @@
       e.preventDefault();
       e.stopPropagation();
     // Because of specificity, this has to come before the other arrow key checks
-    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && (e.metaKey || e.ctrlKey) && selection?.type === 'container') {
-      if (e.key === 'ArrowUp') {
-        doc.move_up();
-      } else {
-        doc.move_down();
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
-      doc.move_container_cursor('forward');
-      e.preventDefault();
-      e.stopPropagation();
-    } else if ((e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
-      doc.move_container_cursor('backward');
-      e.preventDefault();
-      e.stopPropagation();
-    } else if ((e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
-      doc.expand_container_selection('forward');
-      e.preventDefault();
-      e.stopPropagation();
-    } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
-      doc.expand_container_selection('backward');
-      e.preventDefault();
-      e.stopPropagation();
+    // } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && (e.metaKey || e.ctrlKey) && selection?.type === 'container') {
+    //   if (e.key === 'ArrowUp') {
+    //     doc.move_up();
+    //   } else {
+    //     doc.move_down();
+    //   }
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if ((e.key === 'ArrowDown') && !e.shiftKey && selection?.type === 'container') {
+    //   doc.move_container_cursor('forward');
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if ((e.key === 'ArrowUp') && !e.shiftKey && selection?.type === 'container') {
+    //   doc.move_container_cursor('backward');
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if ((e.key === 'ArrowDown') && e.shiftKey && selection?.type === 'container') {
+    //   doc.expand_container_selection('forward');
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if ((e.key === 'ArrowUp') && e.shiftKey && selection?.type === 'container') {
+    //   doc.expand_container_selection('backward');
+    //   e.preventDefault();
+    //   e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
       doc.select_parent();
       e.preventDefault();
@@ -552,7 +552,7 @@
       }
       dom_selection.removeAllRanges();
       dom_selection.addRange(range);
-
+      console.log('collapsed selection', selection.anchor_offset, selection.focus_offset)
     } else {
       // Non-collapsed selection
       if (selection.anchor_offset > selection.focus_offset) {

@@ -135,7 +135,6 @@
           bind:this={input_ref}
           type="url" 
           value={current_image_url}
-          onchange={update_image_url}
           placeholder="Enter image URL"
         />
       </label>
