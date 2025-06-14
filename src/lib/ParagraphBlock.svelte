@@ -1,0 +1,33 @@
+<script>
+  import { getContext } from 'svelte';
+  import Text from './Text.svelte';
+  
+  const svedit = getContext('svedit');
+
+  let {
+    path,
+    index,
+  } = $props();
+  let block = $derived(svedit.doc.get(path));
+</script>
+
+<div
+  class="paragraph-block max-w-screen-lg mx-auto w-full"
+  data-path={path.join('.')}
+  data-type="block"
+  data-index={path.at(-1)}
+  style="anchor-name: --{path.join('-')};"
+>
+  <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
+  <Text class='body' path={[...path,'content']} editable={block.editable} />
+</div>
+
+<style>
+  .paragraph-block {
+    padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
+    padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
+    padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
+    padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
+    padding: var(--s-6);
+  }
+</style>
