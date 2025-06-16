@@ -76,7 +76,7 @@
       type: 'story',
       layout: 1,
       image: '/images/editable.svg',
-      title: ['Visual in‑place editing', []],
+      title: ['Visual in-place editing', []],
       description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []]
     },
     {

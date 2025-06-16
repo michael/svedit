@@ -2,22 +2,14 @@
   import { getContext } from 'svelte';
   import Text from './Text.svelte';
   import Property from './Property.svelte';
+  import Block from './Block.svelte';
   const svedit = getContext('svedit');
 
-  let {
-    path,
-    index,
-  } = $props();
+  let { path } = $props();
   let block = $derived(svedit.doc.get(path));
 </script>
 
-<div
-  class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full"
-  data-path={path.join('.')}
-  data-type="block"
-  data-index={path.at(-1)}
-  style="anchor-name: --{path.join('-')};"
->
+<Block class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full" {path}>
   <Property class="image-wrapper" path={[...path,'image']}>
     <img
       src={block.image || '/icons/image-placeholder.svg'} 
@@ -30,10 +22,10 @@
     <Text class='heading2' path={[...path,'title']} editable={block.editable} />
     <Text class='body' path={[...path,'description']} editable={block.editable} />
   </div>
-</div>
+</Block>
 
 <style>
-  .story-block {
+  :global(.story-block) {
     container-type: inline-size;
     display: grid;
     grid-template-columns: 1fr;
@@ -49,18 +41,18 @@
     gap: var(--s-10);
     padding: var(--s-6);
   }
-  .story-block img {
+  :global(.story-block) img {
     width: 100%;
     height: auto;
   }
   /* Don't crop SVGs */
-  .story-block img[src*=".svg"] {
+  :global(.story-block) img[src*=".svg"] {
     object-fit: contain;
     object-position: center;
   }
   
   /* Placeholder styling */
-  .story-block img.placeholder {
+  :global(.story-block) img.placeholder {
     opacity: 0.7;
     border: 2px dashed var(--stroke-color);
     border-radius: var(--s-2);
@@ -68,7 +60,7 @@
     background: var(--canvas-fill-color);
   }
 
-  .story-block :global(.image-wrapper) {
+  :global(.story-block .image-wrapper) {
     /* for now ignore clicks on the image, until we have non-text selections */
     /* pointer-events: none; */
     display: flex;
@@ -83,30 +75,30 @@
   }
 
   /* Layout styles */
-  .story-block.layout-2, .story-block.layout-1 {
+  :global(.story-block.layout-2, .story-block.layout-1) {
     align-items: center;
   }
 
   @media (min-width: 680px) {
     /* Layout 2: Image on the right - use grid areas */
-    .story-block.layout-2 {
+    :global(.story-block.layout-2) {
       grid-template-columns: 2fr 1fr;
       grid-template-areas: "content image";
     }
-    .story-block.layout-2 > :first-child {
+    :global(.story-block.layout-2 > :first-child) {
       grid-area: image;
     }
-    .story-block.layout-2 > :last-child {
+    :global(.story-block.layout-2 > :last-child) {
       grid-area: content;
     }
   }
 
-  .story-block.layout-3 > div:first-child {
+  :global(.story-block.layout-3 > div:first-child) {
     grid-column: 1 / 3;
     grid-row: 1 / 2;
   }
 
-  .story-block.layout-3 > div:last-child {
+  :global(.story-block.layout-3 > div:last-child) {
     grid-column: 1 / 3;
     grid-row: 2 / 3;
   }

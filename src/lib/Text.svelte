@@ -88,7 +88,7 @@
     :global([contenteditable="true"]) {
       a {
         cursor: text;
-      } 
+      }
     }
   }
 </style>
