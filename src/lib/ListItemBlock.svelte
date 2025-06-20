@@ -1,31 +1,27 @@
 <script>
-  import Text from '$lib/Text.svelte';
+	import Block from './Block.svelte';
+  import Text from './Text.svelte';
 
   let {
     path,
     /** @type {('decimal'|'decimal-leading-zero'|'lower-roman'|'upper-roman'|'lower-latin'|'upper-latin'|'disc'|'circle'|'square')} */
     list_style
   } = $props();
-
 </script>
 
-<!-- IMPORTANT: There must not be any white space between the div and <Text>-->
-<div
-  class='list-item'
-  style:--list-style={list_style}
-  data-path={path.join('.')}
-  data-type='block'
-  data-index={path.at(-1)}
-  style='anchor-name: --{path.join('-')};'
-><Text path={[...path,'description']} /></div>
+<Block {path}>
+  <div class="list-item" style="--list-style: {list_style};">
+    <Text path={[...path,'content']} />
+  </div>
+</Block>
 
 <style>
-  div {
+  .list-item {
     position: relative;
     padding-left: 3em;
   }
   
-  div::before {
+  .list-item::before {
     position: absolute;
     left: 0;
     top: 0;
@@ -35,11 +31,7 @@
   }
 
   /* CSS Counter initiation */
-  :global(* > .list-item:first-of-type) {
-    counter-reset: listcounter;
-    counter-increment: listcounter;
-  }
-  :global(.list-item + .list-item) {
+  :global(.list-item) {
     counter-increment: listcounter;
   }
 </style>

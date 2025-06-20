@@ -4,59 +4,249 @@ Svedit (think Svelte Edit) is a template for building rich content editors with 
 
 Try the [demo](https://svedit.vercel.app).
 
-## Quick intro
+## WIP: New Document Graph Data Model
 
-Pass a piece of JSON to the `EntrySession` contructor. There are only a few rules for the format, such as a specific notation for annotated text (see the value of `subtitle`) and containers of blocks, where you need an array of objects, each featuring a `type` property (see `body`). Otherwise the shape is completely up to you. You can nest containers into blocks to create hiearchy (see `<ListBlock>`).
+This branch is a huge work in progress. There's not so much visible progress for Svedit since the initial public release in October. The reason is that we realized a self-contained piece of JSON to be edited is not enough to serve our needs. We want to edit pieces of content that are shared across documents. That's why we switching to a graph data model, where all content lives in a globally addressable space, a huge graph of content nodes if you want. This way we can share pieces of content (e.g. nav or footer or a table) across multiple documents, while still being able to edit them in place (but changes will affect all places they are used).
+
+We also want to include an SQLite data storage layer, so you can create new documents and update them in a single request (respecting shared nodes too).
+
+## Schema definitions
+
+We want to have a simple schema definition language, so we can enforce constraints on our documents. E.g. to make sure a page node always has a property body with references to blocks that are allowed within a page.
+
+First off, everything is a node. The page is a node, and so is a paragraph, a list, a list item, a nav and a nav item.
+
+A top-level node that is accessible via a route we internally call a `document` (e.g. a page, event, etc.)
+
+Properties of nodes can hold values:
+- `integer`
+- `boolean`
+- `string`
+- `string-array`
+- `annotated-text`: a plain text string, but with annotations (bold, italic, link etc.)
+
+Or references:
+- `ref`: References a single node (e.g. an image node can reference a global asset node)
+- `multiref`: References a sequence of nodes (e.g. page.body references pargraph and list nodes)
+
 
 ```js
-  let entry_session = new EntrySession({
-    type: 'page',
-    title: ['Svedit', []],
-    subtitle: ['A template for building rich content editors with Svelte 5', [
-      [24, 44, 'emphasis']
-    ]],
-    body: [
-      { type: 'story', layout: 1, title: ['First title', []], description: ['First description', []] },
-      { type: 'story', layout: 2, title: ['Second title', []], description: ['Second description', []] },
-      {
-        type: 'list',
-        list_style: 'decimal-leading-zero',
-        items: [
-          { type: 'list_item', description: ['List item 1', []] },
-          { type: 'list_item', description: ['List item 2', []] },
-        ]
-      },
-    ]
-  });
+const doc_schema = {
+  page: {
+    body: {
+      type: 'multiref',
+      ref_types: ['nav', 'paragraph', 'list', 'footer'],
+      default_ref_type: 'paragraph',
+    }
+  },
+  paragraph: {
+    content: { type: 'annotated-text' }
+  },
+  list: {
+    list_items: {
+      type: 'multiref',
+      ref_types: ['list_item'],
+      default_ref_type: 'list_item',
+    }
+  },
+  nav: {
+    nav_items: {
+      type: 'container',
+      ref_types: ['document_nav_item'],
+      default_ref_type: 'document_nav_item',
+    }
+  },
+  nav_item: {
+    // we could make this type: 'ref' but then we'd fetch all nodes of each document referenced in the nav
+    // so we keep this a dumb integer at first, but maybe we can introduce some weakref or previewref mechanism that only fetches a preview from the document graph (not sure previews should be owned by the document graph though)
+    document_id: { type: 'integer' },
+    label: { type: 'string' },
+  }
+};
 ```
+
+
+## Document serialization format (to drive an editing session in the browser)
+
+A document is just a subsets of nodes, with a few rules:
+
+- there must be a node (the document node) with the id of the document as an entry point (e.g. page_1)
+- so the document is a node itself, with references to the underlying content (which live in separate nodes)
+- all other nodes need to be traversible from that root node (unlinked nodes will be discarded on a save)
+- in the serialization format the nodes need to be ordered, so that nodes that are referenced, are already defined (makes it easier to initialize the document)
+
+
+```js
+const raw_doc = [
+  {
+    id: 'document_nav_item_1',
+    type: 'document_nav_item',
+    document_id: 'page_1',
+    label: 'Home',
+  },
+  {
+    id: 'nav_1',
+    type: 'nav',
+    nav_items: ['document_nav_item_1'],
+  },
+  {
+    id: 'paragraph_1',
+    content: ['Hello world.', []],
+  },
+  {
+    id: 'list_item_1',
+    type: 'list_item',
+    content: ['first list item', []],
+  },
+  {
+    id: 'list_item_2',
+    type: 'list_item',
+    content: ['second list item', []],
+  },
+  {
+    id: 'list_1',
+    type: 'list',
+    list_items: ['list_item_1', 'list_item_2'],
+  },
+  {
+    id: 'page_1',
+    type: 'page',
+    body: ['nav_1', 'paragraph_1', 'list_1'],
+  },
+]
+```
+
+
+## API to read/traverse and write the document graph
+
+
+```js
+const doc = new SveditDoc(doc_schema, raw_doc);
+
+// get the body (=array of node ids)
+const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
+console.log($state.snapshot(body));
+const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
+console.log('nav.nav_items before:', $state.snapshot(nav.nav_items));
+
+
+// Documents need to be changed through transactions, which can consist of one or
+// multiple ops that are applied in a single step and undo/redo-able.
+const tr = doc.tr;
+const new_nav_items = nav.nav_items.slice(0, -1);
+tr.set(['nav_1', 'nav_items'], new_nav_items);
+doc.apply(tr);
+console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
+```
+
+
+
+## Usage 
 
 Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<Text>` component can be used to render and edit annotated text.
 
 ```js
-<div class="my-page">
-  <FloatingToolBar {entry_session} />
-
-  <Svedit {entry_session} editable={true} class='flex-column gap-y-10'>
-    <div class="header">
-      <Text path={['title']} class='heading1' />
-      <Text path={['subtitle']} class='heading3' />
-    </div>
-    <Container path={['body']} class="body flex-column gap-y-10">
-      {#snippet block(block, path)}
-        {#if block.type === 'story'}
-          <StoryBlock {block} {path} />
-        {:else if block.type === 'list'}
-          <ListBlock {block} {path} />
-        {:else}
-          <UnknownBlock {block} {path} />
-        {/if}
-      {/snippet}
-    </Container>
-  </Svedit>
-</div>
+<Svedit {doc} editable={true} class='flex-column'>
+  <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
+    {#snippet block(block, path)}
+      {#if block.type === 'story'}
+        <StoryBlock {path} />
+      {:else if block.type === 'list'}
+        <ListBlock {path} />
+      {:else}
+        <UnknownBlock {path} />
+      {/if}
+    {/snippet}
+  </Container>
+</Svedit>
 ```
 
 Is there more documentation? No. Just read the code (it's only a couple of files with less than 1500LOC in total), copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
+
+
+## Selection mapping
+
+When you call doc.set_selection(new_sel) we map that internal selection to an "ideal DOM selection". 
+
+### Text selections
+
+Here's how an editable text property is rendered in the DOM (some unrelated attributes ommited):
+
+```html
+<div contenteditable="true" data-type="text" data-path="QMFSqKsYMYxGyYbRYrTCtYr.body.1.description">First story description.</div>
+```
+
+Let's assume "First story" is selected. Then the ideal DOM selection would be:
+
+```js
+// Internal text selection
+{
+  type:"text",
+  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
+  anchor_offset:0,
+  focus_offset:11
+}
+// Maps to DOM selection
+{
+  type: 'Range',
+  anchorNode: text // the text node that holds "First story description"
+  anchorOffset: 0,
+  focusNode: text, // the text node that holds "First story description"
+  focusOffset: 11,
+  isCollapsed: false
+}
+```
+
+If the were a collapsed cursor at the beginning of the text:
+
+```js
+// Internal text selection
+{
+  type:"text",
+  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
+  anchor_offset:0,
+  focus_offset:11
+}
+// Maps to DOM selection
+{
+  type: 'Range',
+  anchorNode: text // the text node that holds "First story description"
+  anchorOffset: 0,
+  focusNode: text, // the text node that holds "First story description"
+  focusOffset: 0,
+  isCollapsed: true
+}
+```
+
+### Container selections
+
+Here's how a container with the same block referenced twice (`body: ['story_1', 'story_1']`) looks like in the DOM (notice the data-index attribute):
+
+```html
+<div data-type="container" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
+  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
+    <div class="non-text-content" contenteditable="false">
+      <img src="..." alt="First story">
+    </div>
+    <div class="caption">
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.title" class="heading2">First story</div>
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
+    </div>
+  </div>
+  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1" data-index="1">
+    <div class="non-text-content" contenteditable="false">
+      <img src="..." alt="First story">
+    </div>
+    <div class="caption">
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1.title" class="heading2">First story</div>
+      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
+    </div>
+  </div>
+</div>
+```
+
+
+
 
 ## Developing
 
