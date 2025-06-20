@@ -77,9 +77,11 @@
     if (!doc.selection || doc.selection.type !== 'container') return null;
     
     const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
+    const end = Math.max(doc.selection.anchor_offset, doc.selection.focus_offset);
+    // Only consider selection of a single block
+    if (end - start !== 1) return null;
     const container = doc.get(doc.selection.path);
     const block_id = container[start];
-    
     return block_id ? doc.get(block_id) : null;
   }
 
@@ -170,7 +172,6 @@
       </button>
   {/if}
   {#if doc.selection?.type === 'container' && selected_block?.type === 'story'}
-
       {#each layout_options as option}
         <button 
           onclick={() => handle_layout_change(option.value)}
