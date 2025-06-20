@@ -1,12 +1,10 @@
 <script>
   import { getContext } from 'svelte';
-  
   const svedit = getContext('svedit');
 
   let {
     path,
     type,
-    // position, // 'after' | 'zero'
   } = $props();
 </script>
 
@@ -21,6 +19,11 @@
     height: 1px;
     position: relative;
     outline: none;
+    cursor: pointer;
+  }
+
+  .cursor-trap:hover {
+    border: 1px dashed var(--editing-stroke-color);
   }
 
   .cursor-trap-content {
@@ -29,6 +32,5 @@
     left: 0;
     bottom: 0;
     right: 0;
-    background: var(--secondary-fill-color);
   }
 </style>

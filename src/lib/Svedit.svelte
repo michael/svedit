@@ -858,7 +858,7 @@
   .container-cursor {
     position: absolute;
     background:  var(--editing-stroke-color);
-    height: 2px;
+    height: 4px;
     left: anchor(left);
     right: anchor(right);
     pointer-events: none;
@@ -866,11 +866,11 @@
   }
 
   .container-cursor.before {
-    top: anchor(top);
+    top: calc(anchor(top) - 2px);
   }
 
   .container-cursor.after {
-    bottom: anchor(bottom);
+    bottom: calc(anchor(bottom) - 2px);
   }
 
   @keyframes blink {

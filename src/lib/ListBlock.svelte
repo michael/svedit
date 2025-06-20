@@ -24,6 +24,7 @@
 <style>
   .list {
     /* background: var(--secondary-fill-color); */
+    padding: var(--s-2);
     counter-reset: listcounter;
   }
 </style>

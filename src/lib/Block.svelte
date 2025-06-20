@@ -22,14 +22,12 @@
     position: relative;
   }
 
-  :global(.block > .cursor-trap) {
+  .block > :global(.cursor-trap) {
     position: absolute;
-    left: 0px;
-    right: 0px;
-    bottom: 0px;
-    background: blue;
-    height: 5px;
-    /* z-index: 1;
-    outline: none; */
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 12px;
+    z-index: 1000;
   }
 </style>
