@@ -5,15 +5,15 @@
 
   let {
     path,
-    position, // 'after' | 'zero'
-    class: css_class = '',
+    type,
+    // position, // 'after' | 'zero'
   } = $props();
 </script>
 
 <!-- Cursor trap that provides a contenteditable target for container cursor positioning -->
 <div 
-  class="cursor-trap {css_class} cursor-trap-{position}" 
-  data-type="cursor-trap"
+  class="cursor-trap {type}"
+  data-type={type}
 ><div class="cursor-trap-content"></div></div>
 
 <style>
@@ -29,6 +29,6 @@
     left: 0;
     bottom: 0;
     right: 0;
-    background: #eee;
+    background: var(--secondary-fill-color);
   }
 </style>

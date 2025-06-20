@@ -6,15 +6,15 @@
   } = $props();
 </script>
 
+<!-- data-index={path.at(-1)} -->
 <div
   class="block"
   data-path={path.join('.')}
   data-type="block"
-  data-index={path.at(-1)}
   style="anchor-name: --{path.join('-')};"
 >
   {@render children()}
-  <CursorTrap {path} position="after" />
+  <CursorTrap {path} type="after-node-cursor-trap" />
 </div>
 
 <style>

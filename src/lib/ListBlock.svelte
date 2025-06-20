@@ -11,7 +11,7 @@
 </script>
 
 <Block {path}>
-  <div class="list p-10 max-w-screen-md mx-auto">
+  <div class="list max-w-screen-md mx-auto">
     <Container path={[...path, 'list_items']}>
       <!-- NOTE: We only allow list items inside list  -->
       {#snippet block(block, path)}
@@ -23,7 +23,6 @@
 
 <style>
   .list {
-    background: var(--secondary-fill-color);
-    padding: var(--s-4);
+    /* background: var(--secondary-fill-color); */
   }
 </style>

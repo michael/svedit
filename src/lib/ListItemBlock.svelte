@@ -31,7 +31,7 @@
   }
 
   /* CSS Counter initiation */
-  :global(* > .list-item:first-of-type) {
+  :global(.list-item:first-of-type) {
     counter-reset: listcounter;
     counter-increment: listcounter;
   }

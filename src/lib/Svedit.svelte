@@ -110,10 +110,10 @@
 
   // Map DOM selection to internal model
   function onselectionchange(event) {
-    // Only handle selection changes if selection is within the canvas
     const dom_selection = window.getSelection();
     if (!dom_selection.rangeCount) return;
-    
+
+    // Only handle selection changes if selection is within the canvas
     const range = dom_selection.getRangeAt(0);
     if (!ref?.contains(range.commonAncestorContainer)) return;
     let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
@@ -377,8 +377,32 @@
     let focus_node = dom_selection.focusNode;
     let anchor_node = dom_selection.anchorNode;
 
+    // If focus_node or anchor_node is a text node, we need to use the parent element,
+    // so we can perform the closest() query on it
     if (!focus_node.closest) focus_node = focus_node.parentElement;
     if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
+
+    // First, let's check if we are in a cursor trap for container cursors
+    let after_node_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]');
+    if (after_node_cursor_trap && focus_node === anchor_node) {
+      console.log('after_node_cursor_trap', after_node_cursor_trap);
+      // Find the block that this cursor trap belongs to
+      let block = after_node_cursor_trap.closest('[data-type="block"]');
+      if (!block) {
+        console.log('No corresponding block found for after-node-cursor-trap');
+        return null;
+      }
+      const block_path = block.dataset.path.split('.');
+      const block_index = parseInt(block_path.at(-1));
+      const result = {
+        type: 'container',
+        path: block_path.slice(0, -1),
+        anchor_offset: block_index + 1,
+        focus_offset: block_index + 1,
+      }
+      console.log('result', result);
+      return result;
+    }
 
     let focus_root = focus_node.closest('[data-path][data-type="block"]');
     if (!focus_root) return null;
