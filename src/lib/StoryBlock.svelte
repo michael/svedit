@@ -9,23 +9,25 @@
   let block = $derived(svedit.doc.get(path));
 </script>
 
-<Block class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full" {path}>
-  <Property class="image-wrapper" path={[...path,'image']}>
-    <img
-      src={block.image || '/icons/image-placeholder.svg'} 
-      alt={block.title[0]}
-      class:placeholder={!block.image}
-    />
-  </Property>
-  <div class="caption">
-    <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-    <Text class='heading2' path={[...path,'title']} editable={block.editable} />
-    <Text class='body' path={[...path,'description']} editable={block.editable} />
+<Block {path}>
+  <div class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full">
+    <Property class="image-wrapper" path={[...path,'image']}>
+      <img
+        src={block.image || '/icons/image-placeholder.svg'} 
+        alt={block.title[0]}
+        class:placeholder={!block.image}
+      />
+    </Property>
+    <div class="caption">
+      <!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
+      <Text class='heading2' path={[...path,'title']} editable={block.editable} />
+      <Text class='body' path={[...path,'description']} editable={block.editable} />
+    </div>
   </div>
 </Block>
 
 <style>
-  :global(.story-block) {
+  .story-block {
     container-type: inline-size;
     display: grid;
     grid-template-columns: 1fr;
@@ -41,18 +43,18 @@
     gap: var(--s-10);
     padding: var(--s-6);
   }
-  :global(.story-block) img {
+  .story-block img {
     width: 100%;
     height: auto;
   }
   /* Don't crop SVGs */
-  :global(.story-block) img[src*=".svg"] {
+  .story-block img[src*=".svg"] {
     object-fit: contain;
     object-position: center;
   }
   
   /* Placeholder styling */
-  :global(.story-block) img.placeholder {
+  .story-block img.placeholder {
     opacity: 0.7;
     border: 2px dashed var(--stroke-color);
     border-radius: var(--s-2);
@@ -60,7 +62,7 @@
     background: var(--canvas-fill-color);
   }
 
-  :global(.story-block .image-wrapper) {
+  .story-block :global(.image-wrapper) {
     /* for now ignore clicks on the image, until we have non-text selections */
     /* pointer-events: none; */
     display: flex;
@@ -75,30 +77,30 @@
   }
 
   /* Layout styles */
-  :global(.story-block.layout-2, .story-block.layout-1) {
+  .story-block.layout-2, .story-block.layout-1 {
     align-items: center;
   }
 
   @media (min-width: 680px) {
     /* Layout 2: Image on the right - use grid areas */
-    :global(.story-block.layout-2) {
+    .story-block.layout-2 {
       grid-template-columns: 2fr 1fr;
       grid-template-areas: "content image";
     }
-    :global(.story-block.layout-2 > :first-child) {
+    .story-block.layout-2 > :first-child {
       grid-area: image;
     }
-    :global(.story-block.layout-2 > :last-child) {
+    .story-block.layout-2 > :last-child {
       grid-area: content;
     }
   }
 
-  :global(.story-block.layout-3 > div:first-child) {
+  .story-block.layout-3 > div:first-child {
     grid-column: 1 / 3;
     grid-row: 1 / 2;
   }
 
-  :global(.story-block.layout-3 > div:last-child) {
+  .story-block.layout-3 > div:last-child {
     grid-column: 1 / 3;
     grid-row: 2 / 3;
   }

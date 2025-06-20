@@ -9,18 +9,19 @@
   } = $props();
 </script>
 
-<Block class="list-item" style="--list-style: {list_style};" {path}>
-  <div contenteditable="false">{list_style}</div>
-  <Text path={[...path,'content']} />
+<Block {path}>
+  <div class="list-item" style="--list-style: {list_style};">
+    <Text path={[...path,'content']} />
+  </div>
 </Block>
 
 <style>
-  :global(.list-item) {
+  .list-item {
     position: relative;
     padding-left: 3em;
   }
   
-  :global(.list-item::before) {
+  .list-item::before {
     position: absolute;
     left: 0;
     top: 0;
