@@ -34,7 +34,7 @@
       title: { type: 'annotated_text' },
       description: { type: 'annotated_text' },
       image: { type: 'string' }, // a dedicated type asset would be better
-      
+
     },
     list_item: {
       content: { type: 'annotated_text' },
@@ -157,7 +157,7 @@
       layout: 1,
       image: '/images/github.svg',
       title: ['Star us on GitHub', []],
-      description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', 
+      description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
         [
           [0, 28, "link", {"href": "https://github.com/michael/svedit/", target: "_blank"}],
           [95, 112, "link", {"href": "https://michaelaufreiter.com", target: "_blank"}],
@@ -177,9 +177,9 @@
   ];
 
   const doc = new SveditDoc(doc_schema, raw_doc);
-  
+
   let svedit_ref;
-  
+
   function focus_canvas() {
     if (svedit_ref) {
       svedit_ref.focus_canvas();
@@ -194,7 +194,7 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <Container class="body" path={[doc.doc_id, 'body']}>
+    <Container class="body-container sv-horizontal" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'paragraph'}
           <ParagraphBlock {path} />
@@ -210,7 +210,6 @@
   </Svedit>
 
   <hr/>
-  
   <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
     <p>Selection:</p>
     <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>
@@ -220,9 +219,17 @@
 </div>
 
 <style>
-  .demo-wrapper {
-    /* no paddings or margins here on the body, so Blocks can use the full width (edge to edge layouts) */
+  .demo-wrapper :global {
+    .body-container {
+      display: flex;
+      flex-direction: row;
+    }
+    .body-container > .block {
+      min-width: 800px;
+      flex-shrink: 0;
+    }
   }
+
   .debug-info {
     text-wrap: wrap;
     height: 12lh;
