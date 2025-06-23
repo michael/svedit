@@ -40,7 +40,7 @@
 
   function determine_container_orientation(path_to_container) {
     // path_to_container minus the last element has the owner node of the container
-    const owner_node = doc.get(path_to_container).slice(0, -1);
+    const owner_node = doc.get(path_to_container.slice(0, -1));
     return NODE_TYPES_WITH_HORIZONTAL_CONTAINERS.includes(owner_node?.type) ? 'horizontal' : 'vertical';
   }
 
@@ -889,12 +889,16 @@
     left: calc(anchor(left) - 2px);
   }
 
+  .container-cursor.after.horizontal {
+    right: calc(anchor(right) - 2px);
+  }
+
   .container-cursor.before.vertical {
     top: calc(anchor(top) - 2px);
   }
 
-  .container-cursor.after.horizontal {
-    right: calc(anchor(right) - 2px);
+  .container-cursor.after.vertical {
+    bottom: calc(anchor(bottom) - 2px);
   }
 
   @keyframes blink {

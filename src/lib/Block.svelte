@@ -9,6 +9,8 @@
 <!-- data-index={path.at(-1)} -->
 <div
   class="block"
+  data-path={path.join('.')}
+  data-type="block"
   style="anchor-name: --{path.join('-')};"
 >
   {@render children()}
