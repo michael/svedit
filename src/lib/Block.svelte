@@ -11,14 +11,8 @@
   class="block"
   data-path={path.join('.')}
   data-type="block"
-  style="anchor-name: --{path.join('-')};"
+  style="anchor-name: --{path.join('-')}; position: relative;"
 >
   {@render children()}
   <CursorTrap {path} type="after-node-cursor-trap" />
 </div>
-
-<style>
-  .block {
-    position: relative;
-  }
-</style>
