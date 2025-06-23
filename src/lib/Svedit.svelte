@@ -1,7 +1,8 @@
 <script>
   import { setContext } from 'svelte';
-  import Icon from './Icon.svelte';
-  import { svid } from './util.js';
+  // TODO: Icon must not be imported in lib scope.
+  import Icon from '../routes/components/Icon.svelte';
+  import { svid, determine_container_orientation } from './util.js';
 
   let {
     doc,
@@ -23,7 +24,7 @@
     const paths = [];
     const sel = doc.selection;
     if (!sel) return;
-    
+
     // Container selection. Not collapsed.
     if (sel.type === 'container' && sel.anchor_offset !== sel.focus_offset) {
       const start = Math.min(sel.anchor_offset, sel.focus_offset);
@@ -42,20 +43,21 @@
 
     if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
       const container = doc.get(sel.path);
+      const orientation = determine_container_orientation(doc, sel.path);
       let block_index, position;
 
-      if (sel.anchor_offset === container.length) {
-        // Edge case: Cursor is at the very end
-        block_index = sel.anchor_offset - 1;
-        position = 'after';
-      } else {
+      if (sel.anchor_offset === 0) {
+        // Edge case: Cursor is at the very beginning
         block_index = sel.anchor_offset;
         position = 'before';
+      } else {
+        block_index = sel.anchor_offset - 1;
+        position = 'after';
       }
-
       return {
         path: [...sel.path, block_index],
         position,
+        orientation
       }
     }
   }
@@ -99,7 +101,7 @@
 
   function onbeforeinput(event) {
     const inserted_char = event.data;
-    
+
     event.preventDefault();
     if (inserted_char) {
       const tr = doc.tr;
@@ -126,7 +128,7 @@
   function oncopy(event, delete_selection = false) {
     // Only handle copy events if focus is within the canvas
     if (!ref?.contains(document.activeElement)) return;
-    
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -181,13 +183,13 @@
   async function onpaste(event) {
     // Only handle paste events if focus is within the canvas
     if (!ref?.contains(document.activeElement)) return;
-    
+
     event.preventDefault();
     const clipboardItems = await navigator.clipboard.read();
 
     let pasted_json;
 
-    // Wrapping this in a try-catch as this API only works in Chrome. We fallback to 
+    // Wrapping this in a try-catch as this API only works in Chrome. We fallback to
     // plaintext copy and pasting for all other situations.
     try {
       const json_blob = await clipboardItems[0].getType('web application/json');
@@ -221,7 +223,7 @@
       // Skip. No need to rerender.
       return;
     }
-    
+
     if (selection?.type === 'text') {
       __render_text_selection();
     } else if (selection?.type === 'container') {
@@ -252,7 +254,7 @@
   function onkeydown(e) {
     // Only handle keyboard events if focus is within the canvas
     if (!ref?.contains(document.activeElement)) return;
-    
+
     const selection = doc.selection;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
@@ -303,7 +305,7 @@
     } else if (e.key === 'Enter' && selection?.type === 'container') {
       const isCollapsed = selection.anchor_offset === selection.focus_offset;
       const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
-      
+
       if (isCollapsed) {
         // Collapsed container selection (container cursor) - insert new block
         const path = selection.path;
@@ -335,7 +337,7 @@
         focus_toolbar();
       }
       // Container selections with multiple nodes do nothing on Enter
-      
+
       e.preventDefault();
       e.stopPropagation();
     // Because of specificity, this has to come before the other arrow key checks
@@ -420,7 +422,7 @@
     // HACK: this works only for one level nesting - should be done recursively to work generally
     if (focus_root_path.length > anchor_root_path.length) {
       focus_root = focus_root.parentElement.closest('[data-path][data-type="block"]');
-      focus_root_path = focus_root.dataset.path.split('.');      
+      focus_root_path = focus_root.dataset.path.split('.');
     } else if (anchor_root_path.length > focus_root_path.length) {
       anchor_root = anchor_root.parentElement.closest('[data-path][data-type="block"]');
       anchor_root_path = anchor_root.dataset.path.split('.');
@@ -478,7 +480,7 @@
     if (!focus_root) return null;
     let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
     if (!anchor_root) return null;
-    
+
     if (focus_root !== anchor_root) {
       return null;
     }
@@ -495,21 +497,21 @@
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const nodeLength = node.length;
-        
+
         if (node === range.startContainer) {
           anchorOffset = currentOffset + range.startOffset;
         }
         if (node === range.endContainer) {
           focusOffset = currentOffset + range.endOffset;
         }
-        
+
         currentOffset += nodeLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           processNode(childNode);
         }
       }
-      
+
       return (focusOffset !== 0);
     }
 
@@ -519,7 +521,7 @@
     }
 
     // Check if it's a backward selection
-    const is_backward = dom_selection.anchorNode === range.endContainer && 
+    const is_backward = dom_selection.anchorNode === range.endContainer &&
                       dom_selection.anchorOffset === range.endOffset;
 
     // Swap offsets if it's a backward selection
@@ -622,10 +624,10 @@
     // The element that holds the property
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
     const cursor_trap = el.querySelector('.cursor-trap');
-    
+
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
-    
+
     // Select the entire cursor trap element contents and collapse to start
     range.selectNodeContents(cursor_trap);
     range.collapse(true); // Collapse to start position
@@ -650,7 +652,7 @@
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const nodeLength = node.length;
-        
+
         // Check if this node contains the start offset
         if (!anchorNode && currentOffset + nodeLength >= start_offset) {
           if (is_backward) {
@@ -661,7 +663,7 @@
             anchorNodeOffset = start_offset - currentOffset;
           }
         }
-        
+
         // Check if this node contains the end offset
         if (!focusNode && currentOffset + nodeLength >= end_offset) {
           if (is_backward) {
@@ -673,7 +675,7 @@
           }
           return true; // Stop iteration
         }
-        
+
         currentOffset += nodeLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
@@ -722,7 +724,7 @@
     if (el.nodeType === Node.TEXT_NODE) {
       return el;
     }
-    
+
     for (let child of el.childNodes) {
       const textNode = __find_first_text_node(child);
       if (textNode) {
@@ -736,7 +738,7 @@
     if (el.nodeType === Node.TEXT_NODE) {
       return el;
     }
-    
+
     // Iterate through child nodes in reverse order
     for (let i = el.childNodes.length - 1; i >= 0; i--) {
       const textNode = __find_last_text_node(el.childNodes[i]);
@@ -748,7 +750,7 @@
 
   function __is_dom_selection_backwards() {
     const dom_selection = window.getSelection();
-    
+
     // If there's no dom_selection, return false
     if (dom_selection.rangeCount === 0) return false;
 
@@ -815,12 +817,14 @@
     {:else if container_cursor_info}
       <div
         class="container-cursor"
+        class:horizontal={container_cursor_info.orientation === 'horizontal'}
+        class:vertical={container_cursor_info.orientation === 'vertical'}
         class:after={container_cursor_info.position === 'after'}
         class:before={container_cursor_info.position === 'before'}
         style="position-anchor: --{container_cursor_info.path.join('-')};"
       ></div>
     {/if}
-    
+
     {#if text_selection_info}
       <div
         class="text-selection-overlay"
@@ -847,7 +851,7 @@
     background:  var(--editing-fill-color);
     border: 1px solid var(--editing-stroke-color);
     border-radius: 2px;
-    
+
     top: anchor(top);
     left: anchor(left);
     bottom: anchor(bottom);
@@ -858,18 +862,35 @@
   .container-cursor {
     position: absolute;
     background:  var(--editing-stroke-color);
-    height: 4px;
-    left: anchor(left);
-    right: anchor(right);
     pointer-events: none;
     animation: blink 0.7s infinite;
   }
 
-  .container-cursor.before {
+  .container-cursor.horizontal {
+    width: 4px;
+    top: anchor(top);
+    bottom: anchor(bottom);
+  }
+
+  .container-cursor.vertical {
+    height: 4px;
+    left: anchor(left);
+    right: anchor(right);
+  }
+
+  .container-cursor.before.horizontal {
+    left: calc(anchor(left) - 2px);
+  }
+
+  .container-cursor.after.horizontal {
+    right: calc(anchor(right) - 2px);
+  }
+
+  .container-cursor.before.vertical {
     top: calc(anchor(top) - 2px);
   }
 
-  .container-cursor.after {
+  .container-cursor.after.vertical {
     bottom: calc(anchor(bottom) - 2px);
   }
 

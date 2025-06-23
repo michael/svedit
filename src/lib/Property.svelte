@@ -3,7 +3,7 @@
   const svedit = getContext('svedit');
 
   let {
-    path, 
+    path,
     class: css_class,
     children,
   } = $props();
@@ -15,10 +15,10 @@
   data-type="property"
   data-path={path.join('.')}
   style="anchor-name: --{path.join('-')};"
-><!--
-  --><div class="cursor-trap"></div><!--
-  --><div class="property-content" contenteditable="false">{@render children()}</div><!--
---></div>
+>
+  <div class="cursor-trap"></div>
+  <div class="property-content" contenteditable="false">{@render children()}</div>
+</div>
 
 <style>
   .property {
