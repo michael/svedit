@@ -1,6 +1,6 @@
 <script>
-	import Block from './Block.svelte';
-	import Text from './Text.svelte';
+	import Block from '$lib/Block.svelte';
+	import Text from '$lib/Text.svelte';
 
 	let {
 		path,

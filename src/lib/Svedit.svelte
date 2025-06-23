@@ -1,6 +1,7 @@
 <script>
   import { setContext } from 'svelte';
-  import Icon from './Icon.svelte';
+  // TODO: Icon must not be imported in lib scope.
+  import Icon from '../routes/components/Icon.svelte';
   import { svid, determine_container_orientation } from './util.js';
 
   let {

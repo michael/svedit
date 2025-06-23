@@ -1,13 +1,14 @@
 <script>
-  import StoryBlock from '$lib/StoryBlock.svelte';
-  import ParagraphBlock from '$lib/ParagraphBlock.svelte';
-  import ListBlock from '$lib/ListBlock.svelte';
-  import UnknownBlock from '$lib/UnknownBlock.svelte';
   import Svedit from '$lib/Svedit.svelte';
-  import Container from '$lib/Container.svelte';
-  import Toolbar from '$lib/Toolbar.svelte';
   import SveditDoc from '$lib/SveditDoc.svelte.js';
+  import Container from '$lib/Container.svelte';
   import { svid } from '$lib/util.js';
+
+  import StoryBlock from './components/StoryBlock.svelte';
+  import ParagraphBlock from './components/ParagraphBlock.svelte';
+  import ListBlock from './components/ListBlock.svelte';
+  import UnknownBlock from './components/UnknownBlock.svelte';
+  import Toolbar from './components/Toolbar.svelte';
 
   const doc_schema = {
     page: {

@@ -1,5 +1,5 @@
 <script>
-  import Layout from '$lib/Layout.svelte';
+  import Layout from './components/Layout.svelte';
 
   let { children } = $props();
 </script>

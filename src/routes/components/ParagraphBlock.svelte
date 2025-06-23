@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
-	import Block from './Block.svelte';
-	import Text from './Text.svelte';
+	import Block from '$lib/Block.svelte';
+	import Text from '$lib/Text.svelte';
 
 	const svedit = getContext('svedit');
 

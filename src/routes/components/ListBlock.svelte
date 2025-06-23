@@ -1,6 +1,6 @@
 <script>
-  import Block from './Block.svelte';
-  import Container from './Container.svelte';
+  import Block from '$lib/Block.svelte';
+  import Container from '$lib/Container.svelte';
   import ListItemBlock from './ListItemBlock.svelte';
   import { getContext } from 'svelte';
 
