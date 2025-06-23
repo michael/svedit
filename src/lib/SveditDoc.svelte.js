@@ -3,6 +3,7 @@ import { validate_node } from './util.js';
 
 export default class SveditDoc {
   selection = $state();
+  config = $state();
   doc_id = $state();
   nodes = $state();
   history = $state([]);
@@ -12,9 +13,10 @@ export default class SveditDoc {
   can_undo = $derived(this.history_index >= 0);
   can_redo = $derived(this.history_index < this.history.length - 1);
 
-  constructor(schema, raw_doc, selection) {
+  constructor(schema, raw_doc, { selection, config }) {
     this.schema = schema;
     this.selection = selection;
+    this.config = config;
     this.nodes = {};
 
     // Initialize the nodes
@@ -34,7 +36,7 @@ export default class SveditDoc {
       const node = this.get(args[0].slice(0, -1));
       node[args[0].at(-1)] = args[1];
     } else if (type === 'create') {
-      
+
       this.nodes[args[0].id] = args[0];
     } else if (type === 'delete') {
       delete this.nodes[args[0]];
@@ -44,7 +46,10 @@ export default class SveditDoc {
   // Creates a new transaction
   get tr() {
     // We create a copy of the current document to avoid modifying the original
-    const transaction_doc = new SveditDoc(this.schema, this.to_json(), this.selection);
+    const transaction_doc = new SveditDoc(this.schema, this.to_json(), {
+      config: this.config,
+      selection: this.selection
+    });
     return new SveditTransaction(transaction_doc);
   }
 
@@ -87,7 +92,7 @@ export default class SveditDoc {
     const tr = this.tr;
     change.ops.forEach(op => tr.doc._apply_op(op));
     tr.set_selection(change.selection_after);
-    
+
     this.nodes = tr.doc.nodes;
     this.selection = change.selection_after;
     return this;
@@ -139,13 +144,13 @@ export default class SveditDoc {
 
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
-    
+
     const { start, end } = this.get_selection_range();
     const annotated_text = this.get(this.selection.path);
     const annotations = annotated_text[1];
 
-    const active_annotation = annotations.find(([anno_start, anno_end, type]) => 
-      (anno_start <= start && anno_end > start) || 
+    const active_annotation = annotations.find(([anno_start, anno_end, type]) =>
+      (anno_start <= start && anno_end > start) ||
       (anno_start < end && anno_end >= end) ||
       (anno_start >= start && anno_end <= end)
     ) || null;
@@ -233,7 +238,7 @@ export default class SveditDoc {
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
-        
+
         this.selection = {
           type: 'container',
           path: parent_path,
@@ -250,10 +255,10 @@ export default class SveditDoc {
 
   get_selection_range() {
     if (!this.selection) return null;
-    
+
     const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-    
+
     return {
       start,
       end,
@@ -309,13 +314,13 @@ export default class SveditDoc {
   // Count how many times a node is referenced in the document
   count_references(node_id) {
     let count = 0;
-    
+
     for (const node of Object.values(this.nodes)) {
       for (const [property, value] of Object.entries(node)) {
         if (property === 'id' || property === 'type') continue;
-        
+
         const prop_type = this.property_type(node.type, property);
-        
+
         if (prop_type === 'multiref' && Array.isArray(value)) {
           count += value.filter(id => id === node_id).length;
         } else if (prop_type === 'ref' && value === node_id) {
@@ -323,7 +328,7 @@ export default class SveditDoc {
         }
       }
     }
-    
+
     return count;
   }
 
@@ -331,17 +336,17 @@ export default class SveditDoc {
   get_referenced_nodes(node_id, visited = new Set()) {
     if (visited.has(node_id)) return [];
     visited.add(node_id);
-    
+
     const node = this.nodes[node_id];
     if (!node) return [];
-    
+
     const referenced = [];
-    
+
     for (const [property, value] of Object.entries(node)) {
       if (property === 'id' || property === 'type') continue;
-      
+
       const prop_type = this.property_type(node.type, property);
-      
+
       if (prop_type === 'multiref' && Array.isArray(value)) {
         for (const ref_id of value) {
           referenced.push(ref_id);
@@ -352,7 +357,7 @@ export default class SveditDoc {
         referenced.push(...this.get_referenced_nodes(value, visited));
       }
     }
-    
+
     return referenced;
   }
 }

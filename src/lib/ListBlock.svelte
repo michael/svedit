@@ -12,7 +12,7 @@
 
 <Block {path}>
   <div class="list max-w-screen-md mx-auto">
-    <Container class="list-container sv-horizontal" path={[...path, 'list_items']}>
+    <Container class="list-container" path={[...path, 'list_items']}>
       <!-- NOTE: We only allow list items inside list  -->
       {#snippet block(block, path)}
         <ListItemBlock {block} {path} {list_style} />

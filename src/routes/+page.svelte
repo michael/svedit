@@ -176,7 +176,14 @@
     },
   ];
 
-  const doc = new SveditDoc(doc_schema, raw_doc);
+  // App-specific config object, always available via doc.config for introspection
+  const doc_config = {
+    // Those node types have horizontal-ish containers
+    // E.g. used by Overlays.svelte to render container cursors the right way.
+    node_types_with_horizontal_containers: ['page']
+  };
+
+  const doc = new SveditDoc(doc_schema, raw_doc, { config: doc_config });
 
   let svedit_ref;
 

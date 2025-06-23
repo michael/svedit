@@ -6,7 +6,6 @@
   } = $props();
 </script>
 
-<!-- data-index={path.at(-1)} -->
 <div
   class="block"
   data-path={path.join('.')}

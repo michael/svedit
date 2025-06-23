@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import Icon from './Icon.svelte';
-  import { svid } from './util.js';
+  import { svid, determine_container_orientation } from './util.js';
 
   let {
     doc,
@@ -18,8 +18,6 @@
   let container_selection_paths = $derived(get_container_selection_paths());
   let container_cursor_info = $derived(get_container_cursor_info());
   let text_selection_info = $derived(get_text_selection_info());
-
-  const NODE_TYPES_WITH_HORIZONTAL_CONTAINERS = ['page'];
 
   function get_container_selection_paths() {
     const paths = [];
@@ -38,19 +36,13 @@
     }
   }
 
-  function determine_container_orientation(path_to_container) {
-    // path_to_container minus the last element has the owner node of the container
-    const owner_node = doc.get(path_to_container.slice(0, -1));
-    return NODE_TYPES_WITH_HORIZONTAL_CONTAINERS.includes(owner_node?.type) ? 'horizontal' : 'vertical';
-  }
-
   function get_container_cursor_info() {
     const sel = doc.selection;
     if (!sel) return;
 
     if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
       const container = doc.get(sel.path);
-      const orientation = determine_container_orientation(sel.path);
+      const orientation = determine_container_orientation(doc, sel.path);
       let block_index, position;
 
       if (sel.anchor_offset === 0) {

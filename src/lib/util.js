@@ -48,3 +48,9 @@ export function validate_node(node, schema) {
 		}
 	}
 }
+
+export function determine_container_orientation(doc, path_to_container) {
+  // path_to_container minus the last element has the owner node of the container
+  const owner_node = doc.get(path_to_container.slice(0, -1));
+  return doc.config.node_types_with_horizontal_containers.includes(owner_node?.type) ? 'horizontal' : 'vertical';
+}
