@@ -235,18 +235,6 @@
     }
   }
 
-  /* Render container cursor for .body */
-  .demo-wrapper :global {
-    .svedit-canvas > .body-container > .block > .cursor-trap {
-      position: absolute;
-      right: -6px;
-      top: 0;
-      bottom: 0;
-      width: 12px;
-      z-index: 1000;
-    }
-  }
-
   .debug-info {
     text-wrap: wrap;
     height: 12lh;
