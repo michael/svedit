@@ -1,8 +1,5 @@
 <script>
-	import { getContext } from 'svelte';
-	const svedit = getContext('svedit');
-
-	let { path, type } = $props();
+  let { path, type } = $props();
 </script>
 
 <!-- Cursor trap that provides a contenteditable target for container cursor positioning -->

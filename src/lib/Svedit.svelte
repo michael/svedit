@@ -19,6 +19,8 @@
   let container_cursor_info = $derived(get_container_cursor_info());
   let text_selection_info = $derived(get_text_selection_info());
 
+  const NODE_TYPES_WITH_HORIZONTAL_CONTAINERS = ['page'];
+
   function get_container_selection_paths() {
     const paths = [];
     const sel = doc.selection;
@@ -36,12 +38,19 @@
     }
   }
 
+  function determine_container_orientation(path_to_container) {
+    // path_to_container minus the last element has the owner node of the container
+    const owner_node = doc.get(path_to_container).slice(0, -1);
+    return NODE_TYPES_WITH_HORIZONTAL_CONTAINERS.includes(owner_node?.type) ? 'horizontal' : 'vertical';
+  }
+
   function get_container_cursor_info() {
     const sel = doc.selection;
     if (!sel) return;
 
     if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
       const container = doc.get(sel.path);
+      const orientation = determine_container_orientation(sel.path);
       let block_index, position;
 
       if (sel.anchor_offset === 0) {
@@ -52,10 +61,10 @@
         block_index = sel.anchor_offset - 1;
         position = 'after';
       }
-
       return {
         path: [...sel.path, block_index],
         position,
+        orientation
       }
     }
   }
@@ -815,6 +824,8 @@
     {:else if container_cursor_info}
       <div
         class="container-cursor"
+        class:horizontal={container_cursor_info.orientation === 'horizontal'}
+        class:vertical={container_cursor_info.orientation === 'vertical'}
         class:after={container_cursor_info.position === 'after'}
         class:before={container_cursor_info.position === 'before'}
         style="position-anchor: --{container_cursor_info.path.join('-')};"
@@ -858,24 +869,31 @@
   .container-cursor {
     position: absolute;
     background:  var(--editing-stroke-color);
-    /* height: 4px;
-    left: anchor(left);
-    right: anchor(right); */
-    width: 4px;
-    top: anchor(top);
-    bottom: anchor(bottom);
-
     pointer-events: none;
     animation: blink 0.7s infinite;
   }
 
-  .container-cursor.before {
-    /* top: calc(anchor(top) - 2px); */
+  .container-cursor.horizontal {
+    width: 4px;
+    top: anchor(top);
+    bottom: anchor(bottom);
+  }
+
+  .container-cursor.vertical {
+    height: 4px;
+    left: anchor(left);
+    right: anchor(right);
+  }
+
+  .container-cursor.before.horizontal {
     left: calc(anchor(left) - 2px);
   }
 
-  .container-cursor.after {
-    /* bottom: calc(anchor(bottom) - 2px); */
+  .container-cursor.before.vertical {
+    top: calc(anchor(top) - 2px);
+  }
+
+  .container-cursor.after.horizontal {
     right: calc(anchor(right) - 2px);
   }
 
