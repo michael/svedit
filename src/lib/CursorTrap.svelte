@@ -29,7 +29,7 @@
 		position: relative;
 		outline: none;
 		cursor: pointer;
-		z-index: 1000;
+		z-index: 20;
 	}
 
 	.cursor-trap.vertical {

@@ -9,6 +9,7 @@
   import ListBlock from './components/ListBlock.svelte';
   import UnknownBlock from './components/UnknownBlock.svelte';
   import Toolbar from './components/Toolbar.svelte';
+  import Overlays from './components/Overlays.svelte';
 
   const doc_schema = {
     page: {
@@ -215,6 +216,10 @@
         {/if}
       {/snippet}
     </Container>
+
+    {#snippet overlays()}
+      <Overlays />
+    {/snippet}
   </Svedit>
 
   <hr/>
