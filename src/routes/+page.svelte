@@ -194,7 +194,7 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <Container class="body-container sv-horizontal" path={[doc.doc_id, 'body']}>
+    <Container class="body-container" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'paragraph'}
           <ParagraphBlock {path} />
@@ -221,12 +221,22 @@
 <style>
   .demo-wrapper :global {
     .body-container {
-      display: flex;
-      flex-direction: row;
+      padding: var(--s-8);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
     }
-    .body-container > .block {
-      min-width: 800px;
-      flex-shrink: 0;
+  }
+
+  /* Render container cursor for .body */
+  .demo-wrapper :global {
+    .svedit-canvas > .body-container > .block > .cursor-trap {
+      position: absolute;
+      right: -6px;
+      top: 0;
+      bottom: 0;
+      width: 12px;
+      z-index: 1000;
     }
   }
 

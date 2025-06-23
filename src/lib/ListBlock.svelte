@@ -12,7 +12,7 @@
 
 <Block {path}>
   <div class="list max-w-screen-md mx-auto">
-    <Container class="sv-horizontal" path={[...path, 'list_items']}>
+    <Container class="list-container sv-horizontal" path={[...path, 'list_items']}>
       <!-- NOTE: We only allow list items inside list  -->
       {#snippet block(block, path)}
         <ListItemBlock {block} {path} {list_style} />
@@ -27,4 +27,17 @@
     padding: var(--s-2);
     counter-reset: listcounter;
   }
+
+  /* Override when we use horizontal flow in containers */
+  .list :global {
+    .list-container > .block > .cursor-trap {
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      right: 0;
+      height: 12px;
+      z-index: 1000;
+    }
+  }
+
 </style>
