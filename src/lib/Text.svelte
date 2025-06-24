@@ -94,7 +94,6 @@
   .text.empty {
     background: #efefef;
     outline: none;
-		cursor: pointer;
   }
 
   .text.empty:not(.focused):hover {

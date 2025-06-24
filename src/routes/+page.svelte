@@ -182,7 +182,63 @@
   const doc_config = {
     // Those node types have horizontal-ish containers
     // E.g. used by Overlays.svelte to render container cursors the right way.
-    node_types_with_horizontal_containers: ['page']
+    node_types_with_horizontal_containers: ['page'],
+    // Custom functions to insert new "blank" nodes and setting the selection depening on the
+    // intended behavior.
+    inserters: {
+      paragraph: function(tr, node_insertion_path) {
+        const new_paragraph = {
+     			id: svid(),
+     			type: 'paragraph',
+     			content: ['Lorem ipsum', []] // Empty paragraph with no annotations
+    		};
+    		tr.insert_blocks([new_paragraph]);
+        tr.set_selection({
+          type: 'text',
+          path: [...node_insertion_path, 'content'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
+      },
+      story: function(tr, node_insertion_path) {
+        const new_story = {
+          id: svid(),
+          type: 'story',
+          layout: 1,
+          image: '',
+          title: ['Enter title', []],
+          description: ['Enter description', []]
+        };
+    		tr.insert_blocks([new_story]);
+        tr.set_selection({
+          type: 'text',
+          path: [...node_insertion_path, 'title'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
+      },
+      list: function(tr, node_insertion_path) {
+        const new_list_item = {
+          id: svid(),
+          type: 'list_item',
+          content: ['New list item', []]
+        };
+        tr.create(new_list_item);
+        const new_list = {
+          id: svid(),
+          type: 'list',
+          list_items: [new_list_item.id],
+          list_style: 'decimal-leading-zero',
+        };
+    		tr.insert_blocks([new_list]);
+        tr.set_selection({
+          type: 'text',
+          path: [...node_insertion_path, 'list_items', 0, 'content'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
+      }
+    }
   };
 
   const doc = new SveditDoc(doc_schema, raw_doc, { config: doc_config });

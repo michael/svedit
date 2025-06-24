@@ -2,6 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import Icon from './Icon.svelte';
 	import { svid } from '$lib/util.js';
+	import { tick } from 'svelte';
 
 	let { doc, focus_canvas } = $props();
 
@@ -119,14 +120,9 @@
 	// Function to insert block (always inserts paragraph for now, ignoring block_type)
 	function insert_block(block_type) {
 		if (!is_container_cursor) return;
-
 		const tr = doc.tr;
-		const new_paragraph = {
-			id: svid(),
-			type: 'paragraph',
-			content: ['', []] // Empty paragraph with no annotations
-		};
-		tr.insert_blocks([new_paragraph]);
+		const node_insertion_path = [...doc.selection.path, doc.selection.anchor_offset]
+		doc.config.inserters[block_type](tr, node_insertion_path);
 		doc.apply(tr);
 	}
 
@@ -249,7 +245,7 @@
 		<hr />
 		{#each allowed_ref_types as ref_type}
 			<button title={`Add ${ref_type}`} onclick={() => insert_block(ref_type)}>
-				<Icon name="plus" />
+				<Icon name="square" />
 				{ref_type}
 			</button>
 		{/each}
