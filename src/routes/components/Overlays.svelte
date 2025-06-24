@@ -173,10 +173,6 @@
 		}
 	}
 
-	/* div.hide-selection :global(::selection) {
-    background: transparent;
-  } */
-
 	.text-selection-overlay {
 		position: absolute;
 		top: anchor(top);
