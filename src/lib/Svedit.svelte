@@ -381,10 +381,18 @@
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
-    if (!focus_root) return null;
-    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
-    if (!anchor_root) return null;
+    let focus_root, anchor_root;
+
+    if (dom_selection.focusNode === dom_selection.anchorNode && dom_selection.focusNode.dataset?.type === 'text') {
+      // This is the case when the text node is empty (only a <br> is present)
+      focus_root = anchor_root = dom_selection.focusNode;
+    } else {
+      focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
+      if (!focus_root) return null;
+      anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
+      if (!anchor_root) return null;
+    }
+
 
     if (focus_root !== anchor_root) {
       return null;
@@ -729,4 +737,8 @@
 	.svedit-canvas :global(::selection) {
 		background: var(--editing-fill-color);
 	}
+
+	/* .svedit-canvas.hide-selection :global(::selection) {
+    background: transparent;
+  } */
 </style>
