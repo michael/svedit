@@ -145,7 +145,7 @@
 
 	function handle_toolbar_keydown(event) {
 		console.log('toolbar keydown', event.key);
-		if (event.key === 'Enter') {
+		if (event.key === 'Enter' && input_ref) {
 			console.log('enter pressed');
 			update_image_url();
 			event.preventDefault();

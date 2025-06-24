@@ -237,6 +237,20 @@
           anchor_offset: 0,
           focus_offset: 0
         });
+      },
+      list_item: function(tr, node_insertion_path) {
+        const new_list_item = {
+          id: svid(),
+          type: 'list_item',
+          content: ['New list item', []]
+        };
+    		tr.insert_blocks([new_list_item]);
+        tr.set_selection({
+          type: 'text',
+          path: [...node_insertion_path, 'content'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
       }
     }
   };

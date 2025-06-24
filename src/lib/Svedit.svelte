@@ -237,38 +237,10 @@
       const isCollapsed = selection.anchor_offset === selection.focus_offset;
       const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
 
-      if (isCollapsed) {
-        // Collapsed container selection (container cursor) - insert new block
-        const path = selection.path;
-        // HACK: we need a way to generalize insertion. Possibly we need
-        // a bit of schema introspection. E.g. to determine the default_block_type
-        // based on a certain context
-        if (path.at(-1) === 'items') {
-          doc.apply(doc.tr.insert_blocks([
-            {
-              id: svid(),
-              type: 'list',
-              description: ['enter description', []],
-            }
-          ]));
-        } else {
-          doc.apply(doc.tr.insert_blocks([
-            {
-              id: svid(),
-              type: 'story',
-              image: '/images/container-cursors.svg',
-              title: ['Enter title', []],
-              layout: 1,
-              description: ['Enter a description', []],
-            }
-          ]));
-        }
-      } else if (spanLength === 1) {
-        // Container selection with exactly one node - focus toolbar
+      if (isCollapsed || spanLength === 1) {
         focus_toolbar();
       }
       // Container selections with multiple nodes do nothing on Enter
-
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
