@@ -1,5 +1,6 @@
 <script>
   import { setContext } from 'svelte';
+  import { svid } from '$lib/util.js';
 
   let {
     doc,
