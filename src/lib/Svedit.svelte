@@ -524,6 +524,7 @@
     const selection = doc.selection;
     // The element that holds the annotated text
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
+    const empty_text = doc.get(selection.path)[0].length === 0;
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
@@ -532,6 +533,7 @@
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
+
 
     // Helper function to process each node
     function processNode(node) {
@@ -570,15 +572,25 @@
       return false; // Continue iteration
     }
 
-    // Iterate through child nodes
-    for (const childNode of el.childNodes) {
-      if (processNode(childNode)) break;
-    }
+    // EDGE CASE: When text is empty, we need to set a different DOM selection
+    if (start_offset === end_offset && start_offset === 0 && empty_text) {
+      // Markup for empty text looks like this `<div data-type="text"><br></div>`.
+      // And the correct cursor position is after the <br> element.
+      anchorNode = el;
+      anchorNodeOffset = 1;
+      focusNode = el;
+      focusNodeOffset = 1;
+    } else {
+      // DEFAULT CASE
+      for (const childNode of el.childNodes) {
+        if (processNode(childNode)) break;
+      }
 
-    // Handle edge case: cursor at the end of an annotation
-    if (anchorNode && !focusNode && currentOffset === end_offset) {
-      focusNode = anchorNode.nextSibling || anchorNode;
-      focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
+      // EDGE CASE: cursor at the end of an annotation
+      if (anchorNode && !focusNode && currentOffset === end_offset) {
+        focusNode = anchorNode.nextSibling || anchorNode;
+        focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
+      }
     }
 
     // Set the range if both start and end were found

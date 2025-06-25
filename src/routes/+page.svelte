@@ -190,7 +190,7 @@
         const new_paragraph = {
      			id: svid(),
      			type: 'paragraph',
-     			content: ['Lorem ipsum', []] // Empty paragraph with no annotations
+     			content: ['', []] // Empty paragraph with no annotations
     		};
     		tr.insert_blocks([new_paragraph]);
         tr.set_selection({
@@ -206,8 +206,8 @@
           type: 'story',
           layout: 1,
           image: '',
-          title: ['Enter title', []],
-          description: ['Enter description', []]
+          title: ['', []],
+          description: ['', []]
         };
     		tr.insert_blocks([new_story]);
         tr.set_selection({
@@ -242,7 +242,7 @@
         const new_list_item = {
           id: svid(),
           type: 'list_item',
-          content: ['New list item', []]
+          content: ['', []]
         };
     		tr.insert_blocks([new_list_item]);
         tr.set_selection({

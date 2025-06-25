@@ -96,8 +96,6 @@
 			doc.selection.anchor_offset === doc.selection.focus_offset
 	);
 
-	$inspect('is_container_cursor', is_container_cursor);
-
 	// Get allowed ref_types for current container
 	let allowed_ref_types = $derived.by(() => {
 		if (!is_container_cursor) return [];
