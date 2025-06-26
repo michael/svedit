@@ -187,6 +187,7 @@
     if (!ref?.contains(document.activeElement)) return;
 
     const selection = doc.selection;
+    const isCollapsed = selection.anchor_offset === selection.focus_offset;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       doc.undo();
@@ -234,7 +235,7 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-      const isCollapsed = selection.anchor_offset === selection.focus_offset;
+
       const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
 
       if (isCollapsed || spanLength === 1) {
@@ -243,6 +244,35 @@
       // Container selections with multiple nodes do nothing on Enter
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'Enter' && selection.type === 'text') {
+      const text_content = doc.get(selection.path)[0];
+      const cursor_at_end = isCollapsed && text_content.length === selection.focus_offset;
+      if (cursor_at_end) {
+        // "path": [
+        //   "atzVDeKmJwyzGZzfmmXPSkx",
+        //   "body",
+        //   "2",
+        //   "description"
+        // ],
+        //
+        const base_node = doc.get(selection.path.slice(0, -3));
+        const container_prop = selection.path.at(-3);
+
+        const target_node_type = doc.schema[base_node.type][container_prop].default_ref_type;
+
+        const next_insert_position = {
+          type: 'container',
+          path: selection.path.slice(0, -2),
+          anchor_offset: parseInt(selection.path.at(-2), 10) + 1,
+          focus_offset: parseInt(selection.path.at(-2), 10) + 1,
+        };
+
+        const tr = doc.tr;
+        tr.set_selection(next_insert_position);
+        doc.config.inserters[target_node_type](tr, [...selection.path.slice(0, -2), next_insert_position.anchor_offset]);
+        doc.apply(tr);
+      }
+
     } else if (e.key === 'Escape' && selection) {
       doc.select_parent();
       e.preventDefault();
