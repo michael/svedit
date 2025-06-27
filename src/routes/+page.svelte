@@ -18,6 +18,10 @@
         ref_types: ['paragraph', 'story', 'list'],
         default_ref_type: 'paragraph',
       },
+      cover_story: {
+        type: 'ref',
+        ref_types: ['story'],
+      },
       keywords: {
         type: 'string_array',
       },
@@ -172,6 +176,7 @@
       id: page_1_id,
       type: 'page',
       body: [paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      cover_story: story_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
       created_at: '2025-05-30T10:39:59.987Z'
@@ -273,6 +278,7 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
+    <StoryBlock path={[doc.doc_id, 'cover_story']} />
     <Container class="body-container" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'paragraph'}

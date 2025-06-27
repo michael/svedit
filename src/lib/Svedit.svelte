@@ -292,10 +292,9 @@
     if (!focus_node.closest) focus_node = focus_node.parentElement;
     if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
 
-    // First, let's check if we are in a cursor trap for container cursors
+    // EDGE CASE: Let's first check if we are in a cursor trap for container cursors
     let after_node_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]');
     if (after_node_cursor_trap && focus_node === anchor_node) {
-      console.log('after_node_cursor_trap', after_node_cursor_trap);
       // Find the block that this cursor trap belongs to
       let block = after_node_cursor_trap.closest('[data-type="block"]');
       if (!block) {
@@ -329,9 +328,11 @@
     // HACK: this works only for one level nesting - should be done recursively to work generally
     if (focus_root_path.length > anchor_root_path.length) {
       focus_root = focus_root.parentElement.closest('[data-path][data-type="block"]');
+      if (!focus_root) return null;
       focus_root_path = focus_root.dataset.path.split('.');
     } else if (anchor_root_path.length > focus_root_path.length) {
       anchor_root = anchor_root.parentElement.closest('[data-path][data-type="block"]');
+      if (!anchor_root) return null;
       anchor_root_path = anchor_root.dataset.path.split('.');
     }
 

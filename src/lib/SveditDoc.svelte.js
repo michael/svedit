@@ -107,7 +107,7 @@ export default class SveditDoc {
       path = [ path ];
     }
     if (!(Array.isArray(path) && path.length >= 1)) {
-      throw new Error('Invalid path provided');
+      throw new Error('Invalid path provided', path);
     }
 
     let val = this.nodes[path[0]];
@@ -140,6 +140,46 @@ export default class SveditDoc {
       }
     }
     return val;
+  }
+
+  // While .get gives you the value of a path, inspect gives you
+  // the type info of that value.
+  //
+  // doc.inspect(['page_1', 'body'] => {
+  //   kind: 'property',
+  //   name: 'body',
+  //   type: 'multiref',
+  //   ref_types: ['paragraph', 'story', 'list'],
+  //   default_ref_type: 'paragraph'
+  // }
+  //
+  // doc.inspect(['page_1', 'body', 1]) => {
+  //   kind: 'node',
+  //   id: 'paragraph_234',
+  //   type: 'paragraph',
+  //   properties: {...}
+  // }
+  inspect(path) {
+    const parent = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
+    if (parent?.type) {
+      // Parent is a node, so we are dealing with a property.
+      const property_name = path.at(-1);
+      return  {
+        kind: 'property',
+        name: property_name,
+        // Merge property spec from schema
+        ...this.schema[parent.type][property_name]
+      };
+    } else {
+      // Parent is a property (or we are at the root), so we are dealing with a node.
+      const node = this.get(path);
+      return {
+        kind: 'node',
+        id: node.id,
+        type: node.type,
+        properties: this.schema[node.type]
+      }
+    }
   }
 
   active_annotation(annotation_type) {
