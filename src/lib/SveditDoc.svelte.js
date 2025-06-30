@@ -182,6 +182,16 @@ export default class SveditDoc {
     }
   }
 
+  // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
+  // NOTE: currently we assume a 'content' property for pure text nodes
+  kind(node) {
+    if (['annotated_text', 'string'].includes(this.schema[node.type]?.content?.type)) {
+      return 'text'
+    } else {
+      return 'node';
+    }
+  }
+
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
 

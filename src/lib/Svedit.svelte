@@ -1,6 +1,7 @@
 <script>
   import { setContext } from 'svelte';
-  import { svid } from '$lib/util.js';
+  import { svid } from './util.js';
+  import { break_text_node } from './commands.svelte.js';
 
   let {
     doc,
@@ -245,34 +246,9 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection.type === 'text') {
-      const text_content = doc.get(selection.path)[0];
-      const cursor_at_end = isCollapsed && text_content.length === selection.focus_offset;
-      if (cursor_at_end) {
-        // "path": [
-        //   "atzVDeKmJwyzGZzfmmXPSkx",
-        //   "body",
-        //   "2",
-        //   "description"
-        // ],
-        //
-        const base_node = doc.get(selection.path.slice(0, -3));
-        const container_prop = selection.path.at(-3);
-
-        const target_node_type = doc.schema[base_node.type][container_prop].default_ref_type;
-
-        const next_insert_position = {
-          type: 'container',
-          path: selection.path.slice(0, -2),
-          anchor_offset: parseInt(selection.path.at(-2), 10) + 1,
-          focus_offset: parseInt(selection.path.at(-2), 10) + 1,
-        };
-
-        const tr = doc.tr;
-        tr.set_selection(next_insert_position);
-        doc.config.inserters[target_node_type](tr, [...selection.path.slice(0, -2), next_insert_position.anchor_offset]);
-        doc.apply(tr);
-      }
-
+      const tr = doc.tr;
+      break_text_node(tr);
+      doc.apply(tr);
     } else if (e.key === 'Escape' && selection) {
       doc.select_parent();
       e.preventDefault();

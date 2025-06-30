@@ -120,7 +120,7 @@
 		if (!is_container_cursor) return;
 		const tr = doc.tr;
 		const node_insertion_path = [...doc.selection.path, doc.selection.anchor_offset]
-		doc.config.inserters[block_type](tr, node_insertion_path);
+		doc.config.inserters[block_type](tr);
 		doc.apply(tr);
 	}
 

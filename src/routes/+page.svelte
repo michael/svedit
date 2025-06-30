@@ -191,21 +191,22 @@
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
-      paragraph: function(tr, node_insertion_path) {
+      paragraph: function(tr, content = ['', []]) {
         const new_paragraph = {
      			id: svid(),
      			type: 'paragraph',
-     			content: ['', []] // Empty paragraph with no annotations
+     			content
     		};
     		tr.insert_blocks([new_paragraph]);
+        // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
         tr.set_selection({
           type: 'text',
-          path: [...node_insertion_path, 'content'],
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
           anchor_offset: 0,
           focus_offset: 0
         });
       },
-      story: function(tr, node_insertion_path) {
+      story: function(tr) {
         const new_story = {
           id: svid(),
           type: 'story',
@@ -215,14 +216,15 @@
           description: ['', []]
         };
     		tr.insert_blocks([new_story]);
+      // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
         tr.set_selection({
           type: 'text',
-          path: [...node_insertion_path, 'title'],
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
           anchor_offset: 0,
           focus_offset: 0
         });
       },
-      list: function(tr, node_insertion_path) {
+      list: function(tr) {
         const new_list_item = {
           id: svid(),
           type: 'list_item',
@@ -238,21 +240,22 @@
     		tr.insert_blocks([new_list]);
         tr.set_selection({
           type: 'text',
-          path: [...node_insertion_path, 'list_items', 0, 'content'],
+          path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
           anchor_offset: 0,
           focus_offset: 0
         });
       },
-      list_item: function(tr, node_insertion_path) {
+      list_item: function(tr, content = ['', []]) {
         const new_list_item = {
           id: svid(),
           type: 'list_item',
-          content: ['', []]
+          content
         };
     		tr.insert_blocks([new_list_item]);
+        console.log('xxx', [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content']);
         tr.set_selection({
           type: 'text',
-          path: [...node_insertion_path, 'content'],
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
           anchor_offset: 0,
           focus_offset: 0
         });
