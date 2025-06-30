@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import { svid } from './util.js';
-  import { break_text_node } from './commands.svelte.js';
+  import { break_text_node, join_text_node } from './commands.svelte.js';
 
   let {
     doc,
@@ -225,9 +225,20 @@
           doc.apply(tr);
         }
       } else {
-        // For other selections, use the normal delete behavior
-        doc.apply(doc.tr.delete_selection());
+        if (doc.selection.type === 'text' && doc.selection.anchor_offset === 0 && doc.selection.focus_offset === 0) {
+          console.log('try to join with previous node');
+          const tr = doc.tr;
+          join_text_node(tr);
+          doc.apply(tr);
+        } else {
+          // TODO: Things are not yet properly composable, I think we need to
+          // realize delete_selection as a command as well.
+          // See https://prosemirror.net/docs/guide/#commands for inspiration.
+          // For other selections, use the normal delete behavior
+          doc.apply(doc.tr.delete_selection());
+        }
       }
+
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'property') {

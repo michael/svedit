@@ -1,5 +1,4 @@
-import { split_annotated_text } from './util.js';
-
+import { split_annotated_text, join_annotated_text } from './util.js';
 
 export function break_text_node(tr) {
   const doc = tr.doc;
@@ -55,4 +54,41 @@ export function break_text_node(tr) {
 
   doc.config.inserters[target_node_type](tr);
   tr.set(doc.selection.path, right_text);
+}
+
+export function join_text_node(tr) {
+  const doc = tr.doc;
+  // Keep a reference of the original selection (before any transforms are applied)
+  const selection = doc.selection;
+  // First we need to ensure we have a text selection
+  if (!selection.type === 'text') return false;
+
+  const node = doc.get(selection.path.slice(0, -1));
+  if (doc.kind(node) !== 'text') return false;
+  const is_inside_container = doc.inspect(selection.path.slice(0, -2))?.type === 'multiref';
+  // console.log('is_inside_container', is_inside_container);
+  if (!is_inside_container) return false; // Do nothing if we're not inside a container
+
+  const node_index = parseInt(doc.selection.path.at(-2), 10);
+  if (node_index === 0) return false;
+  const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
+  const predecessor_node = doc.get(previous_text_path);
+
+  const joined_text = join_annotated_text(predecessor_node.content, node.content);
+
+  tr.set_selection({
+    type: 'container',
+    path: doc.selection.path.slice(0, -2),
+    anchor_offset: node_index,
+    focus_offset: node_index + 1,
+  });
+
+  tr.delete_selection();
+  tr.set_selection({
+    type: 'text',
+    path: [...previous_text_path, 'content'],
+    anchor_offset: predecessor_node.content[0].length,
+    focus_offset: predecessor_node.content[0].length,
+  });
+  tr.set([...previous_text_path, 'content'], joined_text);
 }
