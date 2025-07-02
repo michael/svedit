@@ -4,6 +4,10 @@ Svedit (think Svelte Edit) is a template for building rich content editors with 
 
 Try the [demo](https://svedit.vercel.app).
 
+## Principles
+
+**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `string` or `annotated_text` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
+
 ## WIP: New Document Graph Data Model
 
 This branch is a huge work in progress. There's not so much visible progress for Svedit since the initial public release in October. The reason is that we realized a self-contained piece of JSON to be edited is not enough to serve our needs. We want to edit pieces of content that are shared across documents. That's why we switching to a graph data model, where all content lives in a globally addressable space, a huge graph of content nodes if you want. This way we can share pieces of content (e.g. nav or footer or a table) across multiple documents, while still being able to edit them in place (but changes will affect all places they are used).
@@ -141,7 +145,7 @@ console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 
 
 
-## Usage 
+## Usage
 
 Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<Text>` component can be used to render and edit annotated text.
 
@@ -166,7 +170,7 @@ Is there more documentation? No. Just read the code (it's only a couple of files
 
 ## Selection mapping
 
-When you call doc.set_selection(new_sel) we map that internal selection to an "ideal DOM selection". 
+When you call doc.set_selection(new_sel) we map that internal selection to an "ideal DOM selection".
 
 ### Text selections
 
