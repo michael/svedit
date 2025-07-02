@@ -188,7 +188,7 @@
     if (!ref?.contains(document.activeElement)) return;
 
     const selection = doc.selection;
-    const isCollapsed = selection.anchor_offset === selection.focus_offset;
+    const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       doc.undo();
@@ -225,7 +225,7 @@
           doc.apply(tr);
         }
       } else {
-        if (doc.selection.type === 'text' && doc.selection.anchor_offset === 0 && doc.selection.focus_offset === 0) {
+        if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
           console.log('try to join with previous node');
           const tr = doc.tr;
           join_text_node(tr);
@@ -256,7 +256,7 @@
       // Container selections with multiple nodes do nothing on Enter
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && selection.type === 'text') {
+    } else if (e.key === 'Enter' && selection?.type === 'text') {
       const tr = doc.tr;
       break_text_node(tr);
       doc.apply(tr);
@@ -295,6 +295,20 @@
         path: block_path.slice(0, -1),
         anchor_offset: block_index + 1,
         focus_offset: block_index + 1,
+      }
+      return result;
+    }
+
+    // EDGE CASE: Let's check if we are in a position-zero-cursor-trap for containers.
+    let position_zero_cursor_trap = focus_node.closest('[data-type="position-zero-cursor-trap"]');
+    if (position_zero_cursor_trap && focus_node === anchor_node) {
+      const container_el = position_zero_cursor_trap.closest('[data-type="container"]');
+      const container_path = container_el.dataset.path.split('.');
+      const result = {
+        type: 'container',
+        path: container_path,
+        anchor_offset: 0,
+        focus_offset: 0,
       }
       return result;
     }
@@ -383,7 +397,6 @@
       if (!anchor_root) return null;
     }
 
-
     if (focus_root !== anchor_root) {
       return null;
     }
@@ -441,10 +454,10 @@
   }
 
   function __get_block_element(container_path, block_offset) {
-    const containerEl = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
-    if (!containerEl) return null;
+    const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
+    if (!container_el) return null;
 
-    const blockElements = containerEl.children;
+    const blockElements = container_el.children;
     if (blockElements.length === 0) return null;
 
     return blockElements[block_offset];

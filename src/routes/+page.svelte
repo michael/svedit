@@ -277,7 +277,6 @@
           content
         };
     		tr.insert_blocks([new_list_item]);
-        console.log('xxx', [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content']);
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],

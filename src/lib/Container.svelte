@@ -14,9 +14,6 @@
 </script>
 
 <div class={css_class} data-type="container" data-path={path.join('.')}>
-  <!-- Position zero cursor trap - allows cursor at beginning of container -->
-  <!-- <CursorTrap {path} position="zero" /> -->
-
   {#each blocks as _block, index }
     {@render block(_block, [...path, index], index)}
   {/each}
