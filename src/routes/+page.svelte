@@ -6,6 +6,7 @@
 
   import StoryBlock from './components/StoryBlock.svelte';
   import ParagraphBlock from './components/ParagraphBlock.svelte';
+  import HeadingBlock from './components/HeadingBlock.svelte';
   import ListBlock from './components/ListBlock.svelte';
   import UnknownBlock from './components/UnknownBlock.svelte';
   import Toolbar from './components/Toolbar.svelte';
@@ -15,7 +16,7 @@
     page: {
       body: {
         type: 'multiref',
-        ref_types: ['paragraph', 'story', 'list'],
+        ref_types: ['heading', 'paragraph', 'story', 'list'],
         default_ref_type: 'paragraph',
       },
       cover_story: {
@@ -31,6 +32,9 @@
       created_at: {
         type: 'datetime'
       }
+    },
+    heading: {
+      content: { type: 'annotated_text' },
     },
     paragraph: {
       content: { type: 'annotated_text' },
@@ -57,6 +61,7 @@
 
   // Generate IDs for all content nodes
   const page_1_id = svid();
+  const heading_1_id = svid();
   const paragraph_1_id = svid();
   const paragraph_2_id = svid();
   const story_1_id = svid();
@@ -74,9 +79,14 @@
 
   const raw_doc = [
     {
+      id: heading_1_id,
+      type: 'heading',
+      content: ['Welcome to Svedit', []]
+    },
+    {
       id: paragraph_1_id,
       type: 'paragraph',
-      content: ['Welcome to Svedit! This is a paragraph block with simple text content. Try editing this text directly by clicking on it.', []]
+      content: ['This is a paragraph block with simple text content. Try editing this text directly by clicking on it.', []]
     },
     {
       id: paragraph_2_id,
@@ -175,7 +185,7 @@
     {
       id: page_1_id,
       type: 'page',
-      body: [paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      body: [heading_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
       cover_story: story_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
@@ -191,6 +201,21 @@
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
+      heading: function(tr, content = ['', []]) {
+        const new_heading = {
+     			id: svid(),
+     			type: 'heading',
+     			content
+   		};
+   		tr.insert_blocks([new_heading]);
+        // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
+        tr.set_selection({
+          type: 'text',
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
+      },
       paragraph: function(tr, content = ['', []]) {
         const new_paragraph = {
      			id: svid(),
@@ -284,7 +309,9 @@
     <StoryBlock path={[doc.doc_id, 'cover_story']} />
     <Container class="body-container" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
-        {#if block.type === 'paragraph'}
+        {#if block.type === 'heading'}
+          <HeadingBlock {path} />
+        {:else if block.type === 'paragraph'}
           <ParagraphBlock {path} />
         {:else if block.type === 'story'}
           <StoryBlock {path} />
