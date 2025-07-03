@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text } from './util.js';
+import { split_annotated_text, join_annotated_text, svid } from './util.js';
 
 export function break_text_node(tr) {
   const doc = tr.doc;
@@ -91,4 +91,58 @@ export function join_text_node(tr) {
     focus_offset: predecessor_node.content[0].length,
   });
   tr.set([...previous_text_path, 'content'], joined_text);
+}
+
+export function insert_default_node(tr) {
+  const doc = tr.doc;
+  const selection = doc.selection;
+  
+  // Only work with collapsed container selections
+  if (selection?.type !== 'container' || selection.anchor_offset !== selection.focus_offset) {
+    return false;
+  }
+  
+  const path = selection.path;
+  const container_node = doc.get(path.slice(0, -1));
+  const property_name = path.at(-1);
+  
+  // Get the schema for this property
+  const property_schema = doc.schema[container_node.type][property_name];
+  
+  // Only proceed if there's exactly one allowed ref_type
+  if (!property_schema || property_schema.ref_types.length !== 1) {
+    return false;
+  }
+  
+  const default_type = property_schema.ref_types[0];
+  
+  // Use the inserter function if available
+  if (doc.config?.inserters?.[default_type]) {
+    doc.config.inserters[default_type](tr);
+    return true;
+  } else {
+    // Fallback: create a basic node of the default type
+    const new_node = {
+      id: svid(),
+      type: default_type
+    };
+    
+    // Add default properties based on schema
+    const node_schema = doc.schema[default_type];
+    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+      if (prop_def.type === 'annotated_text') {
+        new_node[prop_name] = ['', []];
+      } else if (prop_def.type === 'string') {
+        new_node[prop_name] = '';
+      } else if (prop_def.type === 'multiref') {
+        new_node[prop_name] = [];
+      } else if (prop_def.type === 'integer') {
+        new_node[prop_name] = 0;
+      }
+      // Add other default values as needed
+    }
+    
+    tr.insert_blocks([new_node]);
+    return true;
+  }
 }

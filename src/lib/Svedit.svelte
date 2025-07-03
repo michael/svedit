@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import { svid } from './util.js';
-  import { break_text_node, join_text_node } from './commands.svelte.js';
+  import { break_text_node, join_text_node, insert_default_node } from './commands.svelte.js';
 
   let {
     doc,
@@ -247,10 +247,18 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'container') {
-
       const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
 
-      if (isCollapsed || spanLength === 1) {
+      if (isCollapsed) {
+        // Try to insert default node if there's only one allowed ref_type
+        const tr = doc.tr;
+        if (insert_default_node(tr)) {
+          doc.apply(tr);
+        } else {
+          // Fall back to focusing toolbar when multiple types are available
+          focus_toolbar();
+        }
+      } else if (spanLength === 1) {
         focus_toolbar();
       }
       // Container selections with multiple nodes do nothing on Enter
@@ -502,6 +510,7 @@
       const cursor_trap_el = anchor_node.querySelector(
         selection.anchor_offset === 0 ? ':scope > .position-zero-cursor-trap' : ':scope > .after-node-cursor-trap'
       );
+
 
       range.setStart(cursor_trap_el, 1);
       range.setEnd(cursor_trap_el, 1);
