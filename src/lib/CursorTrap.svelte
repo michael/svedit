@@ -25,7 +25,7 @@
 
 <style>
 	.cursor-trap {
-    outline: 1px dotted var(--stroke-color);
+    outline: 1px dashed var(--stroke-color);
 		position: relative;
 		/* outline: none; */
 		cursor: pointer;
@@ -58,7 +58,7 @@
 		left: -6px;
 	}
 
-	.cursor-trap:hover {
+	/* .cursor-trap:hover {
 		outline: 1px dashed var(--editing-stroke-color);
-	}
+	} */
 </style>
