@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import { svid } from './util.js';
-  import { break_text_node, join_text_node, insert_default_node } from './commands.svelte.js';
+  import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   let {
     doc,
@@ -190,7 +190,14 @@
     const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
-    if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+    if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
+      const tr = doc.tr;
+      if (select_all(tr)) {
+        doc.apply(tr);
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       doc.undo();
       e.preventDefault();
       e.stopPropagation();

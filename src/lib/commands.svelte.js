@@ -152,3 +152,115 @@ export function insert_default_node(tr) {
     return true;
   }
 }
+
+export function select_all(tr) {
+  const doc = tr.doc;
+  const selection = doc.selection;
+  
+  if (!selection) {
+    return false;
+  }
+
+  if (selection.type === 'text') {
+    const text_content = doc.get(selection.path);
+    const text_length = text_content[0].length;
+    
+    // Check if all text is already selected
+    const is_all_text_selected = 
+      Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+      Math.max(selection.anchor_offset, selection.focus_offset) === text_length;
+    
+    if (!is_all_text_selected) {
+      // Select all text in the current text node
+      tr.set_selection({
+        type: 'text',
+        path: selection.path,
+        anchor_offset: 0,
+        focus_offset: text_length
+      });
+      return true;
+    } else {
+      // All text is selected, move up to select the containing block
+      const block_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
+      
+      // Check if we have enough path segments and if we're inside a container
+      if (block_path.length >= 2) {
+        const is_inside_container = doc.inspect(block_path.slice(0, -1))?.type === 'multiref';
+        
+        if (is_inside_container) {
+          const block_index = parseInt(block_path.at(-1));
+          tr.set_selection({
+            type: 'container',
+            path: block_path.slice(0, -1),
+            anchor_offset: block_index,
+            focus_offset: block_index + 1
+          });
+          return true;
+        }
+      }
+      // Stop expanding - text is not in a selectable container
+    }
+  } else if (selection.type === 'container') {
+    const container_path = selection.path;
+    const container = doc.get(container_path);
+    const selection_length = Math.abs(selection.focus_offset - selection.anchor_offset);
+    
+    // Check if the entire container is already selected
+    const is_entire_container_selected = 
+      Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+      Math.max(selection.anchor_offset, selection.focus_offset) === container.length;
+    
+    if (!is_entire_container_selected) {
+      // Select the entire container
+      tr.set_selection({
+        type: 'container',
+        path: container_path,
+        anchor_offset: 0,
+        focus_offset: container.length
+      });
+      return true;
+    } else {
+      // Entire container is selected, try to move up to parent container
+      const parent_path = container_path.slice(0, -1);
+      
+      // Check if we have enough path segments and if parent is a valid container
+      if (parent_path.length >= 2) {
+        const is_parent_container = doc.inspect(parent_path.slice(0, -1))?.type === 'multiref';
+        
+        if (is_parent_container) {
+          const parent_block_index = parseInt(parent_path.at(-1));
+          tr.set_selection({
+            type: 'container',
+            path: parent_path.slice(0, -1),
+            anchor_offset: parent_block_index,
+            focus_offset: parent_block_index + 1
+          });
+          return true;
+        }
+      }
+      // Stop expanding - we've reached the top level
+    }
+  } else if (selection.type === 'property') {
+    // For property selections, select the containing block
+    const block_path = selection.path.slice(0, -1);
+    
+    // Check if we have enough path segments and if we're inside a container
+    if (block_path.length >= 2) {
+      const is_inside_container = doc.inspect(block_path.slice(0, -1))?.type === 'multiref';
+      
+      if (is_inside_container) {
+        const block_index = parseInt(block_path.at(-1));
+        tr.set_selection({
+          type: 'container',
+          path: block_path.slice(0, -1),
+          anchor_offset: block_index,
+          focus_offset: block_index + 1
+        });
+        return true;
+      }
+    }
+    // Stop expanding - property is not in a selectable container
+  }
+  
+  return false;
+}
