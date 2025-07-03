@@ -25,9 +25,11 @@
 
 <style>
 	.cursor-trap {
+    outline: 1px dotted var(--stroke-color);
 		position: relative;
-		outline: none;
+		/* outline: none; */
 		cursor: pointer;
+		z-index: 20;
 	}
 
 	.cursor-trap.vertical {
@@ -57,6 +59,6 @@
 	}
 
 	.cursor-trap:hover {
-		border: 1px dashed var(--editing-stroke-color);
+		outline: 1px dashed var(--editing-stroke-color);
 	}
 </style>
