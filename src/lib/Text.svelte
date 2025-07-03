@@ -60,24 +60,24 @@
  	class:empty={plain_text.length === 0}
   class:focused={is_focused}
 >
- 	{#if plain_text.length === 0}<br>{/if}<!--
-    -->{#each fragments as fragment, index}
- 			{#if typeof fragment === 'string'}<!--
-        -->{fragment}<!--
-      -->{:else if fragment.type === 'emphasis'}<!--
-        --><em>{fragment.content}</em><!--
-      -->{:else if fragment.type === 'strong'}<!--
-        --><strong>{fragment.content}</strong><!--
-      -->{:else if fragment.type === 'link'}<!--
-        --><a
- 					onclick={handle_link_click}
- 					style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
- 					href={fragment.href}
- 					target={fragment.target || '_self'}>{fragment.content}</a><!--
-      -->{:else}<!--
-        -->{fragment.content}<!--
-      -->{/if}
-		{/each}
+  {#each fragments as fragment, index}
+		{#if typeof fragment === 'string'}<!--
+      -->{fragment}<!--
+    -->{:else if fragment.type === 'emphasis'}<!--
+      --><em>{fragment.content}</em><!--
+    -->{:else if fragment.type === 'strong'}<!--
+      --><strong>{fragment.content}</strong><!--
+    -->{:else if fragment.type === 'link'}<!--
+      --><a
+				onclick={handle_link_click}
+				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
+				href={fragment.href}
+				target={fragment.target || '_self'}>{fragment.content}</a><!--
+    -->{:else}<!--
+      -->{fragment.content}<!--
+    -->{/if}
+	{/each}<!--
+  --><br>
 </div>
 
 <style>
