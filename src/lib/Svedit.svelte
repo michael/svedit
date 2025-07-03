@@ -498,8 +498,9 @@
 
     if (is_collapsed) {
       // Cursor position in between two nodes or at the very beginning/end of a container
+      // IMPORTANT: We need to look for direct children of anchor_node to find the right cursor trap.
       const cursor_trap_el = anchor_node.querySelector(
-        selection.anchor_offset === 0 ? '.position-zero-cursor-trap' : '.after-node-cursor-trap'
+        selection.anchor_offset === 0 ? ':scope > .position-zero-cursor-trap' : ':scope > .after-node-cursor-trap'
       );
 
       range.setStart(cursor_trap_el, 1);
