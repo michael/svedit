@@ -407,17 +407,9 @@
       focus_root = anchor_root = dom_selection.focusNode;
     } else {
       focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
+      if (!focus_root) return null;
       anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
-    }
-
-    // Handle the case where selection spans beyond text elements (e.g., triple-click)
-    // If one end is in a text element and the other isn't, use the text element
-    if (focus_root && !anchor_root) {
-      anchor_root = focus_root;
-    } else if (!focus_root && anchor_root) {
-      focus_root = anchor_root;
-    } else if (!focus_root && !anchor_root) {
-      return null;
+      if (!anchor_root) return null;
     }
 
     if (focus_root !== anchor_root) {
@@ -432,7 +424,6 @@
     let anchorOffset = 0;
     let focusOffset = 0;
     let currentOffset = 0;
-    let textLength = 0;
 
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -446,46 +437,23 @@
         }
 
         currentOffset += nodeLength;
-        textLength = currentOffset; // Track total text length
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           processNode(childNode);
         }
       }
 
-      return false; // Always process all nodes to get accurate text length
+      return (focusOffset !== 0);
     }
 
     // Process nodes to find offsets
     for (const childNode of focus_root.childNodes) {
-      processNode(childNode);
+      if (processNode(childNode)) break;
     }
 
-    // Handle cases where selection extends beyond the text element
-    // If range start/end containers are outside the text element, constrain to element boundaries
-    if (!focus_root.contains(range.startContainer)) {
-      // Selection starts before this text element
-      anchorOffset = 0;
-    }
-    if (!focus_root.contains(range.endContainer)) {
-      // Selection ends after this text element  
-      focusOffset = textLength;
-    }
-
-    // If neither anchor nor focus offsets were set (range completely outside), select all text
-    if (anchorOffset === 0 && focusOffset === 0 && textLength > 0) {
-      if (!focus_root.contains(range.startContainer) && !focus_root.contains(range.endContainer)) {
-        // Range spans across this text element
-        anchorOffset = 0;
-        focusOffset = textLength;
-      }
-    }
-
-    // Check if it's a backward selection (only if both containers are within the text element)
-    const is_backward = focus_root.contains(range.startContainer) && 
-                       focus_root.contains(range.endContainer) &&
-                       dom_selection.anchorNode === range.endContainer &&
-                       dom_selection.anchorOffset === range.endOffset;
+    // Check if it's a backward selection
+    const is_backward = dom_selection.anchorNode === range.endContainer &&
+                      dom_selection.anchorOffset === range.endOffset;
 
     // Swap offsets if it's a backward selection
     if (is_backward) {
