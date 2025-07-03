@@ -127,3 +127,14 @@ export function determine_container_orientation(doc, path_to_container) {
   const owner_node = doc.get(path_to_container.slice(0, -1));
   return doc.config.node_types_with_horizontal_containers.includes(owner_node?.type) ? 'horizontal' : 'vertical';
 }
+
+// Get the default ref type for a multiref property
+// Returns the default_ref_type if specified, or the single ref_type if there's only one
+export function get_default_ref_type(property_schema) {
+  if (!property_schema || !property_schema.ref_types) {
+    return null;
+  }
+  
+  return property_schema.default_ref_type || 
+    (property_schema.ref_types.length === 1 ? property_schema.ref_types[0] : null);
+}

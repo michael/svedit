@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text, svid } from './util.js';
+import { split_annotated_text, join_annotated_text, svid, get_default_ref_type } from './util.js';
 
 export function break_text_node(tr) {
   const doc = tr.doc;
@@ -49,7 +49,14 @@ export function break_text_node(tr) {
   };
 
   // TODO: Only use default_ref_type when cursor is at the end of
-  const target_node_type = doc.schema[container_node.type][container_prop].default_ref_type;
+  const container_schema = doc.schema[container_node.type][container_prop];
+  const target_node_type = get_default_ref_type(container_schema);
+  
+  if (!target_node_type) {
+    console.warn('Cannot determine target node type for break_text_node - no default_ref_type and multiple ref_types');
+    return false;
+  }
+  
   tr.set_selection(container_insert_position);
 
   doc.config.inserters[target_node_type](tr);
@@ -108,13 +115,12 @@ export function insert_default_node(tr) {
   
   // Get the schema for this property
   const property_schema = doc.schema[container_node.type][property_name];
+  const default_type = get_default_ref_type(property_schema);
   
   // Only proceed if there's exactly one allowed ref_type
-  if (!property_schema || property_schema.ref_types.length !== 1) {
+  if (!default_type || property_schema.ref_types.length !== 1) {
     return false;
   }
-  
-  const default_type = property_schema.ref_types[0];
   
   // Use the inserter function if available
   if (doc.config?.inserters?.[default_type]) {

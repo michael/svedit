@@ -53,7 +53,6 @@
       list_items: {
         type: 'multiref',
         ref_types: ['list_item'],
-        default_ref_type: 'list_item',
       },
       list_style: { type: 'string' },
     },
