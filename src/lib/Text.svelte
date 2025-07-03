@@ -100,9 +100,9 @@
     background: lightgray;
   }
 
-  /* .text.focused {
+  .text.focused {
     background: none;
     outline: 1px dashed var(--editing-stroke-color);
-  } */
+  }
 
 </style>
