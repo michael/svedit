@@ -15,7 +15,7 @@
 
 <!-- Cursor trap that provides a contenteditable target for container cursor positioning -->
 <div
-	class="cursor-trap"
+	class="cursor-trap svedit-selectable"
 	class:after-node-cursor-trap={type === 'after-node-cursor-trap'}
 	class:position-zero-cursor-trap={type === 'position-zero-cursor-trap'}
 	data-type={type}

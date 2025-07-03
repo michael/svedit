@@ -56,7 +56,7 @@
  	data-type="text"
  	data-path={path.join('.')}
  	style="anchor-name: --{path.join('-')};"
- 	class="text {css_class}"
+ 	class="text svedit-selectable {css_class}"
  	class:empty={plain_text.length === 0}
   class:focused={is_focused}
 >
@@ -100,9 +100,9 @@
     background: lightgray;
   }
 
-  .text.focused {
+  /* .text.focused {
     background: none;
     outline: 1px dashed var(--editing-stroke-color);
-  }
+  } */
 
 </style>

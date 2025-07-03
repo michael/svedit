@@ -16,7 +16,7 @@
   data-path={path.join('.')}
   style="anchor-name: --{path.join('-')};"
 >
-  <div class="cursor-trap"></div>
+  <div class="cursor-trap svedit-selectable"><br/></div>
   <div class="property-content" contenteditable="false">{@render children()}</div>
 </div>
 

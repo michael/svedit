@@ -69,7 +69,6 @@
     if (doc.selection?.type === 'text') {
       plain_text = doc.get_selected_plain_text();
       html = plain_text;
-      console.log('selected_plain_text', plain_text);
     } else if (doc.selection?.type === 'container') {
       const selected_nodes = doc.get_selected_nodes();
       json_data = [];
@@ -189,6 +188,7 @@
 
     const selection = doc.selection;
     const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
+
     // console.log('onkeydown', e.key);
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       doc.undo();
@@ -468,14 +468,27 @@
   }
 
   function __render_container_selection() {
-    // console.log('render_container_selection', $state.snapshot(doc.selection));
     const selection = doc.selection;
     const container = doc.get(selection.path);
     const container_path = selection.path.join('.');
 
-    // we need to translate the cusor offset to block offsets now
-    let anchor_block_offset = selection.anchor_offset > selection.focus_offset ? selection.anchor_offset - 1 : selection.anchor_offset;
-    let focus_block_offset = selection.focus_offset > selection.anchor_offset ? selection.focus_offset - 1 : selection.focus_offset;
+    let is_collapsed = selection.anchor_offset === selection.focus_offset;
+    let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
+
+    // We need to translate the cusor offset to block offsets now
+    let anchor_block_offset, focus_block_offset;
+
+    if (is_collapsed) {
+      anchor_block_offset = Math.max(0, selection.anchor_offset - 1);
+      focus_block_offset = Math.max(0, selection.focus_offset - 1);
+    } else if (is_backward) {
+      anchor_block_offset = selection.anchor_offset - 1;
+      focus_block_offset = selection.focus_offset;
+    } else {
+      anchor_block_offset = selection.anchor_offset;
+      focus_block_offset = selection.focus_offset - 1;
+    }
+
     const anchor_node = __get_block_element(container_path, anchor_block_offset);
     const focus_node = __get_block_element(container_path, focus_block_offset);
 
@@ -483,40 +496,39 @@
     const dom_selection = window.getSelection();
     const range = window.document.createRange();
 
-    if (selection.anchor_offset === selection.focus_offset) {
-      // Collapsed selection (cursor between blocks)
-      if (selection.anchor_offset === container.length) {
-        range.setStartAfter(anchor_node);
-        range.setEndAfter(anchor_node);
-      } else {
-        range.setStartBefore(anchor_node);
-        range.setEndBefore(anchor_node);
-      }
+    if (is_collapsed) {
+      // Cursor position in between two nodes or at the very beginning/end of a container
+      const cursor_trap_el = anchor_node.querySelector(
+        selection.anchor_offset === 0 ? '.position-zero-cursor-trap' : '.after-node-cursor-trap'
+      );
+
+      range.setStart(cursor_trap_el, 1);
+      range.setEnd(cursor_trap_el, 1);
       dom_selection.removeAllRanges();
       dom_selection.addRange(range);
-      console.log('collapsed selection', selection.anchor_offset, selection.focus_offset)
     } else {
-      // Non-collapsed selection
-      if (selection.anchor_offset > selection.focus_offset) {
-        // Backwards selection
-        let last_text_node = __find_last_text_node(anchor_node);
-        let first_text_node = __find_first_text_node(focus_node);
+      // Expanded selection (one or more nodes are fully selectd)
+      if (is_backward) {
+        // Use the last selectable you find
+        const anchor_node_selectable = [...anchor_node.querySelectorAll('.svedit-selectable')].at(-1);
+        // Use the first selectable you find
+        const focus_node_selectable = [...focus_node.querySelectorAll('.svedit-selectable')].at(0);
 
-        if (!last_text_node || !first_text_node) {
-          console.error('Selection mapping error: Make sure every block contains at least one text node');
-          return;
-        }
-        range.setStart(first_text_node, 0);
-        range.setEnd(last_text_node, last_text_node.length);
+        range.setStart(focus_node_selectable, 1);
+        range.setEnd(anchor_node_selectable, 1);
         dom_selection.removeAllRanges();
         dom_selection.addRange(range);
+        // Phew, this was a hard nut to crack. But with that code the direction can be reversed.
+        dom_selection.setBaseAndExtent(anchor_node_selectable, 1, focus_node_selectable, 1);
 
-        // Phew, this was a hard not to crack. But with that code the direction can be reversed.
-        dom_selection.setBaseAndExtent(last_text_node, last_text_node.length, first_text_node, 0);
       } else {
-        // Regular foward selection
-        range.setStart(anchor_node, 0);
-        range.setEnd(focus_node, focus_node.childNodes.length);
+        // Use the first selectable you find
+        const anchor_node_selectable = [...anchor_node.querySelectorAll('.svedit-selectable')].at(0);
+        // Use the last selectable you find
+        const focus_node_selectable = [...focus_node.querySelectorAll('.svedit-selectable')].at(-1);
+
+        range.setStart(anchor_node_selectable, 1);
+        range.setEnd(focus_node_selectable, 1);
         dom_selection.removeAllRanges();
         dom_selection.addRange(range);
       }
@@ -528,7 +540,7 @@
       container_el.focus();
       // Scroll the selection into view
       setTimeout(() => {
-        (selection.anchor_offset > selection.focus_offset ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        (is_backward ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, 0);
     } else {
       console.log('no container element found!!');
@@ -647,34 +659,6 @@
 
   // Utils
   // --------------------------
-
-  function __find_first_text_node(el) {
-    if (el.nodeType === Node.TEXT_NODE) {
-      return el;
-    }
-
-    for (let child of el.childNodes) {
-      const textNode = __find_first_text_node(child);
-      if (textNode) {
-        return textNode;
-      }
-    }
-  }
-
-  function __find_last_text_node(el) {
-    // If the element itself is a text node, return it
-    if (el.nodeType === Node.TEXT_NODE) {
-      return el;
-    }
-
-    // Iterate through child nodes in reverse order
-    for (let i = el.childNodes.length - 1; i >= 0; i--) {
-      const textNode = __find_last_text_node(el.childNodes[i]);
-      if (textNode) {
-        return textNode;
-      }
-    }
-  }
 
   function __is_dom_selection_backwards() {
     const dom_selection = window.getSelection();
