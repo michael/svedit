@@ -131,7 +131,7 @@ export default class SveditTransaction {
       annotations.push([start, end, annotation_type, annotation_data]);
     }
 
-    // Update the annotated text
+    // Update the annotated string
     this.set(this.doc.selection.path, annotated_string);
     this.doc.selection = { ...this.doc.selection };
     return this;

@@ -582,7 +582,7 @@
 
   function __render_text_selection() {
     const selection = doc.selection;
-    // The element that holds the annotated text
+    // The element that holds the annotated string
     const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
     const empty_text = doc.get(selection.path)[0].length === 0;
 

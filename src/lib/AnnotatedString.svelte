@@ -21,7 +21,7 @@
 				fragments.push(text.slice(last_index, annotation[0]));
 			}
 
-			// Add the annotated text
+			// Add the annotated string
 			const annotated_content = text.slice(annotation[0], annotation[1]);
 			fragments.push({
 				type: annotation[2],
