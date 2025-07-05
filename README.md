@@ -147,7 +147,7 @@ console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 
 ## Usage
 
-Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<AnnotatedString>` component can be used to render and edit annotated text.
+Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<AnnotatedStringProperty>` component can be used to render and edit annotated text.
 
 ```js
 <Svedit {doc} editable={true} class='flex-column'>

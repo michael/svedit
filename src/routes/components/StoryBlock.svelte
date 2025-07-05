@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
-	import AnnotatedString from '$lib/AnnotatedString.svelte';
-	import Property from '$lib/Property.svelte';
+	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
+	import CustomProperty from '$lib/CustomProperty.svelte';
 	import Block from '$lib/Block.svelte';
 	const svedit = getContext('svedit');
 
@@ -11,17 +11,17 @@
 
 <Block {path}>
 	<div class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full">
-		<Property class="image-wrapper" path={[...path, 'image']}>
+		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<img
 				src={block.image || '/icons/image-placeholder.svg'}
 				alt={block.title[0]}
 				class:placeholder={!block.image}
 			/>
-		</Property>
+		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedString class="heading2" path={[...path, 'title']} editable={block.editable} />
-			<AnnotatedString class="body" path={[...path, 'description']} editable={block.editable} />
+			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} editable={block.editable} />
+			<AnnotatedStringProperty class="body" path={[...path, 'description']} editable={block.editable} />
 		</div>
 	</div>
 </Block>

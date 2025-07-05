@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import Block from '$lib/Block.svelte';
-	import AnnotatedString from '$lib/AnnotatedString.svelte';
+	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
 
 	const svedit = getContext('svedit');
 
@@ -11,7 +11,7 @@
 
 <Block {path}>
 	<div class="paragraph-block max-w-screen-lg mx-auto w-full">
-		<AnnotatedString class="body" path={[...path, 'content']} editable={block.editable} />
+		<AnnotatedStringProperty class="body" path={[...path, 'content']} editable={block.editable} />
 	</div>
 </Block>
 
