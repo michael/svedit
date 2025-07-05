@@ -50,7 +50,7 @@
     // Only handle selection changes if selection is within the canvas
     const range = dom_selection.getRangeAt(0);
     if (!ref?.contains(range.commonAncestorContainer)) return;
-    let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
     if (selection) {
       doc.selection = selection;
     }
@@ -69,7 +69,7 @@
     if (doc.selection?.type === 'text') {
       plain_text = doc.get_selected_plain_text();
       html = plain_text;
-    } else if (doc.selection?.type === 'container') {
+    } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       json_data = [];
       selected_nodes.forEach(node_id => {
@@ -140,7 +140,7 @@
 
   function render_selection() {
     const selection = doc.selection;
-    let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_container_selection_from_dom();
+    let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
 
     if (!selection) {
       // No model selection -> just leave things as they are'
@@ -157,8 +157,8 @@
 
     if (selection?.type === 'text') {
       __render_text_selection();
-    } else if (selection?.type === 'container') {
-      __render_container_selection();
+    } else if (selection?.type === 'node') {
+      __render_node_selection();
     } else if (selection?.type === 'property') {
       __render_property_selection();
     } else {
@@ -253,7 +253,7 @@
       focus_toolbar();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && selection?.type === 'container') {
+    } else if (e.key === 'Enter' && selection?.type === 'node') {
       const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
 
       if (isCollapsed) {
@@ -268,7 +268,7 @@
       } else if (spanLength === 1) {
         focus_toolbar();
       }
-      // Container selections with multiple nodes do nothing on Enter
+      // Node selections with multiple nodes do nothing on Enter
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'text') {
@@ -282,7 +282,7 @@
     }
   }
 
-  function __get_container_selection_from_dom() {
+  function __get_node_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
@@ -294,7 +294,7 @@
     if (!focus_node.closest) focus_node = focus_node.parentElement;
     if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
 
-    // EDGE CASE: Let's first check if we are in a cursor trap for container cursors
+    // EDGE CASE: Let's first check if we are in a cursor trap for node cursors
     let after_node_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]');
     if (after_node_cursor_trap && focus_node === anchor_node) {
       // Find the block that this cursor trap belongs to
@@ -306,7 +306,7 @@
       const block_path = block.dataset.path.split('.');
       const block_index = parseInt(block_path.at(-1));
       const result = {
-        type: 'container',
+        type: 'node',
         path: block_path.slice(0, -1),
         anchor_offset: block_index + 1,
         focus_offset: block_index + 1,
@@ -314,14 +314,14 @@
       return result;
     }
 
-    // EDGE CASE: Let's check if we are in a position-zero-cursor-trap for containers.
+    // EDGE CASE: Let's check if we are in a position-zero-cursor-trap for node_arrays.
     let position_zero_cursor_trap = focus_node.closest('[data-type="position-zero-cursor-trap"]');
     if (position_zero_cursor_trap && focus_node === anchor_node) {
-      const container_el = position_zero_cursor_trap.closest('[data-type="container"]');
-      const container_path = container_el.dataset.path.split('.');
+      const node_array_el = position_zero_cursor_trap.closest('[data-type="node_array"]');
+      const node_array_path = node_array_el.dataset.path.split('.');
       const result = {
-        type: 'container',
-        path: container_path,
+        type: 'node',
+        path: node_array_path,
         anchor_offset: 0,
         focus_offset: 0,
       }
@@ -352,9 +352,9 @@
       anchor_root_path = anchor_root.dataset.path.split('.');
     }
 
-    const is_same_container = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
-    if (!is_same_container) {
-      console.log('invalid selection, not same container');
+    const is_same_node_array = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
+    if (!is_same_node_array) {
+      console.log('invalid selection, not same node_array');
       return null;
     }
 
@@ -370,7 +370,7 @@
     }
 
     const result = {
-      type: 'container',
+      type: 'node',
       path: anchor_root_path.slice(0, -1),
       anchor_offset: anchor_offset,
       focus_offset: focus_offset,
@@ -468,11 +468,11 @@
     };
   }
 
-  function __get_block_element(container_path, block_offset) {
-    const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
-    if (!container_el) return null;
+  function __get_block_element(node_array_path, block_offset) {
+    const node_array_el = ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
+    if (!node_array_el) return null;
 
-    const blockElements = container_el.children;
+    const blockElements = node_array_el.children;
     if (blockElements.length === 0) return null;
 
     return blockElements[block_offset];
@@ -482,10 +482,10 @@
     return sel.anchor_offset === sel.focus_offset;
   }
 
-  function __render_container_selection() {
+  function __render_node_selection() {
     const selection = doc.selection;
-    const container = doc.get(selection.path);
-    const container_path = selection.path.join('.');
+    const node_array = doc.get(selection.path);
+    const node_array_path = selection.path.join('.');
 
     let is_collapsed = selection.anchor_offset === selection.focus_offset;
     let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
@@ -504,15 +504,15 @@
       focus_block_offset = selection.focus_offset - 1;
     }
 
-    const anchor_node = __get_block_element(container_path, anchor_block_offset);
-    const focus_node = __get_block_element(container_path, focus_block_offset);
+    const anchor_node = __get_block_element(node_array_path, anchor_block_offset);
+    const focus_node = __get_block_element(node_array_path, focus_block_offset);
 
     if (!anchor_node || !focus_node) return;
     const dom_selection = window.getSelection();
     const range = window.document.createRange();
 
     if (is_collapsed) {
-      // Cursor position in between two nodes or at the very beginning/end of a container
+      // Cursor position in between two nodes or at the very beginning/end of a node_array
       // IMPORTANT: We need to look for direct children of anchor_node to find the right cursor trap.
       const cursor_trap_el = anchor_node.querySelector(
         selection.anchor_offset === 0 ? ':scope > .position-zero-cursor-trap' : ':scope > .after-node-cursor-trap'
@@ -551,10 +551,10 @@
       }
     }
 
-    // Ensure the container is focused
-    const container_el = ref.querySelector(`[data-path="${container_path}"][data-type="container"]`);
-    if (container_el) {
-      container_el.focus();
+    // Ensure the node_array is focused
+    const node_array_el = ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
+    if (node_array_el) {
+      node_array_el.focus();
       // Scroll the selection into view
       setTimeout(() => {
         (is_backward ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -725,7 +725,7 @@
 >
   <div
     class="svedit-canvas {css_class}"
-    class:hide-selection={doc.selection?.type === 'container'}
+    class:hide-selection={doc.selection?.type === 'node'}
     bind:this={ref}
     {onbeforeinput}
     contenteditable={editable ? 'true' : 'false'}

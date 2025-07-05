@@ -1,7 +1,7 @@
 <script>
   import Svedit from '$lib/Svedit.svelte';
   import SveditDoc from '$lib/SveditDoc.svelte.js';
-  import Container from '$lib/Container.svelte';
+  import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
   import { svid } from '$lib/util.js';
 
   import StoryBlock from './components/StoryBlock.svelte';
@@ -15,13 +15,13 @@
   const doc_schema = {
     page: {
       body: {
-        type: 'multiref',
-        ref_types: ['heading', 'paragraph', 'story', 'list'],
+        type: 'node_array',
+        node_types: ['heading', 'paragraph', 'story', 'list'],
         default_ref_type: 'paragraph',
       },
       cover_story: {
-        type: 'ref',
-        ref_types: ['story'],
+        type: 'node',
+        node_types: ['story'],
       },
       keywords: {
         type: 'string_array',
@@ -51,8 +51,8 @@
     },
     list: {
       list_items: {
-        type: 'multiref',
-        ref_types: ['list_item'],
+        type: 'node_array',
+        node_types: ['list_item'],
       },
       list_style: { type: 'string' },
     },
@@ -114,7 +114,7 @@
       layout: 1,
       image: '/images/nested-blocks-illustration.svg',
       title: ['Nested blocks', []],
-      description: ['A block can embed a container of other blocks. For instance the list block at the bottom of the page has a container of list items.', []]
+      description: ['A block can embed a node_array of other blocks. For instance the list block at the bottom of the page has a node_array of list items.', []]
     },
     {
       id: story_4_id,
@@ -148,7 +148,7 @@
     {
       id: list_item_2_id,
       type: 'list_item',
-      content: ['Container selections inside nested blocks (e.g. list items in this list) do not work reliably yet.', []]
+      content: ['Node selections inside nested blocks (e.g. list items in this list) do not work reliably yet.', []]
     },
     {
       id: list_item_3_id,
@@ -194,9 +194,9 @@
 
   // App-specific config object, always available via doc.config for introspection
   const doc_config = {
-    // Those node types have horizontal-ish containers
-    // E.g. used by Overlays.svelte to render container cursors the right way.
-    node_types_with_horizontal_containers: ['page'],
+    // Those node types have horizontal-ish node_arrays
+    // E.g. used by Overlays.svelte to render node cursors the right way.
+    node_types_with_horizontal_node_arrays: ['page'],
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
@@ -305,7 +305,7 @@
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
     <StoryBlock path={[doc.doc_id, 'cover_story']} />
-    <Container class="body-container" path={[doc.doc_id, 'body']}>
+    <NodeArrayProperty class="body-node-array" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'heading'}
           <HeadingBlock {path} />
@@ -319,7 +319,7 @@
           <UnknownBlock {path} />
         {/if}
       {/snippet}
-    </Container>
+    </NodeArrayProperty>
 
     {#snippet overlays()}
       <Overlays />
@@ -337,7 +337,7 @@
 
 <style>
   .demo-wrapper :global {
-    .body-container {
+    .body-node-array {
       padding: var(--s-8);
       display: grid;
       grid-template-columns: 1fr 1fr;

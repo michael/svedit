@@ -154,24 +154,24 @@ export default class SveditTransaction {
       }
     }
 
-    if (this.doc.selection.type === 'container') {
-      const container = [...this.doc.get(path)]; // container is an array of blocks
+    if (this.doc.selection.type === 'node') {
+      const node_array = [...this.doc.get(path)]; // container is an array of blocks
 
       // Get the node IDs that will be removed
-      const removed_node_ids = container.slice(start, end);
+      const removed_node_ids = node_array.slice(start, end);
 
       // Remove the selected blocks from the container
-      container.splice(start, end - start);
+      node_array.splice(start, end - start);
 
       // Update the container in the entry (this implicitly records an op via this.set)
-      this.set(path, container);
+      this.set(path, node_array);
 
       // Now check which nodes should be deleted based on reference counting
       this._cascade_delete_unreferenced_nodes(removed_node_ids);
 
       // Update the selection to point to the start of the deleted range
       this.doc.selection = {
-        type: 'container',
+        type: 'node',
         path,
         anchor_offset: start,
         focus_offset: start
@@ -234,20 +234,20 @@ export default class SveditTransaction {
 
   // NOTE: We assume that we only insert new nodes, not reference existing ones
   insert_blocks(blocks) {
-    if (this.doc.selection.type !== 'container') return;
+    if (this.doc.selection.type !== 'node') return;
 
     const path = this.doc.selection.path;
-    const container = [...this.doc.get(path)];
+    const node_array = [...this.doc.get(path)];
 
     // Get the start and end indices for the selection
     let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
     let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
 
     if (start !== end) {
-      // Remove the currently selected blocks from the container
+      // Remove the currently selected blocks from the node_array
       // NOTE: We are okay that only the refernces are removed and nodes potentially become orphaned.
       // They'll be purged on doc.to_json() anyways.
-      container.splice(start, end - start);
+      node_array.splice(start, end - start);
     }
 
     // First create the new blocks (unless they already exists e.g. in case of cut+paste)
@@ -257,13 +257,13 @@ export default class SveditTransaction {
       }
     });
     const block_ids = blocks.map(block => block.id);
-    container.splice(start, 0, ...block_ids);
+    node_array.splice(start, 0, ...block_ids);
 
-    // Update the container in the entry
-    this.set(path, container);
+    // Update the node_array in the entry
+    this.set(path, node_array);
 
     this.doc.selection = {
-      type: 'container',
+      type: 'node',
       // NOTE: we hard code this temporarily as both story and list-item have a description property
       path: [...this.doc.selection.path],
       anchor_offset: start,
@@ -394,9 +394,9 @@ export default class SveditTransaction {
 
         const prop_type = this.doc.property_type(node.type, property);
 
-        if (prop_type === 'multiref' && Array.isArray(value)) {
+        if (prop_type === 'node_array' && Array.isArray(value)) {
           count += value.filter(id => id === target_node_id).length;
-        } else if (prop_type === 'ref' && value === target_node_id) {
+        } else if (prop_type === 'node' && value === target_node_id) {
           count += 1;
         }
       }

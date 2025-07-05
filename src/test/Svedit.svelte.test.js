@@ -5,13 +5,13 @@ import SveditTest from './testing_components/SveditTest.svelte';
 import { create_test_doc } from './create_test_doc.js';
 
 describe('Svedit.svelte', () => {
-  it('should map container cursor to DOM', async () => {
+  it('should map node cursor to DOM', async () => {
     const doc = create_test_doc();
     const { container }  = render(SveditTest, { props: { doc } });
 
-    // Now set container cursor between first and second block
+    // Now set node cursor between first and second block
     doc.selection = {
-      type: 'container',
+      type: 'node',
       path: [doc.doc_id, 'body'],
       anchor_offset: 1,
       focus_offset: 1,
@@ -19,7 +19,7 @@ describe('Svedit.svelte', () => {
 
     // Wait for Svelte effects to complete
     await tick();
-    
+
     // Give browser time to update DOM selection after focus
     await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -45,7 +45,7 @@ describe('Svedit.svelte', () => {
 
     // Wait for Svelte effects to complete
     await tick();
-    
+
     // Give browser time to update DOM selection after focus
     await new Promise(resolve => setTimeout(resolve, 10));
 

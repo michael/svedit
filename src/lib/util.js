@@ -35,13 +35,13 @@ export function validate_node(node, schema) {
 			}
 		}
 
-		if (property.type === 'ref') {
+		if (property.type === 'node') {
 			if (typeof node[key] !== 'string' || !is_valid_svid(node[key])) {
 				throw new Error('Node ' + node.id + ' has an invalid property: ' + key + ' must be a SVID.');
 			}
 		}
 
-		if (property.type === 'multiref') {
+		if (property.type === 'node_array') {
 			if (!Array.isArray(node[key]) || !node[key].every(id => is_valid_svid(id))) {
 				throw new Error('Node ' + node.id + ' has an invalid property: ' + key + ' must be an array of SVIDs.');
 			}
@@ -122,19 +122,19 @@ export function join_annotated_string(first_text, second_text) {
 }
 
 
-export function determine_container_orientation(doc, path_to_container) {
-  // path_to_container minus the last element has the owner node of the container
-  const owner_node = doc.get(path_to_container.slice(0, -1));
-  return doc.config.node_types_with_horizontal_containers.includes(owner_node?.type) ? 'horizontal' : 'vertical';
+export function determine_node_array_orientation(doc, path_to_node_array) {
+  // path_to_node_array minus the last element has the owner node of the container
+  const owner_node = doc.get(path_to_node_array.slice(0, -1));
+  return doc.config.node_types_with_horizontal_node_arrays.includes(owner_node?.type) ? 'horizontal' : 'vertical';
 }
 
-// Get the default ref type for a multiref property
-// Returns the default_ref_type if specified, or the single ref_type if there's only one
-export function get_default_ref_type(property_schema) {
-  if (!property_schema || !property_schema.ref_types) {
+// Get the default ref type for a node_array property
+// Returns the default_node_type if specified, or the single node_type if there's only one
+export function get_default_node_type(property_schema) {
+  if (!property_schema || !property_schema.node_types) {
     return null;
   }
 
   return property_schema.default_ref_type ||
-    (property_schema.ref_types.length === 1 ? property_schema.ref_types[0] : null);
+    (property_schema.node_types.length === 1 ? property_schema.node_types[0] : null);
 }

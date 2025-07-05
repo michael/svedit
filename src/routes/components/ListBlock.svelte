@@ -1,6 +1,6 @@
 <script>
   import Block from '$lib/Block.svelte';
-  import Container from '$lib/Container.svelte';
+  import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
   import ListItemBlock from './ListItemBlock.svelte';
   import { getContext } from 'svelte';
 
@@ -12,12 +12,12 @@
 
 <Block {path}>
   <div class="list max-w-screen-md mx-auto">
-    <Container class="list-container" path={[...path, 'list_items']}>
+    <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']}>
       <!-- NOTE: We only allow list items inside list  -->
       {#snippet block(block, path)}
         <ListItemBlock {block} {path} {list_style} />
       {/snippet}
-    </Container>
+    </NodeArrayProperty>
   </div>
 </Block>
 

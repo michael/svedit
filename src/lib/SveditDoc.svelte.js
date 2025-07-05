@@ -116,10 +116,10 @@ export default class SveditDoc {
     for (let i = 1; i < path.length; i++) {
       const path_segment = path[i];
       if (val_type === 'node') {
-        if (this.property_type(val.type, path_segment) === 'multiref') {
+        if (this.property_type(val.type, path_segment) === 'node_array') {
           val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
-          val_type = 'multiref';
-        } else if (this.property_type(val.type, path_segment) === 'ref') {
+          val_type = 'node_array';
+        } else if (this.property_type(val.type, path_segment) === 'node') {
           val = this.nodes[val[path_segment]];
           val_type = 'node';
         } else if (['string_array', 'integer_array'].includes(this.property_type(val.type, path_segment))) {
@@ -130,7 +130,7 @@ export default class SveditDoc {
           val = val[path_segment];
           val_type = 'value';
         }
-      } else if (val_type === 'multiref') {
+      } else if (val_type === 'node_array') {
         // We expect the val to be an array of node ids and the path_segment to be an array index
         val = this.nodes[val[path_segment]];
         val_type = 'node';
@@ -148,8 +148,8 @@ export default class SveditDoc {
   // doc.inspect(['page_1', 'body'] => {
   //   kind: 'property',
   //   name: 'body',
-  //   type: 'multiref',
-  //   ref_types: ['paragraph', 'story', 'list'],
+  //   type: 'node_array',
+  //   node_types: ['paragraph', 'story', 'list'],
   //   default_ref_type: 'paragraph'
   // }
   //
@@ -212,8 +212,7 @@ export default class SveditDoc {
     }
   }
 
-  // TODO: think about ways how we can also turn a container
-  // selection into plain text.
+  // TODO: think about ways how we can also turn a node selection into plain text.
   get_selected_plain_text() {
     if (this.selection?.type !== 'text') return null;
 
@@ -224,17 +223,17 @@ export default class SveditDoc {
   }
 
   get_selected_nodes() {
-    if (this.selection?.type !== 'container') return null;
+    if (this.selection?.type !== 'node') return null;
 
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-    const container = this.get(this.selection.path);
-    return $state.snapshot(container.slice(start, end));
+    const node_array = this.get(this.selection.path);
+    return $state.snapshot(node_array.slice(start, end));
   }
 
-  move_container_cursor(direction) {
-    if (this.selection?.type !== 'container') return;
-    const container = this.get(this.selection.path); // container is an array of blocks
+  move_node_cursor(direction) {
+    if (this.selection?.type !== 'node') return;
+    const node_array = this.get(this.selection.path); // node_array is an array of blocks
 
     const { start, end } = this.get_selection_range();
 
@@ -247,7 +246,7 @@ export default class SveditDoc {
         this.selection.focus_offset = start;
         this.selection.anchor_offset = start;
       }
-    } else if (direction === 'forward' && end < container.length) {
+    } else if (direction === 'forward' && end < node_array.length) {
       this.selection.focus_offset = end + 1;
       this.selection.anchor_offset = end + 1;
     } else if (direction === 'backward' && start > 0) {
@@ -256,12 +255,12 @@ export default class SveditDoc {
     }
   }
 
-  expand_container_selection(direction) {
-    if (this.selection.type !== 'container') return;
-    const container = this.get(this.selection.path);
+  expand_node_selection(direction) {
+    if (this.selection.type !== 'node') return;
+    const node_array = this.get(this.selection.path);
 
     if (direction === 'forward') {
-      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, container.length);
+      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, node_array.length);
     } else if (direction === 'backward') {
       this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
     }
@@ -275,7 +274,7 @@ export default class SveditDoc {
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
         this.selection = {
-          type: 'container',
+          type: 'node',
           path: parent_path,
           anchor_offset: currentIndex,
           focus_offset: currentIndex + 1
@@ -283,14 +282,14 @@ export default class SveditDoc {
       } else {
         this.selection = undefined;
       }
-    } else if (this.selection?.type === 'container') {
-      // For container selections, we go up one level
+    } else if (this.selection?.type === 'node') {
+      // For node selections, we go up one level
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
         const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
 
         this.selection = {
-          type: 'container',
+          type: 'node',
           path: parent_path,
           anchor_offset: currentIndex,
           focus_offset: currentIndex + 1
@@ -328,7 +327,7 @@ export default class SveditDoc {
       }
       visited[node.id] = true;
       for (const [key, value] of Object.entries(node)) {
-        // TODO: Use schema inspection and do this only for properties of type `multiref`
+        // TODO: Use schema inspection and do this only for properties of type `node_array`
         if (Array.isArray(value)) {
           for (const v of value) {
             if (typeof v === 'string') {
@@ -349,8 +348,8 @@ export default class SveditDoc {
     return json;
   }
 
-  // property_type('page', 'body') => 'multiref'
-  // property_type('paragraph', 'content') => 'annotated-text'
+  // property_type('page', 'body') => 'node_array'
+  // property_type('paragraph', 'content') => 'annotated_text'
   property_type(type, property) {
     if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
     if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
@@ -371,9 +370,9 @@ export default class SveditDoc {
 
         const prop_type = this.property_type(node.type, property);
 
-        if (prop_type === 'multiref' && Array.isArray(value)) {
+        if (prop_type === 'node_array' && Array.isArray(value)) {
           count += value.filter(id => id === node_id).length;
-        } else if (prop_type === 'ref' && value === node_id) {
+        } else if (prop_type === 'node' && value === node_id) {
           count += 1;
         }
       }
@@ -397,12 +396,12 @@ export default class SveditDoc {
 
       const prop_type = this.property_type(node.type, property);
 
-      if (prop_type === 'multiref' && Array.isArray(value)) {
+      if (prop_type === 'node_array' && Array.isArray(value)) {
         for (const ref_id of value) {
           referenced.push(ref_id);
           referenced.push(...this.get_referenced_nodes(ref_id, visited));
         }
-      } else if (prop_type === 'ref' && typeof value === 'string') {
+      } else if (prop_type === 'node' && typeof value === 'string') {
         referenced.push(value);
         referenced.push(...this.get_referenced_nodes(value, visited));
       }

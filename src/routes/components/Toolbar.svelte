@@ -30,11 +30,11 @@
 	];
 
 	function handle_layout_change(layout_index) {
-		if (!doc.selection || doc.selection.type !== 'container') return;
+		if (!doc.selection || doc.selection.type !== 'node') return;
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
-		const container = doc.get(doc.selection.path);
-		const block_id = container[start];
+		const node_array = doc.get(doc.selection.path);
+		const block_id = node_array[start];
 
 		if (block_id) {
 			const tr = doc.tr;
@@ -44,11 +44,11 @@
 	}
 
 	function handle_list_style_change(list_style) {
-		if (!doc.selection || doc.selection.type !== 'container') return;
+		if (!doc.selection || doc.selection.type !== 'node') return;
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
-		const container = doc.get(doc.selection.path);
-		const block_id = container[start];
+		const node_array = doc.get(doc.selection.path);
+		const block_id = node_array[start];
 
 		if (block_id) {
 			const tr = doc.tr;
@@ -76,48 +76,48 @@
 
 	// Helper function to get the currently selected block
 	function get_selected_block() {
-		if (!doc.selection || doc.selection.type !== 'container') return null;
+		if (!doc.selection || doc.selection.type !== 'node') return null;
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
 		const end = Math.max(doc.selection.anchor_offset, doc.selection.focus_offset);
 		// Only consider selection of a single block
 		if (end - start !== 1) return null;
-		const container = doc.get(doc.selection.path);
-		const block_id = container[start];
+		const node_array = doc.get(doc.selection.path);
+		const block_id = node_array[start];
 		return block_id ? doc.get(block_id) : null;
 	}
 
 	// Reactive variable for selected block
 	let selected_block = $derived(get_selected_block());
 
-	// Check if we have a collapsed container selection (container cursor)
-	let is_container_cursor = $derived(
-		doc.selection?.type === 'container' &&
+	// Check if we have a collapsed node selection (node cursor)
+	let is_node_cursor = $derived(
+		doc.selection?.type === 'node' &&
 			doc.selection.anchor_offset === doc.selection.focus_offset
 	);
 
-	// Get allowed ref_types for current container
-	let allowed_ref_types = $derived.by(() => {
-		if (!is_container_cursor) return [];
+	// Get allowed node_types for current node_array
+	let allowed_node_types = $derived.by(() => {
+		if (!is_node_cursor) return [];
 
-		const container_path = doc.selection.path;
-		const container_node = doc.get(container_path.slice(0, -1)); // Get the parent node
-		const container_property = container_path.at(-1); // Get the property name
+		const node_array_path = doc.selection.path;
+		const node_array_node = doc.get(node_array_path.slice(0, -1)); // Get the parent node
+		const node_array_property = node_array_path.at(-1); // Get the property name
 
 		// Get schema for this node type
-		const node_schema = doc.schema[container_node?.type];
+		const node_schema = doc.schema[node_array_node?.type];
 		if (!node_schema) return [];
 
 		// Get property schema
-		const property_schema = node_schema[container_property];
-		if (property_schema?.type !== 'multiref') return [];
+		const property_schema = node_schema[node_array_property];
+		if (property_schema?.type !== 'node_array') return [];
 
-		return property_schema.ref_types || [];
+		return property_schema.node_types || [];
 	});
 
 	// Function to insert block (always inserts paragraph for now, ignoring block_type)
 	function insert_block(block_type) {
-		if (!is_container_cursor) return;
+		if (!is_node_cursor) return;
 		const tr = doc.tr;
 		const node_insertion_path = [...doc.selection.path, doc.selection.anchor_offset]
 		doc.config.inserters[block_type](tr);
@@ -217,7 +217,7 @@
 			<Icon name="link" />
 		</button>
 	{/if}
-	{#if doc.selection?.type === 'container' && selected_block?.type === 'story'}
+	{#if doc.selection?.type === 'node' && selected_block?.type === 'story'}
 		{#each layout_options as option}
 			<button
 				onclick={() => handle_layout_change(option.value)}
@@ -227,7 +227,7 @@
 			</button>
 		{/each}
 	{/if}
-	{#if doc.selection?.type === 'container' && selected_block?.type === 'list'}
+	{#if doc.selection?.type === 'node' && selected_block?.type === 'list'}
 		<hr />
 		{#each list_style_options as option}
 			<button
@@ -239,9 +239,9 @@
 		{/each}
 	{/if}
 
-	{#if is_container_cursor && allowed_ref_types.length > 0}
+	{#if is_node_cursor && allowed_node_types.length > 0}
 		<hr />
-		{#each allowed_ref_types as ref_type}
+		{#each allowed_node_types as ref_type}
 			<button title={`Add ${ref_type}`} onclick={() => insert_block(ref_type)}>
 				<Icon name="square" />
 				{ref_type}
@@ -249,7 +249,7 @@
 		{/each}
 	{/if}
 
-	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'container' && selected_block?.type === 'story') || (doc.selection?.type === 'container' && selected_block?.type === 'list')}
+	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'node' && selected_block?.type === 'story') || (doc.selection?.type === 'node' && selected_block?.type === 'list')}
 		<hr />
 	{/if}
 	<button

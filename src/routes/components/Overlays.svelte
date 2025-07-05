@@ -1,21 +1,21 @@
 <script>
 	import { getContext } from 'svelte';
-	import { determine_container_orientation } from '$lib/util.js';
+	import { determine_node_array_orientation } from '$lib/util.js';
 	import Icon from './Icon.svelte';
 
 	const svedit = getContext('svedit');
 
-	let container_selection_paths = $derived(get_container_selection_paths());
-	let container_cursor_info = $derived(get_container_cursor_info());
+	let node_array_selection_paths = $derived(get_node_array_selection_paths());
+	let node_cursor_info = $derived(get_node_cursor_info());
 	let text_selection_info = $derived(get_text_selection_info());
 
-	function get_container_selection_paths() {
+	function get_node_array_selection_paths() {
 		const paths = [];
 		const sel = svedit.doc.selection;
 		if (!sel) return;
 
-		// Container selection. Not collapsed.
-		if (sel.type === 'container' && sel.anchor_offset !== sel.focus_offset) {
+		// Node selection. Not collapsed.
+		if (sel.type === 'node' && sel.anchor_offset !== sel.focus_offset) {
 			const start = Math.min(sel.anchor_offset, sel.focus_offset);
 			const end = Math.max(sel.anchor_offset, sel.focus_offset);
 
@@ -26,13 +26,13 @@
 		}
 	}
 
-	function get_container_cursor_info() {
+	function get_node_cursor_info() {
 		const sel = svedit.doc.selection;
 		if (!sel) return;
 
-		if (sel.type === 'container' && sel.anchor_offset === sel.focus_offset) {
-			const container = svedit.doc.get(sel.path);
-			const orientation = determine_container_orientation(svedit.doc, sel.path);
+		if (sel.type === 'node' && sel.anchor_offset === sel.focus_offset) {
+			const node_array = svedit.doc.get(sel.path);
+			const orientation = determine_node_array_orientation(svedit.doc, sel.path);
 			let block_index, position;
 
 			if (sel.anchor_offset === 0) {
@@ -83,19 +83,19 @@
 {/if}
 <!-- Here we render  and other stuff that should lay atop of the canvas -->
 <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
-{#if container_selection_paths}
+{#if node_array_selection_paths}
 	<!-- Render container selection fragments (one per selected block)-->
-	{#each container_selection_paths as path}
-		<div class="container-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
+	{#each node_array_selection_paths as path}
+		<div class="node-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
 	{/each}
-{:else if container_cursor_info}
+{:else if node_cursor_info}
 	<div
-		class="container-cursor"
-		class:horizontal={container_cursor_info.orientation === 'horizontal'}
-		class:vertical={container_cursor_info.orientation === 'vertical'}
-		class:after={container_cursor_info.position === 'after'}
-		class:before={container_cursor_info.position === 'before'}
-		style="position-anchor: --{container_cursor_info.path.join('-')};"
+		class="node-cursor"
+		class:horizontal={node_cursor_info.orientation === 'horizontal'}
+		class:vertical={node_cursor_info.orientation === 'vertical'}
+		class:after={node_cursor_info.position === 'after'}
+		class:before={node_cursor_info.position === 'before'}
+		style="position-anchor: --{node_cursor_info.path.join('-')};"
 	></div>
 {/if}
 
@@ -112,7 +112,7 @@
 
 <style>
 	/* This should be an exact overlay */
-	.container-selection-fragment,
+	.node-selection-fragment,
 	.property-selection-overlay {
 		position: absolute;
 		background: var(--editing-fill-color);
@@ -126,38 +126,38 @@
 		pointer-events: none;
 	}
 
-	.container-cursor {
+	.node-cursor {
 		position: absolute;
 		background: var(--editing-stroke-color);
 		pointer-events: none;
 		animation: blink 0.7s infinite;
 	}
 
-	.container-cursor.horizontal {
+	.node-cursor.horizontal {
 		width: 4px;
 		top: anchor(top);
 		bottom: anchor(bottom);
 	}
 
-	.container-cursor.vertical {
+	.node-cursor.vertical {
 		height: 4px;
 		left: anchor(left);
 		right: anchor(right);
 	}
 
-	.container-cursor.before.horizontal {
+	.node-cursor.before.horizontal {
 		left: calc(anchor(left) - 2px);
 	}
 
-	.container-cursor.after.horizontal {
+	.node-cursor.after.horizontal {
 		right: calc(anchor(right) - 2px);
 	}
 
-	.container-cursor.before.vertical {
+	.node-cursor.before.vertical {
 		top: calc(anchor(top) - 2px);
 	}
 
-	.container-cursor.after.vertical {
+	.node-cursor.after.vertical {
 		bottom: calc(anchor(bottom) - 2px);
 	}
 

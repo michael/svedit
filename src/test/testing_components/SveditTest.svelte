@@ -1,6 +1,6 @@
 <script>
   import Svedit from '../../lib/Svedit.svelte';
-  import Container from '../../lib/Container.svelte';
+  import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
   import StoryBlock from '../../lib/StoryBlock.svelte';
   import ListBlock from '../../lib/ListBlock.svelte';
   import UnknownBlock from '../../lib/UnknownBlock.svelte';
@@ -11,7 +11,7 @@
 
 <Layout>
   <Svedit {doc} editable={true} class='flex-column'>
-    <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
+    <NodeArrayProperty class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'story'}
           <StoryBlock {path} />
@@ -21,6 +21,6 @@
           <UnknownBlock {path} />
         {/if}
       {/snippet}
-    </Container>
+    </NodeArrayProperty>
   </Svedit>
 </Layout>

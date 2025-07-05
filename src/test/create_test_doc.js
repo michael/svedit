@@ -11,8 +11,8 @@ export function create_test_doc() {
   const doc_schema = {
     page: {
       body: {
-        type: 'multiref',
-        ref_types: ['paragraph', 'story', 'list'],
+        type: 'node_array',
+        node_types: ['paragraph', 'story', 'list'],
         default_ref_type: 'paragraph',
       },
       keywords: {
@@ -40,8 +40,8 @@ export function create_test_doc() {
     },
     list: {
       list_items: {
-        type: 'multiref',
-        ref_types: ['list_item'],
+        type: 'node_array',
+        node_types: ['list_item'],
         default_ref_type: 'list_item',
       },
     },

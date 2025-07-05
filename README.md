@@ -26,42 +26,42 @@ Properties of nodes can hold values:
 - `integer`
 - `boolean`
 - `string`
-- `string-array`
-- `annotated-text`: a plain text string, but with annotations (bold, italic, link etc.)
+- `string_array`
+- `annotated_text`: a plain text string, but with annotations (bold, italic, link etc.)
 
 Or references:
-- `ref`: References a single node (e.g. an image node can reference a global asset node)
-- `multiref`: References a sequence of nodes (e.g. page.body references pargraph and list nodes)
+- `node`: References a single node (e.g. an image node can reference a global asset node)
+- `node_array`: References a sequence of nodes (e.g. page.body references pargraph and list nodes)
 
 
 ```js
 const doc_schema = {
   page: {
     body: {
-      type: 'multiref',
-      ref_types: ['nav', 'paragraph', 'list', 'footer'],
+      type: 'node_array',
+      node_types: ['nav', 'paragraph', 'list', 'footer'],
       default_ref_type: 'paragraph',
     }
   },
   paragraph: {
-    content: { type: 'annotated-text' }
+    content: { type: 'annotated_text' }
   },
   list: {
     list_items: {
-      type: 'multiref',
-      ref_types: ['list_item'],
+      type: 'node_array',
+      node_types: ['list_item'],
       default_ref_type: 'list_item',
     }
   },
   nav: {
     nav_items: {
-      type: 'container',
-      ref_types: ['document_nav_item'],
+      type: 'node_array',
+      node_types: ['document_nav_item'],
       default_ref_type: 'document_nav_item',
     }
   },
   nav_item: {
-    // we could make this type: 'ref' but then we'd fetch all nodes of each document referenced in the nav
+    // we could make this type: 'node' but then we'd fetch all nodes of each document referenced in the nav
     // so we keep this a dumb integer at first, but maybe we can introduce some weakref or previewref mechanism that only fetches a preview from the document graph (not sure previews should be owned by the document graph though)
     document_id: { type: 'integer' },
     label: { type: 'string' },
@@ -222,12 +222,12 @@ If the were a collapsed cursor at the beginning of the text:
 }
 ```
 
-### Container selections
+### Node selections
 
-Here's how a container with the same block referenced twice (`body: ['story_1', 'story_1']`) looks like in the DOM (notice the data-index attribute):
+Here's how a node_array with the same node referenced twice (`body: ['story_1', 'story_1']`) looks like in the DOM (notice the data-index attribute):
 
 ```html
-<div data-type="container" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
+<div data-type="node_array" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
   <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
     <div class="non-text-content" contenteditable="false">
       <img src="..." alt="First story">

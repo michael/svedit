@@ -17,11 +17,11 @@ describe('SveditDoc.svelte.js', () => {
     expect(page_1.id).toBe(page_1_id);
     expect(page_1.type).toBe('page');
 
-    // Resolve multiref property
+    // Resolve node_array property
     const body = doc.get([page_1_id, 'body']);
     expect(body).toEqual([story_1_id, story_1_id, list_1_id]);
 
-    // Access an element of a multiref property
+    // Access an element of a node_array property
     const first_story = doc.get([page_1_id, 'body', 0]);
     expect(first_story.id).toBe(story_1_id);
     expect(first_story.type).toBe('story');
@@ -46,17 +46,17 @@ describe('SveditDoc.svelte.js', () => {
     const first_keyword = doc.get([page_1_id, 'keywords', 2]);
     expect(first_keyword).toBe('rich content');
 
-    // Resolve hierarchy using multiref
+    // Resolve hierarchy using node_array
     const list_items_of_first_list = doc.get([page_1_id, 'body', 2, 'list_items']);
     expect(list_items_of_first_list).toEqual([list_item_1_id, list_item_2_id]);
 
-    // Resolve hierarchy using multiref and accessing an annotated_string property
+    // Resolve hierarchy using node_array and accessing an annotated_string property
     const first_list_item_content = doc.get([page_1_id, 'body', 2, 'list_items', 0, 'content']);
     expect(first_list_item_content).toEqual(['first list item', []]);
   });
 
   describe('Deletion scenarios', () => {
-    it('should delete unreferenced nodes and their children when deleting from container', () => {
+    it('should delete unreferenced nodes and their children when deleting from node_array', () => {
       const doc = create_test_doc();
 
       // Initial state: body has [story_1_id, story_1_id, list_1_id]
@@ -67,7 +67,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Delete the list (index 2) - it has no other references
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 2,
         focus_offset: 3
@@ -95,7 +95,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Delete first story reference (index 0)
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 0,
         focus_offset: 1
@@ -121,7 +121,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Delete both story references (index 0 and 1)
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 0,
         focus_offset: 2
@@ -143,7 +143,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Delete the list
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 2,
         focus_offset: 3
@@ -175,7 +175,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Delete one story reference first
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 0,
         focus_offset: 1
@@ -190,7 +190,7 @@ describe('SveditDoc.svelte.js', () => {
 
       // Now delete the remaining story and list
       doc.selection = {
-        type: 'container',
+        type: 'node',
         path: [page_1_id, 'body'],
         anchor_offset: 0,
         focus_offset: 2

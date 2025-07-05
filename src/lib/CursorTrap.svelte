@@ -1,26 +1,26 @@
 <script>
 	import { getContext } from 'svelte';
-	import { determine_container_orientation } from './util.js';
+	import { determine_node_array_orientation } from './util.js';
 
 	const svedit = getContext('svedit');
 	let {
-	  container_path,
+	  node_array_path,
 		type, // either 'position-zero-cursor-trap' or 'after-node-cursor-trap'
 	} = $props();
 
-	let container_orientation = $derived(
-		determine_container_orientation(svedit.doc, container_path)
+	let node_array_orientation = $derived(
+		determine_node_array_orientation(svedit.doc, node_array_path)
 	);
 </script>
 
-<!-- Cursor trap that provides a contenteditable target for container cursor positioning -->
+<!-- Cursor trap that provides a contenteditable target for node_array cursor positioning -->
 <div
 	class="cursor-trap svedit-selectable"
 	class:after-node-cursor-trap={type === 'after-node-cursor-trap'}
 	class:position-zero-cursor-trap={type === 'position-zero-cursor-trap'}
 	data-type={type}
-	class:horizontal={container_orientation === 'horizontal'}
-	class:vertical={container_orientation === 'vertical'}
+	class:horizontal={node_array_orientation === 'horizontal'}
+	class:vertical={node_array_orientation === 'vertical'}
 ><br></div>
 
 <style>
