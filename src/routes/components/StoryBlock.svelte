@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import Text from '$lib/Text.svelte';
+	import AnnotatedString from '$lib/AnnotatedString.svelte';
 	import Property from '$lib/Property.svelte';
 	import Block from '$lib/Block.svelte';
 	const svedit = getContext('svedit');
@@ -20,8 +20,8 @@
 		</Property>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<Text class="heading2" path={[...path, 'title']} editable={block.editable} />
-			<Text class="body" path={[...path, 'description']} editable={block.editable} />
+			<AnnotatedString class="heading2" path={[...path, 'title']} editable={block.editable} />
+			<AnnotatedString class="body" path={[...path, 'description']} editable={block.editable} />
 		</div>
 	</div>
 </Block>

@@ -6,7 +6,7 @@ Try the [demo](https://svedit.vercel.app).
 
 ## Principles
 
-**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `string` or `annotated_text` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
+**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `string` or `annotated_string` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
 
 ## WIP: New Document Graph Data Model
 
@@ -147,7 +147,7 @@ console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 
 ## Usage
 
-Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<Text>` component can be used to render and edit annotated text.
+Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component. The `<AnnotatedString>` component can be used to render and edit annotated text.
 
 ```js
 <Svedit {doc} editable={true} class='flex-column'>

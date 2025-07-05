@@ -49,13 +49,13 @@ export function validate_node(node, schema) {
 	}
 }
 
-// split_annotated_text(["Hello world", [[6,11, "strong"]]], 8)
+// split_annotated_string(["Hello world", [[6,11, "strong"]]], 8)
 // =>
 // [
 //   ["Hello wo", [[6,8, "strong"]]]
 //   ["rld", [[0,3, "strong"]]]
 // ]
-export function split_annotated_text(text_with_annotations, at_position) {
+export function split_annotated_string(text_with_annotations, at_position) {
   const [text, annotations] = text_with_annotations;
 
   // Split the text
@@ -87,9 +87,9 @@ export function split_annotated_text(text_with_annotations, at_position) {
 }
 
 
-// join_annotated_text(["Hello wo", [[6,8, "strong"]]], ["rld", [[0,3, "strong"]]])
+// join_annotated_string(["Hello wo", [[6,8, "strong"]]], ["rld", [[0,3, "strong"]]])
 // => ["Hello world", [[6,11, "strong"]]]
-export function join_annotated_text(first_text, second_text) {
+export function join_annotated_string(first_text, second_text) {
   const [first_text_content, first_annotations] = first_text;
   const [second_text_content, second_annotations] = second_text;
 
@@ -134,7 +134,7 @@ export function get_default_ref_type(property_schema) {
   if (!property_schema || !property_schema.ref_types) {
     return null;
   }
-  
-  return property_schema.default_ref_type || 
+
+  return property_schema.default_ref_type ||
     (property_schema.ref_types.length === 1 ? property_schema.ref_types[0] : null);
 }

@@ -8,7 +8,7 @@
 		return svedit.doc.selection?.type === 'text' && path.join('.') === svedit.doc.selection?.path.join('.');
 	});
 
-	function render_annotated_text(text, annotations) {
+	function render_annotated_string(text, annotations) {
 		let fragments = [];
 		let last_index = 0;
 
@@ -41,7 +41,7 @@
 		return fragments;
 	}
 
-	let fragments = $derived(render_annotated_text(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
+	let fragments = $derived(render_annotated_string(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
 	let plain_text = $derived(svedit.doc.get(path)[0]);
 
 	function handle_link_click(e) {

@@ -57,8 +57,8 @@
 
 		const active_annotation = svedit.doc.active_annotation();
 		if (active_annotation && active_annotation[2] === 'link') {
-			const annotated_text = svedit.doc.get(sel.path);
-			const annotation_index = annotated_text[1].indexOf(active_annotation);
+			const annotated_string = svedit.doc.get(sel.path);
+			const annotation_index = annotated_string[1].indexOf(active_annotation);
 			return {
 				path: sel.path,
 				annotation: active_annotation,

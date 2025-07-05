@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text, svid, get_default_ref_type } from './util.js';
+import { split_annotated_string, join_annotated_string, svid, get_default_ref_type } from './util.js';
 
 export function break_text_node(tr) {
   const doc = tr.doc;
@@ -37,7 +37,7 @@ export function break_text_node(tr) {
 
   const split_at_position = doc.selection.anchor_offset;
   const content = doc.get(selection.path);
-  const [left_text, right_text] = split_annotated_text(content, split_at_position);
+  const [left_text, right_text] = split_annotated_string(content, split_at_position);
 
   tr.set(doc.selection.path, left_text);
 
@@ -51,12 +51,12 @@ export function break_text_node(tr) {
   // TODO: Only use default_ref_type when cursor is at the end of
   const container_schema = doc.schema[container_node.type][container_prop];
   const target_node_type = get_default_ref_type(container_schema);
-  
+
   if (!target_node_type) {
     console.warn('Cannot determine target node type for break_text_node - no default_ref_type and multiple ref_types');
     return false;
   }
-  
+
   tr.set_selection(container_insert_position);
 
   doc.config.inserters[target_node_type](tr);
@@ -81,7 +81,7 @@ export function join_text_node(tr) {
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
   const predecessor_node = doc.get(previous_text_path);
 
-  const joined_text = join_annotated_text(predecessor_node.content, node.content);
+  const joined_text = join_annotated_string(predecessor_node.content, node.content);
 
   tr.set_selection({
     type: 'container',
@@ -103,25 +103,25 @@ export function join_text_node(tr) {
 export function insert_default_node(tr) {
   const doc = tr.doc;
   const selection = doc.selection;
-  
+
   // Only work with collapsed container selections
   if (selection?.type !== 'container' || selection.anchor_offset !== selection.focus_offset) {
     return false;
   }
-  
+
   const path = selection.path;
   const container_node = doc.get(path.slice(0, -1));
   const property_name = path.at(-1);
-  
+
   // Get the schema for this property
   const property_schema = doc.schema[container_node.type][property_name];
   const default_type = get_default_ref_type(property_schema);
-  
+
   // Only proceed if there's exactly one allowed ref_type
   if (!default_type || property_schema.ref_types.length !== 1) {
     return false;
   }
-  
+
   // Use the inserter function if available
   if (doc.config?.inserters?.[default_type]) {
     doc.config.inserters[default_type](tr);
@@ -132,11 +132,11 @@ export function insert_default_node(tr) {
       id: svid(),
       type: default_type
     };
-    
+
     // Add default properties based on schema
     const node_schema = doc.schema[default_type];
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
-      if (prop_def.type === 'annotated_text') {
+      if (prop_def.type === 'annotated_string') {
         new_node[prop_name] = ['', []];
       } else if (prop_def.type === 'string') {
         new_node[prop_name] = '';
@@ -147,7 +147,7 @@ export function insert_default_node(tr) {
       }
       // Add other default values as needed
     }
-    
+
     tr.insert_blocks([new_node]);
     return true;
   }
@@ -156,7 +156,7 @@ export function insert_default_node(tr) {
 export function select_all(tr) {
   const doc = tr.doc;
   const selection = doc.selection;
-  
+
   if (!selection) {
     return false;
   }
@@ -164,12 +164,12 @@ export function select_all(tr) {
   if (selection.type === 'text') {
     const text_content = doc.get(selection.path);
     const text_length = text_content[0].length;
-    
+
     // Check if all text is already selected
-    const is_all_text_selected = 
+    const is_all_text_selected =
       Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
       Math.max(selection.anchor_offset, selection.focus_offset) === text_length;
-    
+
     if (!is_all_text_selected) {
       // Select all text in the current text node
       tr.set_selection({
@@ -182,11 +182,11 @@ export function select_all(tr) {
     } else {
       // All text is selected, move up to select the containing block
       const block_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
-      
+
       // Check if we have enough path segments and if we're inside a container
       if (block_path.length >= 2) {
         const is_inside_container = doc.inspect(block_path.slice(0, -1))?.type === 'multiref';
-        
+
         if (is_inside_container) {
           const block_index = parseInt(block_path.at(-1));
           tr.set_selection({
@@ -204,12 +204,12 @@ export function select_all(tr) {
     const container_path = selection.path;
     const container = doc.get(container_path);
     const selection_length = Math.abs(selection.focus_offset - selection.anchor_offset);
-    
+
     // Check if the entire container is already selected
-    const is_entire_container_selected = 
+    const is_entire_container_selected =
       Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
       Math.max(selection.anchor_offset, selection.focus_offset) === container.length;
-    
+
     if (!is_entire_container_selected) {
       // Select the entire container
       tr.set_selection({
@@ -222,11 +222,11 @@ export function select_all(tr) {
     } else {
       // Entire container is selected, try to move up to parent container
       const parent_path = container_path.slice(0, -1);
-      
+
       // Check if we have enough path segments and if parent is a valid container
       if (parent_path.length >= 2) {
         const is_parent_container = doc.inspect(parent_path.slice(0, -1))?.type === 'multiref';
-        
+
         if (is_parent_container) {
           const parent_block_index = parseInt(parent_path.at(-1));
           tr.set_selection({
@@ -243,11 +243,11 @@ export function select_all(tr) {
   } else if (selection.type === 'property') {
     // For property selections, select the containing block
     const block_path = selection.path.slice(0, -1);
-    
+
     // Check if we have enough path segments and if we're inside a container
     if (block_path.length >= 2) {
       const is_inside_container = doc.inspect(block_path.slice(0, -1))?.type === 'multiref';
-      
+
       if (is_inside_container) {
         const block_index = parseInt(block_path.at(-1));
         tr.set_selection({
@@ -261,6 +261,6 @@ export function select_all(tr) {
     }
     // Stop expanding - property is not in a selectable container
   }
-  
+
   return false;
 }

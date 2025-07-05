@@ -26,17 +26,17 @@ export function create_test_doc() {
       }
     },
     paragraph: {
-      content: { type: 'annotated_text' },
+      content: { type: 'annotated_string' },
     },
     story: {
       layout: { type: 'integer' },
-      title: { type: 'annotated_text' },
-      description: { type: 'annotated_text' },
+      title: { type: 'annotated_string' },
+      description: { type: 'annotated_string' },
       image: { type: 'string' }, // a dedicated type asset would be better
-      
+
     },
     list_item: {
-      content: { type: 'annotated_text' },
+      content: { type: 'annotated_string' },
     },
     list: {
       list_items: {

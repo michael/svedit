@@ -1,6 +1,6 @@
 <script>
 	import Block from '$lib/Block.svelte';
-	import Text from '$lib/Text.svelte';
+	import AnnotatedString from '$lib/AnnotatedString.svelte';
 
 	let {
 		path,
@@ -11,7 +11,7 @@
 
 <Block {path}>
 	<div class="list-item" style="--list-style: {list_style};">
-		<Text path={[...path, 'content']} />
+		<AnnotatedString path={[...path, 'content']} />
 	</div>
 </Block>
 

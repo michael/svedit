@@ -185,7 +185,7 @@ export default class SveditDoc {
   // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
   // NOTE: currently we assume a 'content' property for pure text nodes
   kind(node) {
-    if (['annotated_text', 'string'].includes(this.schema[node.type]?.content?.type)) {
+    if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
       return 'text'
     } else {
       return 'node';
@@ -196,8 +196,8 @@ export default class SveditDoc {
     if (this.selection?.type !== 'text') return null;
 
     const { start, end } = this.get_selection_range();
-    const annotated_text = this.get(this.selection.path);
-    const annotations = annotated_text[1];
+    const annotated_string = this.get(this.selection.path);
+    const annotations = annotated_string[1];
 
     const active_annotation = annotations.find(([anno_start, anno_end, type]) =>
       (anno_start <= start && anno_end > start) ||
@@ -219,8 +219,8 @@ export default class SveditDoc {
 
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-    const annotated_text = this.get(this.selection.path);
-    return annotated_text[0].slice(start, end);
+    const annotated_string = this.get(this.selection.path);
+    return annotated_string[0].slice(start, end);
   }
 
   get_selected_nodes() {

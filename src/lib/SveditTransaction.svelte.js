@@ -66,23 +66,23 @@ export default class SveditTransaction {
     if (this.doc.selection.type !== 'text') return;
 
     const { start, end } = this.doc.get_selection_range();
-    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
-    const annotations = annotated_text[1];
+    const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
+    const annotations = annotated_string[1];
     const existing_annotations = this.doc.active_annotation();
 
     // Special annotation type handling should probably be done in a separate function.
     // The goal is to keep the core logic simple and allow developer to extend and pick only what they need.
-    // It could also be abstracted to not check for type (e.g. "link") but for a special attribute 
+    // It could also be abstracted to not check for type (e.g. "link") but for a special attribute
     // e.g. "zero-range-updatable" for annotations that are updatable without a range selection change.
 
     // Special handling for links when there's no selection range
     // Links should be updatable by just clicking on them without a range selection
     if (annotation_type === 'link' && start === end && existing_annotations) {
-      
+
       // Use findIndex for deep comparison of annotation properties (comparison of annotation properties rather than object reference via indexOf)
-      const index = annotations.findIndex(anno => 
-        anno[0] === existing_annotations[0] && 
-        anno[1] === existing_annotations[1] && 
+      const index = annotations.findIndex(anno =>
+        anno[0] === existing_annotations[0] &&
+        anno[1] === existing_annotations[1] &&
         anno[2] === existing_annotations[2]
       );
       // const index = annotations.indexOf(existing_annotations);
@@ -100,7 +100,7 @@ export default class SveditTransaction {
           ];
         }
 
-        this.set(this.doc.selection.path, annotated_text);
+        this.set(this.doc.selection.path, annotated_string);
         return;
       }
     }
@@ -114,9 +114,9 @@ export default class SveditTransaction {
     if (existing_annotations) {
       // If there's an existing annotation of the same type, remove it
       if (existing_annotations[2] === annotation_type) {
-        const index = annotations.findIndex(anno => 
-          anno[0] === existing_annotations[0] && 
-          anno[1] === existing_annotations[1] && 
+        const index = annotations.findIndex(anno =>
+          anno[0] === existing_annotations[0] &&
+          anno[1] === existing_annotations[1] &&
           anno[2] === existing_annotations[2]
         );
         if (index !== -1) {
@@ -132,7 +132,7 @@ export default class SveditTransaction {
     }
 
     // Update the annotated text
-    this.set(this.doc.selection.path, annotated_text);
+    this.set(this.doc.selection.path, annotated_string);
     this.doc.selection = { ...this.doc.selection };
     return this;
   }
@@ -156,7 +156,7 @@ export default class SveditTransaction {
 
     if (this.doc.selection.type === 'container') {
       const container = [...this.doc.get(path)]; // container is an array of blocks
-      
+
       // Get the node IDs that will be removed
       const removed_node_ids = container.slice(start, end);
 
@@ -182,7 +182,7 @@ export default class SveditTransaction {
 
       // Update the text content
       text[0] = text[0].slice(0, start) + text[0].slice(end);
-      
+
       // Update annotation offsets for deletion
       const deletion_length = end - start;
       const new_annotations = text[1].map(annotation => {
@@ -219,7 +219,7 @@ export default class SveditTransaction {
       }).filter(Boolean);
 
       text[1] = new_annotations;
-      
+
       // Update the text in the entry (this implicitly records an op via this.set)
       this.set(path, text);
       this.set_selection({
@@ -245,7 +245,7 @@ export default class SveditTransaction {
 
     if (start !== end) {
       // Remove the currently selected blocks from the container
-      // NOTE: We are okay that only the refernces are removed and nodes potentially become orphaned. 
+      // NOTE: We are okay that only the refernces are removed and nodes potentially become orphaned.
       // They'll be purged on doc.to_json() anyways.
       container.splice(start, end - start);
     }
@@ -271,19 +271,19 @@ export default class SveditTransaction {
     };
     return this;
   }
-  
+
   // TODO: we need to also support annotations attached to replaced_text. This is needed to
   // support copy&paste including annotations. Currently the annotations are lost on paste.
   insert_text(replaced_text) {
     if (this.doc.selection.type !== 'text') return;
-    
-    const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
+
+    const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const { start, end } = this.doc.get_selection_range();
 
     // Transform the plain text string.
-    annotated_text[0] = annotated_text[0].slice(0, start) + replaced_text + annotated_text[0].slice(end);
+    annotated_string[0] = annotated_string[0].slice(0, start) + replaced_text + annotated_string[0].slice(end);
 
-    // Transform the annotations (annotated_text[1])
+    // Transform the annotations (annotated_string[1])
     // NOTE: Annotations are stored as [start_offset, end_offset, type]
     // Cover the following cases for all annotations:
     // 1. text inserted before the annotation (the annotation should be shifted by replaced_text.length - (end - start))
@@ -294,7 +294,7 @@ export default class SveditTransaction {
     // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
 
     const delta = replaced_text.length - (end - start);
-    const new_annotations = annotated_text[1].map(annotation => {
+    const new_annotations = annotated_string[1].map(annotation => {
       const [anno_start, anno_end, type, anno_data] = annotation;
 
       // Case 4: annotation is wrapped in start and end (remove it)
@@ -338,7 +338,7 @@ export default class SveditTransaction {
       return annotation;
     }).filter(Boolean);
 
-    this.set(this.doc.selection.path, [annotated_text[0], new_annotations]); // this will update the current state and create a history entry
+    this.set(this.doc.selection.path, [annotated_string[0], new_annotations]); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
     const new_selection = {
@@ -355,26 +355,26 @@ export default class SveditTransaction {
   _cascade_delete_unreferenced_nodes(node_ids) {
     const nodes_to_delete = new Set();
     const to_check = [...node_ids];
-    
+
     while (to_check.length > 0) {
       const node_id = to_check.pop();
-      
+
       // Skip if already marked for deletion
       if (nodes_to_delete.has(node_id)) continue;
-      
+
       // Count references excluding nodes already marked for deletion
       const ref_count = this._count_references_excluding_deleted(node_id, nodes_to_delete);
-      
+
       if (ref_count === 0) {
         // No more references, safe to delete this node
         nodes_to_delete.add(node_id);
-        
+
         // Also check all nodes referenced by this node
         const referenced_nodes = this.doc.get_referenced_nodes(node_id);
         to_check.push(...referenced_nodes);
       }
     }
-    
+
     // Delete all unreferenced nodes
     for (const node_id of nodes_to_delete) {
       this.delete(node_id);
@@ -384,16 +384,16 @@ export default class SveditTransaction {
   // Count references to a node, excluding nodes that are marked for deletion
   _count_references_excluding_deleted(target_node_id, nodes_to_delete) {
     let count = 0;
-    
+
     for (const node of Object.values(this.doc.nodes)) {
       // Skip nodes that are marked for deletion
       if (nodes_to_delete.has(node.id)) continue;
-      
+
       for (const [property, value] of Object.entries(node)) {
         if (property === 'id' || property === 'type') continue;
-        
+
         const prop_type = this.doc.property_type(node.type, property);
-        
+
         if (prop_type === 'multiref' && Array.isArray(value)) {
           count += value.filter(id => id === target_node_id).length;
         } else if (prop_type === 'ref' && value === target_node_id) {
@@ -401,7 +401,7 @@ export default class SveditTransaction {
         }
       }
     }
-    
+
     return count;
   }
 }
