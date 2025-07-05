@@ -35,7 +35,7 @@ Or references:
 
 
 ```js
-const doc_schema = {
+const document_schema = {
   page: {
     body: {
       type: 'node_array',
@@ -125,7 +125,7 @@ const raw_doc = [
 
 
 ```js
-const doc = new SveditDoc(doc_schema, raw_doc);
+const doc = new Document(document_schema, raw_doc);
 
 // get the body (=array of node ids)
 const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
@@ -151,7 +151,7 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 
 ```js
 <Svedit {doc} editable={true} class='flex-column'>
-  <Container class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
+  <Container class="body flex-column gap-y-10" path={[doc.document_id, 'body']}>
     {#snippet block(block, path)}
       {#if block.type === 'story'}
         <StoryBlock {path} />

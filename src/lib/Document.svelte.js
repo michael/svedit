@@ -1,10 +1,10 @@
-import SveditTransaction from './SveditTransaction.svelte.js';
+import Transaction from './Transaction.svelte.js';
 import { validate_node } from './util.js';
 
-export default class SveditDoc {
+export default class Document {
   selection = $state();
   config = $state();
-  doc_id = $state();
+  document_id = $state();
   nodes = $state();
   history = $state([]);
   history_index = $state(-1);
@@ -26,7 +26,7 @@ export default class SveditDoc {
     }
 
     // The last element in the raw_doc is the document itself (the root node)
-    this.doc_id = raw_doc.at(-1).id;
+    this.document_id = raw_doc.at(-1).id;
   }
 
   // Internal unsafe function: Never call this directly
@@ -46,11 +46,11 @@ export default class SveditDoc {
   // Creates a new transaction
   get tr() {
     // We create a copy of the current document to avoid modifying the original
-    const transaction_doc = new SveditDoc(this.schema, this.to_json(), {
+    const transaction_doc = new Document(this.schema, this.to_json(), {
       config: this.config,
       selection: this.selection
     });
-    return new SveditTransaction(transaction_doc);
+    return new Transaction(transaction_doc);
   }
 
   // Applies a transaction
@@ -343,8 +343,8 @@ export default class SveditDoc {
       // We use a deep clone, so we make sure nothing of the original document is referenced.
       json.push(structuredClone(node));
     }
-    // Start with the root node (doc_id)
-    visit($state.snapshot(this.get(this.doc_id)));
+    // Start with the root node (document_id)
+    visit($state.snapshot(this.get(this.document_id)));
     return json;
   }
 

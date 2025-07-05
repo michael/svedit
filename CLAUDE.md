@@ -21,8 +21,8 @@ Svedit is a rich content editor template built with Svelte 5 that uses a graph-b
 ### Core Components
 
 **Document Model:**
-- `SveditDoc` - Central document class with state management, transactions, and history
-- `SveditTransaction` - Handles atomic operations on the document
+- `Document` - Central document class with state management, transactions, and history
+- `Tras` - Handles atomic operations on the document
 - Documents are represented as graphs of nodes with properties and references
 
 **Selection System:**
@@ -46,7 +46,7 @@ Content is defined through schemas that specify:
 
 ### Data Flow
 
-1. Raw document data is loaded into `SveditDoc`
+1. Raw document data is loaded into `Document`
 2. Changes are made through transactions for undo/redo support
 3. Selection state is synchronized between internal model and DOM
 4. Components render content based on document state and schema definitions

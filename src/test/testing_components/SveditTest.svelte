@@ -11,7 +11,7 @@
 
 <Layout>
   <Svedit {doc} editable={true} class='flex-column'>
-    <NodeArrayProperty class="body flex-column gap-y-10" path={[doc.doc_id, 'body']}>
+    <NodeArrayProperty class="body flex-column gap-y-10" path={[doc.document_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'story'}
           <StoryBlock {path} />

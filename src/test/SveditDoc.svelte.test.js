@@ -8,7 +8,7 @@ import {
   list_item_2_id
 } from './create_test_doc.js';
 
-describe('SveditDoc.svelte.js', () => {
+describe('Document.svelte.js', () => {
   it('should be traversable', () => {
     const doc = create_test_doc();
 

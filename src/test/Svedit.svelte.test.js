@@ -12,7 +12,7 @@ describe('Svedit.svelte', () => {
     // Now set node cursor between first and second block
     doc.selection = {
       type: 'node',
-      path: [doc.doc_id, 'body'],
+      path: [doc.document_id, 'body'],
       anchor_offset: 1,
       focus_offset: 1,
     };
@@ -27,8 +27,8 @@ describe('Svedit.svelte', () => {
     expect(dom_selection).not.toBeNull();
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
-    expect(dom_selection.anchorNode.attributes['data-path'].value).toBe(`${doc.doc_id}.body`);
-    expect(dom_selection.focusNode.attributes['data-path'].value).toBe(`${doc.doc_id}.body`);
+    expect(dom_selection.anchorNode.attributes['data-path'].value).toBe(`${doc.document_id}.body`);
+    expect(dom_selection.focusNode.attributes['data-path'].value).toBe(`${doc.document_id}.body`);
     expect(dom_selection.anchorOffset).toBe(7);
     expect(dom_selection.focusOffset).toBe(7);
   });
@@ -40,7 +40,7 @@ describe('Svedit.svelte', () => {
     // Now set property selection
     doc.selection = {
       type: 'property',
-      path: [doc.doc_id, 'body', 0, 'image'],
+      path: [doc.document_id, 'body', 0, 'image'],
     };
 
     // Wait for Svelte effects to complete

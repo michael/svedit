@@ -1,4 +1,4 @@
-import SveditDoc from '../lib/SveditDoc.svelte.js';
+import Document from '../lib/Document.svelte.js';
 import { svid } from '../lib/util.js';
 
 export const story_1_id = svid();
@@ -8,7 +8,7 @@ export const list_item_1_id = svid();
 export const list_item_2_id = svid();
 
 export function create_test_doc() {
-  const doc_schema = {
+  const document_schema = {
     page: {
       body: {
         type: 'node_array',
@@ -81,5 +81,5 @@ export function create_test_doc() {
     },
   ];
 
-  return new SveditDoc(doc_schema, raw_doc);
+  return new Document(document_schema, raw_doc);
 }

@@ -1,6 +1,6 @@
 <script>
   import Svedit from '$lib/Svedit.svelte';
-  import SveditDoc from '$lib/SveditDoc.svelte.js';
+  import Document from '$lib/Document.svelte.js';
   import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
   import { svid } from '$lib/util.js';
 
@@ -12,7 +12,7 @@
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
 
-  const doc_schema = {
+  const document_schema = {
     page: {
       body: {
         type: 'node_array',
@@ -193,7 +193,7 @@
   ];
 
   // App-specific config object, always available via doc.config for introspection
-  const doc_config = {
+  const document_config = {
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
     node_types_with_horizontal_node_arrays: ['page'],
@@ -286,7 +286,7 @@
     }
   };
 
-  const doc = new SveditDoc(doc_schema, raw_doc, { config: doc_config });
+  const doc = new Document(document_schema, raw_doc, { config: document_config });
 
   let svedit_ref;
 
@@ -304,8 +304,8 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <StoryBlock path={[doc.doc_id, 'cover_story']} />
-    <NodeArrayProperty class="body-node-array" path={[doc.doc_id, 'body']}>
+    <StoryBlock path={[doc.document_id, 'cover_story']} />
+    <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']}>
       {#snippet block(block, path)}
         {#if block.type === 'heading'}
           <HeadingBlock {path} />

@@ -1,6 +1,6 @@
 import { is_valid_svid } from './util.js';
 
-export default class SveditTransaction {
+export default class Transaction {
   constructor(doc) {
     this.doc = doc;
     // Here we track the ops during the transaction
