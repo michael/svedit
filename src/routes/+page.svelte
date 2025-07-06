@@ -8,6 +8,7 @@
   import Paragraph from './components/Paragraph.svelte';
   import Heading from './components/Heading.svelte';
   import List from './components/List.svelte';
+  import ImageGrid from './components/ImageGrid.svelte';
   import UnknownNode from './components/UnknownNode.svelte';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
@@ -44,7 +45,16 @@
       title: { type: 'annotated_string' },
       description: { type: 'annotated_string' },
       image: { type: 'string' }, // a dedicated type asset would be better
-
+    },
+    image_grid: {
+      image_grid_items: {
+        type: 'node_array',
+        node_types: ['image_grid_item'],
+      }
+    },
+    image_grid_item: {
+      image: { type: 'string' }, // a dedicated type asset would be better
+      title: { type: 'annotated_string' },
     },
     list_item: {
       content: { type: 'annotated_string' },
@@ -75,6 +85,14 @@
   const list_item_2_id = svid();
   const list_item_3_id = svid();
   const list_item_4_id = svid();
+
+  const image_grid_1_id = svid();
+  const image_grid_item_1_id = svid();
+  const image_grid_item_2_id = svid();
+  const image_grid_item_3_id = svid();
+  const image_grid_item_4_id = svid();
+  const image_grid_item_5_id = svid();
+  const image_grid_item_6_id = svid();
 
   const raw_doc = [
     {
@@ -115,6 +133,48 @@
       image: '/images/nested-blocks-illustration.svg',
       title: ['Nested nodes', []],
       description: ['A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', []]
+    },
+
+    {
+      id: image_grid_item_1_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['First thing', []],
+    },
+    {
+      id: image_grid_item_2_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['Second thing', []],
+    },
+    {
+      id: image_grid_item_3_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['Third thing', []],
+    },
+    {
+      id: image_grid_item_4_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['Fourth thing', []],
+    },
+    {
+      id: image_grid_item_5_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['Fifth thing', []],
+    },
+    {
+      id: image_grid_item_6_id,
+      type: 'image_grid_item',
+      image: '/images/extendable.svg',
+      title: ['Sixth thing', []],
+    },
+    {
+      id: image_grid_1_id,
+      type: 'image_grid',
+      image_grid_items: [image_grid_item_1_id, image_grid_item_2_id, image_grid_item_3_id, image_grid_item_4_id, image_grid_item_5_id, image_grid_item_6_id],
     },
     {
       id: story_4_id,
@@ -184,7 +244,7 @@
     {
       id: page_1_id,
       type: 'page',
-      body: [heading_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      body: [heading_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
       cover_story: story_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
@@ -196,7 +256,7 @@
   const document_config = {
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
-    node_types_with_horizontal_node_arrays: [],
+    node_types_with_horizontal_node_arrays: ['image_grid'],
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
@@ -315,6 +375,8 @@
           <Story {path} />
         {:else if node.type === 'list'}
           <List {path} />
+        {:else if node.type === 'image_grid'}
+          <ImageGrid {path} />
         {:else}
           <UnknownNode {path} />
         {/if}

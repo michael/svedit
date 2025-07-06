@@ -20,8 +20,8 @@
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} editable={node.editable} />
-			<AnnotatedStringProperty class="body" path={[...path, 'description']} editable={node.editable} />
+			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} />
+			<AnnotatedStringProperty class="body" path={[...path, 'description']} />
 		</div>
 	</div>
 </Node>

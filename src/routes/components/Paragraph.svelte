@@ -11,7 +11,7 @@
 
 <Node {path}>
 	<div class="paragraph max-w-screen-lg mx-auto w-full">
-		<AnnotatedStringProperty class="body" path={[...path, 'content']} editable={node.editable} />
+		<AnnotatedStringProperty class="body" path={[...path, 'content']} />
 	</div>
 </Node>
 
