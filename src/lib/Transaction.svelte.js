@@ -63,7 +63,7 @@ export default class Transaction {
   }
 
   annotate_text(annotation_type, annotation_data) {
-    if (this.doc.selection.type !== 'text') return;
+    if (this.doc.selection.type !== 'text') return this;
 
     const { start, end } = this.doc.get_selection_range();
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
@@ -101,7 +101,7 @@ export default class Transaction {
         }
 
         this.set(this.doc.selection.path, annotated_string);
-        return;
+        return this;
       }
     }
 
@@ -124,7 +124,7 @@ export default class Transaction {
         }
       } else {
         // If there's an annotation of a different type, don't add a new one
-        return;
+        return this;
       }
     } else {
       // If there's no existing annotation, add the new one
