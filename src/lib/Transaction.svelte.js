@@ -150,7 +150,7 @@ export default class Transaction {
       if (start > 0) {
         start = start - 1;
       } else {
-        return; // cursor is at the very beginning, do nothing.
+        return this; // cursor is at the very beginning, do nothing.
       }
     }
 
