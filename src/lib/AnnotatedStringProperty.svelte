@@ -86,9 +86,9 @@
 		overflow-wrap: anywhere;
 		box-sizing: content-box;
 
-		/* &.heading1 {
+		&.heading1 {
       text-wrap: var(--text-wrap);
-    } */
+    }
   }
 
   .text.empty {
