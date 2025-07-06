@@ -126,9 +126,7 @@
 
 	// Check if we should show the image URL input
 	let show_image_input = $derived(
-		doc.selection?.type === 'property' &&
-			doc.selection.path.at(-1) === 'image' &&
-			doc.get(doc.selection.path.slice(0, -1))?.type === 'story'
+		doc.selection?.type === 'property' && doc.selection.path.at(-1) === 'image'
 	);
 
 	// Get current image URL value
