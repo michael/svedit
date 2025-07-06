@@ -205,7 +205,7 @@
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    } else if (e.key === 'Enter' && (e.shiftKey)) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
