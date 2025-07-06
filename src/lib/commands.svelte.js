@@ -119,29 +119,7 @@ export function insert_default_node(tr) {
     doc.config.inserters[default_type](tr);
     return true;
   } else {
-    // Fallback: create a basic node of the default type
-    const new_node = {
-      id: svid(),
-      type: default_type
-    };
-
-    // Add default properties based on schema
-    const node_schema = doc.schema[default_type];
-    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
-      if (prop_def.type === 'annotated_string') {
-        new_node[prop_name] = ['', []];
-      } else if (prop_def.type === 'string') {
-        new_node[prop_name] = '';
-      } else if (prop_def.type === 'node_array') {
-        new_node[prop_name] = [];
-      } else if (prop_def.type === 'integer') {
-        new_node[prop_name] = 0;
-      }
-      // Add other default values as needed
-    }
-
-    tr.insert_nodes([new_node]);
-    return true;
+    throw new Error(`No inserter function available for default node type '${default_type}'`);
   }
 }
 

@@ -12,12 +12,13 @@
   import UnknownNode from './components/UnknownNode.svelte';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
+	import Icon from './components/Icon.svelte';
 
   const document_schema = {
     page: {
       body: {
         type: 'node_array',
-        node_types: ['heading', 'paragraph', 'story', 'list'],
+        node_types: ['heading', 'paragraph', 'story', 'list', 'image_grid'],
         default_ref_type: 'paragraph',
       },
       cover_story: {
@@ -98,12 +99,12 @@
     {
       id: heading_1_id,
       type: 'heading',
-      content: ['Welcome to Svedit', []]
+      content: ['This is Svedit', []]
     },
     {
       id: paragraph_1_id,
       type: 'paragraph',
-      content: ['This is a paragraph node with simple text content. Try editing this text directly by clicking on it.', []]
+      content: ['A micro-library for building rich content editors with Svelte 5.', []]
     },
     {
       id: paragraph_2_id,
@@ -115,7 +116,7 @@
       type: 'story',
       layout: 1,
       image: '/images/editable.svg',
-      title: ['', []],
+      title: ['Visual in‑place editing', []],
       description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []]
     },
     {
@@ -341,6 +342,41 @@
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
           anchor_offset: 0,
           focus_offset: 0
+        });
+      },
+
+      image_grid: function(tr) {
+        const new_image_grid_items = [];
+        for (let i = 0; i < 6; i++) {
+          const image_grid_item = {
+            id: svid(),
+            type: 'image_grid_item',
+            title: ['', []],
+            image: ''
+          };
+          tr.create(image_grid_item);
+          new_image_grid_items.push(image_grid_item.id);
+        }
+        const new_image_grid = {
+          id: svid(),
+          type: 'image_grid',
+          image_grid_items: new_image_grid_items,
+        };
+    		tr.insert_nodes([new_image_grid]);
+      },
+      image_grid_item: function(tr, content = ['', []]) {
+        const new_image_grid_item = {
+          id: svid(),
+          type: 'image_grid_item',
+          title: ['', []],
+          image: ''
+        };
+    		tr.insert_nodes([new_image_grid_item]);
+        tr.set_selection({
+          type: 'node',
+          path: [...tr.doc.selection.path ],
+          anchor_offset: tr.doc.selection.focus_offset,
+          focus_offset: tr.doc.selection.focus_offset
         });
       }
     }
