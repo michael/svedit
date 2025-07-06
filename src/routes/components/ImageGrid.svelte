@@ -26,8 +26,22 @@
     .image-grid-items {
       padding: calc(var(--s-10) * 3) 0;
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
+    }
+
+    /* Tablet screens */
+    @media (max-width: 768px) {
+      .image-grid-items {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Mobile screens */
+    @media (max-width: 480px) {
+      .image-grid-items {
+        grid-template-columns: repeat(1, 1fr);
+      }
     }
   }
 </style>

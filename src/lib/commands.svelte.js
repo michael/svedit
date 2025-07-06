@@ -7,14 +7,6 @@ export function break_text_node(tr) {
   // First we need to ensure we have a text selection
   if (!selection.type === 'text') return false;
 
-  // "path": [
-  //   "atzVDeKmJwyzGZzfmmXPSkx",
-  //   "body",
-  //   "2",
-  //   "description"
-  // ],
-  //
-
   // Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
   // which is wrapped inside a node_array (e.g. page.body)
 
