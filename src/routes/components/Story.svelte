@@ -2,36 +2,36 @@
 	import { getContext } from 'svelte';
 	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
 	import CustomProperty from '$lib/CustomProperty.svelte';
-	import Block from '$lib/Block.svelte';
+	import Node from '$lib/Node.svelte';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
-	let block = $derived(svedit.doc.get(path));
+	let node = $derived(svedit.doc.get(path));
 </script>
 
-<Block {path}>
-	<div class="story-block layout-{block.layout} max-w-screen-lg mx-auto w-full">
+<Node {path}>
+	<div class="story layout-{node.layout} max-w-screen-lg mx-auto w-full">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<img
-				src={block.image || '/icons/image-placeholder.svg'}
-				alt={block.title[0]}
-				class:placeholder={!block.image}
+				src={node.image || '/icons/image-placeholder.svg'}
+				alt={node.title[0]}
+				class:placeholder={!node.image}
 			/>
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} editable={block.editable} />
-			<AnnotatedStringProperty class="body" path={[...path, 'description']} editable={block.editable} />
+			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} editable={node.editable} />
+			<AnnotatedStringProperty class="body" path={[...path, 'description']} editable={node.editable} />
 		</div>
 	</div>
-</Block>
+</Node>
 
 <style>
-	.story-block {
+	.story {
 		container-type: inline-size;
 		display: grid;
 		grid-template-columns: 1fr;
-		/* Apply padding on the sides of the block, but only on devices that need it, e.g. iPhone with notch */
+		/* Apply padding on the sides, but only on devices that need it, e.g. iPhone with notch */
 		/* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
@@ -43,18 +43,18 @@
 		gap: var(--s-10);
 		padding: var(--s-6);
 	}
-	.story-block img {
+	.story img {
 		width: 100%;
 		height: auto;
 	}
 	/* Don't crop SVGs */
-	.story-block img[src*='.svg'] {
+	.story img[src*='.svg'] {
 		object-fit: contain;
 		object-position: center;
 	}
 
 	/* Placeholder styling */
-	.story-block img.placeholder {
+	.story img.placeholder {
 		opacity: 0.7;
 		border: 2px dashed var(--stroke-color);
 		border-radius: var(--s-2);
@@ -62,7 +62,7 @@
 		background: var(--canvas-fill-color);
 	}
 
-	.story-block :global(.image-wrapper) {
+	.story :global(.image-wrapper) {
 		/* for now ignore clicks on the image, until we have non-text selections */
 		/* pointer-events: none; */
 		display: flex;
@@ -77,31 +77,31 @@
 	}
 
 	/* Layout styles */
-	.story-block.layout-2,
-	.story-block.layout-1 {
+	.story.layout-2,
+	.story.layout-1 {
 		align-items: center;
 	}
 
 	@media (min-width: 680px) {
 		/* Layout 2: Image on the right - use grid areas */
-		.story-block.layout-2 {
+		.story.layout-2 {
 			grid-template-columns: 2fr 1fr;
 			grid-template-areas: 'content image';
 		}
-		.story-block.layout-2 > :first-child {
+		.story.layout-2 > :first-child {
 			grid-area: image;
 		}
-		.story-block.layout-2 > :last-child {
+		.story.layout-2 > :last-child {
 			grid-area: content;
 		}
 	}
 
-	.story-block.layout-3 > div:first-child {
+	.story.layout-3 > div:first-child {
 		grid-column: 1 / 3;
 		grid-row: 1 / 2;
 	}
 
-	.story-block.layout-3 > div:last-child {
+	.story.layout-3 > div:last-child {
 		grid-column: 1 / 3;
 		grid-row: 2 / 3;
 	}

@@ -51,7 +51,7 @@
 	}
 </script>
 
-<!-- ATTENTION: The comment blocks are needed to prevent unwanted text nodes with whitespace. -->
+<!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
 <div
  	data-type="text"
  	data-path={path.join('.')}

@@ -127,9 +127,9 @@
       pasted_json = JSON.parse(await json_blob.text());
     } catch(e) {}
     if (pasted_json) {
-      // ATM we assume when we get JSON, that we are dealing with a sequence of blocks that was copied
-      const blocks = pasted_json;
-      doc.apply(doc.tr.insert_blocks(blocks));
+      // ATM we assume when we get JSON, that we are dealing with a sequence of nodes that was copied
+      const nodes = pasted_json;
+      doc.apply(doc.tr.insert_nodes(nodes));
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
@@ -297,19 +297,19 @@
     // EDGE CASE: Let's first check if we are in a cursor trap for node cursors
     let after_node_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]');
     if (after_node_cursor_trap && focus_node === anchor_node) {
-      // Find the block that this cursor trap belongs to
-      let block = after_node_cursor_trap.closest('[data-type="block"]');
-      if (!block) {
-        console.log('No corresponding block found for after-node-cursor-trap');
+      // Find the node that this cursor trap belongs to
+      let node = after_node_cursor_trap.closest('[data-type="node"]');
+      if (!node) {
+        console.log('No corresponding node found for after-node-cursor-trap');
         return null;
       }
-      const block_path = block.dataset.path.split('.');
-      const block_index = parseInt(block_path.at(-1));
+      const node_path = node.dataset.path.split('.');
+      const node_index = parseInt(node_path.at(-1));
       const result = {
         type: 'node',
-        path: block_path.slice(0, -1),
-        anchor_offset: block_index + 1,
-        focus_offset: block_index + 1,
+        path: node_path.slice(0, -1),
+        anchor_offset: node_index + 1,
+        focus_offset: node_index + 1,
       }
       return result;
     }
@@ -328,10 +328,10 @@
       return result;
     }
 
-    let focus_root = focus_node.closest('[data-path][data-type="block"]');
+    let focus_root = focus_node.closest('[data-path][data-type="node"]');
     if (!focus_root) return null;
 
-    let anchor_root = anchor_node.closest('[data-path][data-type="block"]');
+    let anchor_root = anchor_node.closest('[data-path][data-type="node"]');
     if (!anchor_root) return null;
 
     if (!(focus_root && anchor_root)) {
@@ -343,11 +343,11 @@
 
     // HACK: this works only for one level nesting - should be done recursively to work generally
     if (focus_root_path.length > anchor_root_path.length) {
-      focus_root = focus_root.parentElement.closest('[data-path][data-type="block"]');
+      focus_root = focus_root.parentElement.closest('[data-path][data-type="node"]');
       if (!focus_root) return null;
       focus_root_path = focus_root.dataset.path.split('.');
     } else if (anchor_root_path.length > focus_root_path.length) {
-      anchor_root = anchor_root.parentElement.closest('[data-path][data-type="block"]');
+      anchor_root = anchor_root.parentElement.closest('[data-path][data-type="node"]');
       if (!anchor_root) return null;
       anchor_root_path = anchor_root.dataset.path.split('.');
     }
@@ -468,14 +468,14 @@
     };
   }
 
-  function __get_block_element(node_array_path, block_offset) {
+  function __get_node_element(node_array_path, node_offset) {
     const node_array_el = ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
     if (!node_array_el) return null;
 
-    const blockElements = node_array_el.children;
-    if (blockElements.length === 0) return null;
+    const node_elements = node_array_el.children;
+    if (node_elements.length === 0) return null;
 
-    return blockElements[block_offset];
+    return node_elements[node_offset];
   }
 
   function __is_selection_collapsed(sel) {
@@ -490,22 +490,22 @@
     let is_collapsed = selection.anchor_offset === selection.focus_offset;
     let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
-    // We need to translate the cusor offset to block offsets now
-    let anchor_block_offset, focus_block_offset;
+    // We need to translate the cusor offset to node offsets now
+    let anchor_node_offset, focus_node_offset;
 
     if (is_collapsed) {
-      anchor_block_offset = Math.max(0, selection.anchor_offset - 1);
-      focus_block_offset = Math.max(0, selection.focus_offset - 1);
+      anchor_node_offset = Math.max(0, selection.anchor_offset - 1);
+      focus_node_offset = Math.max(0, selection.focus_offset - 1);
     } else if (is_backward) {
-      anchor_block_offset = selection.anchor_offset - 1;
-      focus_block_offset = selection.focus_offset;
+      anchor_node_offset = selection.anchor_offset - 1;
+      focus_node_offset = selection.focus_offset;
     } else {
-      anchor_block_offset = selection.anchor_offset;
-      focus_block_offset = selection.focus_offset - 1;
+      anchor_node_offset = selection.anchor_offset;
+      focus_node_offset = selection.focus_offset - 1;
     }
 
-    const anchor_node = __get_block_element(node_array_path, anchor_block_offset);
-    const focus_node = __get_block_element(node_array_path, focus_block_offset);
+    const anchor_node = __get_node_element(node_array_path, anchor_node_offset);
+    const focus_node = __get_node_element(node_array_path, focus_node_offset);
 
     if (!anchor_node || !focus_node) return;
     const dom_selection = window.getSelection();

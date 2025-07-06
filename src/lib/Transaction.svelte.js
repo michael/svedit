@@ -145,7 +145,7 @@ export default class Transaction {
     let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
     let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
 
-    // If selection is collapsed we delete the previous block
+    // If selection is collapsed we delete the previous node
     if (start === end) {
       if (start > 0) {
         start = start - 1;
@@ -155,15 +155,15 @@ export default class Transaction {
     }
 
     if (this.doc.selection.type === 'node') {
-      const node_array = [...this.doc.get(path)]; // container is an array of blocks
+      const node_array = [...this.doc.get(path)];
 
       // Get the node IDs that will be removed
       const removed_node_ids = node_array.slice(start, end);
 
-      // Remove the selected blocks from the container
+      // Remove the selected nodes from the node_array
       node_array.splice(start, end - start);
 
-      // Update the container in the entry (this implicitly records an op via this.set)
+      // Update the node_array in the entry (this implicitly records an op via this.set)
       this.set(path, node_array);
 
       // Now check which nodes should be deleted based on reference counting
@@ -233,7 +233,7 @@ export default class Transaction {
   }
 
   // NOTE: We assume that we only insert new nodes, not reference existing ones
-  insert_blocks(blocks) {
+  insert_nodes(nodes) {
     if (this.doc.selection.type !== 'node') return;
 
     const path = this.doc.selection.path;
@@ -244,20 +244,20 @@ export default class Transaction {
     let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
 
     if (start !== end) {
-      // Remove the currently selected blocks from the node_array
+      // Remove the currently selected nodes from the node_array
       // NOTE: We are okay that only the refernces are removed and nodes potentially become orphaned.
       // They'll be purged on doc.to_json() anyways.
       node_array.splice(start, end - start);
     }
 
-    // First create the new blocks (unless they already exists e.g. in case of cut+paste)
-    blocks.forEach(block => {
-      if (!this.doc.get(block.id)) {
-        this.create(block);
+    // First create the new nodes (unless they already exists e.g. in case of cut+paste)
+    nodes.forEach(node => {
+      if (!this.doc.get(node.id)) {
+        this.create(node);
       }
     });
-    const block_ids = blocks.map(block => block.id);
-    node_array.splice(start, 0, ...block_ids);
+    const node_ids = nodes.map(node => node.id);
+    node_array.splice(start, 0, ...node_ids);
 
     // Update the node_array in the entry
     this.set(path, node_array);
@@ -267,7 +267,7 @@ export default class Transaction {
       // NOTE: we hard code this temporarily as both story and list-item have a description property
       path: [...this.doc.selection.path],
       anchor_offset: start,
-      focus_offset: start + blocks.length
+      focus_offset: start + nodes.length
     };
     return this;
   }

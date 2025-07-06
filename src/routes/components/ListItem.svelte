@@ -1,5 +1,5 @@
 <script>
-	import Block from '$lib/Block.svelte';
+	import Node from '$lib/Node.svelte';
 	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
 
 	let {
@@ -9,11 +9,11 @@
 	} = $props();
 </script>
 
-<Block {path}>
+<Node {path}>
 	<div class="list-item" style="--list-style: {list_style};">
 		<AnnotatedStringProperty path={[...path, 'content']} />
 	</div>
-</Block>
+</Node>
 
 <style>
 	.list-item {

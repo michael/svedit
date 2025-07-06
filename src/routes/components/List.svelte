@@ -1,25 +1,25 @@
 <script>
-  import Block from '$lib/Block.svelte';
+  import Node from '$lib/Node.svelte';
   import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
-  import ListItemBlock from './ListItemBlock.svelte';
+  import ListItem from './ListItem.svelte';
   import { getContext } from 'svelte';
 
   const svedit = getContext('svedit');
   let { path } = $props();
-  let block = $derived(svedit.doc.get(path));
-  let list_style = $derived(block.list_style);
+  let node = $derived(svedit.doc.get(path));
+  let list_style = $derived(node.list_style);
 </script>
 
-<Block {path}>
+<Node {path}>
   <div class="list max-w-screen-md mx-auto">
     <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']}>
       <!-- NOTE: We only allow list items inside list  -->
-      {#snippet block(block, path)}
-        <ListItemBlock {block} {path} {list_style} />
+      {#snippet node(node, path)}
+        <ListItem {node} {path} {list_style} />
       {/snippet}
     </NodeArrayProperty>
   </div>
-</Block>
+</Node>
 
 <style>
   .list {

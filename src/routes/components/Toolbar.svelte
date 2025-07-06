@@ -34,11 +34,11 @@
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
 		const node_array = doc.get(doc.selection.path);
-		const block_id = node_array[start];
+		const node_id = node_array[start];
 
-		if (block_id) {
+		if (node_id) {
 			const tr = doc.tr;
-			tr.set([block_id, 'layout'], layout_index);
+			tr.set([node_id, 'layout'], layout_index);
 			doc.apply(tr);
 		}
 	}
@@ -48,11 +48,11 @@
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
 		const node_array = doc.get(doc.selection.path);
-		const block_id = node_array[start];
+		const node_id = node_array[start];
 
-		if (block_id) {
+		if (node_id) {
 			const tr = doc.tr;
-			tr.set([block_id, 'list_style'], list_style);
+			tr.set([node_id, 'list_style'], list_style);
 			doc.apply(tr);
 		}
 	}
@@ -74,21 +74,21 @@
 		}
 	}
 
-	// Helper function to get the currently selected block
-	function get_selected_block() {
+	// Helper function to get the currently selected node
+	function get_selected_node() {
 		if (!doc.selection || doc.selection.type !== 'node') return null;
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
 		const end = Math.max(doc.selection.anchor_offset, doc.selection.focus_offset);
-		// Only consider selection of a single block
+		// Only consider selection of a single node
 		if (end - start !== 1) return null;
 		const node_array = doc.get(doc.selection.path);
-		const block_id = node_array[start];
-		return block_id ? doc.get(block_id) : null;
+		const node_id = node_array[start];
+		return node_id ? doc.get(node_id) : null;
 	}
 
-	// Reactive variable for selected block
-	let selected_block = $derived(get_selected_block());
+	// Reactive variable for selected node
+	let selected_node = $derived(get_selected_node());
 
 	// Check if we have a collapsed node selection (node cursor)
 	let is_node_cursor = $derived(
@@ -115,12 +115,12 @@
 		return property_schema.node_types || [];
 	});
 
-	// Function to insert block (always inserts paragraph for now, ignoring block_type)
-	function insert_block(block_type) {
+	// Function to insert node (always inserts paragraph for now, ignoring node_type)
+	function insert_node(node_type) {
 		if (!is_node_cursor) return;
 		const tr = doc.tr;
 		const node_insertion_path = [...doc.selection.path, doc.selection.anchor_offset]
-		doc.config.inserters[block_type](tr);
+		doc.config.inserters[node_type](tr);
 		doc.apply(tr);
 	}
 
@@ -217,22 +217,22 @@
 			<Icon name="link" />
 		</button>
 	{/if}
-	{#if doc.selection?.type === 'node' && selected_block?.type === 'story'}
+	{#if doc.selection?.type === 'node' && selected_node?.type === 'story'}
 		{#each layout_options as option}
 			<button
 				onclick={() => handle_layout_change(option.value)}
-				class:active={selected_block.layout === option.value}
+				class:active={selected_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
 		{/each}
 	{/if}
-	{#if doc.selection?.type === 'node' && selected_block?.type === 'list'}
+	{#if doc.selection?.type === 'node' && selected_node?.type === 'list'}
 		<hr />
 		{#each list_style_options as option}
 			<button
 				onclick={() => handle_list_style_change(option.value)}
-				class:active={selected_block.list_style === option.value}
+				class:active={selected_node.list_style === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
@@ -242,14 +242,14 @@
 	{#if is_node_cursor && allowed_node_types.length > 0}
 		<hr />
 		{#each allowed_node_types as ref_type}
-			<button title={`Add ${ref_type}`} onclick={() => insert_block(ref_type)}>
+			<button title={`Add ${ref_type}`} onclick={() => insert_node(ref_type)}>
 				<Icon name="square" />
 				{ref_type}
 			</button>
 		{/each}
 	{/if}
 
-	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'node' && selected_block?.type === 'story') || (doc.selection?.type === 'node' && selected_block?.type === 'list')}
+	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'node' && selected_node?.type === 'story') || (doc.selection?.type === 'node' && selected_node?.type === 'list')}
 		<hr />
 	{/if}
 	<button

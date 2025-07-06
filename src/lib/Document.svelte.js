@@ -233,7 +233,7 @@ export default class Document {
 
   move_node_cursor(direction) {
     if (this.selection?.type !== 'node') return;
-    const node_array = this.get(this.selection.path); // node_array is an array of blocks
+    const node_array = this.get(this.selection.path);
 
     const { start, end } = this.get_selection_range();
 

@@ -9,7 +9,7 @@ describe('Svedit.svelte', () => {
     const doc = create_test_doc();
     const { container }  = render(SveditTest, { props: { doc } });
 
-    // Now set node cursor between first and second block
+    // Now set node cursor between first and second node
     doc.selection = {
       type: 'node',
       path: [doc.document_id, 'body'],

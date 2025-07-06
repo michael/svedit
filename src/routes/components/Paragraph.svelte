@@ -1,22 +1,22 @@
 <script>
 	import { getContext } from 'svelte';
-	import Block from '$lib/Block.svelte';
+	import Node from '$lib/Node.svelte';
 	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
 
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
-	let block = $derived(svedit.doc.get(path));
+	let node = $derived(svedit.doc.get(path));
 </script>
 
-<Block {path}>
-	<div class="heading-block max-w-screen-lg mx-auto w-full">
-		<AnnotatedStringProperty class="heading1" path={[...path, 'content']} editable={block.editable} />
+<Node {path}>
+	<div class="paragraph max-w-screen-lg mx-auto w-full">
+		<AnnotatedStringProperty class="body" path={[...path, 'content']} editable={node.editable} />
 	</div>
-</Block>
+</Node>
 
 <style>
-	.heading-block {
+	.paragraph {
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
 		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));

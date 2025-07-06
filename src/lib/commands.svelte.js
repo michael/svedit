@@ -15,7 +15,7 @@ export function break_text_node(tr) {
   // ],
   //
 
-  // Next, we need to determine if the enclosing block is a pure text node (e.g. paragraph),
+  // Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
   // which is wrapped inside a node_array (e.g. page.body)
 
   // Owner of the text property (e.g. paragraph)
@@ -148,7 +148,7 @@ export function insert_default_node(tr) {
       // Add other default values as needed
     }
 
-    tr.insert_blocks([new_node]);
+    tr.insert_nodes([new_node]);
     return true;
   }
 }
@@ -180,25 +180,25 @@ export function select_all(tr) {
       });
       return true;
     } else {
-      // All text is selected, move up to select the containing block
-      const block_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
+      // All text is selected, move up to select the containing node
+      const node_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
 
       // Check if we have enough path segments and if we're inside a node_array
-      if (block_path.length >= 2) {
-        const is_inside_node_array = doc.inspect(block_path.slice(0, -1))?.type === 'node_array';
+      if (node_path.length >= 2) {
+        const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
         if (is_inside_node_array) {
-          const block_index = parseInt(block_path.at(-1));
+          const node_index = parseInt(node_path.at(-1));
           tr.set_selection({
             type: 'node',
-            path: block_path.slice(0, -1),
-            anchor_offset: block_index,
-            focus_offset: block_index + 1
+            path: node_path.slice(0, -1),
+            anchor_offset: node_index,
+            focus_offset: node_index + 1
           });
           return true;
         }
       }
-      // Stop expanding - text is not in a selectable container
+      // Stop expanding - text is not in a selectable node_array
     }
   } else if (selection.type === 'node') {
     const node_array_path = selection.path;
@@ -223,17 +223,17 @@ export function select_all(tr) {
       // Entire node_array is selected, try to move up to parent node_array
       const parent_path = node_array_path.slice(0, -1);
 
-      // Check if we have enough path segments and if parent is a valid container
+      // Check if we have enough path segments and if parent is a valid node_array
       if (parent_path.length >= 2) {
         const is_parent_node_array = doc.inspect(parent_path.slice(0, -1))?.type === 'node_array';
 
         if (is_parent_node_array) {
-          const parent_block_index = parseInt(parent_path.at(-1));
+          const parent_node_index = parseInt(parent_path.at(-1));
           tr.set_selection({
             type: 'node',
             path: parent_path.slice(0, -1),
-            anchor_offset: parent_block_index,
-            focus_offset: parent_block_index + 1
+            anchor_offset: parent_node_index,
+            focus_offset: parent_node_index + 1
           });
           return true;
         }
@@ -241,20 +241,20 @@ export function select_all(tr) {
       // Stop expanding - we've reached the top level
     }
   } else if (selection.type === 'property') {
-    // For property selections, select the containing block
-    const block_path = selection.path.slice(0, -1);
+    // For property selections, select the containing node
+    const node_path = selection.path.slice(0, -1);
 
     // Check if we have enough path segments and if we're inside a node_array
-    if (block_path.length >= 2) {
-      const is_inside_node_array = doc.inspect(block_path.slice(0, -1))?.type === 'node_array';
+    if (node_path.length >= 2) {
+      const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
       if (is_inside_node_array) {
-        const block_index = parseInt(block_path.at(-1));
+        const node_index = parseInt(node_path.at(-1));
         tr.set_selection({
           type: 'node',
-          path: block_path.slice(0, -1),
-          anchor_offset: block_index,
-          focus_offset: block_index + 1
+          path: node_path.slice(0, -1),
+          anchor_offset: node_index,
+          focus_offset: node_index + 1
         });
         return true;
       }

@@ -16,7 +16,7 @@ We also want to include an SQLite data storage layer, so you can create new docu
 
 ## Schema definitions
 
-We want to have a simple schema definition language, so we can enforce constraints on our documents. E.g. to make sure a page node always has a property body with references to blocks that are allowed within a page.
+We want to have a simple schema definition language, so we can enforce constraints on our documents. E.g. to make sure a page node always has a property body with references to nodes that are allowed within a page.
 
 First off, everything is a node. The page is a node, and so is a paragraph, a list, a list item, a nav and a nav item.
 
@@ -151,17 +151,17 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 
 ```js
 <Svedit {doc} editable={true} class='flex-column'>
-  <Container class="body flex-column gap-y-10" path={[doc.document_id, 'body']}>
-    {#snippet block(block, path)}
-      {#if block.type === 'story'}
-        <StoryBlock {path} />
-      {:else if block.type === 'list'}
-        <ListBlock {path} />
+  <NodeArrayProperty class="body flex-column gap-y-10" path={[doc.document_id, 'body']}>
+    {#snippet node(node, path)}
+      {#if node.type === 'story'}
+        <Story {path} />
+      {:else if node.type === 'list'}
+        <List {path} />
       {:else}
-        <UnknownBlock {path} />
+        <UnknownNode {path} />
       {/if}
     {/snippet}
-  </Container>
+  </NodeArrayProperty>
 </Svedit>
 ```
 
@@ -228,7 +228,7 @@ Here's how a node_array with the same node referenced twice (`body: ['story_1', 
 
 ```html
 <div data-type="node_array" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
-  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
+  <div data-type="node" class="story layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
     <div class="non-text-content" contenteditable="false">
       <img src="..." alt="First story">
     </div>
@@ -237,7 +237,7 @@ Here's how a node_array with the same node referenced twice (`body: ['story_1', 
       <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
     </div>
   </div>
-  <div data-type="block" class="story-block layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1" data-index="1">
+  <div data-type="node" class="story layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1" data-index="1">
     <div class="non-text-content" contenteditable="false">
       <img src="..." alt="First story">
     </div>

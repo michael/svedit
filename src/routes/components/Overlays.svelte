@@ -33,18 +33,18 @@
 		if (sel.type === 'node' && sel.anchor_offset === sel.focus_offset) {
 			const node_array = svedit.doc.get(sel.path);
 			const orientation = determine_node_array_orientation(svedit.doc, sel.path);
-			let block_index, position;
+			let node_index, position;
 
 			if (sel.anchor_offset === 0) {
 				// Edge case: Cursor is at the very beginning
-				block_index = sel.anchor_offset;
+				node_index = sel.anchor_offset;
 				position = 'before';
 			} else {
-				block_index = sel.anchor_offset - 1;
+				node_index = sel.anchor_offset - 1;
 				position = 'after';
 			}
 			return {
-				path: [...sel.path, block_index],
+				path: [...sel.path, node_index],
 				position,
 				orientation
 			};
@@ -84,7 +84,7 @@
 <!-- Here we render  and other stuff that should lay atop of the canvas -->
 <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
 {#if node_array_selection_paths}
-	<!-- Render container selection fragments (one per selected block)-->
+	<!-- Render node selection fragments (one per selected node)-->
 	{#each node_array_selection_paths as path}
 		<div class="node-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
 	{/each}

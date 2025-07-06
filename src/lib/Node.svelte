@@ -14,9 +14,9 @@
 </script>
 
 <div
-  class="block"
+  class="node"
   data-path={path.join('.')}
-  data-type="block"
+  data-type="node"
   style="anchor-name: --{path.join('-')};"
 >
   {#if is_first_node_array_child}

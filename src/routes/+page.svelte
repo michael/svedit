@@ -4,11 +4,11 @@
   import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
   import { svid } from '$lib/util.js';
 
-  import StoryBlock from './components/StoryBlock.svelte';
-  import ParagraphBlock from './components/ParagraphBlock.svelte';
-  import HeadingBlock from './components/HeadingBlock.svelte';
-  import ListBlock from './components/ListBlock.svelte';
-  import UnknownBlock from './components/UnknownBlock.svelte';
+  import Story from './components/Story.svelte';
+  import Paragraph from './components/Paragraph.svelte';
+  import Heading from './components/Heading.svelte';
+  import List from './components/List.svelte';
+  import UnknownNode from './components/UnknownNode.svelte';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
 
@@ -85,7 +85,7 @@
     {
       id: paragraph_1_id,
       type: 'paragraph',
-      content: ['This is a paragraph block with simple text content. Try editing this text directly by clicking on it.', []]
+      content: ['This is a paragraph node with simple text content. Try editing this text directly by clicking on it.', []]
     },
     {
       id: paragraph_2_id,
@@ -113,16 +113,16 @@
       type: 'story',
       layout: 1,
       image: '/images/nested-blocks-illustration.svg',
-      title: ['Nested blocks', []],
-      description: ['A block can embed a node_array of other blocks. For instance the list block at the bottom of the page has a node_array of list items.', []]
+      title: ['Nested nodes', []],
+      description: ['A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', []]
     },
     {
       id: story_4_id,
       type: 'story',
       layout: 2,
-      image: '/images/container-cursors.svg',
-      title: ['Container cursors', []],
-      description: ['They work just like text cursors, but instead of a character position in a string they address a block position in a container.\n\nTry it by selecting a few blocks, then press ↑ or ↓. Press ↵ to insert a new block or ⌫ to delete the block before the cursor.', []]
+      image: '/images/node-cursors.svg',
+      title: ['Node cursors', []],
+      description: ['They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.', []]
     },
     {
       id: story_5_id,
@@ -148,7 +148,7 @@
     {
       id: list_item_2_id,
       type: 'list_item',
-      content: ['Node selections inside nested blocks (e.g. list items in this list) do not work reliably yet.', []]
+      content: ['Node selections inside nested nodes (e.g. list items in this list) do not work reliably yet.', []]
     },
     {
       id: list_item_3_id,
@@ -206,8 +206,8 @@
      			type: 'heading',
      			content
    		};
-   		tr.insert_blocks([new_heading]);
-        // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
+   		tr.insert_nodes([new_heading]);
+        // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
@@ -221,8 +221,8 @@
      			type: 'paragraph',
      			content
     		};
-    		tr.insert_blocks([new_paragraph]);
-        // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
+    		tr.insert_nodes([new_paragraph]);
+      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
@@ -239,8 +239,8 @@
           title: ['', []],
           description: ['', []]
         };
-    		tr.insert_blocks([new_story]);
-      // NOTE: Relies on insert_blocks selecting the newly inserted block(s)
+    		tr.insert_nodes([new_story]);
+      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
@@ -261,7 +261,7 @@
           list_items: [new_list_item.id],
           list_style: 'decimal-leading-zero',
         };
-    		tr.insert_blocks([new_list]);
+    		tr.insert_nodes([new_list]);
         tr.set_selection({
           type: 'text',
           path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
@@ -275,7 +275,7 @@
           type: 'list_item',
           content
         };
-    		tr.insert_blocks([new_list_item]);
+    		tr.insert_nodes([new_list_item]);
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
@@ -304,19 +304,19 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <StoryBlock path={[doc.document_id, 'cover_story']} />
+    <Story path={[doc.document_id, 'cover_story']} />
     <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']}>
-      {#snippet block(block, path)}
-        {#if block.type === 'heading'}
-          <HeadingBlock {path} />
-        {:else if block.type === 'paragraph'}
-          <ParagraphBlock {path} />
-        {:else if block.type === 'story'}
-          <StoryBlock {path} />
-        {:else if block.type === 'list'}
-          <ListBlock {path} />
+      {#snippet node(node, path)}
+        {#if node.type === 'heading'}
+          <Heading {path} />
+        {:else if node.type === 'paragraph'}
+          <Paragraph {path} />
+        {:else if node.type === 'story'}
+          <Story {path} />
+        {:else if node.type === 'list'}
+          <List {path} />
         {:else}
-          <UnknownBlock {path} />
+          <UnknownNode {path} />
         {/if}
       {/snippet}
     </NodeArrayProperty>

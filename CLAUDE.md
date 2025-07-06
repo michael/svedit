@@ -28,13 +28,13 @@ Svedit is a rich content editor template built with Svelte 5 that uses a graph-b
 **Selection System:**
 - Supports text, node, and property selections
 - Maps between internal selection model and DOM selection
-- Handles complex selection scenarios like backwards selections and multi-block selections
+- Handles complex selection scenarios like backwards selections and multi-node selections
 
 **Key Components:**
 - `Svedit.svelte` - Main editor component with event handling and selection management
 - `NodeArrayProperty.svelte` - Renders containers that hold sequences of nodes
 - `AnnotatedStringProperty.svelte` - Handles annotated text rendering and editing
-- Block components (`StoryBlock`, `ListBlock`, etc.) - Render specific content types
+- Node components (`Story`, `List`, etc.) - Render specific content types
 
 ### Schema System
 
