@@ -196,7 +196,7 @@
   const document_config = {
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
-    node_types_with_horizontal_node_arrays: ['page'],
+    node_types_with_horizontal_node_arrays: [],
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
@@ -340,7 +340,7 @@
     .body-node-array {
       padding: var(--s-8);
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 1rem;
     }
   }
