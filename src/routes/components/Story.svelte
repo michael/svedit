@@ -62,6 +62,10 @@
 		background: var(--canvas-fill-color);
 	}
 
+	.story :global(.heading2) {
+	  margin-bottom: var(--s-2);
+	}
+
 	.story :global(.image-wrapper) {
 		/* for now ignore clicks on the image, until we have non-text selections */
 		/* pointer-events: none; */

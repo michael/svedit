@@ -80,7 +80,6 @@
   const hero_1_id = svid();
   const heading_1_id = svid();
   const paragraph_1_id = svid();
-  const paragraph_2_id = svid();
   const story_1_id = svid();
   const story_2_id = svid();
   const story_3_id = svid();
@@ -113,17 +112,12 @@
     {
       id: heading_1_id,
       type: 'heading',
-      content: ['This is Svedit', []]
+      content: ['Text and structured content in symbiosis', []]
     },
     {
       id: paragraph_1_id,
       type: 'paragraph',
-      content: ['A micro-library for building rich content editors with Svelte 5.', []]
-    },
-    {
-      id: paragraph_2_id,
-      type: 'paragraph',
-      content: ['', []]
+      content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured form-like content.', []]
     },
     {
       id: story_1_id,
@@ -139,7 +133,7 @@
       layout: 2,
       image: '/images/lightweight.svg',
       title: ['Minimal viable editor', []],
-      description: ["The reference implementation uses only about 1000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]]
+      description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]]
     },
     {
       id: story_3_id,
@@ -218,12 +212,12 @@
     {
       id: list_item_1_id,
       type: 'list_item',
-      content: ['Images can not yet be selected and changed. We\'ll solve this by making any non‑text property selectable on the canvas, and show a popover (e.g. an image selector, or a math formula editor) to make changes, which will then be reflected in the canvas display immediately.', []]
+      content: ['It’s a bit hard to select whole lists or image grids with the mouse still. We\'re looking to improve this. However by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.', []]
     },
     {
       id: list_item_2_id,
       type: 'list_item',
-      content: ['Node selections inside nested nodes (e.g. list items in this list) do not work reliably yet.', []]
+      content: ['Copy and pasting from and to external sources is not yet supported.', []]
     },
     {
       id: list_item_3_id,
@@ -233,7 +227,7 @@
     {
       id: list_item_4_id,
       type: 'list_item',
-      content: ['Full mobile support is considered in our design, but not yet implemented.', []]
+      content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed. ', []]
     },
     {
       id: list_1_id,
@@ -259,7 +253,7 @@
     {
       id: page_1_id,
       type: 'page',
-      body: [hero_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      body: [hero_1_id, heading_1_id, paragraph_1_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
       hero: hero_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
