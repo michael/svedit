@@ -72,6 +72,8 @@ export function join_text_node(tr) {
   if (node_index === 0) return false;
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
   const predecessor_node = doc.get(previous_text_path);
+  // Predecessor node also must be a text-ish node to be joinable.
+  if (doc.kind(predecessor_node) !== 'text') return false;
 
   const joined_text = join_annotated_string(predecessor_node.content, node.content);
 
