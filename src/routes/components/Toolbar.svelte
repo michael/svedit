@@ -29,6 +29,17 @@
 		{ value: 'upper-roman', label: 'Upper roman', icon: 'list-upper-roman' }
 	];
 
+	function snake_to_human(snake_str) {
+    return snake_str
+      .split('_')
+      .map((word, index) =>
+        index === 0
+          ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          : word.toLowerCase()
+      )
+      .join(' ');
+  }
+
 	function handle_layout_change(layout_index) {
 		if (!doc.selection || doc.selection.type !== 'node') return;
 
@@ -239,10 +250,10 @@
 
 	{#if is_node_cursor && allowed_node_types.length > 0}
 		<hr />
-		{#each allowed_node_types as ref_type}
-			<button title={`Add ${ref_type}`} onclick={() => insert_node(ref_type)}>
+		{#each allowed_node_types as node_type}
+			<button title={`Add ${snake_to_human(node_type)}`} onclick={() => insert_node(node_type)}>
 				<Icon name="square" />
-				{ref_type}
+				{snake_to_human(node_type)}
 			</button>
 		{/each}
 	{/if}
@@ -299,6 +310,7 @@
 		scrollbar-width: thin;
 
 		button {
+		  text-wrap: nowrap;
 			height: 100%;
 			min-height: 44px;
 			--icon-color: var(--primary-text-color);
