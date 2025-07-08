@@ -38,7 +38,7 @@
 		justify-content: center;
 		min-height: 50vh;
 		position: relative;
-		background-color: var(--canvas-fill-color);
+		background: linear-gradient(135deg, var(--primary-fill-color), color-mix(in srgb, var(--primary-fill-color) 80%, white));
 	}
 
 	.hero.has-image {
@@ -70,14 +70,17 @@
 		font-weight: 700;
 		line-height: 1.2;
 		margin-bottom: var(--s-6);
-		color: var(--text-color);
+		color: white;
+		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 	}
 
 	.hero :global(.hero-subtitle) {
 		font-size: 1.25rem;
 		line-height: 1.6;
 		opacity: 0.8;
-		color: var(--text-color);
+		color: white;
+		opacity: 0.9;
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 		max-width: 600px;
 		margin: 0 auto;
 	}

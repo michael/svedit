@@ -92,13 +92,13 @@
   }
 
   .text.empty {
-    background: #efefef;
+    background: var(--secondary-fill-color);
     outline: none;
   }
 
-  .text.empty:not(.focused):hover {
+  /* .text.empty:not(.focused):hover {
     background: lightgray;
-  }
+  } */
 
   .text.focused {
     background: none;

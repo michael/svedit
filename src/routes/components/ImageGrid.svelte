@@ -22,6 +22,9 @@
 </Node>
 
 <style>
+  .image-grid {
+    padding: var(--s-6);
+  }
   .image-grid :global {
     .image-grid-items {
       padding: calc(var(--s-10) * 3) 0;

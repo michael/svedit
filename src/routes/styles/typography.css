@@ -93,7 +93,6 @@ i,
 	font-size: var(--base-size);
 	font-weight: 400;
 	line-height: 1.5;
-	margin-bottom: 1em;
 	--text-wrap: pretty;
 }
 

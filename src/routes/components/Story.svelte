@@ -41,7 +41,7 @@
 			grid-template-columns: 1fr 2fr;
 		}
 		gap: var(--s-10);
-		padding: var(--s-10);
+		padding: var(--s-10) var(--s-6);
 	}
 	.story img {
 		width: 100%;

@@ -23,7 +23,7 @@
 
 <style>
   .list {
-    padding: var(--s-6);
+    padding: var(--s-10) 0;
     counter-reset: listcounter;
   }
 </style>

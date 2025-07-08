@@ -108,7 +108,7 @@
       type: 'hero',
       title: ['Svedit', []],
       description: ['A tiny library for building rich content editors with Svelte 5.', []],
-      image: '/images/svedit-hero.webp',
+      image: '',
     },
     {
       id: heading_1_id,
@@ -259,7 +259,7 @@
     {
       id: page_1_id,
       type: 'page',
-      body: [paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      body: [hero_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
       hero: hero_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
@@ -430,7 +430,7 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <Hero path={[doc.document_id, 'hero']} />
+    <!-- <Hero path={[doc.document_id, 'hero']} /> -->
     <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']}>
       {#snippet node(node, path)}
         {#if node.type === 'heading'}
