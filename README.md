@@ -6,13 +6,13 @@ Try the [demo](https://svedit.vercel.app).
 
 ## Principles
 
+**Chromeless canvas:** We keep the canvas chromeless, meaning there's no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools are shown in separate overlays or in the fixed toolbar.
+
 **Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `string` or `annotated_string` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
 
-## WIP: New Document Graph Data Model
+## Graph Data Model
 
-This branch is a huge work in progress. There's not so much visible progress for Svedit since the initial public release in October. The reason is that we realized a self-contained piece of JSON to be edited is not enough to serve our needs. We want to edit pieces of content that are shared across documents. That's why we switching to a graph data model, where all content lives in a globally addressable space, a huge graph of content nodes if you want. This way we can share pieces of content (e.g. nav or footer or a table) across multiple documents, while still being able to edit them in place (but changes will affect all places they are used).
-
-We also want to include an SQLite data storage layer, so you can create new documents and update them in a single request (respecting shared nodes too).
+Svedit documents are represented in a simple JSON compatible graph data model. A globally addressable space, a huge graph of content nodes if you want. This allows us to share pieces of content not only in the same document, but across multiple documents. E.g. you could share a navigation bar, while still being able to edit it in place (while changes will affect all places they are used).
 
 ## Schema definitions
 
@@ -23,11 +23,11 @@ First off, everything is a node. The page is a node, and so is a paragraph, a li
 A top-level node that is accessible via a route we internally call a `document` (e.g. a page, event, etc.)
 
 Properties of nodes can hold values:
-- `integer`
-- `boolean`
-- `string`
-- `string_array`
-- `annotated_text`: a plain text string, but with annotations (bold, italic, link etc.)
+- `integer`: A number
+- `boolean`: true or false
+- `string`: Any good old JavaScript string
+- `string_array`: An array of good old JavaScript strings
+- `annotated_string`: a plain text string, but with annotations (bold, italic, link etc.)
 
 Or references:
 - `node`: References a single node (e.g. an image node can reference a global asset node)
@@ -39,31 +39,32 @@ const document_schema = {
   page: {
     body: {
       type: 'node_array',
-      node_types: ['nav', 'paragraph', 'list', 'footer'],
-      default_ref_type: 'paragraph',
+      node_types: ['nav', 'paragraph', 'list'],
+      default_node_type: 'paragraph',
     }
   },
   paragraph: {
     content: { type: 'annotated_text' }
   },
+  list_item: {
+    content: { type: 'annotated_string' },
+  },
   list: {
     list_items: {
       type: 'node_array',
       node_types: ['list_item'],
-      default_ref_type: 'list_item',
+      default_node_type: 'list_item',
     }
   },
   nav: {
     nav_items: {
       type: 'node_array',
-      node_types: ['document_nav_item'],
-      default_ref_type: 'document_nav_item',
+      node_types: ['nav_item'],
+      default_node_type: 'nav_item',
     }
   },
   nav_item: {
-    // we could make this type: 'node' but then we'd fetch all nodes of each document referenced in the nav
-    // so we keep this a dumb integer at first, but maybe we can introduce some weakref or previewref mechanism that only fetches a preview from the document graph (not sure previews should be owned by the document graph though)
-    document_id: { type: 'integer' },
+    url: { type: 'string' },
     label: { type: 'string' },
   }
 };
@@ -85,7 +86,7 @@ const raw_doc = [
   {
     id: 'document_nav_item_1',
     type: 'document_nav_item',
-    document_id: 'page_1',
+    url: '/homepage',
     label: 'Home',
   },
   {
@@ -120,9 +121,7 @@ const raw_doc = [
 ]
 ```
 
-
 ## API to read/traverse and write the document graph
-
 
 ```js
 const doc = new Document(document_schema, raw_doc);
@@ -133,7 +132,6 @@ console.log($state.snapshot(body));
 const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
 console.log('nav.nav_items before:', $state.snapshot(nav.nav_items));
 
-
 // Documents need to be changed through transactions, which can consist of one or
 // multiple ops that are applied in a single step and undo/redo-able.
 const tr = doc.tr;
@@ -143,7 +141,31 @@ doc.apply(tr);
 console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 ```
 
+## Selections
 
+Selections are at the heart of Svedit. There are just two types of selections.
+
+1. **Text Selection**: A text selection is a selection that spans a range of characters in a string. E.g. the below example has the cursor at position 1 in a text property 'content'.
+
+  ```js
+  {
+    type: 'text',
+    path: ['page_1234', 'body', 0, 'content'],
+    anchor_offset: 1,
+    focus_offset: 1
+  }
+  ```
+
+2. **Node Selection**: A node selection is a selection that selects a range of nodes inside a node_array. The below example selects the nodes at index 3 and 4.
+
+  ```js
+  {
+    type: 'node',
+    path: ['page_1234', 'body'],
+    anchor_offset: 2,
+    focus_offset: 4
+  }
+  ```
 
 ## Usage
 
@@ -165,91 +187,7 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 </Svedit>
 ```
 
-Is there more documentation? No. Just read the code (it's only a couple of files with less than 1500LOC in total), copy and paste it to your app. Change it. This is not a library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
-
-
-## Selection mapping
-
-When you call doc.set_selection(new_sel) we map that internal selection to an "ideal DOM selection".
-
-### Text selections
-
-Here's how an editable text property is rendered in the DOM (some unrelated attributes ommited):
-
-```html
-<div contenteditable="true" data-type="text" data-path="QMFSqKsYMYxGyYbRYrTCtYr.body.1.description">First story description.</div>
-```
-
-Let's assume "First story" is selected. Then the ideal DOM selection would be:
-
-```js
-// Internal text selection
-{
-  type:"text",
-  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
-  anchor_offset:0,
-  focus_offset:11
-}
-// Maps to DOM selection
-{
-  type: 'Range',
-  anchorNode: text // the text node that holds "First story description"
-  anchorOffset: 0,
-  focusNode: text, // the text node that holds "First story description"
-  focusOffset: 11,
-  isCollapsed: false
-}
-```
-
-If the were a collapsed cursor at the beginning of the text:
-
-```js
-// Internal text selection
-{
-  type:"text",
-  path:["XCuaKRXSUPJcYKycXazCAXY","body","0","description"],
-  anchor_offset:0,
-  focus_offset:11
-}
-// Maps to DOM selection
-{
-  type: 'Range',
-  anchorNode: text // the text node that holds "First story description"
-  anchorOffset: 0,
-  focusNode: text, // the text node that holds "First story description"
-  focusOffset: 0,
-  isCollapsed: true
-}
-```
-
-### Node selections
-
-Here's how a node_array with the same node referenced twice (`body: ['story_1', 'story_1']`) looks like in the DOM (notice the data-index attribute):
-
-```html
-<div data-type="node_array" class="body flex-column gap-y-10" data-path="XCuaKRXSUPJcYKycXazCAXY.body">
-  <div data-type="node" class="story layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0" data-index="0">
-    <div class="non-text-content" contenteditable="false">
-      <img src="..." alt="First story">
-    </div>
-    <div class="caption">
-      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.title" class="heading2">First story</div>
-      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
-    </div>
-  </div>
-  <div data-type="node" class="story layout-1 max-w-screen-lg mx-auto w-full" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1" data-index="1">
-    <div class="non-text-content" contenteditable="false">
-      <img src="..." alt="First story">
-    </div>
-    <div class="caption">
-      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.1.title" class="heading2">First story</div>
-      <div data-type="text" contenteditable="true" data-path="XCuaKRXSUPJcYKycXazCAXY.body.0.description" class="body">First story description</div>
-    </div>
-  </div>
-</div>
-```
-
-
+Is there more documentation? No. Just read the code for now. It's only a couple of files with less than 2000LOC in total. Copy and paste it to your app. Change it. This is not an extensive library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
 
 
 ## Developing

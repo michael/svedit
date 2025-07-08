@@ -217,7 +217,7 @@
     {
       id: list_item_2_id,
       type: 'list_item',
-      content: ['Copy and pasting from and to external sources is not yet supported.', []]
+      content: ['Copy and pasting from and to external sources is not yet supported, but soon will be.', []]
     },
     {
       id: list_item_3_id,
