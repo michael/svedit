@@ -1,0 +1,160 @@
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/fonts/JetBrainsMono-Italic[wght].woff2') format('woff2');
+	font-weight: 100 800;
+	font-style: italic;
+	font-display: fallback;
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url('/fonts/JetBrainsMono[wght].woff2') format('woff2');
+	font-weight: 100 800;
+	font-style: normal;
+	font-display: fallback;
+}
+
+:root {
+	--base-size: 1rem;
+	--scale-ratio: 1.25;
+}
+
+body {
+	font-family:
+		'JetBrains Mono',
+		Verdana,
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		'Helvetica Neue',
+		Arial,
+		sans-serif;
+	font-weight: 400;
+	font-stretch: 100%;
+	font-style: normal;
+	font-variation-settings: 'wght' 400;
+	font-size: var(--base-size);
+	line-height: 1.5;
+}
+
+strong,
+b,
+.bold {
+	font-weight: 700;
+	font-variation-settings: 'wght' 700;
+}
+
+em,
+i,
+.italic {
+	font-style: italic;
+	font-variation-settings: 'wght' 400;
+}
+
+.condensed {
+	font-stretch: 100%;
+	font-variation-settings: 'wght' 400;
+}
+
+.expanded {
+	font-stretch: 125%;
+	font-variation-settings: 'wght' 400;
+}
+
+/* Typography classes */
+.heading1 {
+	font-size: calc(var(--base-size) * var(--scale-ratio) * var(--scale-ratio) * var(--scale-ratio));
+	font-weight: 700;
+	line-height: 1.2;
+	font-variation-settings: 'wght' 700;
+	--text-wrap: balance;
+}
+
+.heading2 {
+	font-size: calc(var(--base-size) * var(--scale-ratio) * var(--scale-ratio));
+	font-weight: 700;
+	line-height: 1.3;
+	font-variation-settings: 'wght' 700;
+	--text-wrap: balance;
+}
+
+.heading3 {
+	font-size: calc(var(--base-size) * var(--scale-ratio));
+	font-weight: 700;
+	line-height: 1.4;
+	--text-wrap: balance;
+}
+
+.body {
+	font-size: var(--base-size);
+	font-weight: 400;
+	line-height: 1.5;
+	--text-wrap: pretty;
+}
+
+.caption {
+	font-size: calc(var(--base-size) / var(--scale-ratio));
+	font-weight: 400;
+	line-height: 1.4;
+	opacity: 0.8;
+}
+
+.icon {
+	width: 24px;
+	height: 24px;
+}
+
+button {
+	border-radius: 9999px;
+	font-size: calc(var(--base-size) / var(--scale-ratio));
+	background-color: var(--canvas-fill-color);
+	font-weight: 400;
+	padding-inline: var(--s-3);
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background-color 0.1s ease-in-out;
+	&:focus,
+	&:focus-visible {
+		outline: none;
+	}
+	&:focus-visible,
+	&:active {
+		background-color: oklch(0 0 0 / 0.1);
+	}
+	&:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	&:not(:disabled):hover {
+		background-color: oklch(from var(--canvas-fill-color) calc(l - 0.05) c h);
+	}
+	&.small {
+		min-height: 36px;
+	}
+}
+
+.flex-column,
+.flex-row {
+	display: flex;
+}
+.flex-column {
+	flex-direction: column;
+}
+.flex-row {
+	flex-direction: row;
+}
+.items-center {
+	align-items: center;
+}
+.flex-wrap {
+	flex-wrap: wrap;
+}
+
+a {
+	text-decoration: underline;
+	color: var(--primary-text-color);
+	text-underline-offset: 0.3em;
+}

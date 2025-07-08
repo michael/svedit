@@ -4,21 +4,19 @@ Styles for browser consistency (partly opinionated)
 Based on https://github.com/sindresorhus/modern-normalize
 */
 
-
 /*
 1. Use a more readable tab size (opinionated).
 -----------------------------------------
 */
 :root {
-  -moz-tab-size: 4;
-  tab-size: 4;
+	-moz-tab-size: 4;
+	tab-size: 4;
 
-  /* variables */
-  --placeholder-color: #9ca3af;
+	/* variables */
+	--placeholder-color: #9ca3af;
 }
 
-
-/* 
+/*
 Use a better box model (opinionated).
 ------------------------------------
 1. Prevent padding and border from affecting element width.
@@ -28,37 +26,50 @@ Use a better box model (opinionated).
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+	box-sizing: border-box;
 }
 
-/* 
+/*
 Inherit font-family and line-height from html element.
 -----------------------------------------------------
-1. Use the user's configured `sans` font-family as default.  
+1. Use the user's configured `sans` font-family as default.
 2. Correct the line height in all browsers.
 3. Prevent adjustments of font size after orientation changes in iOS.
 */
 
 html {
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  line-height: 1.5;
-  -ms-text-size-adjust: 100%;
-  -webkit-text-size-adjust: 100%;
+	font-family:
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		'Helvetica Neue',
+		Arial,
+		'Noto Sans',
+		sans-serif,
+		'Apple Color Emoji',
+		'Segoe UI Emoji',
+		'Segoe UI Symbol',
+		'Noto Color Emoji';
+	line-height: 1.5;
+	-ms-text-size-adjust: 100%;
+	-webkit-text-size-adjust: 100%;
 }
 
 /*
-Improve default font consistency. 
+Improve default font consistency.
 -------------------------------
 1. Remove margin in all browsers.
 2. Inherit font-family and line-height from html so users can set them as a class directly on the html element.
 */
 
 body {
-  margin: 0;
-  font-family: inherit;
-  line-height: inherit;
+	margin: 0;
+	font-family: inherit;
+	line-height: inherit;
 }
-
 
 /*
 Grouping content
@@ -68,18 +79,17 @@ Grouping content
 /*
 Correct height and inheritance in hr element.
 -------------------------------------------
-1. Add the correct height in Firefox.  
-2. Correct the inheritance of border color in Firefox. 
+1. Add the correct height in Firefox.
+2. Correct the inheritance of border color in Firefox.
    https://bugzilla.mozilla.org/show_bug.cgi?id=190655
 3. Ensure horizontal rules are visible by default.
 */
 
 hr {
-  height: 0; 
-  color: inherit;
-  border-top: 1px solid var(--divider-color, var(--color-canvas-stroke));
+	height: 0;
+	color: inherit;
+	border-top: 1px solid var(--divider-color, var(--color-canvas-stroke));
 }
-
 
 /*
 Text-level semantics
@@ -92,7 +102,7 @@ Add correct text decoration in Chrome, Edge, and Safari.
 */
 
 abbr[title] {
-  text-decoration: underline dotted;
+	text-decoration: underline dotted;
 }
 
 /*
@@ -102,18 +112,17 @@ Add correct font weight in Edge and Safari.
 
 b,
 strong {
-  font-weight: bolder;
+	font-weight: bolder;
 }
 
-/*  
+/*
 Add correct font size in all browsers.
 -------------------------------------
 */
 
 small {
-  font-size: 80%;
+	font-size: 80%;
 }
-
 
 /*
 Prevent 'sub' and 'sup' elements from affecting the line height in all browsers.
@@ -122,41 +131,39 @@ Prevent 'sub' and 'sup' elements from affecting the line height in all browsers.
 
 sub,
 sup {
-  font-size: 75%;
-  line-height: 0;
-  position: relative;
-  vertical-align: baseline;
+	font-size: 75%;
+	line-height: 0;
+	position: relative;
+	vertical-align: baseline;
 }
 
 sub {
-  bottom: -0.25em;
+	bottom: -0.25em;
 }
 
 sup {
-  top: -0.5em;
+	top: -0.5em;
 }
-
 
 /*
 Tabular data
 ============
 */
 
-
-/* 
+/*
 Remove text indentation and correct inheritance in table.
 --------------------------------------------------------
 1. Remove text indentation from table contents in Chrome and Safari.
    https://bugs.chromium.org/p/chromium/issues/detail?id=999088
    https://bugs.webkit.org/show_bug.cgi?id=201297
-2. Correct table border color inheritance in Chrome and Safari. 
+2. Correct table border color inheritance in Chrome and Safari.
    https://bugs.chromium.org/p/chromium/issues/detail?id=935729
-   https://bugs.webkit.org/show_bug.cgi?id=195016 
+   https://bugs.webkit.org/show_bug.cgi?id=195016
 */
 
 table {
-  text-indent: 0;
-  border-color: inherit;
+	text-indent: 0;
+	border-color: inherit;
 }
 
 /*
@@ -164,17 +171,18 @@ Forms
 =====
 */
 
-button, a {
-  /* Fix iconsitency between button and anchor widths */
-  all: unset;
-  cursor: pointer;
+button,
+a {
+	/* Fix iconsitency between button and anchor widths */
+	all: unset;
+	cursor: pointer;
 }
 
 /*
 Change font styles and remove margin in Firefox and Safari.
 ----------------------------------------------------------
 1. Change the font styles in all browsers.
-2. Remove the margin in Firefox and Safari.  
+2. Remove the margin in Firefox and Safari.
 */
 
 button,
@@ -182,14 +190,14 @@ input,
 optgroup,
 select,
 textarea {
-  font-family: inherit;
-  font-size: 100%;
-  line-height: 1.15; 
-  margin: 0;
-  text-align: left;
+	font-family: inherit;
+	font-size: 100%;
+	line-height: 1.15;
+	margin: 0;
+	text-align: left;
 }
 
-/* 
+/*
 Remove inheritance of text transform in Firefox.
 -----------------------------------------------
 1. Remove the inheritance of text transform in Firefox.
@@ -198,7 +206,7 @@ Remove inheritance of text transform in Firefox.
 
 button,
 select {
-  text-transform: none;
+	text-transform: none;
 }
 
 /*
@@ -207,10 +215,10 @@ Correct inability to style clickable types in iOS and Safari.
 */
 
 button,
-[type="button"], 
-[type="reset"],
-[type="submit"] {
-  -webkit-appearance: button;
+[type='button'],
+[type='reset'],
+[type='submit'] {
+	-webkit-appearance: button;
 }
 
 /*
@@ -219,8 +227,8 @@ Remove inner border and padding in Firefox.
 */
 
 ::-moz-focus-inner {
-  border-style: none;
-  padding: 0;
+	border-style: none;
+	padding: 0;
 }
 
 /*
@@ -229,7 +237,7 @@ Restore focus styles unset by previous rule.
 */
 
 :-moz-focusring {
-  outline: 1px dotted ButtonText;
+	outline: 1px dotted ButtonText;
 }
 
 /*
@@ -239,17 +247,16 @@ See: https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d4
 */
 
 :-moz-ui-invalid {
-  box-shadow: none;
+	box-shadow: none;
 }
 
-
 /*
-Remove padding from <legend> 
+Remove padding from <legend>
 -----------------------------
 */
 
 legend {
-  padding: 0;
+	padding: 0;
 }
 
 /*
@@ -258,29 +265,29 @@ Add correct vertical alignment in Chrome and Firefox.
 */
 
 progress {
-  vertical-align: baseline; 
+	vertical-align: baseline;
 }
 
-/*  
+/*
 Correct cursor style of increment and decrement buttons in Safari.
 -----------------------------------------------------------------
 */
 
 ::-webkit-inner-spin-button,
 ::-webkit-outer-spin-button {
-  height: auto;
+	height: auto;
 }
 
 /*
-Correct odd appearance in Chrome and Safari. 
+Correct odd appearance in Chrome and Safari.
 -------------------------------------------
 1. Correct the odd appearance in Chrome and Safari.
 2. Correct the outline style in Safari.
 */
 
-[type="search"] {
-  -webkit-appearance: textfield;
-  outline-offset: -2px;
+[type='search'] {
+	-webkit-appearance: textfield;
+	outline-offset: -2px;
 }
 
 /*
@@ -289,9 +296,8 @@ Remove inner padding and border in Chrome and Safari on macOS.
 */
 
 ::-webkit-search-decoration {
-  -webkit-appearance: none;
+	-webkit-appearance: none;
 }
-
 
 /*
 Correct inability to style clickable types in iOS and Safari.
@@ -301,8 +307,8 @@ Correct inability to style clickable types in iOS and Safari.
 */
 
 ::-webkit-file-upload-button {
-  -webkit-appearance: button;
-  font: inherit; 
+	-webkit-appearance: button;
+	font: inherit;
 }
 
 /*
@@ -316,9 +322,8 @@ Add correct display in Chrome and Safari.
 */
 
 summary {
-  display: list-item;
+	display: list-item;
 }
-
 
 /*
 Manually forked from SUIT CSS Base: https://github.com/suitcss/base
@@ -333,7 +338,7 @@ Remove spacing and border for common elements.
 
 blockquote,
 dl,
-dd, 
+dd,
 h1,
 h2,
 h3,
@@ -344,18 +349,18 @@ hr,
 figure,
 p,
 pre {
-  margin: 0;
+	margin: 0;
 }
 
 /*
 Remove background and border from button element.
-------------------------------------------------- 
+-------------------------------------------------
 */
 
 button {
-  background-color: transparent;
-  background-image: none;
-  border: none;
+	background-color: transparent;
+	background-image: none;
+	border: none;
 }
 
 /*
@@ -364,8 +369,8 @@ Fix loss of default focus styles for button element in Firefox/IE.
 */
 
 button:focus {
-  outline: 1px dotted;
-  outline: 5px auto -webkit-focus-ring-color;
+	outline: 1px dotted;
+	outline: 5px auto -webkit-focus-ring-color;
 }
 
 /*
@@ -374,8 +379,8 @@ Remove margin and padding from fieldset element.
 */
 
 fieldset {
-  margin: 0;
-  padding: 0;
+	margin: 0;
+	padding: 0;
 }
 
 /*
@@ -383,11 +388,11 @@ Remove default list styles on ul, ol elements.
 ---------------------------------------------
 */
 
-ol, 
+ol,
 ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 
 /*
@@ -396,7 +401,7 @@ Remove border from img element.
 */
 
 img {
-  border: none;
+	border: none;
 }
 
 /*
@@ -405,7 +410,7 @@ Enable vertical resizing for textarea element.
 */
 
 textarea {
-  resize: vertical; 
+	resize: vertical;
 }
 
 /*
@@ -415,17 +420,17 @@ Set placeholder color
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--placeholder-color);
+	color: var(--placeholder-color);
 }
 
 /*
 Set cursor to pointer for buttons and button-like elements.
----------------------------------------------------------- 
+----------------------------------------------------------
 */
 
 button,
-[role="button"] {
-  cursor: pointer;
+[role='button'] {
+	cursor: pointer;
 }
 
 /*
@@ -434,7 +439,7 @@ Set border-collapse to collapse for table element.
 */
 
 table {
-  border-collapse: collapse;
+	border-collapse: collapse;
 }
 
 /*
@@ -448,8 +453,8 @@ h3,
 h4,
 h5,
 h6 {
-  font-size: inherit;
-  font-weight: inherit;
+	font-size: inherit;
+	font-weight: inherit;
 }
 
 /*
@@ -458,8 +463,8 @@ Reset link styles.
 */
 
 a {
-  color: inherit;
-  text-decoration: inherit;
+	color: inherit;
+	text-decoration: inherit;
 }
 
 /*
@@ -470,13 +475,12 @@ Reset form element properties.
 button,
 input,
 optgroup,
-select, 
+select,
 textarea {
-  padding: 0;
-  line-height: inherit;
-  color: inherit;
+	padding: 0;
+	line-height: inherit;
+	color: inherit;
 }
-
 
 /*
 Improve default font consistency.
@@ -489,10 +493,11 @@ code,
 kbd,
 samp,
 pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 1em; 
+	font-family:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+		monospace;
+	font-size: 1em;
 }
-
 
 /*
 Make replaced elements display: block by default.
@@ -508,38 +513,36 @@ audio,
 iframe,
 embed,
 object {
-  display: block; 
-  vertical-align: middle;
+	display: block;
+	vertical-align: middle;
 }
 
-/* 
+/*
 Constrain images and videos to the parent width and preserve aspect ratio.
 https://github.com/mozdevs/cssremedy/issues/14
 */
 
 img,
 video {
-  max-width: 100%;
-  height: auto;
+	max-width: 100%;
+	height: auto;
 }
 
-
-/* 
+/*
   Don't overflow pre
 */
 pre {
-  max-width: 100vw;
+	max-width: 100vw;
 }
 
-
-/* 
+/*
   Hyphenate + prevent overflow text
 */
 * {
-  overflow-wrap: break-word;
-  word-break: normal;
+	/* overflow-wrap: break-word;
+  word-break: normal; */
 }
-@supports (hyphenate-limit-chars: 10 4 4) {
+/* @supports (hyphenate-limit-chars: 10 4 4) {
   * {
     hyphens: auto;
     hyphenate-limit-chars: 10 4 4;
@@ -547,13 +550,20 @@ pre {
     hyphenate-limit-last: always;
     hyphenate-limit-zone: 8%;
   }
-}
+} */
 
-/* 
+/*
   Hanging Punctuation
 */
-p, h1, h2, h3, h4, h5, h6, blockquote {
-  hanging-punctuation: first;
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+blockquote {
+	/* hanging-punctuation: first; */
 }
 
 /* Smooth Scrolling */
@@ -561,9 +571,10 @@ p, h1, h2, h3, h4, h5, h6, blockquote {
   scroll-behavior: smooth;
 } */
 
-
 /* Reset browesr defaults */
-var, abbr, abbr[title] {
-  font-style: normal;
-  text-decoration: none;
+var,
+abbr,
+abbr[title] {
+	font-style: normal;
+	text-decoration: none;
 }
