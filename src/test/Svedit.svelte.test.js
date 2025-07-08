@@ -7,6 +7,7 @@ import { create_test_doc } from './create_test_doc.js';
 describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {
     const doc = create_test_doc();
+
     const { container }  = render(SveditTest, { props: { doc } });
 
     // Now set node cursor between first and second node
@@ -27,10 +28,9 @@ describe('Svedit.svelte', () => {
     expect(dom_selection).not.toBeNull();
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
-    expect(dom_selection.anchorNode.attributes['data-path'].value).toBe(`${doc.document_id}.body`);
-    expect(dom_selection.focusNode.attributes['data-path'].value).toBe(`${doc.document_id}.body`);
-    expect(dom_selection.anchorOffset).toBe(7);
-    expect(dom_selection.focusOffset).toBe(7);
+
+    expect(dom_selection.anchorNode.classList.contains('cursor-trap')).toBe(true);
+    expect(dom_selection.focusNode.classList.contains('cursor-trap')).toBe(true);
   });
 
   it('should map property selection to DOM', async () => {

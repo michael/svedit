@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { determine_node_array_orientation } from '$lib/util.js';
+	import { determine_node_array_orientation } from '../../lib/util.js';
 	import Icon from './Icon.svelte';
 
 	const svedit = getContext('svedit');

@@ -13,7 +13,7 @@ export default class Document {
   can_undo = $derived(this.history_index >= 0);
   can_redo = $derived(this.history_index < this.history.length - 1);
 
-  constructor(schema, raw_doc, { selection, config }) {
+  constructor(schema, raw_doc, { selection, config } = {}) {
     this.schema = schema;
     this.selection = selection;
     this.config = config;

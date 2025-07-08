@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
-	import Node from '$lib/Node.svelte';
-	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
+	import Node from '../../lib/Node.svelte';
+	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
 
 	const svedit = getContext('svedit');
 

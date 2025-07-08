@@ -1,8 +1,8 @@
 <script>
 	import { getContext } from 'svelte';
-	import AnnotatedStringProperty from '$lib/AnnotatedStringProperty.svelte';
-	import CustomProperty from '$lib/CustomProperty.svelte';
-	import Node from '$lib/Node.svelte';
+	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
+	import CustomProperty from '../../lib/CustomProperty.svelte';
+	import Node from '../../lib/Node.svelte';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();

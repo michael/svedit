@@ -1,6 +1,6 @@
 <script>
-  import Node from '$lib/Node.svelte';
-  import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
+  import Node from '../../lib/Node.svelte';
+  import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
   import ImageGridItem from './ImageGridItem.svelte';
   import { getContext } from 'svelte';
 

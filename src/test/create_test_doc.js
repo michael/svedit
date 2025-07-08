@@ -13,7 +13,7 @@ export function create_test_doc() {
       body: {
         type: 'node_array',
         node_types: ['paragraph', 'story', 'list'],
-        default_ref_type: 'paragraph',
+        default_node_type: 'paragraph',
       },
       keywords: {
         type: 'string_array',
@@ -42,7 +42,7 @@ export function create_test_doc() {
       list_items: {
         type: 'node_array',
         node_types: ['list_item'],
-        default_ref_type: 'list_item',
+        default_node_type: 'list_item',
       },
     },
   };
@@ -80,6 +80,6 @@ export function create_test_doc() {
       created_at: '2025-05-30T10:39:59.987Z'
     },
   ];
-
-  return new Document(document_schema, raw_doc);
+  const doc = new Document(document_schema, raw_doc);
+  return doc;
 }

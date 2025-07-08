@@ -1,10 +1,11 @@
 <script>
   import Svedit from '../../lib/Svedit.svelte';
   import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
-  import Story from '../../lib/Story.svelte';
-  import List from '../../lib/List.svelte';
-  import UnknownNode from '../../lib/UnknownNode.svelte';
-	import Layout from '../../lib/Layout.svelte';
+  import Story from '../../routes/components/Story.svelte';
+  import List from '../../routes/components/List.svelte';
+  import UnknownNode from '../../routes/components/UnknownNode.svelte';
+	import Layout from '../../routes/components/Layout.svelte';
+	import Overlays from '../../routes/components/Overlays.svelte';
 
   let { doc } = $props();
 </script>
@@ -22,5 +23,8 @@
         {/if}
       {/snippet}
     </NodeArrayProperty>
+    {#snippet overlays()}
+      <Overlays />
+    {/snippet}
   </Svedit>
 </Layout>

@@ -19,7 +19,7 @@
     Experimental: We'll let .empty-node-array act like a node, so the existing
     code paths for selection mapping will work as expected.
 
-    TODO: Need to figure out a way to make .empty-container customizable.
+    TODO: Need to figure out a way to make .empty-node-array customizable.
     -->
     <div
       class="node empty-node-array"

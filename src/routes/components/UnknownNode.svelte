@@ -1,6 +1,6 @@
 <script>
   import { getContext } from 'svelte';
-  import Node from '$lib/Node.svelte';
+  import Node from '../../lib/Node.svelte';
 
   const svedit = getContext('svedit');
   let { path } = $props();

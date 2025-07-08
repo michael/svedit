@@ -16,7 +16,7 @@ Svedit documents are represented in a simple JSON compatible graph data model. A
 
 ## Schema definitions
 
-We want to have a simple schema definition language, so we can enforce constraints on our documents. E.g. to make sure a page node always has a property body with references to nodes that are allowed within a page.
+We use a simple JSON-compatible schema definition language, so we can enforce constraints on our documents. E.g. to make sure a page node always has a property body with references to nodes that are allowed within a page.
 
 First off, everything is a node. The page is a node, and so is a paragraph, a list, a list item, a nav and a nav item.
 
@@ -25,13 +25,13 @@ A top-level node that is accessible via a route we internally call a `document` 
 Properties of nodes can hold values:
 - `integer`: A number
 - `boolean`: true or false
-- `string`: Any good old JavaScript string
+- `string`: A good old JavaScript string
 - `string_array`: An array of good old JavaScript strings
 - `annotated_string`: a plain text string, but with annotations (bold, italic, link etc.)
 
 Or references:
 - `node`: References a single node (e.g. an image node can reference a global asset node)
-- `node_array`: References a sequence of nodes (e.g. page.body references pargraph and list nodes)
+- `node_array`: References a sequence of nodes (e.g. page.body references paragraph and list nodes)
 
 
 ```js
@@ -145,7 +145,7 @@ console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 
 Selections are at the heart of Svedit. There are just two types of selections.
 
-1. **Text Selection**: A text selection is a selection that spans a range of characters in a string. E.g. the below example has the cursor at position 1 in a text property 'content'.
+1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed cursor at position 1 in a text property 'content'.
 
   ```js
   {
@@ -156,7 +156,7 @@ Selections are at the heart of Svedit. There are just two types of selections.
   }
   ```
 
-2. **Node Selection**: A node selection is a selection that selects a range of nodes inside a node_array. The below example selects the nodes at index 3 and 4.
+2. **Node Selection**: A node selection spans across a range of nodes inside a node_array. The below example selects the nodes at index 3 and 4.
 
   ```js
   {
@@ -188,7 +188,6 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 ```
 
 Is there more documentation? No. Just read the code for now. It's only a couple of files with less than 2000LOC in total. Copy and paste it to your app. Change it. This is not an extensive library that tries to cover every possible use-case. This is just a starting point for you to adjust to your needs. Enjoy!
-
 
 ## Developing
 
