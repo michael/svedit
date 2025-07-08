@@ -9,6 +9,7 @@
   import Heading from './components/Heading.svelte';
   import List from './components/List.svelte';
   import ImageGrid from './components/ImageGrid.svelte';
+  import Hero from './components/Hero.svelte';
   import UnknownNode from './components/UnknownNode.svelte';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
@@ -18,12 +19,12 @@
     page: {
       body: {
         type: 'node_array',
-        node_types: ['heading', 'paragraph', 'story', 'list', 'image_grid'],
+        node_types: ['paragraph', 'heading', 'story', 'list', 'image_grid', 'hero'],
         default_ref_type: 'paragraph',
       },
-      cover_story: {
+      hero: {
         type: 'node',
-        node_types: ['story'],
+        node_types: ['hero'],
       },
       keywords: {
         type: 'string_array',
@@ -34,6 +35,11 @@
       created_at: {
         type: 'datetime'
       }
+    },
+    hero: {
+      title: { type: 'annotated_string' },
+      description: { type: 'annotated_string' },
+      image: { type: 'string' }, // a dedicated type asset would be better
     },
     heading: {
       content: { type: 'annotated_string' },
@@ -71,6 +77,7 @@
 
   // Generate IDs for all content nodes
   const page_1_id = svid();
+  const hero_1_id = svid();
   const heading_1_id = svid();
   const paragraph_1_id = svid();
   const paragraph_2_id = svid();
@@ -96,6 +103,13 @@
   const image_grid_item_6_id = svid();
 
   const raw_doc = [
+    {
+      id: hero_1_id,
+      type: 'hero',
+      title: ['Svedit', []],
+      description: ['A tiny library for building rich content editors with Svelte 5.', []],
+      image: '/images/svedit-hero.webp',
+    },
     {
       id: heading_1_id,
       type: 'heading',
@@ -245,8 +259,8 @@
     {
       id: page_1_id,
       type: 'page',
-      body: [heading_1_id, paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
-      cover_story: story_1_id,
+      body: [paragraph_1_id, paragraph_2_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+      hero: hero_1_id,
       keywords: ['svelte', 'editor', 'rich content'],
       daily_visitors: [10, 20, 30, 100],
       created_at: '2025-05-30T10:39:59.987Z'
@@ -378,6 +392,22 @@
           anchor_offset: tr.doc.selection.focus_offset,
           focus_offset: tr.doc.selection.focus_offset
         });
+      },
+      hero: function(tr) {
+        const new_hero = {
+          id: svid(),
+          type: 'hero',
+          title: ['', []],
+          description: ['', []],
+          image: '',
+        };
+        tr.insert_nodes([new_hero]);
+        tr.set_selection({
+          type: 'text',
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
       }
     }
   };
@@ -400,7 +430,7 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <Story path={[doc.document_id, 'cover_story']} />
+    <Hero path={[doc.document_id, 'hero']} />
     <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']}>
       {#snippet node(node, path)}
         {#if node.type === 'heading'}
@@ -413,6 +443,8 @@
           <List {path} />
         {:else if node.type === 'image_grid'}
           <ImageGrid {path} />
+        {:else if node.type === 'hero'}
+          <Hero {path} />
         {:else}
           <UnknownNode {path} />
         {/if}
@@ -436,10 +468,10 @@
 <style>
   .demo-wrapper :global {
     .body-node-array {
-      padding: var(--s-8);
+      /* padding: var(--s-8); */
       display: grid;
       grid-template-columns: 1fr;
-      gap: 1rem;
+      /* gap: 1rem; */
     }
   }
 

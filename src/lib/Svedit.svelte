@@ -754,7 +754,7 @@
 		background: var(--editing-fill-color);
 	}
 
-	/* .svedit-canvas.hide-selection :global(::selection) {
+	.svedit-canvas.hide-selection :global(::selection) {
     background: transparent;
-  } */
+  }
 </style>
