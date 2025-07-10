@@ -27,17 +27,17 @@ export function break_text_node(tr) {
     tr.delete_selection();
   }
 
-  const split_at_position = doc.selection.anchor_offset;
-  const content = doc.get(selection.path);
+  const split_at_position = tr.doc.selection.anchor_offset;
+  const content = tr.doc.get(selection.path);
   const [left_text, right_text] = split_annotated_string(content, split_at_position);
 
-  tr.set(doc.selection.path, left_text);
+  tr.set([node.id, 'content'], left_text);
 
   const node_insert_position = {
     type: 'node',
-    path: doc.selection.path.slice(0, -2),
-    anchor_offset: parseInt(doc.selection.path.at(-2), 10) + 1,
-    focus_offset: parseInt(doc.selection.path.at(-2), 10) + 1,
+    path: tr.doc.selection.path.slice(0, -2),
+    anchor_offset: parseInt(tr.doc.selection.path.at(-2), 10) + 1,
+    focus_offset: parseInt(tr.doc.selection.path.at(-2), 10) + 1,
   };
 
   // TODO: Only use default_node_type when cursor is at the end of
@@ -51,8 +51,7 @@ export function break_text_node(tr) {
 
   tr.set_selection(node_insert_position);
 
-  doc.config.inserters[target_node_type](tr);
-  tr.set(doc.selection.path, right_text);
+  doc.config.inserters[target_node_type](tr, right_text);
 }
 
 export function join_text_node(tr) {
@@ -91,7 +90,7 @@ export function join_text_node(tr) {
     anchor_offset: predecessor_node.content[0].length,
     focus_offset: predecessor_node.content[0].length,
   });
-  tr.set([...previous_text_path, 'content'], joined_text);
+  tr.set([predecessor_node.id, 'content'], joined_text);
 }
 
 export function insert_default_node(tr) {

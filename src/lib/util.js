@@ -11,7 +11,9 @@ export function svid() {
 }
 
 export function is_valid_svid(id) {
-	return /^[a-zA-Z]{23}$/i.test(id);
+  // TODO: Consider re-enabling strict id format checking
+  // return /^[a-zA-Z]{23}$/i.test(id);
+  return typeof id === 'string' && id.length > 0;
 }
 
 // Check if a node conforms to its schema

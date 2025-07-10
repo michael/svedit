@@ -24,10 +24,15 @@ export default class Transaction {
   set (path, value) {
     const node = this.doc.get(path.slice(0, -1));
 
+    // Turns ["page_1", "body", "0", "description"]
+    // into ["paragraph_1", "description"].
+    // Important to keep changes of multiple ops invertible.
+    const normalized_path = [node.id, path.at(-1)];
+
     // Just to be sure, make a deep copy of the old value
     const previous_value = structuredClone($state.snapshot(node[path.at(-1)]));
 
-    const op = ['set', path, value];
+    const op = ['set', normalized_path, value];
     this.ops.push(op);
     this.inverse_ops.push(['set', path, previous_value]);
     this.doc._apply_op(op);

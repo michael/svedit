@@ -76,30 +76,30 @@
   };
 
   // Generate IDs for all content nodes
-  const page_1_id = svid();
-  const hero_1_id = svid();
-  const heading_1_id = svid();
-  const paragraph_1_id = svid();
-  const story_1_id = svid();
-  const story_2_id = svid();
-  const story_3_id = svid();
-  const story_4_id = svid();
-  const story_5_id = svid();
-  const story_6_id = svid();
-  const story_7_id = svid();
-  const list_1_id = svid();
-  const list_item_1_id = svid();
-  const list_item_2_id = svid();
-  const list_item_3_id = svid();
-  const list_item_4_id = svid();
+  const page_1_id = 'page_1';
+  const hero_1_id = 'hero_1';
+  const heading_1_id = 'heading_1';
+  const paragraph_1_id = 'paragraph_1';
+  const story_1_id = 'story_1';
+  const story_2_id = 'story_2';
+  const story_3_id = 'story_3';
+  const story_4_id = 'story_4';
+  const story_5_id = 'story_5';
+  const story_6_id = 'story_6';
+  const story_7_id = 'story_7';
+  const list_1_id = 'list_1';
+  const list_item_1_id = 'list_item_1';
+  const list_item_2_id = 'list_item_2';
+  const list_item_3_id = 'list_item_3';
+  const list_item_4_id = 'list_item_4';
 
-  const image_grid_1_id = svid();
-  const image_grid_item_1_id = svid();
-  const image_grid_item_2_id = svid();
-  const image_grid_item_3_id = svid();
-  const image_grid_item_4_id = svid();
-  const image_grid_item_5_id = svid();
-  const image_grid_item_6_id = svid();
+  const image_grid_1_id = 'image_grid_1';
+  const image_grid_item_1_id = 'image_grid_item_1';
+  const image_grid_item_2_id = 'image_grid_item_2';
+  const image_grid_item_3_id = 'image_grid_item_3';
+  const image_grid_item_4_id = 'image_grid_item_4';
+  const image_grid_item_5_id = 'image_grid_item_5';
+  const image_grid_item_6_id = 'image_grid_item_6';
 
   const raw_doc = [
     {
@@ -407,7 +407,6 @@
   };
 
   const doc = new Document(document_schema, raw_doc, { config: document_config });
-
   let svedit_ref;
 
   function focus_canvas() {
