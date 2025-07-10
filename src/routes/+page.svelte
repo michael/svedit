@@ -417,7 +417,8 @@
 </script>
 
 <svelte:head>
-  <title>Svedit - A rich content editor for Svelte 5</title>
+  <title>Svedit - A tiny library for building rich content editors with Svelte 5</title>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </svelte:head>
 
 <div class="demo-wrapper">

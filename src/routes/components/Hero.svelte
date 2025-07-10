@@ -22,7 +22,11 @@
 		<div class="hero-content">
 			<AnnotatedStringProperty class="hero-title" path={[...path, 'title']} />
 			<AnnotatedStringProperty class="hero-subtitle" path={[...path, 'description']} />
+			<div class="github-button-wrapper">
+			  <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
+			</div>
 		</div>
+
 	</div>
 </Node>
 
@@ -39,6 +43,10 @@
 		min-height: 50vh;
 		position: relative;
 		background: linear-gradient(135deg, var(--primary-fill-color), color-mix(in srgb, var(--primary-fill-color) 80%, white));
+	}
+
+	.github-button-wrapper {
+		margin-top: var(--s-6);
 	}
 
 	.hero.has-image {
