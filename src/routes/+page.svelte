@@ -8,9 +8,10 @@
   import Paragraph from './components/Paragraph.svelte';
   import Heading from './components/Heading.svelte';
   import List from './components/List.svelte';
+  import ListItem from './components/ListItem.svelte';
   import ImageGrid from './components/ImageGrid.svelte';
+  import ImageGridItem from './components/ImageGridItem.svelte';
   import Hero from './components/Hero.svelte';
-  import UnknownNode from './components/UnknownNode.svelte';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
 	import Icon from './components/Icon.svelte';
@@ -263,6 +264,17 @@
 
   // App-specific config object, always available via doc.config for introspection
   const document_config = {
+    // Registry of components for each node type
+    node_components: {
+      heading: Heading,
+      paragraph: Paragraph,
+      story: Story,
+      list: List,
+      list_item: ListItem,
+      image_grid: ImageGrid,
+      image_grid_item: ImageGridItem,
+      hero: Hero
+    },
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
     node_types_with_horizontal_node_arrays: ['image_grid'],
@@ -425,26 +437,7 @@
   <Toolbar {doc} {focus_canvas} />
   <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
     <!-- <Hero path={[doc.document_id, 'hero']} /> -->
-    <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']}>
-      {#snippet node(node, path)}
-        {#if node.type === 'heading'}
-          <Heading {path} />
-        {:else if node.type === 'paragraph'}
-          <Paragraph {path} />
-        {:else if node.type === 'story'}
-          <Story {path} />
-        {:else if node.type === 'list'}
-          <List {path} />
-        {:else if node.type === 'image_grid'}
-          <ImageGrid {path} />
-        {:else if node.type === 'hero'}
-          <Hero {path} />
-        {:else}
-          <UnknownNode {path} />
-        {/if}
-      {/snippet}
-    </NodeArrayProperty>
-
+    <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']} />
     {#snippet overlays()}
       <Overlays />
     {/snippet}

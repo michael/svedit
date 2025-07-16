@@ -1,6 +1,6 @@
 <script>
   import { getContext } from 'svelte';
-  import Node from '../../lib/Node.svelte';
+  import Node from './Node.svelte';
 
   const svedit = getContext('svedit');
   let { path } = $props();
@@ -8,5 +8,5 @@
 </script>
 
 <Node {path}>
-  Unknown node type {node.type}
+  Unknown node type {node.type}.
 </Node>

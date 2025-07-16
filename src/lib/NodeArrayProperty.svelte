@@ -1,12 +1,12 @@
 <script>
   import { getContext } from 'svelte';
   import CursorTrap from './CursorTrap.svelte';
+  import UnknownNode from './UnknownNode.svelte';
 
   const svedit = getContext('svedit');
 
   let {
     path,
-    node,
     class: css_class,
   } = $props();
 
@@ -30,7 +30,12 @@
       <CursorTrap node_array_path={path} type="position-zero-cursor-trap" />
     </div>
   {/if}
-  {#each nodes as _node, index }
-    {@render node(_node, [...path, index], index)}
+  {#each nodes as node, index }
+    {@const Component = svedit.doc.config.node_components[node.type]}
+    {#if Component}
+      <Component path={[...path, index]} />
+    {:else}
+      <UnknownNode path={[...path, index]} />
+    {/if}
   {/each}
 </div>

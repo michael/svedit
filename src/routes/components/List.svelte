@@ -12,12 +12,7 @@
 
 <Node {path}>
   <div class="list max-w-screen-md mx-auto">
-    <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']}>
-      <!-- NOTE: We only allow list items inside list  -->
-      {#snippet node(node, path)}
-        <ListItem {node} {path} {list_style} />
-      {/snippet}
-    </NodeArrayProperty>
+    <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']} />
   </div>
 </Node>
 
