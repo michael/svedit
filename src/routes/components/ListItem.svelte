@@ -1,16 +1,17 @@
 <script>
 	import Node from '../../lib/Node.svelte';
 	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
+	import { getContext } from 'svelte';
 
-	let {
-		path,
-		/** @type {('decimal'|'decimal-leading-zero'|'lower-roman'|'upper-roman'|'lower-latin'|'upper-latin'|'disc'|'circle'|'square')} */
-		list_style
-	} = $props();
+  const svedit = getContext('svedit');
+  let { path } = $props();
+
+	// We expect the list_node to be the parent in the path
+	let list_node = $derived(svedit.doc.get(path.slice(0, -2)));
 </script>
 
 <Node {path}>
-	<div class="list-item" style="--list-style: {list_style};">
+	<div class="list-item" style="--list-style: {list_node.list_style};">
 		<AnnotatedStringProperty path={[...path, 'content']} />
 	</div>
 </Node>
