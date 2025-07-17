@@ -10,16 +10,18 @@
 </script>
 
 <Node {path}>
-	<button class="button">
+	<a href={node.href} class="button">
 		<AnnotatedStringProperty class="body" path={[...path, 'label']} />
-	</button>
+	</a>
 </Node>
 
 <style>
 	.button {
+    display: block;
+    text-decoration: none;
 	  background: var(--primary-fill-color);
 		color: var(--canvas-fill-color);
-		padding: var(--s-2);
+		padding: var(--s-2) var(--s-4);
 		min-width: 50px;
 	}
 
