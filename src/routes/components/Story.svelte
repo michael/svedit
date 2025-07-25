@@ -2,11 +2,13 @@
 	import { getContext } from 'svelte';
 	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
 	import CustomProperty from '../../lib/CustomProperty.svelte';
+	import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
 	import Node from '../../lib/Node.svelte';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
+	let has_buttons = $derived(node.buttons.length > 0);
 </script>
 
 <Node {path}>
@@ -22,6 +24,7 @@
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
 			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} />
 			<AnnotatedStringProperty class="body" path={[...path, 'description']} />
+			<NodeArrayProperty class="buttons{!has_buttons ? ' empty' : ''}" path={[...path, 'buttons']} />
 		</div>
 	</div>
 </Node>
@@ -43,6 +46,19 @@
 		gap: var(--s-10);
 		padding: var(--s-10) var(--s-6);
 	}
+
+	.story :global(.buttons:not(.empty)) {
+	  padding-top: 24px;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--s-2);
+	}
+
+	.story :global(.buttons.empty .node.empty-node-array) {
+	  position: absolute !important;
+	}
+
 	.story img {
 		width: 100%;
 		height: auto;

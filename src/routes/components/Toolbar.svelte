@@ -87,15 +87,22 @@
 
 	// Helper function to get the currently selected node
 	function get_selected_node() {
-		if (!doc.selection || doc.selection.type !== 'node') return null;
+		if (!doc.selection) return null;
 
-		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
-		const end = Math.max(doc.selection.anchor_offset, doc.selection.focus_offset);
-		// Only consider selection of a single node
-		if (end - start !== 1) return null;
-		const node_array = doc.get(doc.selection.path);
-		const node_id = node_array[start];
-		return node_id ? doc.get(node_id) : null;
+		if (doc.selection.type === 'node') {
+  		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
+  		const end = Math.max(doc.selection.anchor_offset, doc.selection.focus_offset);
+  		// Only consider selection of a single node
+  		if (end - start !== 1) return null;
+  		const node_array = doc.get(doc.selection.path);
+  		const node_id = node_array[start];
+  		return node_id ? doc.get(node_id) : null;
+		} else {
+		  // we are assuming we are either in a text or property (=custom) selection
+			const owner_node = doc.get(doc.selection.path.slice(0, -1));
+			return owner_node;
+		}
+		return null;
 	}
 
 	// Reactive variable for selected node
@@ -140,8 +147,16 @@
 		doc.selection?.type === 'property' && doc.selection.path.at(-1) === 'image'
 	);
 
+	// Check if we should show the link URL input
+	let show_link_input = $derived(
+		typeof selected_node?.href === 'string'
+	);
+
 	// Get current image URL value
 	let current_image_url = $derived(show_image_input ? doc.get(doc.selection.path) : '');
+
+	// Get current link URL value
+	let current_link_url = $derived(show_link_input ? selected_node?.href : '');
 
 	function update_image_url() {
 		console.log('input_ref.value', input_ref.value);
@@ -150,10 +165,16 @@
 		doc.apply(tr);
 	}
 
+	function update_button_url() {
+		const tr = doc.tr;
+		tr.set(doc.selection.path, input_ref.value);
+		doc.apply(tr);
+	}
+
 	function handle_toolbar_keydown(event) {
 		console.log('toolbar keydown', event.key);
 		if (event.key === 'Enter' && input_ref) {
-			console.log('enter pressed');
+			console.log('enter pressed. updating image url');
 			update_image_url();
 			event.preventDefault();
 			event.stopPropagation();
@@ -226,6 +247,21 @@
 			<Icon name="link" />
 		</button>
 	{/if}
+	{#if show_link_input }
+  	<div class="contextual-input">
+  		<label>
+  			URL:
+  			<input
+  				bind:this={input_ref}
+  				type="url"
+  				value={current_link_url}
+  				placeholder="Enter link URL"
+  			/>
+  		</label>
+  	</div>
+  	<hr />
+	{/if}
+
 	{#if doc.selection?.type === 'node' && selected_node?.type === 'story'}
 		{#each layout_options as option}
 			<button
