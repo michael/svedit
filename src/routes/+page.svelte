@@ -340,7 +340,8 @@
           layout: 1,
           image: '',
           title: ['', []],
-          description: ['', []]
+          description: ['', []],
+          buttons: []
         };
     		tr.insert_nodes([new_story]);
       // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
@@ -355,7 +356,7 @@
         const new_list_item = {
           id: svid(),
           type: 'list_item',
-          content: ['New list item', []]
+          content: ['', []]
         };
         tr.create(new_list_item);
         const new_list = {
