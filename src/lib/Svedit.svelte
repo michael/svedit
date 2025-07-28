@@ -601,26 +601,31 @@
         const nodeLength = node.length;
 
         // Check if this node contains the start offset
-        if (!anchorNode && currentOffset + nodeLength >= start_offset) {
-          if (is_backward) {
+        if (is_backward) {
+          if (!focusNode && currentOffset + nodeLength >= start_offset) {
             focusNode = node;
             focusNodeOffset = start_offset - currentOffset;
-          } else {
+          }
+        } else {
+          if (!anchorNode && currentOffset + nodeLength >= start_offset) {
             anchorNode = node;
             anchorNodeOffset = start_offset - currentOffset;
           }
         }
 
         // Check if this node contains the end offset
-        if (!focusNode && currentOffset + nodeLength >= end_offset) {
-          if (is_backward) {
+        if (is_backward) {
+          if (!anchorNode && currentOffset + nodeLength >= end_offset) {
             anchorNode = node;
             anchorNodeOffset = end_offset - currentOffset;
-          } else {
+            return true; // Stop iteration
+          }
+        } else {
+          if (!focusNode && currentOffset + nodeLength >= end_offset) {
             focusNode = node;
             focusNodeOffset = end_offset - currentOffset;
+            return true; // Stop iteration
           }
-          return true; // Stop iteration
         }
 
         currentOffset += nodeLength;
@@ -655,12 +660,24 @@
 
     // Set the range if both start and end were found
     if (anchorNode && focusNode) {
-      range.setStart(anchorNode, anchorNodeOffset);
-      range.setEnd(focusNode, focusNodeOffset);
-      dom_selection.removeAllRanges();
-      dom_selection.addRange(range);
+      // Always set range in document order (start to end)
       if (is_backward) {
+        range.setStart(focusNode, focusNodeOffset);
+        range.setEnd(anchorNode, anchorNodeOffset);
+      } else {
+        range.setStart(anchorNode, anchorNodeOffset);
+        range.setEnd(focusNode, focusNodeOffset);
+      }
+
+      dom_selection.removeAllRanges();
+
+      if (is_backward) {
+        // For backward selections, collapse to end and extend to start
+        range.collapse(false); // collapse to end
+        dom_selection.addRange(range);
         dom_selection.extend(focusNode, focusNodeOffset);
+      } else {
+        dom_selection.addRange(range);
       }
       el.focus(); // needed?
 

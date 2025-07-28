@@ -12,12 +12,7 @@
 
 <Node {path}>
   <div class="image-grid max-w-screen-lg mx-auto">
-    <NodeArrayProperty class="image-grid-items" path={[...path, 'image_grid_items']}>
-      <!-- NOTE: We only allow image_grid_items inside image_grid -->
-      {#snippet node(node, path)}
-        <ImageGridItem {node} {path} {list_style} />
-      {/snippet}
-    </NodeArrayProperty>
+    <NodeArrayProperty class="image-grid-items" path={[...path, 'image_grid_items']} />
   </div>
 </Node>
 

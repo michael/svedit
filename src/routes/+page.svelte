@@ -5,6 +5,7 @@
   import { svid } from '$lib/util.js';
 
   import Story from './components/Story.svelte';
+  import Button from './components/Button.svelte';
   import Paragraph from './components/Paragraph.svelte';
   import Heading from './components/Heading.svelte';
   import List from './components/List.svelte';
@@ -48,10 +49,15 @@
     paragraph: {
       content: { type: 'annotated_string' },
     },
+    button: {
+      label: { type: 'annotated_string' },
+      href: { type: 'string' },
+    },
     story: {
       layout: { type: 'integer' },
       title: { type: 'annotated_string' },
       description: { type: 'annotated_string' },
+      buttons: { type: 'node_array', node_types: ['button'] },
       image: { type: 'string' }, // a dedicated type asset would be better
     },
     image_grid: {
@@ -94,6 +100,8 @@
   const list_item_3_id = 'list_item_3';
   const list_item_4_id = 'list_item_4';
 
+  const button_1_id = 'button_1';
+
   const image_grid_1_id = 'image_grid_1';
   const image_grid_item_1_id = 'image_grid_item_1';
   const image_grid_item_2_id = 'image_grid_item_2';
@@ -121,12 +129,19 @@
       content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured form-like content.', []]
     },
     {
+      id: button_1_id,
+      type: 'button',
+      label: ['Get started', []],
+      href: 'https://github.com/michael/svedit'
+    },
+    {
       id: story_1_id,
       type: 'story',
       layout: 1,
       image: '/images/editable.svg',
       title: ['Visual in‑place editing', []],
-      description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []]
+      description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []],
+      buttons: [button_1_id]
     },
     {
       id: story_2_id,
@@ -134,7 +149,8 @@
       layout: 2,
       image: '/images/lightweight.svg',
       title: ['Minimal viable editor', []],
-      description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]]
+      description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]],
+      buttons: []
     },
     {
       id: story_3_id,
@@ -142,7 +158,8 @@
       layout: 1,
       image: '/images/nested-blocks-illustration.svg',
       title: ['Nested nodes', []],
-      description: ['A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', []]
+      description: ['A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', []],
+      buttons: []
     },
 
     {
@@ -192,7 +209,8 @@
       layout: 2,
       image: '/images/node-cursors.svg',
       title: ['Node cursors', []],
-      description: ['They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.', []]
+      description: ['They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.', []],
+      buttons: []
     },
     {
       id: story_5_id,
@@ -200,7 +218,8 @@
       layout: 1,
       image: '/images/svelte-logo.svg',
       title: ['Made for Svelte 5', []],
-      description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, "link", {"href": "https://svelte.dev/"}], [80, 93, "emphasis", null] ]]
+      description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, "link", {"href": "https://svelte.dev/"}], [80, 93, "emphasis", null] ]],
+      buttons: []
     },
     {
       id: story_6_id,
@@ -208,7 +227,8 @@
       layout: 2,
       image: '/images/extendable.svg',
       title: ['Alpha version', []],
-      description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we\'ll be working to get fixed next:', []]
+      description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we\'ll be working to get fixed next:', []],
+      buttons: []
     },
     {
       id: list_item_1_id,
@@ -248,7 +268,8 @@
           [95, 112, "link", {"href": "https://michaelaufreiter.com", target: "_blank"}],
           [117,132, "link", {"href": "https://mutter.co", target: "_blank"}],
         ]
-      ]
+      ],
+      buttons: []
     },
     // IMPORTANT: The root node (entry point) must be the last one in the array
     {
@@ -266,6 +287,7 @@
   const document_config = {
     // Registry of components for each node type
     node_components: {
+      button: Button,
       heading: Heading,
       paragraph: Paragraph,
       story: Story,
@@ -277,7 +299,7 @@
     },
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
-    node_types_with_horizontal_node_arrays: ['image_grid'],
+    node_types_with_horizontal_node_arrays: ['image_grid', 'story'],
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
@@ -318,7 +340,8 @@
           layout: 1,
           image: '',
           title: ['', []],
-          description: ['', []]
+          description: ['', []],
+          buttons: []
         };
     		tr.insert_nodes([new_story]);
       // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
@@ -333,7 +356,7 @@
         const new_list_item = {
           id: svid(),
           type: 'list_item',
-          content: ['New list item', []]
+          content: ['', []]
         };
         tr.create(new_list_item);
         const new_list = {
@@ -392,6 +415,21 @@
           image: ''
         };
     		tr.insert_nodes([new_image_grid_item]);
+        tr.set_selection({
+          type: 'node',
+          path: [...tr.doc.selection.path ],
+          anchor_offset: tr.doc.selection.focus_offset,
+          focus_offset: tr.doc.selection.focus_offset
+        });
+      },
+      button: function(tr, content = ['', []]) {
+        const new_button = {
+          id: svid(),
+          type: 'button',
+          label: ['', []],
+          href: 'https://google.com'
+        };
+    		tr.insert_nodes([new_button]);
         tr.set_selection({
           type: 'node',
           path: [...tr.doc.selection.path ],
