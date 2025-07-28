@@ -190,7 +190,17 @@
     const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
-    if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) {
+      console.log(doc.selected_node?.id, doc.selected_node?.type);
+      const tr = doc.tr;
+      tr.set([doc.selected_node?.id, 'type'], 'paragraph');
+      console.log('selection', $state.snapshot(selection));
+      tr.set_selection(selection);
+      doc.apply(tr);
+      console.log('next compatible node type');
+    } else if (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) {
+      console.log('previous compatible node type');
+    } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
       if (select_all(tr)) {
         doc.apply(tr);
@@ -259,12 +269,14 @@
       if (isCollapsed) {
         // Try to insert default node if there's only one allowed ref_type
         const tr = doc.tr;
-        if (insert_default_node(tr)) {
-          doc.apply(tr);
-        } else {
-          // Fall back to focusing toolbar when multiple types are available
-          focus_toolbar();
-        }
+        insert_default_node(tr);
+        doc.apply(tr);
+        // if (insert_default_node(tr)) {
+        //   doc.apply(tr);
+        // } else {
+        //   // Fall back to focusing toolbar when multiple types are available
+        //   focus_toolbar();
+        // }
       } else if (spanLength === 1) {
         focus_toolbar();
       }

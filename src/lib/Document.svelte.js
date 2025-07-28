@@ -13,6 +13,9 @@ export default class Document {
   can_undo = $derived(this.history_index >= 0);
   can_redo = $derived(this.history_index < this.history.length - 1);
 
+	// Reactive variable for selected node
+	selected_node = $derived(this.get_selected_node());
+
   constructor(schema, raw_doc, { selection, config } = {}) {
     this.schema = schema;
     this.selection = selection;
@@ -28,6 +31,25 @@ export default class Document {
     // The last element in the raw_doc is the document itself (the root node)
     this.document_id = raw_doc.at(-1).id;
   }
+
+ 	// Helper function to get the currently selected node
+	get_selected_node() {
+		if (!this.selection) return null;
+
+		if (this.selection.type === 'node') {
+   		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+   		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+   		// Only consider selection of a single node
+   		if (end - start !== 1) return null;
+   		const node_array = this.get(this.selection.path);
+   		const node_id = node_array[start];
+   		return node_id ? this.get(node_id) : null;
+		} else {
+		  // we are assuming we are either in a text or property (=custom) selection
+			const owner_node = this.get(this.selection.path.slice(0, -1));
+			return owner_node;
+		}
+	}
 
   // Internal unsafe function: Never call this directly
   _apply_op(op) {
@@ -56,7 +78,8 @@ export default class Document {
   // Applies a transaction
   apply(transaction) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
-    this.selection = transaction.doc.selection;
+    // Make sure selection gets a new reference (is rerendered)
+    this.selection = { ...transaction.doc.selection };
     if (this.history_index < this.history.length - 1) {
       this.history = this.history.slice(0, this.history_index + 1);
     }
@@ -67,6 +90,9 @@ export default class Document {
       selection_after: this.selection
     });
     this.history_index++;
+
+
+    // this.selection = { ...this.selection };
     return this;
   }
 
@@ -353,6 +379,9 @@ export default class Document {
   property_type(type, property) {
     if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
     if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
+    // NOTE: Not sure if we should treat type and id as properties
+    if (property === 'type') return 'string';
+    if (property === 'id') return 'string';
 
     if (!this.schema[type]) throw new Error(`Type ${type} not found in schema`);
     if (!this.schema[type][property]) throw new Error(`Property ${property} not found in type ${type}`);

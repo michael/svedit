@@ -111,9 +111,9 @@ export function insert_default_node(tr) {
   const default_type = get_default_node_type(property_schema);
 
   // Only proceed if there's exactly one allowed node_type
-  if (!default_type || property_schema.node_types.length !== 1) {
-    return false;
-  }
+  // if (!default_type || property_schema.node_types.length !== 1) {
+  //   return false;
+  // }
 
   // Use the inserter function if available
   if (doc.config?.inserters?.[default_type]) {

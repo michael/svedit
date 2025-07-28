@@ -17,6 +17,21 @@
   import Overlays from './components/Overlays.svelte';
 	import Icon from './components/Icon.svelte';
 
+	const cta1_schema = {
+    title: { type: 'annotated_string' },
+    description: { type: 'annotated_string' },
+    primary_button: { type: 'node', node_types: ['button'] },
+    image: { type: 'string' }, // a dedicated type asset would be better
+	};
+
+	const cta2_schema = {
+    title: { type: 'annotated_string' },
+    description: { type: 'annotated_string' },
+    primary_button: { type: 'node', node_types: ['button'] },
+    secondary_button: { type: 'node', node_types: ['button'] },
+    image: { type: 'string' }, // a dedicated type asset would be better
+	};
+
   const document_schema = {
     page: {
       body: {

@@ -138,7 +138,8 @@ export default class Transaction {
 
     // Update the annotated string
     this.set(this.doc.selection.path, annotated_string);
-    this.doc.selection = { ...this.doc.selection };
+    // Not needed anymore as doc.apply makes sure selection is rerendered
+    // this.doc.selection = { ...this.doc.selection };
     return this;
   }
 
