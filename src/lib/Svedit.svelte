@@ -191,14 +191,29 @@
 
     // console.log('onkeydown', e.key);
     if (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) {
-      console.log(doc.selected_node?.id, doc.selected_node?.type);
-      const tr = doc.tr;
-      tr.set([doc.selected_node?.id, 'type'], 'paragraph');
-      console.log('selection', $state.snapshot(selection));
-      tr.set_selection(selection);
-      doc.apply(tr);
-      console.log('next compatible node type');
+      const node = doc.selected_node;
+      const layout_count = doc.config.node_layouts[node.type];
+
+      if (layout_count > 1 && node?.layout) {
+        const next_layout = (node.layout % layout_count) + 1;
+        console.log('layout / count / next_layout', node.layout, layout_count, next_layout);
+        const tr = doc.tr;
+        tr.set([doc.selected_node?.id, 'layout'], next_layout);
+        doc.apply(tr);
+      }
     } else if (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) {
+      const node = doc.selected_node;
+      const layout_count = doc.config.node_layouts[node.type];
+      if (layout_count > 1 && node?.layout) {
+        const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
+        const tr = doc.tr;
+        tr.set([doc.selected_node?.id, 'layout'], prev_layout);
+        doc.apply(tr);
+        console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
+      }
+    } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
+      console.log('next node type');
+    } else if (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) {
       console.log('previous compatible node type');
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;

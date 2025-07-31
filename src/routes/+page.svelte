@@ -312,6 +312,17 @@
       image_grid_item: ImageGridItem,
       hero: Hero
     },
+    node_layouts: {
+      button: 1,
+      heading: 1,
+      paragraph: 1,
+      story: 3,
+      list: 1,
+      list_item: 1,
+      image_grid: 1,
+      image_grid_item: 1,
+      hero: 1
+    },
     // Those node types have horizontal-ish node_arrays
     // E.g. used by Overlays.svelte to render node cursors the right way.
     node_types_with_horizontal_node_arrays: ['image_grid', 'story'],
@@ -349,6 +360,13 @@
         });
       },
       story: function(tr) {
+        const new_button = {
+          id: svid(),
+          type: 'button',
+          label: ['', []],
+          href: 'https://editable.website'
+        };
+        tr.create(new_button);
         const new_story = {
           id: svid(),
           type: 'story',
@@ -356,7 +374,7 @@
           image: '',
           title: ['', []],
           description: ['', []],
-          buttons: []
+          buttons: [new_button.id]
         };
     		tr.insert_nodes([new_story]);
       // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
@@ -442,7 +460,7 @@
           id: svid(),
           type: 'button',
           label: ['', []],
-          href: 'https://google.com'
+          href: 'https://editable.website'
         };
     		tr.insert_nodes([new_button]);
         tr.set_selection({
