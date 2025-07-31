@@ -6,8 +6,7 @@
 
   import Story from './components/Story.svelte';
   import Button from './components/Button.svelte';
-  import Paragraph from './components/Paragraph.svelte';
-  import Heading from './components/Heading.svelte';
+  import Text from './components/Text.svelte';
   import List from './components/List.svelte';
   import ListItem from './components/ListItem.svelte';
   import ImageGrid from './components/ImageGrid.svelte';
@@ -36,8 +35,8 @@
     page: {
       body: {
         type: 'node_array',
-        node_types: ['paragraph', 'heading', 'story', 'list', 'image_grid', 'hero'],
-        default_ref_type: 'paragraph',
+        node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
+        default_ref_type: 'text',
       },
       hero: {
         type: 'node',
@@ -58,10 +57,8 @@
       description: { type: 'annotated_string' },
       image: { type: 'string' }, // a dedicated type asset would be better
     },
-    heading: {
-      content: { type: 'annotated_string' },
-    },
-    paragraph: {
+    text: {
+      layout: { type: 'integer' },
       content: { type: 'annotated_string' },
     },
     button: {
@@ -135,12 +132,14 @@
     },
     {
       id: heading_1_id,
-      type: 'heading',
+      type: 'text',
+      layout: 2,
       content: ['Text and structured content in symbiosis', []]
     },
     {
       id: paragraph_1_id,
-      type: 'paragraph',
+      type: 'text',
+      layout: 1,
       content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured form-like content.', []]
     },
     {
@@ -303,8 +302,7 @@
     // Registry of components for each node type
     node_components: {
       button: Button,
-      heading: Heading,
-      paragraph: Paragraph,
+      text: Text,
       story: Story,
       list: List,
       list_item: ListItem,
@@ -314,8 +312,7 @@
     },
     node_layouts: {
       button: 1,
-      heading: 1,
-      paragraph: 1,
+      text: 4,
       story: 3,
       list: 5,
       list_item: 1,
@@ -329,29 +326,15 @@
     // Custom functions to insert new "blank" nodes and setting the selection depening on the
     // intended behavior.
     inserters: {
-      heading: function(tr, content = ['', []]) {
-        const new_heading = {
+      text: function(tr, content = ['', []], layout = 1) {
+        const new_text = {
      			id: svid(),
-     			type: 'heading',
+     			type: 'text',
+          layout,
      			content
    		};
-   		tr.insert_nodes([new_heading]);
+   		tr.insert_nodes([new_text]);
         // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-        tr.set_selection({
-          type: 'text',
-          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
-          anchor_offset: 0,
-          focus_offset: 0
-        });
-      },
-      paragraph: function(tr, content = ['', []]) {
-        const new_paragraph = {
-     			id: svid(),
-     			type: 'paragraph',
-     			content
-    		};
-    		tr.insert_nodes([new_paragraph]);
-      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
         tr.set_selection({
           type: 'text',
           path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
