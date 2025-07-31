@@ -14,19 +14,19 @@
 		{ value: 3, label: 'Image top', icon: 'image-at-top' }
 	];
 
-	const list_style_options = [
-		{ value: 'square', label: 'Square', icon: 'square' },
-		{ value: 'disc', label: 'Disc', icon: 'disc' },
+	const list_layout_options = [
+		{ value: 1, label: 'Square', icon: 'square' },
+		{ value: 2, label: 'Disc', icon: 'disc' },
 		{
-			value: 'decimal-leading-zero',
+			value: 3,
 			label: 'Decimal leading zero',
 			icon: 'list-decimal-leading-zero'
 		},
 		// { value: 'decimal', label: 'Decimal', icon: 'list-decimal' },
-		{ value: 'lower-latin', label: 'Lower latin', icon: 'list-lower-latin' },
+		{ value: 4, label: 'Lower latin', icon: 'list-lower-latin' },
 		// { value: 'lower-roman', label: 'Lower roman', icon: 'list-lower-roman' },
 		// { value: 'upper-latin', label: 'Upper latin', icon: 'list-upper-latin' },
-		{ value: 'upper-roman', label: 'Upper roman', icon: 'list-upper-roman' }
+		{ value: 5, label: 'Upper roman', icon: 'list-upper-roman' }
 	];
 
 	function snake_to_human(snake_str) {
@@ -54,7 +54,7 @@
 		}
 	}
 
-	function handle_list_style_change(list_style) {
+	function handle_list_layout_change(layout) {
 		if (!doc.selection || doc.selection.type !== 'node') return;
 
 		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
@@ -63,7 +63,7 @@
 
 		if (node_id) {
 			const tr = doc.tr;
-			tr.set([node_id, 'list_style'], list_style);
+			tr.set([node_id, 'layout'], layout);
 			doc.apply(tr);
 		}
 	}
@@ -251,10 +251,10 @@
 	{/if}
 	{#if doc.selection?.type === 'node' && doc.selected_node?.type === 'list'}
 		<hr />
-		{#each list_style_options as option}
+		{#each list_layout_options as option}
 			<button
-				onclick={() => handle_list_style_change(option.value)}
-				class:active={doc.selected_node.list_style === option.value}
+				onclick={() => handle_list_layout_change(option.value)}
+				class:active={doc.selected_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>

@@ -7,7 +7,6 @@
   const svedit = getContext('svedit');
   let { path } = $props();
   let node = $derived(svedit.doc.get(path));
-  let list_style = $derived(node.list_style);
 </script>
 
 <Node {path}>

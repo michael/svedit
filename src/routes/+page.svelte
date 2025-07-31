@@ -93,7 +93,7 @@
         type: 'node_array',
         node_types: ['list_item'],
       },
-      list_style: { type: 'string' },
+      layout: { type: 'integer' },
     },
   };
 
@@ -269,7 +269,7 @@
       id: list_1_id,
       type: 'list',
       list_items: [list_item_1_id, list_item_2_id, list_item_3_id, list_item_4_id],
-      list_style: 'decimal-leading-zero',
+      layout: 3,
     },
     {
       id: story_7_id,
@@ -317,7 +317,7 @@
       heading: 1,
       paragraph: 1,
       story: 3,
-      list: 1,
+      list: 5,
       list_item: 1,
       image_grid: 1,
       image_grid_item: 1,
@@ -396,7 +396,7 @@
           id: svid(),
           type: 'list',
           list_items: [new_list_item.id],
-          list_style: 'decimal-leading-zero',
+          layout: 3,
         };
     		tr.insert_nodes([new_list]);
         tr.set_selection({
