@@ -335,12 +335,12 @@
     		};
     		tr.insert_nodes([new_text]);
         // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-        // tr.set_selection({
-        //   type: 'text',
-        //   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
-        //   anchor_offset: 0,
-        //   focus_offset: 0
-        // });
+        tr.set_selection({
+          type: 'text',
+          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
+          anchor_offset: 0,
+          focus_offset: 0
+        });
       },
       story: function(tr) {
         const new_button = {

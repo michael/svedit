@@ -215,6 +215,7 @@
 
       const node = doc.selected_node;
       if (selection.type !== 'node') return;
+      const old_selection = { ...doc.selection };
 
       const node_array_schema = doc.inspect(selection.path);
       // If we are not dealing with a node selection in a container, return
@@ -226,10 +227,13 @@
       const tr = doc.tr;
       doc.config.inserters[next_type](tr);
       doc.apply(tr);
+      doc.selection = old_selection;
 
     } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
       const node = doc.selected_node;
       if (selection.type !== 'node') return;
+
+      const old_selection = { ...doc.selection };
 
       const node_array_schema = doc.inspect(selection.path);
       // If we are not dealing with a node selection in a container, return
@@ -241,7 +245,14 @@
       const prev_type = node_array_schema.node_types[prev_type_index];
       const tr = doc.tr;
       doc.config.inserters[prev_type](tr);
+      tr.set_selection({
+        type: 'text',
+        path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      });
       doc.apply(tr);
+      doc.selection = old_selection;
 
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
