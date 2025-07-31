@@ -211,10 +211,38 @@
         doc.apply(tr);
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
-    } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
-      console.log('next node type');
     } else if (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) {
-      console.log('previous compatible node type');
+
+      const node = doc.selected_node;
+      if (selection.type !== 'node') return;
+
+      const node_array_schema = doc.inspect(selection.path);
+      // If we are not dealing with a node selection in a container, return
+      if (node_array_schema.type !== 'node_array') return;
+
+      const current_type_index = node_array_schema.node_types.indexOf(node.type);
+      const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
+      const next_type = node_array_schema.node_types[next_type_index];
+      const tr = doc.tr;
+      doc.config.inserters[next_type](tr);
+      doc.apply(tr);
+
+    } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
+      const node = doc.selected_node;
+      if (selection.type !== 'node') return;
+
+      const node_array_schema = doc.inspect(selection.path);
+      // If we are not dealing with a node selection in a container, return
+      if (node_array_schema.type !== 'node_array') return;
+
+      const current_type_index = node_array_schema.node_types.indexOf(node.type);
+      // return (current_layout_number - 1 + layout_count) % layout_count;
+      const prev_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
+      const prev_type = node_array_schema.node_types[prev_type_index];
+      const tr = doc.tr;
+      doc.config.inserters[prev_type](tr);
+      doc.apply(tr);
+
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
       if (select_all(tr)) {

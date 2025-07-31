@@ -332,15 +332,15 @@
      			type: 'text',
           layout,
      			content
-   		};
-   		tr.insert_nodes([new_text]);
+    		};
+    		tr.insert_nodes([new_text]);
         // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-        tr.set_selection({
-          type: 'text',
-          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
-          anchor_offset: 0,
-          focus_offset: 0
-        });
+        // tr.set_selection({
+        //   type: 'text',
+        //   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
+        //   anchor_offset: 0,
+        //   focus_offset: 0
+        // });
       },
       story: function(tr) {
         const new_button = {
@@ -360,13 +360,13 @@
           buttons: [new_button.id]
         };
     		tr.insert_nodes([new_story]);
-      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-        tr.set_selection({
-          type: 'text',
-          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
-          anchor_offset: 0,
-          focus_offset: 0
-        });
+        // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
+        // tr.set_selection({
+        //   type: 'text',
+        //   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
+        //   anchor_offset: 0,
+        //   focus_offset: 0
+        // });
       },
       list: function(tr) {
         const new_list_item = {
@@ -382,12 +382,12 @@
           layout: 3,
         };
     		tr.insert_nodes([new_list]);
-        tr.set_selection({
-          type: 'text',
-          path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
-          anchor_offset: 0,
-          focus_offset: 0
-        });
+        // tr.set_selection({
+        //   type: 'text',
+        //   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
+        //   anchor_offset: 0,
+        //   focus_offset: 0
+        // });
       },
       list_item: function(tr, content = ['', []]) {
         const new_list_item = {
@@ -462,12 +462,12 @@
           image: '',
         };
         tr.insert_nodes([new_hero]);
-        tr.set_selection({
-          type: 'text',
-          path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
-          anchor_offset: 0,
-          focus_offset: 0
-        });
+        // tr.set_selection({
+        //   type: 'text',
+        //   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
+        //   anchor_offset: 0,
+        //   focus_offset: 0
+        // });
       }
     }
   };
