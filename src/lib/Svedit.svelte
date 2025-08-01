@@ -225,9 +225,12 @@
       const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
       const next_type = node_array_schema.node_types[next_type_index];
       const tr = doc.tr;
+      tr.delete_selection();
+      console.log($state.snapshot(tr.ops), $state.snapshot(tr.inverse_ops));
       doc.config.inserters[next_type](tr);
+      tr.set_selection(old_selection);
       doc.apply(tr);
-      doc.selection = old_selection;
+
 
     } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
       const node = doc.selected_node;
@@ -244,15 +247,10 @@
       const prev_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
       const prev_type = node_array_schema.node_types[prev_type_index];
       const tr = doc.tr;
+      tr.delete_selection();
       doc.config.inserters[prev_type](tr);
-      tr.set_selection({
-        type: 'text',
-        path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
-        anchor_offset: 0,
-        focus_offset: 0
-      });
+      tr.set_selection(old_selection);
       doc.apply(tr);
-      doc.selection = old_selection;
 
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
