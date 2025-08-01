@@ -57,6 +57,53 @@
   }
 
 
+  function prepare_copy_payload(selected_node_ids) {
+    const all_nodes = {};
+    const id_mapping = {};
+    
+    // First pass: collect all nodes (main + referenced) and create ID mapping
+    const to_process = [...selected_node_ids];
+    const processed = new Set();
+    
+    while (to_process.length > 0) {
+      const node_id = to_process.pop();
+      if (processed.has(node_id)) continue;
+      processed.add(node_id);
+      
+      const node = doc.get(node_id);
+      const new_id = svid();
+      id_mapping[node_id] = new_id;
+      all_nodes[node_id] = { ...node, id: new_id };
+      
+      // Add referenced nodes to processing queue
+      const referenced_node_ids = doc.get_referenced_nodes(node_id);
+      to_process.push(...referenced_node_ids);
+    }
+    
+    // Second pass: update all references to use new IDs
+    for (const [original_id, node] of Object.entries(all_nodes)) {
+      for (const [property, value] of Object.entries(node)) {
+        if (property === 'id' || property === 'type') continue;
+        
+        const prop_type = doc.schema[node.type]?.[property]?.type;
+        
+        if (prop_type === 'node_array' && Array.isArray(value)) {
+          node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
+        } else if (prop_type === 'node' && typeof value === 'string') {
+          node[property] = id_mapping[value] || value;
+        }
+      }
+    }
+    
+    // Separate main nodes from referenced nodes
+    const main_nodes = selected_node_ids.map(id => all_nodes[id]);
+    const referenced_nodes = Object.entries(all_nodes)
+      .filter(([original_id]) => !selected_node_ids.includes(original_id))
+      .map(([_, node]) => node);
+    
+    return { main_nodes, referenced_nodes };
+  }
+
   function oncopy(event, delete_selection = false) {
     // Only handle copy events if focus is within the canvas
     if (!ref?.contains(document.activeElement)) return;
@@ -71,16 +118,20 @@
       html = plain_text;
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
-      json_data = [];
-      selected_nodes.forEach(node_id => {
-        const node = doc.get(node_id);
-        // On cut we keep the ids of the selection, on copy we generate new ids for the nodes to be pasted.
-        const id = delete_selection ? node.id : svid();
-        json_data.push({
-          ...node,
-          id,
-        });
+      const { main_nodes, referenced_nodes } = prepare_copy_payload(selected_nodes);
+      
+      json_data = {
+        nodes: main_nodes,
+        referenced_nodes: referenced_nodes
+      };
+      
+      console.log('Copy operation:', {
+        selected_nodes,
+        main_nodes: main_nodes.map(n => n.id),
+        referenced_nodes: referenced_nodes.map(n => n.id),
+        operation: delete_selection ? 'cut' : 'copy'
       });
+
     }
 
     // Create a ClipboardItem with multiple formats
@@ -127,9 +178,39 @@
       pasted_json = JSON.parse(await json_blob.text());
     } catch(e) {}
     if (pasted_json) {
-      // ATM we assume when we get JSON, that we are dealing with a sequence of nodes that was copied
-      const nodes = pasted_json;
-      doc.apply(doc.tr.insert_nodes(nodes));
+      let nodes = [];
+      let referenced_nodes = [];
+      
+      // Handle both old format (array of nodes) and new format
+      if (Array.isArray(pasted_json)) {
+        // Old format - just an array of nodes
+        nodes = pasted_json;
+      } else {
+        // New format - object with nodes and referenced_nodes
+        nodes = pasted_json.nodes || [];
+        referenced_nodes = pasted_json.referenced_nodes || [];
+      }
+      
+      const tr = doc.tr;
+      
+      console.log('Paste operation:', {
+        main_nodes: nodes.map(n => n.id),
+        referenced_nodes: referenced_nodes.map(n => n.id)
+      });
+      
+      // First, create any referenced nodes that don't already exist in the document
+      referenced_nodes.forEach(node => {
+        if (!doc.get(node.id)) {
+          console.log('Creating referenced node:', node.id, node.type);
+          tr.create(node);
+        } else {
+          console.log('Referenced node already exists:', node.id);
+        }
+      });
+      
+      // Then insert the main nodes
+      tr.insert_nodes(nodes);
+      doc.apply(tr);
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
