@@ -102,7 +102,7 @@ export default class Document {
     }
     const change = this.history[this.history_index];
     const tr = this.tr;
-    change.inverse_ops.forEach(op => tr.doc._apply_op(op));
+    change.inverse_ops.slice().reverse().forEach(op => tr.doc._apply_op(op));
     this.nodes = tr.doc.nodes;
     this.selection = change.selection_before;
     this.history_index--;

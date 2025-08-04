@@ -60,33 +60,33 @@
   function prepare_copy_payload(selected_node_ids) {
     const all_nodes = {};
     const id_mapping = {};
-    
+
     // First pass: collect all nodes (main + referenced) and create ID mapping
     const to_process = [...selected_node_ids];
     const processed = new Set();
-    
+
     while (to_process.length > 0) {
       const node_id = to_process.pop();
       if (processed.has(node_id)) continue;
       processed.add(node_id);
-      
+
       const node = doc.get(node_id);
       const new_id = svid();
       id_mapping[node_id] = new_id;
       all_nodes[node_id] = { ...node, id: new_id };
-      
+
       // Add referenced nodes to processing queue
       const referenced_node_ids = doc.get_referenced_nodes(node_id);
       to_process.push(...referenced_node_ids);
     }
-    
+
     // Second pass: update all references to use new IDs
     for (const [original_id, node] of Object.entries(all_nodes)) {
       for (const [property, value] of Object.entries(node)) {
         if (property === 'id' || property === 'type') continue;
-        
+
         const prop_type = doc.schema[node.type]?.[property]?.type;
-        
+
         if (prop_type === 'node_array' && Array.isArray(value)) {
           node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
         } else if (prop_type === 'node' && typeof value === 'string') {
@@ -94,13 +94,13 @@
         }
       }
     }
-    
+
     // Separate main nodes from referenced nodes
     const main_nodes = selected_node_ids.map(id => all_nodes[id]);
     const referenced_nodes = Object.entries(all_nodes)
       .filter(([original_id]) => !selected_node_ids.includes(original_id))
       .map(([_, node]) => node);
-    
+
     return { main_nodes, referenced_nodes };
   }
 
@@ -180,7 +180,7 @@
     if (pasted_json) {
       let nodes = [];
       let referenced_nodes = [];
-      
+
       // Handle both old format (array of nodes) and new format
       if (Array.isArray(pasted_json)) {
         // Old format - just an array of nodes
@@ -190,14 +190,14 @@
         nodes = pasted_json.nodes || [];
         referenced_nodes = pasted_json.referenced_nodes || [];
       }
-      
+
       const tr = doc.tr;
-      
+
       console.log('Paste operation:', {
         main_nodes: nodes.map(n => n.id),
         referenced_nodes: referenced_nodes.map(n => n.id)
       });
-      
+
       // First, create any referenced nodes that don't already exist in the document
       referenced_nodes.forEach(node => {
         if (!doc.get(node.id)) {
@@ -207,7 +207,7 @@
           console.log('Referenced node already exists:', node.id);
         }
       });
-      
+
       // Then insert the main nodes
       tr.insert_nodes(nodes);
       doc.apply(tr);
@@ -306,8 +306,6 @@
       const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
       const next_type = node_array_schema.node_types[next_type_index];
       const tr = doc.tr;
-      tr.delete_selection();
-      console.log($state.snapshot(tr.ops), $state.snapshot(tr.inverse_ops));
       doc.config.inserters[next_type](tr);
       tr.set_selection(old_selection);
       doc.apply(tr);
@@ -316,9 +314,7 @@
     } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
       const node = doc.selected_node;
       if (selection.type !== 'node') return;
-
       const old_selection = { ...doc.selection };
-
       const node_array_schema = doc.inspect(selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
@@ -328,7 +324,6 @@
       const prev_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
       const prev_type = node_array_schema.node_types[prev_type_index];
       const tr = doc.tr;
-      tr.delete_selection();
       doc.config.inserters[prev_type](tr);
       tr.set_selection(old_selection);
       doc.apply(tr);

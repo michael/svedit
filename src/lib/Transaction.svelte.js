@@ -242,6 +242,11 @@ export default class Transaction {
   insert_nodes(nodes) {
     if (this.doc.selection.type !== 'node') return;
 
+    // Unless cursor is collapsed, delete the selected nodes as a first step
+    if (this.doc.selection.anchor_offset !== this.doc.selection.focus_offset) {
+      this.delete_selection();
+    }
+
     const path = this.doc.selection.path;
     const node_array = [...this.doc.get(path)];
 
@@ -270,7 +275,6 @@ export default class Transaction {
 
     this.doc.selection = {
       type: 'node',
-      // NOTE: we hard code this temporarily as both story and list-item have a description property
       path: [...this.doc.selection.path],
       anchor_offset: start,
       focus_offset: start + nodes.length
