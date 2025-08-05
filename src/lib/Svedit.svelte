@@ -119,12 +119,12 @@
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       const { main_nodes, referenced_nodes } = prepare_copy_payload(selected_nodes);
-      
+
       json_data = {
         nodes: main_nodes,
         referenced_nodes: referenced_nodes
       };
-      
+
       console.log('Copy operation:', {
         selected_nodes,
         main_nodes: main_nodes.map(n => n.id),
@@ -293,12 +293,14 @@
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
     } else if (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) {
-
       const node = doc.selected_node;
-      if (selection.type !== 'node') return;
+
+      if (doc.selection.type !== 'node') {
+        doc.select_parent();
+      }
       const old_selection = { ...doc.selection };
 
-      const node_array_schema = doc.inspect(selection.path);
+      const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
 
@@ -313,9 +315,14 @@
 
     } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
       const node = doc.selected_node;
-      if (selection.type !== 'node') return;
+
+      if (doc.selection.type !== 'node') {
+        doc.select_parent();
+      }
+
+      // if (selection.type !== 'node') return;
       const old_selection = { ...doc.selection };
-      const node_array_schema = doc.inspect(selection.path);
+      const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
 

@@ -22,8 +22,8 @@
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} />
-			<AnnotatedStringProperty class="body" path={[...path, 'description']} />
+			<AnnotatedStringProperty class="heading2" path={[...path, 'title']} placeholder="The CTA headline should be clear and benefit-driven." />
+			<AnnotatedStringProperty class="body" path={[...path, 'description']} placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional." />
 			<NodeArrayProperty class="buttons{!has_buttons ? ' empty' : ''}" path={[...path, 'buttons']} />
 		</div>
 	</div>

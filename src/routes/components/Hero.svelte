@@ -20,8 +20,8 @@
 			<div class="hero-overlay"></div>
 		{/if}
 		<div class="hero-content">
-			<AnnotatedStringProperty class="hero-title" path={[...path, 'title']} />
-			<AnnotatedStringProperty class="hero-subtitle" path={[...path, 'description']} />
+			<AnnotatedStringProperty class="hero-title" path={[...path, 'title']} placeholder="A hero is the prominent, top-most section of a webpage"/>
+			<AnnotatedStringProperty class="hero-subtitle" path={[...path, 'description']} placeholder="It should be accompanied by a short description." />
 			<div class="github-button-wrapper">
 			  <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
 			</div>

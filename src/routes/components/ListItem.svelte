@@ -22,7 +22,7 @@
 
 <Node {path}>
 	<div class="list-item" style="--list-style: {list_style};">
-		<AnnotatedStringProperty path={[...path, 'content']} />
+		<AnnotatedStringProperty path={[...path, 'content']} placeholder="List item" />
 	</div>
 </Node>
 

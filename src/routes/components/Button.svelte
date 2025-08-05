@@ -11,7 +11,7 @@
 
 <Node {path}>
 	<a href={node.href} class="button">
-		<AnnotatedStringProperty class="body" path={[...path, 'label']} />
+		<AnnotatedStringProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
 	</a>
 </Node>
 
@@ -31,7 +31,7 @@
 	  opacity: 0.8;
 	}
 
-	.button :global(.body) {
-		min-width: 50px;
-	}
+	/*.button :global(.body) {
+		min-width: 60px;
+	}*/
 </style>

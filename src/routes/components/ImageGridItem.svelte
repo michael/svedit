@@ -20,7 +20,7 @@
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedStringProperty class="heading3" path={[...path, 'title']} />
+			<AnnotatedStringProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
 			<!-- <AnnotatedStringProperty class="body" path={[...path, 'description']} /> -->
 		</div>
 	</div>

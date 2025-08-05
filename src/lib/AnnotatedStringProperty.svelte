@@ -2,7 +2,12 @@
 	import { getContext } from 'svelte';
 	const svedit = getContext('svedit');
 
-	let { path, class: css_class, editable = true } = $props();
+	let {
+		path,
+		class: css_class,
+		editable = true,
+		placeholder,
+	} = $props();
 
 	let is_focused = $derived.by(() => {
 		return svedit.doc.selection?.type === 'text' && path.join('.') === svedit.doc.selection?.path.join('.');
@@ -59,6 +64,7 @@
  	class="text svedit-selectable {css_class}"
  	class:empty={plain_text.length === 0}
   class:focused={is_focused}
+  placeholder={placeholder}
 >
   {#each fragments as fragment, index}
 		{#if typeof fragment === 'string'}<!--
@@ -91,10 +97,26 @@
     }
   }
 
-  .text.empty {
+  /* :not(.focused) */
+  [placeholder].empty::before {
+      content: attr(placeholder);
+      pointer-events: none;
+      color: color-mix(in oklch, currentcolor 50%, transparent);
+      /*display: inline;*/
+  }
+
+  /*[placeholder].empty * {
+    display: flex-inline;
+  }*/
+
+  [placeholder].empty {
+    position: relative;
+  }
+
+  /*.text.empty {
     background: var(--secondary-fill-color);
     outline: none;
-  }
+  }*/
 
   /* .text.empty:not(.focused):hover {
     background: lightgray;
