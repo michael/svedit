@@ -332,9 +332,9 @@ export default class Document {
   }
 
   // Traverses the document and returns a JSON representation.
-  // IMPORTANT: Leaf nodes must go first, branches second and the root node last (depth-first traversal)
-  // NOTE: Nodes that are not reachable from the root node will be purged on serialization.
-  to_json() {
+  // IMPORTANT: Leaf nodes must go first, branches second and the root node (entry point) last (depth-first traversal)
+  // NOTE: Nodes that are not reachable from the entry point node will not be included in the serialization
+  traverse(node_id) {
     const json = [];
     const visited = {};
     const visit = (node) => {
@@ -360,8 +360,12 @@ export default class Document {
       json.push(structuredClone(node));
     }
     // Start with the root node (document_id)
-    visit($state.snapshot(this.get(this.document_id)));
+    visit($state.snapshot(this.get(node_id)));
     return json;
+  }
+
+  to_json(node_id) {
+    return this.traverse(this.document_id);
   }
 
   // property_type('page', 'body') => 'node_array'
