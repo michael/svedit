@@ -7,6 +7,9 @@
 		class: css_class,
 		editable = true,
 		placeholder,
+		// HACK: This can be used to improve usability for elements where
+		// we know they have only one line, and are not centered.
+		absolute_positioned_placeholder = false,
 	} = $props();
 
 	let is_focused = $derived.by(() => {
@@ -64,6 +67,7 @@
  	class="text svedit-selectable {css_class}"
  	class:empty={plain_text.length === 0}
   class:focused={is_focused}
+  class:absolute-positioned-placeholder={absolute_positioned_placeholder}
   placeholder={placeholder}
 >
   {#each fragments as fragment, index}
@@ -98,13 +102,22 @@
   }
 
   /* :not(.focused) */
-  [placeholder].empty::before {
-      content: attr(placeholder);
-      pointer-events: none;
-      color: color-mix(in oklch, currentcolor 50%, transparent);
-      /*display: inline;*/
+  [placeholder].empty:not(.absolute-positioned-placeholder)::before {
+    content: attr(placeholder);
+    pointer-events: none;
+    color: color-mix(in oklch, currentcolor 50%, transparent);
   }
 
+  [placeholder].empty.absolute-positioned-placeholder::before {
+    content: attr(placeholder);
+    pointer-events: none;
+    color: color-mix(in oklch, currentcolor 50%, transparent);
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  /* if placeholder wraps to second line
   /*[placeholder].empty * {
     display: flex-inline;
   }*/

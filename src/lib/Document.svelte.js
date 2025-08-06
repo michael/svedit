@@ -208,6 +208,16 @@ export default class Document {
     }
   }
 
+  // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
+  // NOTE: currently we assume a 'content' property for pure text nodes
+  kind(node) {
+    if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
+      return 'text'
+    } else {
+      return 'node';
+    }
+  }
+
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
 
@@ -407,7 +417,7 @@ export default class Document {
   // Get all nodes referenced by a given node (recursively)
   get_referenced_nodes(node_id) {
     const traversed_nodes = this.traverse(node_id);
-    
+
     // Extract IDs and exclude the last element (root node)
     return traversed_nodes
       .slice(0, -1)
