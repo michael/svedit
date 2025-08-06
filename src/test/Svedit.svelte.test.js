@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
-import { create_test_doc } from './create_test_doc.js';
+import create_test_doc from './create_test_doc.js';
 
 describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {

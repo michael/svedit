@@ -175,8 +175,8 @@ export default class Document {
   //   kind: 'property',
   //   name: 'body',
   //   type: 'node_array',
-  //   node_types: ['paragraph', 'story', 'list'],
-  //   default_ref_type: 'paragraph'
+  //   node_types: ['text', 'story', 'list'],
+  //   default_node_type: 'text'
   // }
   //
   // doc.inspect(['page_1', 'body', 1]) => {
@@ -205,16 +205,6 @@ export default class Document {
         type: node.type,
         properties: this.schema[node.type]
       }
-    }
-  }
-
-  // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
-  // NOTE: currently we assume a 'content' property for pure text nodes
-  kind(node) {
-    if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
-      return 'text'
-    } else {
-      return 'node';
     }
   }
 

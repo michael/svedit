@@ -137,6 +137,6 @@ export function get_default_node_type(property_schema) {
     return null;
   }
 
-  return property_schema.default_ref_type ||
+  return property_schema.default_node_type ||
     (property_schema.node_types.length === 1 ? property_schema.node_types[0] : null);
 }

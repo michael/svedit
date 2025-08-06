@@ -47,9 +47,6 @@
 				return 'Paragraph';
 		}
 	}
-
-	$inspect(is_selected);
-
 </script>
 
 <Node {path}>

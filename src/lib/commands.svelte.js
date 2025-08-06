@@ -12,7 +12,7 @@ export function break_text_node(tr) {
 
   // Owner of the text property (e.g. paragraph)
   const node = doc.get(selection.path.slice(0, -1));
-  if (doc.kind(node) !== 'text') return false;
+  if (node.type !== 'text') return false;
   const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
   // console.log('is_inside_node_array', is_inside_node_array);
   if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
@@ -62,7 +62,7 @@ export function join_text_node(tr) {
   if (!selection.type === 'text') return false;
 
   const node = doc.get(selection.path.slice(0, -1));
-  if (doc.kind(node) !== 'text') return false;
+  if (node.type !== 'text') return false;
   const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
   // console.log('is_inside_node_array', is_inside_node_array);
   if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
@@ -72,7 +72,7 @@ export function join_text_node(tr) {
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
   const predecessor_node = doc.get(previous_text_path);
   // Predecessor node also must be a text-ish node to be joinable.
-  if (doc.kind(predecessor_node) !== 'text') return false;
+  if (predecessor_node.type !== 'text') return false;
 
   const joined_text = join_annotated_string(predecessor_node.content, node.content);
 
