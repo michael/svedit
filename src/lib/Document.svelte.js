@@ -405,31 +405,12 @@ export default class Document {
   }
 
   // Get all nodes referenced by a given node (recursively)
-  get_referenced_nodes(node_id, visited = new Set()) {
-    if (visited.has(node_id)) return [];
-    visited.add(node_id);
-
-    const node = this.nodes[node_id];
-    if (!node) return [];
-
-    const referenced = [];
-
-    for (const [property, value] of Object.entries(node)) {
-      if (property === 'id' || property === 'type') continue;
-
-      const prop_type = this.property_type(node.type, property);
-
-      if (prop_type === 'node_array' && Array.isArray(value)) {
-        for (const ref_id of value) {
-          referenced.push(ref_id);
-          referenced.push(...this.get_referenced_nodes(ref_id, visited));
-        }
-      } else if (prop_type === 'node' && typeof value === 'string') {
-        referenced.push(value);
-        referenced.push(...this.get_referenced_nodes(value, visited));
-      }
-    }
-
-    return referenced;
+  get_referenced_nodes(node_id) {
+    const traversed_nodes = this.traverse(node_id);
+    
+    // Extract IDs and exclude the last element (root node)
+    return traversed_nodes
+      .slice(0, -1)
+      .map(node => node.id);
   }
 }
