@@ -51,7 +51,7 @@
 
 <Node {path}>
 	<div class="text layout-{layout} max-w-screen-lg mx-auto w-full">
-	  <AnnotatedStringProperty class={text_style} path={[...path, 'content']} placeholder={readable_text_type} absolute_positioned_placeholder={true}/>
+	  <AnnotatedStringProperty class={text_style} path={[...path, 'content']} placeholder={readable_text_type} />
 		{#if is_empty && is_selected}
 		  <span contenteditable="false" class="shortcuts caption">⌃⌥↓ next type ⌃⌥→ next layout</span>
 		{/if}
