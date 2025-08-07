@@ -91,8 +91,6 @@ export default class Document {
     });
     this.history_index++;
 
-
-    // this.selection = { ...this.selection };
     return this;
   }
 

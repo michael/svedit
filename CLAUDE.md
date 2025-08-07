@@ -14,6 +14,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:e2e` - Run end-to-end tests with Playwright
 - `npm run test` - Run both unit and e2e tests
 
+**Testing Guidelines:**
+- DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
+- The user prefers to run all tests manually
+- Focus on implementing code changes and let the user handle testing
+
 ## Architecture
 
 Svedit is a rich content editor template built with Svelte 5 that uses a graph-based data model.

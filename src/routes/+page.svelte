@@ -35,7 +35,7 @@
     <p>Selection:</p>
     <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>
     <p>Nodes:</p>
-    <pre class='debug-info p-4'>{JSON.stringify(doc.nodes, null, '  ')}</pre>
+    <pre class='debug-info p-4'>{JSON.stringify(doc.to_json(), null, '  ')}</pre>
   </div>
 </div>
 
