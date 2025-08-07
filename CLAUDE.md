@@ -19,6 +19,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The user prefers to run all tests manually
 - Focus on implementing code changes and let the user handle testing
 
+**Code Style:**
+- Use snake_case for all variable names, function names, and identifiers
+- This applies to JavaScript/TypeScript code, test files, and any new code written
+
 ## Architecture
 
 Svedit is a rich content editor template built with Svelte 5 that uses a graph-based data model.
