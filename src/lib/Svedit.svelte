@@ -135,14 +135,14 @@
     if (!ref?.contains(document.activeElement)) return;
 
     event.preventDefault();
-    const clipboard_items = await navigator.clipboard.read();
+    const clipboardItems = await navigator.clipboard.read();
 
     let pasted_json;
 
     // Wrapping this in a try-catch as this API only works in Chrome. We fallback to
     // plaintext copy and pasting for all other situations.
     try {
-      const json_blob = await clipboard_items[0].getType('web application/json');
+      const json_blob = await clipboardItems[0].getType('web application/json');
       pasted_json = JSON.parse(await json_blob.text());
     } catch(e) {}
 
@@ -200,7 +200,7 @@
 
       doc.apply(tr);
     } else {
-      const plain_text_blob = await clipboard_items[0].getType('text/plain');
+      const plain_text_blob = await clipboardItems[0].getType('text/plain');
       // Convert the Blob to text
       const plain_text = await plain_text_blob.text();
       doc.apply(doc.tr.insert_text(plain_text));
@@ -723,8 +723,8 @@
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
-    let currentOffset = 0;
-    let anchorNode, anchorNodeOffset, focusNode, focusNodeOffset;
+    let current_offset = 0;
+    let anchor_node, anchor_node_offset, focus_node, focus_node_offset;
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
@@ -733,37 +733,36 @@
     // Helper function to process each node
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const nodeLength = node.length;
+        const node_length = node.length;
 
-        // Check if this node contains the start offset
         if (is_backward) {
-          if (!focusNode && currentOffset + nodeLength >= start_offset) {
-            focusNode = node;
-            focusNodeOffset = start_offset - currentOffset;
+          if (!focus_node && current_offset + node_length >= start_offset) {
+            focus_node = node;
+            focus_node_offset = start_offset - current_offset;
           }
         } else {
-          if (!anchorNode && currentOffset + nodeLength >= start_offset) {
-            anchorNode = node;
-            anchorNodeOffset = start_offset - currentOffset;
+          if (!anchor_node && current_offset + node_length >= start_offset) {
+            anchor_node = node;
+            anchor_node_offset = start_offset - current_offset;
           }
         }
 
-        // Check if this node contains the end offset
+        // Find end node
         if (is_backward) {
-          if (!anchorNode && currentOffset + nodeLength >= end_offset) {
-            anchorNode = node;
-            anchorNodeOffset = end_offset - currentOffset;
+          if (!anchor_node && current_offset + node_length >= end_offset) {
+            anchor_node = node;
+            anchor_node_offset = end_offset - current_offset;
             return true; // Stop iteration
           }
         } else {
-          if (!focusNode && currentOffset + nodeLength >= end_offset) {
-            focusNode = node;
-            focusNodeOffset = end_offset - currentOffset;
+          if (!focus_node && current_offset + node_length >= end_offset) {
+            focus_node = node;
+            focus_node_offset = end_offset - current_offset;
             return true; // Stop iteration
           }
         }
 
-        currentOffset += nodeLength;
+        current_offset += node_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           if (processNode(childNode)) return true; // Stop iteration if end found
@@ -776,41 +775,40 @@
     if (start_offset === end_offset && start_offset === 0 && empty_text) {
       // Markup for empty text looks like this `<div data-type="text"><br></div>`.
       // And the correct cursor position is after the <br> element.
-      anchorNode = el;
-      anchorNodeOffset = 1;
-      focusNode = el;
-      focusNodeOffset = 1;
+      anchor_node = el;
+      anchor_node_offset = 1;
+      focus_node = el;
+      focus_node_offset = 1;
     } else {
       // DEFAULT CASE
-      for (const childNode of el.childNodes) {
-        if (processNode(childNode)) break;
+      for (const child_node of el.childNodes) {
+        if (processNode(child_node)) break;
       }
 
       // EDGE CASE: cursor at the end of an annotation
-      if (anchorNode && !focusNode && currentOffset === end_offset) {
-        focusNode = anchorNode.nextSibling || anchorNode;
-        focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
+      if (anchor_node && !focus_node && current_offset === end_offset) {
+        focus_node = anchor_node.nextSibling || anchor_node;
+        focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
       }
     }
 
     // Set the range if both start and end were found
-    if (anchorNode && focusNode) {
+    if (anchor_node && focus_node) {
       // Always set range in document order (start to end)
       if (is_backward) {
-        range.setStart(focusNode, focusNodeOffset);
-        range.setEnd(anchorNode, anchorNodeOffset);
+        range.setStart(focus_node, focus_node_offset);
+        range.setEnd(anchor_node, anchor_node_offset);
       } else {
-        range.setStart(anchorNode, anchorNodeOffset);
-        range.setEnd(focusNode, focusNodeOffset);
+        range.setStart(anchor_node, anchor_node_offset);
+        range.setEnd(focus_node, focus_node_offset);
       }
 
       dom_selection.removeAllRanges();
-
       if (is_backward) {
         // For backward selections, collapse to end and extend to start
         range.collapse(false); // collapse to end
         dom_selection.addRange(range);
-        dom_selection.extend(focusNode, focusNodeOffset);
+        dom_selection.extend(focus_node, focus_node_offset);
       } else {
         dom_selection.addRange(range);
       }
