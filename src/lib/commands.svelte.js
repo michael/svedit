@@ -59,7 +59,7 @@ export function join_text_node(tr) {
   // Keep a reference of the original selection (before any transforms are applied)
   const selection = doc.selection;
   // First we need to ensure we have a text selection
-  if (!selection.type === 'text') return false;
+  if (selection.type !== 'text') return false;
 
   const node = doc.get(selection.path.slice(0, -1));
   if (doc.kind(node) !== 'text') return false;
@@ -68,12 +68,36 @@ export function join_text_node(tr) {
   if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
   const node_index = parseInt(doc.selection.path.at(-2), 10);
-  if (node_index === 0) return false;
+  
+  // Determine if we can join with the previous node
+  let can_join = false;
+  let predecessor_node = null;
+  
+  if (node_index > 0) {
+    const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
+    predecessor_node = doc.get(previous_text_path);
+    can_join = doc.kind(predecessor_node) === 'text';
+  }
+  
+  // Special behavior: if we can't join and current node is empty, delete it
+  if (!can_join && node.content[0] === '') {
+    tr.set_selection({
+      type: 'node',
+      path: doc.selection.path.slice(0, -2),
+      anchor_offset: node_index,
+      focus_offset: node_index + 1,
+    });
+    tr.delete_selection();
+    return true;
+  }
+  
+  // If we can't join for any reason, return false
+  if (!can_join) {
+    return false;
+  }
+  
+  // Normal joining logic - both nodes are text nodes
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
-  const predecessor_node = doc.get(previous_text_path);
-  // Predecessor node also must be a text-ish node to be joinable.
-  if (doc.kind(predecessor_node) !== 'text') return false;
-
   const joined_text = join_annotated_string(predecessor_node.content, node.content);
 
   tr.set_selection({
