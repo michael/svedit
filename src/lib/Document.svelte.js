@@ -223,10 +223,10 @@ export default class Document {
     const annotated_string = this.get(this.selection.path);
     const annotations = annotated_string[1];
 
-    const active_annotation = annotations.find(([anno_start, anno_end, type]) =>
-      (anno_start <= start && anno_end > start) ||
-      (anno_start < end && anno_end >= end) ||
-      (anno_start >= start && anno_end <= end)
+    const active_annotation = annotations.find(([annotation_start, annotation_end, type]) =>
+      (annotation_start <= start && annotation_end > start) ||
+      (annotation_start < end && annotation_end >= end) ||
+      (annotation_start >= start && annotation_end <= end)
     ) || null;
 
     if (annotation_type) {
@@ -296,12 +296,12 @@ export default class Document {
       // in the path
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
         this.selection = {
           type: 'node',
           path: parent_path,
-          anchor_offset: currentIndex,
-          focus_offset: currentIndex + 1
+          anchor_offset: current_index,
+          focus_offset: current_index + 1
         };
       } else {
         this.selection = undefined;
@@ -310,13 +310,13 @@ export default class Document {
       // For node selections, we go up one level
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
 
         this.selection = {
           type: 'node',
           path: parent_path,
-          anchor_offset: currentIndex,
-          focus_offset: currentIndex + 1
+          anchor_offset: current_index,
+          focus_offset: current_index + 1
         };
       } else {
         this.selection = undefined;

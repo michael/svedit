@@ -7,16 +7,16 @@
 
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
-	let hasImage = $derived(node.image && node.image.trim() !== '');
+	let has_image = $derived(node.image && node.image.trim() !== '');
 </script>
 
 <Node {path}>
 	<div
 		class="hero mx-auto w-full"
-		class:has-image={hasImage}
-		style={hasImage ? `background-image: url(${node.image});` : ''}
+		class:has-image={has_image}
+		style={has_image ? `background-image: url(${node.image});` : ''}
 	>
-		{#if hasImage}
+		{#if has_image}
 			<div class="hero-overlay"></div>
 		{/if}
 		<div class="hero-content">

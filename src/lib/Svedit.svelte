@@ -135,14 +135,14 @@
     if (!ref?.contains(document.activeElement)) return;
 
     event.preventDefault();
-    const clipboardItems = await navigator.clipboard.read();
+    const clipboard_items = await navigator.clipboard.read();
 
     let pasted_json;
 
     // Wrapping this in a try-catch as this API only works in Chrome. We fallback to
     // plaintext copy and pasting for all other situations.
     try {
-      const json_blob = await clipboardItems[0].getType('web application/json');
+      const json_blob = await clipboard_items[0].getType('web application/json');
       pasted_json = JSON.parse(await json_blob.text());
     } catch(e) {}
 
@@ -200,7 +200,7 @@
 
       doc.apply(tr);
     } else {
-      const plain_text_blob = await clipboardItems[0].getType('text/plain');
+      const plain_text_blob = await clipboard_items[0].getType('text/plain');
       // Convert the Blob to text
       const plain_text = await plain_text_blob.text();
       doc.apply(doc.tr.insert_text(plain_text));
@@ -256,7 +256,7 @@
     if (!ref?.contains(document.activeElement)) return;
 
     const selection = doc.selection;
-    const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
+    const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
     if (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) {
@@ -387,9 +387,9 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'node') {
-      const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
+      const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
 
-      if (isCollapsed) {
+      if (is_collapsed) {
         // Try to insert default node if there's only one allowed ref_type
         const tr = doc.tr;
         insert_default_node(tr);
@@ -400,7 +400,7 @@
         //   // Fall back to focusing toolbar when multiple types are available
         //   focus_toolbar();
         // }
-      } else if (spanLength === 1) {
+      } else if (span_length === 1) {
         focus_toolbar();
       }
       // Node selections with multiple nodes do nothing on Enter
