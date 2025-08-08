@@ -9,8 +9,12 @@
     overlays,
     editable = false,
     ref = $bindable(),
+    path,
     class: css_class,
   } = $props();
+
+  let root_node = $derived(doc.get(path));
+  let RootComponent = $derived(doc.config.node_components[root_node.type]);
 
   // Expose focus_canvas method to parent component
   export { focus_canvas };
@@ -880,7 +884,7 @@
     {onbeforeinput}
     contenteditable={editable ? 'true' : 'false'}
   >
-    {@render children()}
+    <RootComponent {path} />
   </div>
   <div class="svedit-overlays">
     {@render overlays()}

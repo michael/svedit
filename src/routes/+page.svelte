@@ -22,14 +22,12 @@
 
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
-  <Svedit {doc} editable={true} class='flex-column' bind:this={svedit_ref}>
-    <!-- <Hero path={[doc.document_id, 'hero']} /> -->
-    <NodeArrayProperty class="body-node-array" path={[doc.document_id, 'body']} />
+  <!-- Svedit editable canvas composed of Svedit nodes -->
+  <Svedit {doc} editable={true} bind:this={svedit_ref} path={[doc.document_id]}>
     {#snippet overlays()}
       <Overlays />
     {/snippet}
   </Svedit>
-
   <hr/>
   <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
     <p>Selection:</p>
@@ -40,15 +38,6 @@
 </div>
 
 <style>
-  .demo-wrapper :global {
-    .body-node-array {
-      /* padding: var(--s-8); */
-      display: grid;
-      grid-template-columns: 1fr;
-      /* gap: 1rem; */
-    }
-  }
-
   .debug-info {
     text-wrap: wrap;
     height: 12lh;
