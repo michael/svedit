@@ -22,7 +22,6 @@
 	  background: var(--primary-fill-color);
 		color: var(--canvas-fill-color);
 		padding: var(--s-2) var(--s-4);
-		min-width: 50px;
 	}
 
 	.button:hover {
@@ -30,8 +29,4 @@
 		color: var(--canvas-fill-color);
 	  opacity: 0.8;
 	}
-
-	/*.button :global(.body) {
-		min-width: 60px;
-	}*/
 </style>

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
-import { create_test_doc } from './create_test_doc.js';
+import create_test_doc, { story_1_id, button_1_id, page_1_id, list_1_id } from './create_test_doc.js';
+import { join_text_node } from '../lib/commands.svelte.js';
+import { svid } from '../lib/util.js';
 
 describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {
@@ -53,5 +55,390 @@ describe('Svedit.svelte', () => {
     expect(dom_selection).not.toBeNull();
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
+  });
+
+  it('should allow copying and pasting a story node with button reference multiple times', async () => {
+    const doc = create_test_doc();
+    const { container } = render(SveditTest, { props: { doc } });
+
+    // Get the original story and button content
+    const original_story = doc.get(story_1_id);
+    const original_button = doc.get(button_1_id);
+    
+    expect(original_story.title).toEqual(['First story', []]);
+    expect(original_story.buttons).toEqual([button_1_id]);
+    expect(original_button.label).toEqual(['Get started', []]);
+
+    // Initial body state: [story_1_id, story_1_id, list_1_id]
+    const initial_body = doc.get([page_1_id, 'body']);
+    expect(initial_body).toEqual([story_1_id, story_1_id, list_1_id]);
+
+    // Set selection to the first story node
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 0,
+      focus_offset: 1
+    };
+
+    await tick();
+
+    // Simulate copy event
+    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    const svedit_element = container.querySelector('.svedit-canvas');
+    svedit_element.focus();
+    
+    // Mock clipboard API
+    let clipboard_data = null;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        write: async (items) => {
+          clipboard_data = items[0];
+        },
+        read: async () => {
+          return [clipboard_data];
+        }
+      }
+    });
+
+    document.dispatchEvent(copy_event);
+    await tick();
+
+    // Verify something was copied
+    expect(clipboard_data).not.toBeNull();
+    
+    // Keep same selection for paste (to replace, not insert)
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 0,
+      focus_offset: 1
+    };
+
+    await tick();
+
+    // First paste - should replace the selected story
+    const first_paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    document.dispatchEvent(first_paste_event);
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 10)); // Give time for transaction
+
+    // Verify first paste - should still have 3 items (replaced, not inserted)
+    const body_after_first_paste = doc.get([page_1_id, 'body']);
+    expect(body_after_first_paste.length).toBe(3);
+    
+    // Get the new story ID (first element should be the replaced one)
+    const first_new_story_id = body_after_first_paste[0];
+    const first_new_story = doc.get(first_new_story_id);
+    const first_new_button_id = first_new_story.buttons[0];
+    const first_new_button = doc.get(first_new_button_id);
+
+    // Content should be the same as original
+    expect(first_new_story.title).toEqual(['First story', []]);
+    expect(first_new_story.description).toEqual(['First story description.', []]);
+    expect(first_new_button.label).toEqual(['Get started', []]);
+    expect(first_new_button.href).toBe('https://github.com/michael/svedit');
+
+    // But IDs should be different
+    expect(first_new_story_id).not.toBe(story_1_id);
+    expect(first_new_button_id).not.toBe(button_1_id);
+    expect(first_new_story.buttons).toEqual([first_new_button_id]);
+
+    // Keep same selection for second paste (to replace again)
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 0,
+      focus_offset: 1
+    };
+
+    await tick();
+
+    const second_paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    document.dispatchEvent(second_paste_event);
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 10)); // Give time for transaction
+
+    // Verify second paste - should still have 3 total items (replaced again)
+    const body_after_second_paste = doc.get([page_1_id, 'body']);
+    expect(body_after_second_paste.length).toBe(3);
+
+    // Get the second new story ID (first element should be the second replacement)
+    const second_new_story_id = body_after_second_paste[0];
+    const second_new_story = doc.get(second_new_story_id);
+    const second_new_button_id = second_new_story.buttons[0];
+    const second_new_button = doc.get(second_new_button_id);
+
+    // Content should still be the same
+    expect(second_new_story.title).toEqual(['First story', []]);
+    expect(second_new_story.description).toEqual(['First story description.', []]);
+    expect(second_new_button.label).toEqual(['Get started', []]);
+    expect(second_new_button.href).toBe('https://github.com/michael/svedit');
+
+    // But IDs should be different from both original and first paste
+    expect(second_new_story_id).not.toBe(story_1_id);
+    expect(second_new_story_id).not.toBe(first_new_story_id);
+    expect(second_new_button_id).not.toBe(button_1_id);
+    expect(second_new_button_id).not.toBe(first_new_button_id);
+    expect(second_new_story.buttons).toEqual([second_new_button_id]);
+
+    // Verify the first paste's nodes no longer exist (they were replaced)
+    expect(doc.get(first_new_story_id)).toBeUndefined();
+    expect(doc.get(first_new_button_id)).toBeUndefined();
+
+    // But the current (second) paste nodes exist
+    expect(doc.get(second_new_story_id)).toBeDefined();
+    expect(doc.get(second_new_button_id)).toBeDefined();
+
+    // Original nodes should still exist (at position 1)
+    expect(doc.get(story_1_id)).toBeDefined();
+    expect(doc.get(button_1_id)).toBeDefined();
+    expect(body_after_second_paste[1]).toBe(story_1_id);
+  });
+
+  describe('join_text_node command', () => {
+    it('should delete empty text node when trying to join with non-text predecessor', () => {
+      const doc = create_test_doc();
+
+      // Create an empty text node after a story
+      const empty_text_id = svid();
+      const empty_text_node = {
+        id: empty_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['', []] // Empty content
+      };
+
+      const tr = doc.tr;
+      tr.create(empty_text_node);
+      
+      // Insert the empty text node after the first story
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [body[0], empty_text_id, ...body.slice(1)];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the empty text node (position 1 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Empty text node should be deleted
+      expect(doc.get(empty_text_id)).toBeUndefined();
+      
+      // Body should be back to original state
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+
+      // Selection should be at position 1 (where the deleted node was)
+      expect(doc.selection.type).toBe('node');
+      expect(doc.selection.anchor_offset).toBe(1);
+      expect(doc.selection.focus_offset).toBe(1);
+    });
+
+    it('should do nothing when trying to join non-empty text node with non-text predecessor', () => {
+      const doc = create_test_doc();
+
+      // Create a non-empty text node after a story
+      const text_id = svid();
+      const text_node = {
+        id: text_id,
+        type: 'text',
+        layout: 1,
+        content: ['Some content', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(text_node);
+      
+      // Insert the text node after the first story
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [body[0], text_id, ...body.slice(1)];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the text node (position 1 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      const result = join_text_node(join_tr);
+
+      // Should return false (no action taken)
+      expect(result).toBe(false);
+      
+      // Text node should still exist
+      expect(doc.get(text_id)).toBeDefined();
+      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      
+      // Body should remain unchanged
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, text_id, story_1_id, list_1_id]);
+    });
+
+    it('should delete empty text node at position 0', () => {
+      const doc = create_test_doc();
+
+      // Create an empty text node and put it at the beginning
+      const empty_text_id = svid();
+      const empty_text_node = {
+        id: empty_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['', []] // Empty content
+      };
+
+      const tr = doc.tr;
+      tr.create(empty_text_node);
+      
+      // Insert the empty text node at the beginning
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [empty_text_id, ...body];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the empty text node (position 0 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 0, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Empty text node should be deleted
+      expect(doc.get(empty_text_id)).toBeUndefined();
+      
+      // Body should be back to original state
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+
+      // Selection should be at position 0
+      expect(doc.selection.type).toBe('node');
+      expect(doc.selection.anchor_offset).toBe(0);
+      expect(doc.selection.focus_offset).toBe(0);
+    });
+
+    it('should do nothing when non-empty text node is at position 0', () => {
+      const doc = create_test_doc();
+
+      // Create a non-empty text node and put it at the beginning
+      const text_id = svid();
+      const text_node = {
+        id: text_id,
+        type: 'text',
+        layout: 1,
+        content: ['Some content', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(text_node);
+      
+      // Insert the text node at the beginning
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [text_id, ...body];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the text node (position 0 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 0, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      const result = join_text_node(join_tr);
+
+      // Should return false (no action taken)
+      expect(result).toBe(false);
+      
+      // Text node should still exist
+      expect(doc.get(text_id)).toBeDefined();
+      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      
+      // Body should remain unchanged
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([text_id, story_1_id, story_1_id, list_1_id]);
+    });
+
+    it('should join two text nodes and position cursor at end of joined text', () => {
+      const doc = create_test_doc();
+
+      // Create two text nodes
+      const first_text_id = svid();
+      const second_text_id = svid();
+      
+      const first_text_node = {
+        id: first_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['First text', []]
+      };
+      
+      const second_text_node = {
+        id: second_text_id,
+        type: 'text',
+        layout: 1,
+        content: [' second text', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(first_text_node);
+      tr.create(second_text_node);
+      
+      // Replace body with our two text nodes
+      tr.set([page_1_id, 'body'], [first_text_id, second_text_id]);
+      doc.apply(tr);
+
+      // Set text selection in the second text node
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Second text node should be deleted
+      expect(doc.get(second_text_id)).toBeUndefined();
+      
+      // First text node should contain joined content
+      const first_text = doc.get(first_text_id);
+      expect(first_text.content).toEqual(['First text second text', []]);
+      
+      // Body should only contain the first text node
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([first_text_id]);
+
+      // Selection should be positioned at the end of the original first text
+      expect(doc.selection.type).toBe('text');
+      expect(doc.selection.path).toEqual([page_1_id, 'body', 0, 'content']);
+      expect(doc.selection.anchor_offset).toBe(10); // Length of "First text"
+      expect(doc.selection.focus_offset).toBe(10);
+    });
   });
 });

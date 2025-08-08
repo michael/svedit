@@ -8,5 +8,5 @@
 </script>
 
 <Node {path}>
-  Unknown node type {node.type}.
+  Unknown: {node.type}.
 </Node>

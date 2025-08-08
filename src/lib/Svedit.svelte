@@ -58,50 +58,22 @@
 
 
   function prepare_copy_payload(selected_node_ids) {
-    const all_nodes = {};
-    const id_mapping = {};
+    const nodes = {};
 
-    // First pass: collect all nodes (main + referenced) and create ID mapping
-    const to_process = [...selected_node_ids];
-    const processed = new Set();
+    // Get subgraph for each selected node using doc.traverse()
+    for (const node_id of selected_node_ids) {
+      const subgraph = doc.traverse(node_id);
 
-    while (to_process.length > 0) {
-      const node_id = to_process.pop();
-      if (processed.has(node_id)) continue;
-      processed.add(node_id);
-
-      const node = doc.get(node_id);
-      const new_id = svid();
-      id_mapping[node_id] = new_id;
-      all_nodes[node_id] = { ...node, id: new_id };
-
-      // Add referenced nodes to processing queue
-      const referenced_node_ids = doc.get_referenced_nodes(node_id);
-      to_process.push(...referenced_node_ids);
-    }
-
-    // Second pass: update all references to use new IDs
-    for (const [original_id, node] of Object.entries(all_nodes)) {
-      for (const [property, value] of Object.entries(node)) {
-        if (property === 'id' || property === 'type') continue;
-
-        const prop_type = doc.schema[node.type]?.[property]?.type;
-
-        if (prop_type === 'node_array' && Array.isArray(value)) {
-          node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
-        } else if (prop_type === 'node' && typeof value === 'string') {
-          node[property] = id_mapping[value] || value;
+      // Add all nodes from this subgraph to our nodes collection
+      for (const node of subgraph) {
+        if (!nodes[node.id]) {
+          nodes[node.id] = node;
         }
       }
     }
 
-    // Separate main nodes from referenced nodes
-    const main_nodes = selected_node_ids.map(id => all_nodes[id]);
-    const referenced_nodes = Object.entries(all_nodes)
-      .filter(([original_id]) => !selected_node_ids.includes(original_id))
-      .map(([_, node]) => node);
-
-    return { main_nodes, referenced_nodes };
+    // Keep original IDs - we'll generate new ones during paste
+    return { nodes, main_nodes: selected_node_ids };
   }
 
   function oncopy(event, delete_selection = false) {
@@ -118,20 +90,16 @@
       html = plain_text;
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
-      const { main_nodes, referenced_nodes } = prepare_copy_payload(selected_nodes);
+      const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
 
-      json_data = {
-        nodes: main_nodes,
-        referenced_nodes: referenced_nodes
-      };
+      json_data = { nodes, main_nodes };
 
       console.log('Copy operation:', {
         selected_nodes,
-        main_nodes: main_nodes.map(n => n.id),
-        referenced_nodes: referenced_nodes.map(n => n.id),
+        main_nodes,
+        total_nodes: Object.keys(nodes).length,
         operation: delete_selection ? 'cut' : 'copy'
       });
-
     }
 
     // Create a ClipboardItem with multiple formats
@@ -177,39 +145,59 @@
       const json_blob = await clipboardItems[0].getType('web application/json');
       pasted_json = JSON.parse(await json_blob.text());
     } catch(e) {}
+
     if (pasted_json) {
-      let nodes = [];
-      let referenced_nodes = [];
-
-      // Handle both old format (array of nodes) and new format
-      if (Array.isArray(pasted_json)) {
-        // Old format - just an array of nodes
-        nodes = pasted_json;
-      } else {
-        // New format - object with nodes and referenced_nodes
-        nodes = pasted_json.nodes || [];
-        referenced_nodes = pasted_json.referenced_nodes || [];
-      }
-
       const tr = doc.tr;
 
-      console.log('Paste operation:', {
-        main_nodes: nodes.map(n => n.id),
-        referenced_nodes: referenced_nodes.map(n => n.id)
-      });
+      // Handle new format: { nodes: {id -> node}, main_nodes: [id1, id2, ...] }
+      if (pasted_json.nodes && pasted_json.main_nodes) {
+        const { nodes, main_nodes } = pasted_json;
 
-      // First, create any referenced nodes that don't already exist in the document
-      referenced_nodes.forEach(node => {
-        if (!doc.get(node.id)) {
-          console.log('Creating referenced node:', node.id, node.type);
-          tr.create(node);
-        } else {
-          console.log('Referenced node already exists:', node.id);
+        // Generate new IDs for all nodes during paste
+        const id_mapping = {};
+        for (const node_id in nodes) {
+          id_mapping[node_id] = svid();
         }
-      });
 
-      // Then insert the main nodes
-      tr.insert_nodes(nodes);
+        // Create nodes with new IDs and updated references
+        const updated_nodes = {};
+        for (const [old_id, node] of Object.entries(nodes)) {
+          const new_node = { ...node };
+          new_node.id = id_mapping[old_id];
+
+          // Update all property references to use new IDs
+          for (const [property, value] of Object.entries(new_node)) {
+            if (property === 'id' || property === 'type') continue;
+
+            const prop_type = doc.schema[node.type]?.[property]?.type;
+
+            if (prop_type === 'node_array' && Array.isArray(value)) {
+              new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
+            } else if (prop_type === 'node' && typeof value === 'string') {
+              new_node[property] = id_mapping[value] || value;
+            }
+          }
+
+          updated_nodes[new_node.id] = new_node;
+        }
+
+        console.log('Paste operation:', {
+          original_main_nodes: main_nodes,
+          new_main_nodes: main_nodes.map(id => id_mapping[id]),
+          total_nodes: Object.keys(updated_nodes).length
+        });
+
+        // Create all nodes first
+        for (const node of Object.values(updated_nodes)) {
+          tr.create(node);
+        }
+
+        // Then insert the main nodes at the current selection
+        const new_main_nodes = main_nodes.map(id => id_mapping[id]);
+        const main_node_objects = new_main_nodes.map(id => updated_nodes[id]);
+        tr.insert_nodes(main_node_objects);
+      }
+
       doc.apply(tr);
     } else {
       const plain_text_blob = await clipboardItems[0].getType('text/plain');
@@ -268,7 +256,7 @@
     if (!ref?.contains(document.activeElement)) return;
 
     const selection = doc.selection;
-    const isCollapsed = selection?.anchor_offset === selection?.focus_offset;
+    const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
     if (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) {
@@ -399,9 +387,9 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'node') {
-      const spanLength = Math.abs(selection.focus_offset - selection.anchor_offset);
+      const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
 
-      if (isCollapsed) {
+      if (is_collapsed) {
         // Try to insert default node if there's only one allowed ref_type
         const tr = doc.tr;
         insert_default_node(tr);
@@ -412,7 +400,7 @@
         //   // Fall back to focusing toolbar when multiple types are available
         //   focus_toolbar();
         // }
-      } else if (spanLength === 1) {
+      } else if (span_length === 1) {
         focus_toolbar();
       }
       // Node selections with multiple nodes do nothing on Enter
@@ -735,8 +723,8 @@
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
-    let currentOffset = 0;
-    let anchorNode, anchorNodeOffset, focusNode, focusNodeOffset;
+    let current_offset = 0;
+    let anchor_node, anchor_node_offset, focus_node, focus_node_offset;
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
@@ -745,37 +733,36 @@
     // Helper function to process each node
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const nodeLength = node.length;
+        const node_length = node.length;
 
-        // Check if this node contains the start offset
         if (is_backward) {
-          if (!focusNode && currentOffset + nodeLength >= start_offset) {
-            focusNode = node;
-            focusNodeOffset = start_offset - currentOffset;
+          if (!focus_node && current_offset + node_length >= start_offset) {
+            focus_node = node;
+            focus_node_offset = start_offset - current_offset;
           }
         } else {
-          if (!anchorNode && currentOffset + nodeLength >= start_offset) {
-            anchorNode = node;
-            anchorNodeOffset = start_offset - currentOffset;
+          if (!anchor_node && current_offset + node_length >= start_offset) {
+            anchor_node = node;
+            anchor_node_offset = start_offset - current_offset;
           }
         }
 
-        // Check if this node contains the end offset
+        // Find end node
         if (is_backward) {
-          if (!anchorNode && currentOffset + nodeLength >= end_offset) {
-            anchorNode = node;
-            anchorNodeOffset = end_offset - currentOffset;
+          if (!anchor_node && current_offset + node_length >= end_offset) {
+            anchor_node = node;
+            anchor_node_offset = end_offset - current_offset;
             return true; // Stop iteration
           }
         } else {
-          if (!focusNode && currentOffset + nodeLength >= end_offset) {
-            focusNode = node;
-            focusNodeOffset = end_offset - currentOffset;
+          if (!focus_node && current_offset + node_length >= end_offset) {
+            focus_node = node;
+            focus_node_offset = end_offset - current_offset;
             return true; // Stop iteration
           }
         }
 
-        currentOffset += nodeLength;
+        current_offset += node_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           if (processNode(childNode)) return true; // Stop iteration if end found
@@ -788,41 +775,40 @@
     if (start_offset === end_offset && start_offset === 0 && empty_text) {
       // Markup for empty text looks like this `<div data-type="text"><br></div>`.
       // And the correct cursor position is after the <br> element.
-      anchorNode = el;
-      anchorNodeOffset = 1;
-      focusNode = el;
-      focusNodeOffset = 1;
+      anchor_node = el;
+      anchor_node_offset = 1;
+      focus_node = el;
+      focus_node_offset = 1;
     } else {
       // DEFAULT CASE
-      for (const childNode of el.childNodes) {
-        if (processNode(childNode)) break;
+      for (const child_node of el.childNodes) {
+        if (processNode(child_node)) break;
       }
 
       // EDGE CASE: cursor at the end of an annotation
-      if (anchorNode && !focusNode && currentOffset === end_offset) {
-        focusNode = anchorNode.nextSibling || anchorNode;
-        focusNodeOffset = focusNode === anchorNode ? anchorNode.length : 0;
+      if (anchor_node && !focus_node && current_offset === end_offset) {
+        focus_node = anchor_node.nextSibling || anchor_node;
+        focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
       }
     }
 
     // Set the range if both start and end were found
-    if (anchorNode && focusNode) {
+    if (anchor_node && focus_node) {
       // Always set range in document order (start to end)
       if (is_backward) {
-        range.setStart(focusNode, focusNodeOffset);
-        range.setEnd(anchorNode, anchorNodeOffset);
+        range.setStart(focus_node, focus_node_offset);
+        range.setEnd(anchor_node, anchor_node_offset);
       } else {
-        range.setStart(anchorNode, anchorNodeOffset);
-        range.setEnd(focusNode, focusNodeOffset);
+        range.setStart(anchor_node, anchor_node_offset);
+        range.setEnd(focus_node, focus_node_offset);
       }
 
       dom_selection.removeAllRanges();
-
       if (is_backward) {
         // For backward selections, collapse to end and extend to start
         range.collapse(false); // collapse to end
         dom_selection.addRange(range);
-        dom_selection.extend(focusNode, focusNodeOffset);
+        dom_selection.extend(focus_node, focus_node_offset);
       } else {
         dom_selection.addRange(range);
       }

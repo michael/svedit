@@ -14,6 +14,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:e2e` - Run end-to-end tests with Playwright
 - `npm run test` - Run both unit and e2e tests
 
+**Testing Guidelines:**
+- DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
+- The user prefers to run all tests manually
+- Focus on implementing code changes and let the user handle testing
+
+**Code Style:**
+- Use snake_case for all variable names, function names, and identifiers
+- This applies to JavaScript/TypeScript code, test files, and any new code written
+
+**What to NOT change (keep camelCase):**
+- `window.getSelection()` - native API
+- `document.activeElement` - native API  
+- `navigator.clipboard` - native API
+- `addEventListener` - native API
+- `preventDefault()` - native API
+- `stopPropagation()` - native API
+- `getRangeAt()` - native API
+- Svelte event handlers: `onclick`, `onmousedown`, etc.
+- DOM properties: `innerHTML`, `textContent`, `nodeType`, etc.
+
+**Pattern**: If it's a web platform API or Svelte API, keep camelCase. If it's our custom variable/function name, use snake_case.
+
 ## Architecture
 
 Svedit is a rich content editor template built with Svelte 5 that uses a graph-based data model.

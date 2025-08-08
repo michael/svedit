@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  create_test_doc,
+import create_test_doc, {
   story_1_id,
   page_1_id,
   list_1_id,

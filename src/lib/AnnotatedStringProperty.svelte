@@ -97,34 +97,20 @@
     }
   }
 
-  /* :not(.focused) */
   [placeholder].empty::before {
-      content: attr(placeholder);
-      pointer-events: none;
-      color: color-mix(in oklch, currentcolor 50%, transparent);
-      /*display: inline;*/
+    content: attr(placeholder);
+    pointer-events: none;
+    color: color-mix(in oklch, currentcolor 50%, transparent);
   }
 
-  /*[placeholder].empty * {
-    display: flex-inline;
-  }*/
-
-  [placeholder].empty {
-    position: relative;
+  /* We can safely hide the <br> element when the placeholder is empty and focused. */
+  /* No longer the cursor will be rendered after the placeholder when focused. */
+  [placeholder].empty.focused br {
+    display:none;
   }
-
-  /*.text.empty {
-    background: var(--secondary-fill-color);
-    outline: none;
-  }*/
-
-  /* .text.empty:not(.focused):hover {
-    background: lightgray;
-  } */
 
   .text.focused {
     background: none;
     outline: 1px dashed var(--editing-stroke-color);
   }
-
 </style>

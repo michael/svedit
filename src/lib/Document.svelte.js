@@ -91,8 +91,6 @@ export default class Document {
     });
     this.history_index++;
 
-
-    // this.selection = { ...this.selection };
     return this;
   }
 
@@ -175,8 +173,8 @@ export default class Document {
   //   kind: 'property',
   //   name: 'body',
   //   type: 'node_array',
-  //   node_types: ['paragraph', 'story', 'list'],
-  //   default_ref_type: 'paragraph'
+  //   node_types: ['text', 'story', 'list'],
+  //   default_node_type: 'text'
   // }
   //
   // doc.inspect(['page_1', 'body', 1]) => {
@@ -225,10 +223,10 @@ export default class Document {
     const annotated_string = this.get(this.selection.path);
     const annotations = annotated_string[1];
 
-    const active_annotation = annotations.find(([anno_start, anno_end, type]) =>
-      (anno_start <= start && anno_end > start) ||
-      (anno_start < end && anno_end >= end) ||
-      (anno_start >= start && anno_end <= end)
+    const active_annotation = annotations.find(([annotation_start, annotation_end, type]) =>
+      (annotation_start <= start && annotation_end > start) ||
+      (annotation_start < end && annotation_end >= end) ||
+      (annotation_start >= start && annotation_end <= end)
     ) || null;
 
     if (annotation_type) {
@@ -298,12 +296,12 @@ export default class Document {
       // in the path
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
         this.selection = {
           type: 'node',
           path: parent_path,
-          anchor_offset: currentIndex,
-          focus_offset: currentIndex + 1
+          anchor_offset: current_index,
+          focus_offset: current_index + 1
         };
       } else {
         this.selection = undefined;
@@ -312,13 +310,13 @@ export default class Document {
       // For node selections, we go up one level
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const currentIndex = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
 
         this.selection = {
           type: 'node',
           path: parent_path,
-          anchor_offset: currentIndex,
-          focus_offset: currentIndex + 1
+          anchor_offset: current_index,
+          focus_offset: current_index + 1
         };
       } else {
         this.selection = undefined;
@@ -342,9 +340,9 @@ export default class Document {
   }
 
   // Traverses the document and returns a JSON representation.
-  // IMPORTANT: Leaf nodes must go first, branches second and the root node last (depth-first traversal)
-  // NOTE: Nodes that are not reachable from the root node will be purged on serialization.
-  to_json() {
+  // IMPORTANT: Leaf nodes must go first, branches second and the root node (entry point) last (depth-first traversal)
+  // NOTE: Nodes that are not reachable from the entry point node will not be included in the serialization
+  traverse(node_id) {
     const json = [];
     const visited = {};
     const visit = (node) => {
@@ -370,8 +368,12 @@ export default class Document {
       json.push(structuredClone(node));
     }
     // Start with the root node (document_id)
-    visit($state.snapshot(this.get(this.document_id)));
+    visit($state.snapshot(this.get(node_id)));
     return json;
+  }
+
+  to_json(node_id) {
+    return this.traverse(this.document_id);
   }
 
   // property_type('page', 'body') => 'node_array'
@@ -411,31 +413,12 @@ export default class Document {
   }
 
   // Get all nodes referenced by a given node (recursively)
-  get_referenced_nodes(node_id, visited = new Set()) {
-    if (visited.has(node_id)) return [];
-    visited.add(node_id);
+  get_referenced_nodes(node_id) {
+    const traversed_nodes = this.traverse(node_id);
 
-    const node = this.nodes[node_id];
-    if (!node) return [];
-
-    const referenced = [];
-
-    for (const [property, value] of Object.entries(node)) {
-      if (property === 'id' || property === 'type') continue;
-
-      const prop_type = this.property_type(node.type, property);
-
-      if (prop_type === 'node_array' && Array.isArray(value)) {
-        for (const ref_id of value) {
-          referenced.push(ref_id);
-          referenced.push(...this.get_referenced_nodes(ref_id, visited));
-        }
-      } else if (prop_type === 'node' && typeof value === 'string') {
-        referenced.push(value);
-        referenced.push(...this.get_referenced_nodes(value, visited));
-      }
-    }
-
-    return referenced;
+    // Extract IDs and exclude the last element (root node)
+    return traversed_nodes
+      .slice(0, -1)
+      .map(node => node.id);
   }
 }

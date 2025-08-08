@@ -53,10 +53,10 @@ export default class Transaction {
   }
 
   delete(id) {
-    const prev_value = $state.snapshot(this.doc.get(id));
+    const previous_value = $state.snapshot(this.doc.get(id));
     const op = ['delete', id];
     this.ops.push(op);
-    this.inverse_ops.push(['create', prev_value]);
+    this.inverse_ops.push(['create', previous_value]);
     this.doc._apply_op(op);
     return this;
   }
@@ -192,25 +192,25 @@ export default class Transaction {
       // Update annotation offsets for deletion
       const deletion_length = end - start;
       const new_annotations = text[1].map(annotation => {
-        const [anno_start, anno_end, type, anno_data] = annotation;
+        const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
         // Adjust start offset
-        let new_start = anno_start;
-        if (anno_start >= end) {
+        let new_start = annotation_start;
+        if (annotation_start >= end) {
           // Start is after deletion - shift back
-          new_start = anno_start - deletion_length;
-        } else if (anno_start >= start) {
+          new_start = annotation_start - deletion_length;
+        } else if (annotation_start >= start) {
           // Start is within deletion - move to deletion point
           new_start = start;
         }
         // If start is before deletion, keep unchanged
 
         // Adjust end offset
-        let new_end = anno_end;
-        if (anno_end >= end) {
+        let new_end = annotation_end;
+        if (annotation_end >= end) {
           // End is after deletion - shift back
-          new_end = anno_end - deletion_length;
-        } else if (anno_end > start) {
+          new_end = annotation_end - deletion_length;
+        } else if (annotation_end > start) {
           // End is within deletion - move to deletion point
           new_end = start;
         }
@@ -221,7 +221,7 @@ export default class Transaction {
           return false;
         }
 
-        return [new_start, new_end, type, anno_data];
+        return [new_start, new_end, type, annotation_data];
       }).filter(Boolean);
 
       text[1] = new_annotations;
@@ -302,46 +302,38 @@ export default class Transaction {
     // 4. the annotation is wrapped in start and end (the annotation should be removed)
     // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
     // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
-
     const delta = replaced_text.length - (end - start);
     const new_annotations = annotated_string[1].map(annotation => {
-      const [anno_start, anno_end, type, anno_data] = annotation;
+      const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
       // Case 4: annotation is wrapped in start and end (remove it)
-      if (start <= anno_start && end >= anno_end) {
+      if (start <= annotation_start && end >= annotation_end) {
         return false;
       }
 
       // Case 1: text inserted before the annotation
-      if (end <= anno_start) {
-        return [anno_start + delta, anno_end + delta, type, anno_data];
+      if (end <= annotation_start) {
+        return [annotation_start + delta, annotation_end + delta, type, annotation_data];
       }
 
-      // Case 2: text inserted at the end or inside an annotation
-      if (start >= anno_start && start <= anno_end) {
-        console.log('Case 2: text inserted at the end or inside an annotation');
-        if (start === anno_end) {
-          // Text inserted right after the annotation
-          return [anno_start, anno_end, type, anno_data];
-        } else {
-          // Text inserted inside the annotation
-          return [anno_start, anno_end + delta, type, anno_data];
-        }
+      // Case 2: text inserted inside an annotation
+      if (start >= annotation_start && start <= annotation_end && end < annotation_end && end >= annotation_start) {
+        return [annotation_start, annotation_end + delta, type, annotation_data];
       }
 
       // Case 3: text inserted after the annotation
-      if (start >= anno_end) {
+      if (start >= annotation_end) {
         return annotation;
       }
 
       // Case 5: annotation is partly selected towards right
-      if (start > anno_start && start < anno_end && end > anno_end) {
-        return [anno_start, start, type, anno_data];
+      if (start > annotation_start && start < annotation_end && end > annotation_end) {
+        return [annotation_start, start, type, annotation_data];
       }
 
       // Case 6: annotation is partly selected towards left
-      if (start < anno_start && end > anno_start && end < anno_end) {
-        return [end + delta, anno_end + delta, type, anno_data];
+      if (start < annotation_start && end > annotation_start && end < annotation_end) {
+        return [end + delta, annotation_end + delta, type, annotation_data];
       }
 
       // Default case: shouldn't happen, but keep the annotation unchanged
@@ -361,10 +353,9 @@ export default class Transaction {
     return this;
   }
 
-  // Helper method to recursively delete unreferenced nodes
-  _cascade_delete_unreferenced_nodes(node_ids) {
+  _cascade_delete_unreferenced_nodes(removed_node_ids) {
     const nodes_to_delete = new Set();
-    const to_check = [...node_ids];
+    const to_check = [...removed_node_ids];
 
     while (to_check.length > 0) {
       const node_id = to_check.pop();
