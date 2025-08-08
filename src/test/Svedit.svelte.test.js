@@ -3,6 +3,8 @@ import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import create_test_doc, { story_1_id, button_1_id, page_1_id, list_1_id } from './create_test_doc.js';
+import { join_text_node } from '../lib/commands.svelte.js';
+import { svid } from '../lib/util.js';
 
 describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {
@@ -192,5 +194,251 @@ describe('Svedit.svelte', () => {
     expect(doc.get(story_1_id)).toBeDefined();
     expect(doc.get(button_1_id)).toBeDefined();
     expect(body_after_second_paste[1]).toBe(story_1_id);
+  });
+
+  describe('join_text_node command', () => {
+    it('should delete empty text node when trying to join with non-text predecessor', () => {
+      const doc = create_test_doc();
+
+      // Create an empty text node after a story
+      const empty_text_id = svid();
+      const empty_text_node = {
+        id: empty_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['', []] // Empty content
+      };
+
+      const tr = doc.tr;
+      tr.create(empty_text_node);
+      
+      // Insert the empty text node after the first story
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [body[0], empty_text_id, ...body.slice(1)];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the empty text node (position 1 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Empty text node should be deleted
+      expect(doc.get(empty_text_id)).toBeUndefined();
+      
+      // Body should be back to original state
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+
+      // Selection should be at position 1 (where the deleted node was)
+      expect(doc.selection.type).toBe('node');
+      expect(doc.selection.anchor_offset).toBe(1);
+      expect(doc.selection.focus_offset).toBe(1);
+    });
+
+    it('should do nothing when trying to join non-empty text node with non-text predecessor', () => {
+      const doc = create_test_doc();
+
+      // Create a non-empty text node after a story
+      const text_id = svid();
+      const text_node = {
+        id: text_id,
+        type: 'text',
+        layout: 1,
+        content: ['Some content', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(text_node);
+      
+      // Insert the text node after the first story
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [body[0], text_id, ...body.slice(1)];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the text node (position 1 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      const result = join_text_node(join_tr);
+
+      // Should return false (no action taken)
+      expect(result).toBe(false);
+      
+      // Text node should still exist
+      expect(doc.get(text_id)).toBeDefined();
+      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      
+      // Body should remain unchanged
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, text_id, story_1_id, list_1_id]);
+    });
+
+    it('should delete empty text node at position 0', () => {
+      const doc = create_test_doc();
+
+      // Create an empty text node and put it at the beginning
+      const empty_text_id = svid();
+      const empty_text_node = {
+        id: empty_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['', []] // Empty content
+      };
+
+      const tr = doc.tr;
+      tr.create(empty_text_node);
+      
+      // Insert the empty text node at the beginning
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [empty_text_id, ...body];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the empty text node (position 0 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 0, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Empty text node should be deleted
+      expect(doc.get(empty_text_id)).toBeUndefined();
+      
+      // Body should be back to original state
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+
+      // Selection should be at position 0
+      expect(doc.selection.type).toBe('node');
+      expect(doc.selection.anchor_offset).toBe(0);
+      expect(doc.selection.focus_offset).toBe(0);
+    });
+
+    it('should do nothing when non-empty text node is at position 0', () => {
+      const doc = create_test_doc();
+
+      // Create a non-empty text node and put it at the beginning
+      const text_id = svid();
+      const text_node = {
+        id: text_id,
+        type: 'text',
+        layout: 1,
+        content: ['Some content', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(text_node);
+      
+      // Insert the text node at the beginning
+      const body = doc.get([page_1_id, 'body']);
+      const new_body = [text_id, ...body];
+      tr.set([page_1_id, 'body'], new_body);
+      doc.apply(tr);
+
+      // Set text selection in the text node (position 0 in body)
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 0, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      const result = join_text_node(join_tr);
+
+      // Should return false (no action taken)
+      expect(result).toBe(false);
+      
+      // Text node should still exist
+      expect(doc.get(text_id)).toBeDefined();
+      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      
+      // Body should remain unchanged
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([text_id, story_1_id, story_1_id, list_1_id]);
+    });
+
+    it('should join two text nodes and position cursor at end of joined text', () => {
+      const doc = create_test_doc();
+
+      // Create two text nodes
+      const first_text_id = svid();
+      const second_text_id = svid();
+      
+      const first_text_node = {
+        id: first_text_id,
+        type: 'text',
+        layout: 1,
+        content: ['First text', []]
+      };
+      
+      const second_text_node = {
+        id: second_text_id,
+        type: 'text',
+        layout: 1,
+        content: [' second text', []]
+      };
+
+      const tr = doc.tr;
+      tr.create(first_text_node);
+      tr.create(second_text_node);
+      
+      // Replace body with our two text nodes
+      tr.set([page_1_id, 'body'], [first_text_id, second_text_id]);
+      doc.apply(tr);
+
+      // Set text selection in the second text node
+      doc.selection = {
+        type: 'text',
+        path: [page_1_id, 'body', 1, 'content'],
+        anchor_offset: 0,
+        focus_offset: 0
+      };
+
+      // Apply join_text_node command
+      const join_tr = doc.tr;
+      join_text_node(join_tr);
+      doc.apply(join_tr);
+
+      // Second text node should be deleted
+      expect(doc.get(second_text_id)).toBeUndefined();
+      
+      // First text node should contain joined content
+      const first_text = doc.get(first_text_id);
+      expect(first_text.content).toEqual(['First text second text', []]);
+      
+      // Body should only contain the first text node
+      const final_body = doc.get([page_1_id, 'body']);
+      expect(final_body).toEqual([first_text_id]);
+
+      // Selection should be positioned at the end of the original first text
+      expect(doc.selection.type).toBe('text');
+      expect(doc.selection.path).toEqual([page_1_id, 'body', 0, 'content']);
+      expect(doc.selection.anchor_offset).toBe(10); // Length of "First text"
+      expect(doc.selection.focus_offset).toBe(10);
+    });
   });
 });
