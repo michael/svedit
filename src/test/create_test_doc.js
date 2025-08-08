@@ -1,6 +1,7 @@
 import Document from '../lib/Document.svelte.js';
 import { svid } from '../lib/util.js';
 
+import Page from '../routes/components/Page.svelte';
 import Story from '../routes/components/Story.svelte';
 import Button from '../routes/components/Button.svelte';
 import Text from '../routes/components/Text.svelte';
@@ -105,6 +106,7 @@ const raw_doc = [
 const document_config = {
   // Registry of components for each node type
   node_components: {
+    page: Page,
     button: Button,
     text: Text,
     story: Story,
