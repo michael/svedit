@@ -1,6 +1,175 @@
 import Transaction from './Transaction.svelte.js';
 import { validate_node } from './util.js';
 
+// ============================================================================
+// SCHEMA TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Basic scalar types supported by the schema system.
+ * @typedef {"string" | "number" | "boolean" | "integer" | "datetime"} ScalarType
+ */
+
+/**
+ * Array types for collections of scalar values.
+ * @typedef {"string_array" | "number_array" | "boolean_array" | "integer_array"} ArrayType
+ */
+
+/**
+ * Special types for rich content.
+ * @typedef {"annotated_string"} RichType
+ */
+
+/**
+ * All primitive types that can be used in property definitions.
+ * @typedef {ScalarType | ArrayType | RichType} PrimitiveType
+ */
+
+/**
+ * A property that stores a primitive value.
+ * @typedef {object} PrimitiveProperty
+ * @property {PrimitiveType} type - The primitive type
+ */
+
+/**
+ * A property that stores a reference to a single node.
+ * @typedef {object} NodeProperty
+ * @property {"node"} type - Indicates this is a node reference
+ * @property {string[]} node_types - Array of allowed node types
+ * @property {string} [default_node_type] - Default type when creating new nodes
+ */
+
+/**
+ * A property that stores an array of node references.
+ * @typedef {object} NodeArrayProperty
+ * @property {"node_array"} type - Indicates this is a node array
+ * @property {string[]} node_types - Array of allowed node types
+ * @property {string} [default_node_type] - Default type when creating new nodes
+ */
+
+/**
+ * Union type for all possible property definitions.
+ * @typedef {PrimitiveProperty | NodeProperty | NodeArrayProperty} PropertyDefinition
+ */
+
+/**
+ * A node schema defines the structure of a specific node type.
+ * Maps property names to their definitions.
+ * @typedef {Record<string, PropertyDefinition>} NodeSchema
+ */
+
+/**
+ * A document schema defines all node types available in a document.
+ * Maps node type names to their schemas.
+ * @typedef {Record<string, NodeSchema>} DocumentSchema
+ */
+
+/**
+ * Identity function that provides compile-time type checking for document schemas.
+ * This ensures your schema object conforms to the DocumentSchema type.
+ *
+ * @template {DocumentSchema} D
+ * @param {D} schema - The document schema to validate
+ * @returns {D} The same schema, but with type information preserved
+ */
+export function define_document_schema(schema) {
+  return schema;
+}
+
+/**
+ * Check if a string represents a valid primitive type.
+ * @param {string} type - The type string to check
+ * @returns {type is PrimitiveType} True if it's a valid primitive type
+ */
+export function is_primitive_type(type) {
+  return [
+    'string', 'number', 'boolean', 'integer', 'datetime',
+    'annotated_string', 'string_array', 'number_array',
+    'boolean_array', 'integer_array'
+  ].includes(type);
+}
+
+/**
+ * Validate a property definition to ensure it's well-formed.
+ * @param {any} property_def - The property definition to validate
+ * @returns {boolean} True if the property definition is valid
+ */
+export function validate_property_definition(property_def) {
+  if (!property_def || typeof property_def !== 'object') {
+    return false;
+  }
+
+  if (!('type' in property_def) || typeof property_def.type !== 'string') {
+    return false;
+  }
+
+  const { type } = property_def;
+
+  // Validate primitive types
+  if (is_primitive_type(type)) {
+    return true;
+  }
+
+  // Validate node reference types
+  if (type === 'node') {
+    return Array.isArray(property_def.node_types) &&
+           property_def.node_types.length > 0 &&
+           property_def.node_types.every(t => typeof t === 'string');
+  }
+
+  // Validate node array types
+  if (type === 'node_array') {
+    return Array.isArray(property_def.node_types) &&
+           property_def.node_types.length > 0 &&
+           property_def.node_types.every(t => typeof t === 'string');
+  }
+
+  return false;
+}
+
+/**
+ * Validate a document schema to ensure it's well-formed.
+ * @param {any} document_schema - The document schema to validate
+ * @returns {boolean} True if the document schema is valid
+ */
+export function validate_document_schema(document_schema) {
+  if (!document_schema || typeof document_schema !== 'object') {
+    return false;
+  }
+
+  // Check that all property definitions are valid
+  for (const [node_type, node_schema] of Object.entries(document_schema)) {
+    if (!node_schema || typeof node_schema !== 'object') {
+      console.warn(`Invalid node schema for type: ${node_type}`);
+      return false;
+    }
+
+    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+      if (!validate_property_definition(prop_def)) {
+        console.warn(`Invalid property definition "${prop_name}" in node type "${node_type}"`);
+        return false;
+      }
+    }
+  }
+
+  // Check that all referenced node types exist
+  for (const [node_type, node_schema] of Object.entries(document_schema)) {
+    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+      if (prop_def.type === 'node' || prop_def.type === 'node_array') {
+        const all_types_exist = prop_def.node_types.every(ref_type =>
+          ref_type in document_schema
+        );
+        if (!all_types_exist) {
+          console.warn(`Node type "${node_type}" references unknown types in property "${prop_name}"`);
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 export default class Document {
   selection = $state();
   config = $state();
