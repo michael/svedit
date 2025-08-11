@@ -89,67 +89,14 @@ export function is_primitive_type(type) {
   ].includes(type);
 }
 
-/**
- * Validate a property definition to ensure it's well-formed.
- * @param {any} property_def - The property definition to validate
- * @returns {boolean} True if the property definition is valid
- */
-export function validate_property_definition(property_def) {
-  if (!property_def || typeof property_def !== 'object') {
-    return false;
-  }
 
-  if (!('type' in property_def) || typeof property_def.type !== 'string') {
-    return false;
-  }
-
-  const { type } = property_def;
-
-  // Validate primitive types
-  if (is_primitive_type(type)) {
-    return true;
-  }
-
-  // Validate node reference types
-  if (type === 'node') {
-    return Array.isArray(property_def.node_types) &&
-           property_def.node_types.length > 0 &&
-           property_def.node_types.every(t => typeof t === 'string');
-  }
-
-  // Validate node array types
-  if (type === 'node_array') {
-    return Array.isArray(property_def.node_types) &&
-           property_def.node_types.length > 0 &&
-           property_def.node_types.every(t => typeof t === 'string');
-  }
-
-  return false;
-}
 
 /**
- * Validate a document schema to ensure it's well-formed.
- * @param {any} document_schema - The document schema to validate
+ * Validate a document schema to ensure all referenced node types exist.
+ * @param {DocumentSchema} document_schema - The document schema to validate
  * @throws {Error} Throws if the document schema is invalid
  */
 export function validate_document_schema(document_schema) {
-  if (!document_schema || typeof document_schema !== 'object') {
-    throw new Error('Document schema must be an object');
-  }
-
-  // Check that all property definitions are valid
-  for (const [node_type, node_schema] of Object.entries(document_schema)) {
-    if (!node_schema || typeof node_schema !== 'object') {
-      throw new Error(`Invalid node schema for type: ${node_type}`);
-    }
-
-    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
-      if (!validate_property_definition(prop_def)) {
-        throw new Error(`Invalid property definition "${prop_name}" in node type "${node_type}"`);
-      }
-    }
-  }
-
   // Check that all referenced node types exist
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
