@@ -130,24 +130,22 @@ export function validate_property_definition(property_def) {
 /**
  * Validate a document schema to ensure it's well-formed.
  * @param {any} document_schema - The document schema to validate
- * @returns {boolean} True if the document schema is valid
+ * @throws {Error} Throws if the document schema is invalid
  */
 export function validate_document_schema(document_schema) {
   if (!document_schema || typeof document_schema !== 'object') {
-    return false;
+    throw new Error('Document schema must be an object');
   }
 
   // Check that all property definitions are valid
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
     if (!node_schema || typeof node_schema !== 'object') {
-      console.warn(`Invalid node schema for type: ${node_type}`);
-      return false;
+      throw new Error(`Invalid node schema for type: ${node_type}`);
     }
 
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
       if (!validate_property_definition(prop_def)) {
-        console.warn(`Invalid property definition "${prop_name}" in node type "${node_type}"`);
-        return false;
+        throw new Error(`Invalid property definition "${prop_name}" in node type "${node_type}"`);
       }
     }
   }
@@ -156,18 +154,15 @@ export function validate_document_schema(document_schema) {
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
       if (prop_def.type === 'node' || prop_def.type === 'node_array') {
-        const all_types_exist = prop_def.node_types.every(ref_type =>
-          ref_type in document_schema
+        const missing_types = prop_def.node_types.filter(ref_type => 
+          !(ref_type in document_schema)
         );
-        if (!all_types_exist) {
-          console.warn(`Node type "${node_type}" references unknown types in property "${prop_name}"`);
-          return false;
+        if (missing_types.length > 0) {
+          throw new Error(`Node type "${node_type}" property "${prop_name}" references unknown node types: ${missing_types.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`);
         }
       }
     }
   }
-
-  return true;
 }
 
 export default class Document {
@@ -186,6 +181,9 @@ export default class Document {
 	selected_node = $derived(this.get_selected_node());
 
   constructor(schema, raw_doc, { selection, config } = {}) {
+    // Validate the schema first
+    validate_document_schema(schema);
+    
     this.schema = schema;
     this.selection = selection;
     this.config = config;

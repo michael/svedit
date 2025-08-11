@@ -1,5 +1,5 @@
 import { svid } from '$lib/util.js';
-import Document, { define_document_schema, validate_document_schema } from '$lib/Document.svelte';
+import Document, { define_document_schema } from '$lib/Document.svelte';
 
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
@@ -15,7 +15,7 @@ const document_schema = define_document_schema({
   page: {
     body: {
       type: 'node_array',
-      node_types: ['text', 'story', 'list', 'image_grid', 'hero', 'list_item'],
+      node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
       default_node_type: 'text',
     },
     hero: {
@@ -75,50 +75,7 @@ const document_schema = define_document_schema({
   },
 });
 
-// Validate the schema at startup to catch errors early
-if (!validate_document_schema(document_schema)) {
-  throw new Error('Document schema is invalid!');
-}
 
-console.log('✅ Document schema is valid');
-
-// Examples of what TypeScript/JSDoc will now catch at compile time:
-//
-// ❌ This would cause a type error (uncomment to test):
-// const bad_schema = define_document_schema({
-//   article: {
-//     title: { type: 'invalid_type' },  // Error: not a valid primitive type
-//     tags: { type: 'node_array' }      // Error: missing required node_types property
-//   }
-// });
-//
-// ❌ This would also cause a type error:
-// const another_bad_schema = define_document_schema({
-//   post: {
-//     content: {
-//       type: 'node_array',
-//       node_types: ['nonexistent_type']  // Runtime error: referenced type doesn't exist
-//     }
-//   }
-// });
-//
-// ✅ This is the correct way - fully type-safe:
-// const good_schema = define_document_schema({
-//   post: {
-//     title: { type: 'string' },
-//     content: { type: 'annotated_text' },
-//     tags: { type: 'string_array' },
-//     comments: {
-//       type: 'node_array',
-//       node_types: ['comment'],
-//       default_node_type: 'comment'
-//     }
-//   },
-//   comment: {
-//     text: { type: 'annotated_text' },
-//     author: { type: 'string' }
-//   }
-// });
 
 // Generate IDs for all content nodes
 const page_1_id = 'page_1';
