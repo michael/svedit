@@ -103,6 +103,21 @@ export function is_primitive_type(type) {
   ].includes(type);
 }
 
+/**
+ * Get the default node type for a property that references nodes.
+ * @param {NodeProperty | NodeArrayProperty} property_definition - The property definition
+ * @returns {string | null} The default node type, or null if none specified
+ */
+export function get_default_node_type(property_definition) {
+  if (!property_definition || !property_definition.node_types) {
+    return null;
+  }
+
+  return property_definition.default_node_type ||
+    (property_definition.node_types.length === 1 ? property_definition.node_types[0] : null);
+}
+
+
 
 
 /**

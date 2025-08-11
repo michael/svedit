@@ -97,13 +97,4 @@ export function determine_node_array_orientation(doc, path_to_node_array) {
   return doc.config?.node_types_with_horizontal_node_arrays?.includes(owner_node?.type) ? 'horizontal' : 'vertical';
 }
 
-// Get the default ref type for a node_array property
-// Returns the default_node_type if specified, or the single node_type if there's only one
-export function get_default_node_type(property_schema) {
-  if (!property_schema || !property_schema.node_types) {
-    return null;
-  }
 
-  return property_schema.default_node_type ||
-    (property_schema.node_types.length === 1 ? property_schema.node_types[0] : null);
-}
