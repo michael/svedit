@@ -65,6 +65,20 @@ import { is_valid_svid } from './util.js';
  */
 
 /**
+ * A serialized node in the document format.
+ * Must have id and type properties, with other properties defined by the schema.
+ * @typedef {object} SerializedNode
+ * @property {string} id - The unique node ID (SVID)
+ * @property {string} type - The node type (must exist in DocumentSchema)
+ */
+
+/**
+ * The document serialization format - an array of serialized nodes.
+ * Nodes must be ordered so that referenced nodes come before nodes that reference them.
+ * @typedef {SerializedNode[]} SerializedDocument
+ */
+
+/**
  * Identity function that provides compile-time type checking for document schemas.
  * This ensures your schema object conforms to the DocumentSchema type.
  *
@@ -101,7 +115,7 @@ export function validate_document_schema(document_schema) {
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
       if (prop_def.type === 'node' || prop_def.type === 'node_array') {
-        const missing_types = prop_def.node_types.filter(ref_type => 
+        const missing_types = prop_def.node_types.filter(ref_type =>
           !(ref_type in document_schema)
         );
         if (missing_types.length > 0) {
@@ -131,7 +145,7 @@ function validate_primitive_value(type, value) {
     case 'datetime':
       return typeof value === 'string' && !isNaN(Date.parse(value));
     case 'annotated_string':
-      return Array.isArray(value) && 
+      return Array.isArray(value) &&
              value.length === 2 &&
              typeof value[0] === 'string' &&
              Array.isArray(value[1]);
@@ -159,16 +173,16 @@ function validate_node(node, schema, all_nodes = {}) {
   if (!node.id || !is_valid_svid(node.id)) {
     throw new Error(`Node ${node.id} has an invalid id. Must be a SVID.`);
   }
-  
+
   if (!node.type || !schema[node.type]) {
     throw new Error(`Node ${node.id} has an invalid type: ${node.type}`);
   }
 
   const node_schema = schema[node.type];
-  
+
   for (const [prop_name, prop_def] of Object.entries(node_schema)) {
     const value = node[prop_name];
-    
+
     // Check primitive types
     if (is_primitive_type(prop_def.type)) {
       if (!validate_primitive_value(prop_def.type, value)) {
@@ -217,10 +231,17 @@ export default class Document {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 
-  constructor(schema, raw_doc, { selection, config } = {}) {
+  /**
+   * @param {DocumentSchema} schema - The document schema
+   * @param {SerializedDocument} serialized_doc - The serialized document array
+   * @param {object} [options] - Optional configuration
+   * @param {any} [options.selection] - Initial selection state
+   * @param {any} [options.config] - Document configuration
+   */
+  constructor(schema, serialized_doc, { selection, config } = {}) {
     // Validate the schema first
     validate_document_schema(schema);
-    
+
     this.schema = schema;
     this.selection = selection;
     this.config = config;
@@ -228,13 +249,13 @@ export default class Document {
 
     // Initialize and validate nodes one by one
     // This ensures references only point to already-loaded nodes
-    for (const node of raw_doc) {
+    for (const node of serialized_doc) {
       this.validate_node(node);
       this.nodes[node.id] = node;
     }
 
-    // The last element in the raw_doc is the document itself (the root node)
-    this.document_id = raw_doc.at(-1).id;
+    // The last element in the serialized_doc is the document itself (the root node)
+    this.document_id = serialized_doc.at(-1)?.id;
   }
 
  	// Helper function to get the currently selected node
@@ -586,7 +607,11 @@ export default class Document {
     return json;
   }
 
-  to_json(node_id) {
+  /**
+   * Convert the document to serialized format.
+   * @returns {SerializedDocument} The serialized document array
+   */
+  to_json() {
     return this.traverse(this.document_id);
   }
 
