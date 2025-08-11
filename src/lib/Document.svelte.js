@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { validate_node } from './util.js';
+import { is_valid_svid } from './util.js';
 
 // ============================================================================
 // SCHEMA TYPE DEFINITIONS
@@ -165,6 +165,96 @@ export function validate_document_schema(document_schema) {
   }
 }
 
+/**
+ * Validate a primitive value against its schema type.
+ * @param {PrimitiveType} type - The expected type
+ * @param {any} value - The value to validate
+ * @returns {boolean} True if the value matches the type
+ */
+function validate_primitive_value(type, value) {
+  switch (type) {
+    case 'string':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number' && !isNaN(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'integer':
+      return Number.isInteger(value);
+    case 'datetime':
+      return typeof value === 'string' && !isNaN(Date.parse(value));
+    case 'annotated_string':
+      return Array.isArray(value) && 
+             value.length === 2 &&
+             typeof value[0] === 'string' &&
+             Array.isArray(value[1]);
+    case 'string_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'string');
+    case 'number_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'number' && !isNaN(v));
+    case 'boolean_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'boolean');
+    case 'integer_array':
+      return Array.isArray(value) && value.every(v => Number.isInteger(v));
+    default:
+      return false;
+  }
+}
+
+/**
+ * Validate a node against its schema.
+ * @param {any} node - The node to validate
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Record<string, any>} all_nodes - All nodes in the document to check references
+ * @throws {Error} Throws if the node is invalid
+ */
+function validate_node(node, schema, all_nodes = {}) {
+  if (!node.id || !is_valid_svid(node.id)) {
+    throw new Error(`Node ${node.id} has an invalid id. Must be a SVID.`);
+  }
+  
+  if (!node.type || !schema[node.type]) {
+    throw new Error(`Node ${node.id} has an invalid type: ${node.type}`);
+  }
+
+  const node_schema = schema[node.type];
+  
+  for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+    const value = node[prop_name];
+    
+    // Check primitive types
+    if (is_primitive_type(prop_def.type)) {
+      if (!validate_primitive_value(prop_def.type, value)) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be of type ${prop_def.type}.`);
+      }
+    }
+    // Check node references
+    else if (prop_def.type === 'node') {
+      if (typeof value !== 'string' || !is_valid_svid(value)) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be a SVID.`);
+      }
+      // Check if referenced node exists and is of allowed type
+      const referenced_node = all_nodes[value];
+      if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
+        throw new Error(`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`);
+      }
+    }
+    // Check node arrays
+    else if (prop_def.type === 'node_array') {
+      if (!Array.isArray(value) || !value.every(id => typeof id === 'string' && is_valid_svid(id))) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be an array of SVIDs.`);
+      }
+      // Check if all referenced nodes are of allowed types
+      for (const ref_id of value) {
+        const referenced_node = all_nodes[ref_id];
+        if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
+          throw new Error(`Node ${node.id} property ${prop_name} references node ${ref_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`);
+        }
+      }
+    }
+  }
+}
+
 export default class Document {
   selection = $state();
   config = $state();
@@ -189,9 +279,10 @@ export default class Document {
     this.config = config;
     this.nodes = {};
 
-    // Initialize the nodes
+    // Initialize and validate nodes one by one
+    // This ensures references only point to already-loaded nodes
     for (const node of raw_doc) {
-      validate_node(node, this.schema);
+      this.validate_node(node);
       this.nodes[node.id] = node;
     }
 
@@ -230,6 +321,15 @@ export default class Document {
     } else if (type === 'delete') {
       delete this.nodes[args[0]];
     }
+  }
+
+  /**
+   * Validate a node against the document schema.
+   * @param {any} node - The node to validate
+   * @throws {Error} Throws if the node is invalid
+   */
+  validate_node(node) {
+    validate_node(node, this.schema, this.nodes);
   }
 
   // Creates a new transaction

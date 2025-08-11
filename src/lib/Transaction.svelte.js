@@ -45,6 +45,10 @@ export default class Transaction {
     if (this.doc.get(node.id)) {
       throw new Error('Node with id ' + node.id + ' already exists');
     }
+    
+    // Validate node against schema
+    this.doc.validate_node(node);
+    
     const op = ['create', node];
     this.ops.push(op);
     this.inverse_ops.push(['delete', node.id]);
