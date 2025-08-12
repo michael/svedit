@@ -6,6 +6,11 @@ import { is_valid_svid } from './util.js';
 // ============================================================================
 
 /**
+ * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document
+ * @typedef {Array<string|number>} DocumentPath
+ */
+
+/**
  * Basic scalar types supported by the schema system.
  * @typedef {"string" | "number" | "boolean" | "integer" | "datetime"} ScalarType
  */
@@ -372,16 +377,32 @@ export default class Document {
     return this;
   }
 
-  // doc.get('list_1') => { type: 'list', id: 'list_1', ... }
-  // doc.get(['list_1', 'list_items']) => [ 'list_item_1', 'list_item_2' ]
-  // doc.get(['page_1', 'body', 3, 'list_items', 0]) => { type: 'list_item', id: 'list_item_1', ... }
-  // doc.get(['page_1', 'cover', 'title']) => ['Hello world', []]
+  /**
+   * Gets a node instance or property value at the specified path.
+   * @param {DocumentPath} path - Path to the node or property
+   * @returns {any} Either a node instance object or the value of a property
+   * @example
+   * // Get a node by ID
+   * doc.get('list_1') // => { type: 'list', id: 'list_1', ... }
+   *
+   * @example
+   * // Get a node array property
+   * doc.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
+   *
+   * @example
+   * // Get a specific node from an array
+   * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
+   *
+   * @example
+   * // Get an annotated string property
+   * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]
+   */
   get(path) {
     if (typeof path === 'string') {
       path = [ path ];
     }
     if (!(Array.isArray(path) && path.length >= 1)) {
-      throw new Error('Invalid path provided', path);
+      throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
     }
 
     let val = this.nodes[path[0]];

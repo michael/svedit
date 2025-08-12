@@ -1,8 +1,10 @@
 <script>
 	import { getContext } from 'svelte';
+	/** @typedef {import('./Document.svelte.js').DocumentPath} DocumentPath */
 	const svedit = getContext('svedit');
 
 	let {
+		/** @type {DocumentPath} */
 		path,
 		class: css_class,
 		editable = true,
@@ -18,7 +20,7 @@
 	 * @property {string} type - The annotation type (e.g., 'link', 'emphasis', 'strong')
 	 * @property {string} content - The text content of the annotation
 	 * @property {number} annotation_index - Index of the annotation in the original array
-	 * @property {any} [data] - Properties from the annotation's data object
+	 * @property {any} [data] - Optional properties from the annotation's options object
 	 */
 
 	/**
