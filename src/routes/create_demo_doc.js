@@ -245,7 +245,7 @@ const raw_doc = [
   {
     id: list_item_4_id,
     type: 'list_item',
-    content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed. ', []]
+    content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed.', []]
   },
   {
     id: list_1_id,
