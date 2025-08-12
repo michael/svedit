@@ -13,7 +13,22 @@
 		return svedit.doc.selection?.type === 'text' && path.join('.') === svedit.doc.selection?.path.join('.');
 	});
 
+	/**
+	 * @typedef {Object} AnnotationFragment
+	 * @property {string} type - The annotation type (e.g., 'link', 'emphasis', 'strong')
+	 * @property {string} content - The text content of the annotation
+	 * @property {number} annotation_index - Index of the annotation in the original array
+	 * @property {any} [data] - Properties from the annotation's data object
+	 */
+
+	/**
+	 * Converts text with annotations into renderable fragments for display.
+	 * @param {string} text - The plain text content
+	 * @param {Array<[number, number, string, ...any]>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
+	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
+	 */
 	function render_annotated_string(text, annotations) {
+	  console.log('render_annotated_string', text, annotations);
 		let fragments = [];
 		let last_index = 0;
 
@@ -32,7 +47,7 @@
 				type: annotation[2],
 				content: annotated_content,
 				annotation_index: index,
-				...annotation[3]
+				data: annotation[3]
 			});
 
 			last_index = annotation[1];
@@ -49,6 +64,9 @@
 	let fragments = $derived(render_annotated_string(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
 	let plain_text = $derived(svedit.doc.get(path)[0]);
 
+	/**
+	 * @param {MouseEvent} e - The click event
+	 */
 	function handle_link_click(e) {
 		if (editable) {
 			e.preventDefault();
@@ -66,7 +84,7 @@
   class:focused={is_focused}
   placeholder={placeholder}
 >
-  {#each fragments as fragment, index}
+  {#each fragments as fragment, index (index)}
 		{#if typeof fragment === 'string'}<!--
       -->{fragment}<!--
     -->{:else if fragment.type === 'emphasis'}<!--
@@ -77,8 +95,8 @@
       --><a
 				onclick={handle_link_click}
 				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
-				href={fragment.href}
-				target={fragment.target || '_self'}>{fragment.content}</a><!--
+				href={fragment.data.href}
+				target={fragment.data.target || '_self'}>{fragment.content}</a><!--
     -->{:else}<!--
       -->{fragment.content}<!--
     -->{/if}
