@@ -75,20 +75,15 @@ Example usage in component styles:
 		background-repeat: no-repeat;
 	}
 
-
-	.cursor-trap.position-zero-cursor-trap {
-		left: calc(-1 * var(--cursor-trap-size) / 2 - var(--padding-inline, 0px) / 2);
-	}
-	.cursor-trap.after-node-cursor-trap {
-		right: calc(-1 * var(--cursor-trap-size) / 2 - var(--column-gap, 0px) / 2);
-	}
-
-
 	/* Container query-based orientation detection */
 	/* For horizontal layouts (children in rows), cursor traps should be vertical */
 	@container style(--layout-orientation: horizontal) {
-		.cursor-trap {
-			/* Keep default vertical cursor trap styles - no changes needed */
+		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
+		.cursor-trap.position-zero-cursor-trap {
+			left: calc(-1 * var(--cursor-trap-size) / 2 - var(--padding-inline, 0px) / 2);
+		}
+		.cursor-trap.after-node-cursor-trap {
+			right: calc(-1 * var(--cursor-trap-size) / 2 - var(--column-gap, 0px) / 2);
 		}
 	}
 
@@ -106,7 +101,7 @@ Example usage in component styles:
 			
 			/* Horizontal cursor trap visual */
 			background-image: repeating-linear-gradient(to right,
-				var(--stroke-color) 0%,
+				var(--stroke-color) 0%, /** TODO: The stroke color should be contrasting with the background color: check luminocity and invert the stroke to the background color */
 				var(--stroke-color) 4px,
 				transparent 4px,
 				transparent 8px
@@ -128,15 +123,16 @@ Example usage in component styles:
 			background-repeat: no-repeat;
 		}
 		
+		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
 		.cursor-trap.position-zero-cursor-trap {
 			bottom: auto;
 			top: calc(-1 * var(--cursor-trap-size) / 2 - var(--padding-block, 0px) / 2);
 			left: 0;
 		}
-		
 		.cursor-trap.after-node-cursor-trap {
 			bottom: calc(-1 * var(--cursor-trap-size) / 2 - var(--row-gap, 0px) / 2);
 		}
+
 	}
 
 	:global(.empty-node-array .cursor-trap) {

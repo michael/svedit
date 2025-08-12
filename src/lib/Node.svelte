@@ -39,6 +39,5 @@
 <style>
   div {
     position: relative;
-    /* outline: 1px solid red; */
   }
 </style>
