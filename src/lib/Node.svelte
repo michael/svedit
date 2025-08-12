@@ -39,7 +39,6 @@
 <style>
   div {
     position: relative;
-    --layout-orientation: vertical;
     /* outline: 1px solid red; */
   }
 </style>
