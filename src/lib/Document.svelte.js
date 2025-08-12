@@ -26,8 +26,43 @@ import { is_valid_svid } from './util.js';
  */
 
 /**
+ * Node reference types for linking to other nodes.
+ * @typedef {"node" | "node_array"} NodeType
+ */
+
+/**
  * All primitive types that can be used in property definitions.
- * @typedef {ScalarType | ArrayType | RichType} PrimitiveType
+ * @typedef {ScalarType | ArrayType | RichType | NodeType} PrimitiveType
+ */
+
+/**
+ * Document schema primitive types - all possible property types in document schemas.
+ * @typedef {"string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_string" | "node" | "node_array"} DocumentSchemaPrimitive
+ */
+
+/**
+ * Maps document schema types to their JavaScript runtime types.
+ * @template T
+ * @typedef {T extends "string" ? string :
+ *           T extends "number" ? number :
+ *           T extends "boolean" ? boolean :
+ *           T extends "integer" ? number :
+ *           T extends "datetime" ? string :
+ *           T extends "string_array" ? Array<string> :
+ *           T extends "number_array" ? Array<number> :
+ *           T extends "boolean_array" ? Array<boolean> :
+ *           T extends "integer_array" ? Array<number> :
+ *           T extends "annotated_string" ? [string, Array<any>] :
+ *           T extends "node" ? string :
+ *           T extends "node_array" ? Array<string> :
+ *           never} DocumentSchemaValueToJs
+ */
+
+/**
+ * Converts a document node schema definition to its inferred JS type.
+ * Handles the {type: "..."} wrapper structure used in document schemas.
+ * @template {Record<string, {type: DocumentSchemaPrimitive}>} S
+ * @typedef {{ id: string, type: string } & { [K in keyof S]: DocumentSchemaValueToJs<S[K]["type"]> }} DocumentNodeToJs
  */
 
 /**
@@ -84,12 +119,12 @@ import { is_valid_svid } from './util.js';
  */
 
 /**
- * Identity function that provides compile-time type checking for document schemas.
- * This ensures your schema object conforms to the DocumentSchema type.
+ * Identity function — keeps schema at runtime & makes IDE infer types.
+ * Similar to your define_schema pattern but for document schemas.
  *
- * @template {DocumentSchema} D
- * @param {D} schema - The document schema to validate
- * @returns {D} The same schema, but with type information preserved
+ * @template {Record<string, Record<string, {type: DocumentSchemaPrimitive}>>} S
+ * @param {S} schema - The document schema to validate
+ * @returns {S} The same schema, but with type information preserved
  */
 export function define_document_schema(schema) {
   return schema;
@@ -384,15 +419,15 @@ export default class Document {
    * @example
    * // Get a node by ID
    * doc.get('list_1') // => { type: 'list', id: 'list_1', ... }
-   *
+   * 
    * @example
    * // Get a node array property
    * doc.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
-   *
+   * 
    * @example
    * // Get a specific node from an array
    * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
-   *
+   * 
    * @example
    * // Get an annotated string property
    * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]
@@ -435,6 +470,25 @@ export default class Document {
       }
     }
     return val;
+  }
+
+  /**
+   * Get a typed node using schema-based type inference.
+   * @template {keyof this['schema']} NodeType
+   * @param {DocumentPath} path - Path to the node
+   * @param {NodeType} nodeType - Expected node type for type inference
+   * @returns {DocumentNodeToJs<this['schema'][NodeType]>} Typed node with schema-based properties
+   * @example
+   * // Get a story node with typed properties
+   * const story = doc.getTyped(['page_1', 'body', 0], 'story');
+   * // Now story.title, story.description, etc. have proper types
+   */
+  getTyped(path, nodeType) {
+    const node = this.get(path);
+    if (node && node.type === nodeType) {
+      return /** @type {any} */ (node);
+    }
+    throw new Error(`Expected ${nodeType} node at path ${path.join('.')}, got ${node?.type || 'undefined'}`);
   }
 
   // While .get gives you the value of a path, inspect gives you
