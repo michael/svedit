@@ -27,7 +27,10 @@
       data-type="node"
       style="anchor-name: --{[...path, 0].join('-')}; position: relative; min-height: 40px; min-width: 40px;"
     >
-      <CursorTrap node_array_path={path} type="position-zero-cursor-trap" />
+      <CursorTrap 
+        type="position-zero-cursor-trap"
+        anchor={`--${path.join('-')}-0-before`}
+      />
     </div>
   {/if}
   {#each nodes as node, index }

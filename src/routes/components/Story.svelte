@@ -53,6 +53,7 @@
 		flex-direction: row;
 		flex-wrap: wrap;
 		gap: var(--s-2);
+		--layout-orientation: horizontal;
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {

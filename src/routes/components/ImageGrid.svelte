@@ -1,7 +1,6 @@
 <script>
   import Node from '../../lib/Node.svelte';
   import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
-  import ImageGridItem from './ImageGridItem.svelte';
   import { getContext } from 'svelte';
 
   const svedit = getContext('svedit');
@@ -10,35 +9,34 @@
 </script>
 
 <Node {path}>
-  <div class="image-grid max-w-screen-lg mx-auto">
-    <NodeArrayProperty class="image-grid-items" path={[...path, 'image_grid_items']} />
-  </div>
+  <NodeArrayProperty class="image-grid max-w-screen-lg mx-auto" path={[...path, 'image_grid_items']} />
 </Node>
 
 <style>
-  .image-grid {
-    padding: var(--s-6);
+  :global(.image-grid) {
+    --row-gap: 30px;
+    --column-gap: 30px;
+    --padding-inline: var(--s-6);
+    --padding-block: var(--s-10);
+    --layout-orientation: horizontal;
+    padding: var(--padding-block) var(--padding-inline);
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--column-gap) var(--row-gap);
   }
-  .image-grid :global {
-    .image-grid-items {
-      padding: calc(var(--s-10) * 3) 0;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
+  /* Tablet screens */
+  @media (max-width: 768px) {
+    :global(.image-grid) {
+      grid-template-columns: repeat(2, 1fr);
     }
+  }
 
-    /* Tablet screens */
-    @media (max-width: 768px) {
-      .image-grid-items {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    /* Mobile screens */
-    @media (max-width: 480px) {
-      .image-grid-items {
-        grid-template-columns: repeat(1, 1fr);
-      }
+  /* Mobile screens */
+  @media (max-width: 480px) {
+    :global(.image-grid) {
+      --layout-orientation: vertical;
+      grid-template-columns: repeat(1, 1fr);
     }
   }
 </style>

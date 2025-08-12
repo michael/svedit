@@ -1,6 +1,5 @@
 <script>
 	import { getContext } from 'svelte';
-	import { determine_node_array_orientation } from '../../lib/util.js';
 	import Icon from './Icon.svelte';
 
 	const svedit = getContext('svedit');
@@ -32,7 +31,6 @@
 
 		if (sel.type === 'node' && sel.anchor_offset === sel.focus_offset) {
 			const node_array = svedit.doc.get(sel.path);
-			const orientation = determine_node_array_orientation(svedit.doc, sel.path);
 			let node_index, position;
 
 			if (sel.anchor_offset === 0) {
@@ -45,8 +43,7 @@
 			}
 			return {
 				path: [...sel.path, node_index],
-				position,
-				orientation
+				position
 			};
 		}
 	}
@@ -91,12 +88,10 @@
 {:else if node_cursor_info}
 	<div
 		class="node-cursor"
-		class:horizontal={node_cursor_info.orientation === 'horizontal'}
-		class:vertical={node_cursor_info.orientation === 'vertical'}
 		class:after={node_cursor_info.position === 'after'}
 		class:before={node_cursor_info.position === 'before'}
-		style="position-anchor: --{node_cursor_info.path.join('-')};"
-	></div>
+		style="position-anchor: --{node_cursor_info.path.join('-') + '-' + (node_cursor_info.position === 'before' ? 'before' : 'after')};"
+	><div class="cursor-bar"></div></div>
 {/if}
 
 {#if text_selection_info}
@@ -127,48 +122,53 @@
 	}
 
 	.node-cursor {
+		--node-cursor-size: 2px;
 		position: absolute;
-		background: var(--editing-stroke-color);
-		pointer-events: none;
-		animation: blink 0.7s infinite;
-	}
-
-	.node-cursor.horizontal {
-		width: 4px;
+		pointer-events: none;	
+		container-type: size;
+		left: anchor(left); /*  We seize the container to match the anchor dimensions, so we can use the container query to orient the cursor bar either horizontally or vertically */
+		right: anchor(right);
 		top: anchor(top);
 		bottom: anchor(bottom);
+		/* Fancy transitions? Look smooth along the axis of the bar, but not across it ... */
+		/* transition: inset 0.05s cubic-bezier(1,0,0,.1); */
 	}
-
-	.node-cursor.vertical {
-		height: 4px;
-		left: anchor(left);
-		right: anchor(right);
+	.cursor-bar {
+		position: absolute;
+		background: var(--editing-stroke-color);
+		/* 1s is blink rate of the regular text cursor */		
+		animation: blink 1s step-end infinite; 
+		/* Default: vertical cursor for row oriented nodes */
+		left: calc(50% - var(--node-cursor-size) / 2);
+		right: calc(50% - var(--node-cursor-size) / 2);
+		top: 0;
+		bottom: 0;
+		border-radius: var(--node-cursor-size);
 	}
-
-	.node-cursor.before.horizontal {
-		left: calc(anchor(left) - 2px);
+	:global(.svedit:has(*:active)) {
+		.cursor-bar {
+			/* When the is keep pressing the mouse button, we don't want the cursor to blink */
+			/* This mimics the behavior of the regular text cursor */
+			animation: none;
+		}
 	}
-
-	.node-cursor.after.horizontal {
-		right: calc(anchor(right) - 2px);
-	}
-
-	.node-cursor.before.vertical {
-		top: calc(anchor(top) - 2px);
-	}
-
-	.node-cursor.after.vertical {
-		bottom: calc(anchor(bottom) - 2px);
+	
+	/* Override: horizontal cursor for column oriented nodes */
+	@container (aspect-ratio > 1) {
+		.cursor-bar {
+			left: 0;
+			right: 0;
+			top: calc(50% - var(--node-cursor-size) / 2);
+			bottom: calc(50% - var(--node-cursor-size) / 2);
+		}
 	}
 
 	@keyframes blink {
-		0% {
-			opacity: 0;
-		}
-		50% {
+		from,
+		to {
 			opacity: 1;
 		}
-		100% {
+		50% {
 			opacity: 0;
 		}
 	}

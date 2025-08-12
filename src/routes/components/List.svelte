@@ -15,5 +15,6 @@
   .list {
     padding: var(--s-10) 0;
     counter-reset: listcounter;
+    --layout-orientation: vertical;
   }
 </style>
