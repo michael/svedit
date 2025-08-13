@@ -480,15 +480,20 @@
     let focus_root_path = focus_root.dataset.path.split('.');
     let anchor_root_path = anchor_root.dataset.path.split('.');
 
+    // Track if we needed path normalization (cross-level selection)
+    let required_normalization = false;
+
     // HACK: this works only for one level nesting - should be done recursively to work generally
     if (focus_root_path.length > anchor_root_path.length) {
       focus_root = focus_root.parentElement.closest('[data-path][data-type="node"]');
       if (!focus_root) return null;
       focus_root_path = focus_root.dataset.path.split('.');
+      required_normalization = true;
     } else if (anchor_root_path.length > focus_root_path.length) {
       anchor_root = anchor_root.parentElement.closest('[data-path][data-type="node"]');
       if (!anchor_root) return null;
       anchor_root_path = anchor_root.dataset.path.split('.');
+      required_normalization = true;
     }
 
     const is_same_node_array = focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
@@ -500,12 +505,45 @@
     let anchor_offset = parseInt(anchor_root_path.at(-1));
     let focus_offset = parseInt(focus_root_path.at(-1));
 
-    // Check if it's a backwards selection
-    const is_backwards = __is_dom_selection_backwards();
-    if (is_backwards) {
-      anchor_offset += 1;
+    // Only apply cursor trap adjustments for same-level selections (no normalization needed)
+    // If normalization was required, use standard selection logic instead
+    if (!required_normalization) {
+      let anchor_in_cursor_trap = anchor_node.closest('[data-type="after-node-cursor-trap"]') || 
+                                 anchor_node.closest('[data-type="position-zero-cursor-trap"]');
+      let focus_in_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]') || 
+                                focus_node.closest('[data-type="position-zero-cursor-trap"]');
+      
+      // Adjust offsets for cursor trap starting positions
+      if (anchor_node.closest('[data-type="after-node-cursor-trap"]')) {
+        anchor_offset += 1; // Position after the node that owns the cursor trap
+      } else if (anchor_node.closest('[data-type="position-zero-cursor-trap"]')) {
+        anchor_offset = 0; // Position at the beginning of the node array
+      }
+
+      if (focus_node.closest('[data-type="after-node-cursor-trap"]')) {
+        focus_offset += 1; // Position after the node that owns the cursor trap
+      } else if (focus_node.closest('[data-type="position-zero-cursor-trap"]')) {
+        focus_offset = 0; // Position at the beginning of the node array
+      } else {
+        // Apply standard selection logic for non-cursor-trap focus
+        const is_backwards = __is_dom_selection_backwards();
+        if (is_backwards) {
+          // Only adjust anchor if it's not already adjusted by cursor trap logic
+          if (!anchor_in_cursor_trap) {
+            anchor_offset += 1;
+          }
+        } else {
+          focus_offset += 1;
+        }
+      }
     } else {
-      focus_offset += 1;
+      // For cross-level selections, use standard logic without cursor trap adjustments
+      const is_backwards = __is_dom_selection_backwards();
+      if (is_backwards) {
+        anchor_offset += 1;
+      } else {
+        focus_offset += 1;
+      }
     }
 
     const result = {
