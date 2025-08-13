@@ -41,7 +41,20 @@ export default [
 			'@typescript-eslint': typescript
 		},
 		rules: {
-		  ...typescript.configs.recommended.rules
+			// Enable TypeScript-specific rules for .d.ts files
+			'@typescript-eslint/no-unused-vars': 'error',
+			'@typescript-eslint/consistent-type-definitions': ['error', 'type'],
+			'@typescript-eslint/no-explicit-any': 'warn',
+			'@typescript-eslint/prefer-namespace-keyword': 'error',
+			'@typescript-eslint/triple-slash-reference': 'error',
+			'@typescript-eslint/no-var-requires': 'off', // Often needed in .d.ts files
+			'@typescript-eslint/ban-types': 'error',
+			'@typescript-eslint/no-duplicate-enum-values': 'error',
+			'@typescript-eslint/no-empty-interface': 'error',
+			'@typescript-eslint/no-inferrable-types': 'off',
+			'@typescript-eslint/no-misused-new': 'error',
+			'@typescript-eslint/no-namespace': 'error',
+			'@typescript-eslint/no-this-alias': 'error'
 		}
 	}
 ];

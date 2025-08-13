@@ -126,3 +126,19 @@ export type NodeSchema = Record<string, PropertyDefinition>;
  * Maps node type names to their schemas.
  */
 export type DocumentSchema = Record<string, NodeSchema>;
+
+/**
+ * A serialized node in the document format.
+ * Must have id and type properties, with other properties defined by the schema.
+ */
+export type SerializedNode = {
+  id: string;
+  type: string;
+  [key: string]: any;
+};
+
+/**
+ * The document serialization format - an array of serialized nodes.
+ * Nodes must be ordered so that referenced nodes come before nodes that reference them.
+ */
+export type SerializedDocument = SerializedNode[];

@@ -18,7 +18,9 @@ import { is_valid_svid } from './util.js';
  *   NodeArrayProperty,
  *   PropertyDefinition,
  *   NodeSchema,
- *   DocumentSchema
+ *   DocumentSchema,
+ *   SerializedNode,
+ *   SerializedDocument
  * } from './types.d.ts';
  */
 
@@ -195,7 +197,7 @@ export default class Document {
    * @param {DocumentSchema} schema - The document schema
    * @param {SerializedDocument} serialized_doc - The serialized document array
    * @param {object} [options] - Optional configuration
-   * @param {any} [options.selection] - Initial selection state
+   * @param {Selection} [options.selection] - Initial selection state
    * @param {any} [options.config] - Document configuration
    */
   constructor(schema, serialized_doc, { selection, config } = {}) {
