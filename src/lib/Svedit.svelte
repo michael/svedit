@@ -18,7 +18,7 @@
   // Expose focus_canvas method to parent component
   export { focus_canvas };
 
-  let is_mouse_down = $state(false);
+  // let is_mouse_down = $state(false);
 
   setContext("svedit", {
     get doc() {
@@ -26,13 +26,13 @@
     }
   });
 
-  function onmousedown() {
-    is_mouse_down = true;
-  }
+  // function onmousedown() {
+  //   is_mouse_down = true;
+  // }
 
-  function onmouseup() {
-    is_mouse_down = false;
-  }
+  // function onmouseup() {
+  //   is_mouse_down = false;
+  // }
 
   function onbeforeinput(event) {
     const inserted_char = event.data;
@@ -46,7 +46,7 @@
   }
 
   // Map DOM selection to internal model
-  function onselectionchange(event) {
+  function onselectionchange() {
     const dom_selection = window.getSelection();
     if (!dom_selection.rangeCount) return;
 

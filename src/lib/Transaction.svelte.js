@@ -1,26 +1,75 @@
 import { is_valid_svid } from './util.js';
 
+/**
+ * @import { NodeId, SerializedNode, Selection, DocumentPath } from './types.js'
+ */
+
+/**
+ * Transaction class for managing atomic document operations with undo/redo support.
+ *
+ * A Transaction provides a way to group multiple document operations (create, delete, set)
+ * into a single atomic unit that can be applied or rolled back as one. It maintains
+ * both forward operations and their inverse operations for undo functionality.
+ *
+ * @example
+ * ```js
+ * const tr = doc.tr;
+ * tr.set(['node_1', 'title'], 'New Title');
+ * tr.create({id: 'node_2', type: 'paragraph', content: 'Hello'});
+ * doc.apply(tr); // Applies all operations atomically
+ * ```
+ */
 export default class Transaction {
+  /**
+   * Creates a new Transaction for the given document.
+   *
+   * @param {any} doc - The document instance this transaction operates on
+   */
   constructor(doc) {
     this.doc = doc;
     // Here we track the ops during the transaction
+    /** @type {Record<string, any>[]} */
     this.ops = [];
+    /** @type {Record<string, any>[]} */
     this.inverse_ops = [];
     // Remember the selection before the transaction started
     this.selection_before = this.doc.selection;
   }
 
+  /**
+   * Gets a value from the document at the specified path.
+   *
+   * @param {DocumentPath} path - The path to the value in the document
+   * @returns {any} The value at the specified path
+   */
   get(path) {
     return this.doc.get(path);
   }
 
+  /**
+   * Gets the current selection state of the document.
+   *
+   * @returns {Selection} The current selection object
+   */
   get selection() {
     return this.doc.selection;
   }
 
-  // Set a property of a node to a new value
-  // doc.set(["list_1", "list_items"],  [1, 2, 3] })
-  // doc.set(["page_1", "body", "0", "description"], ["Hello world", []])
+  /**
+   * Sets a property of a node to a new value.
+   *
+   * This is the core operation for modifying document properties. It records
+   * both the forward operation and its inverse for undo support.
+   *
+   * @param {DocumentPath} path - Array path to the property (e.g., ["node_1", "title"])
+   * @param {any} value - The new value to set
+   *
+   * @example
+   * ```js
+   * tr.set(["list_1", "list_items"], [1, 2, 3]);
+   * tr.set(["page_1", "body", "0", "description"], ["Hello world", []]);
+   * ```
+   */
   set (path, value) {
     const node = this.doc.get(path.slice(0, -1));
 
@@ -30,7 +79,11 @@ export default class Transaction {
     const normalized_path = [node.id, path.at(-1)];
 
     // Just to be sure, make a deep copy of the old value
-    const previous_value = structuredClone($state.snapshot(node[path.at(-1)]));
+    const property_key = path.at(-1);
+    if (property_key === undefined) {
+      throw new Error('Invalid path: cannot get property key');
+    }
+    const previous_value = structuredClone($state.snapshot(node[property_key]));
 
     const op = ['set', normalized_path, value];
     this.ops.push(op);
@@ -38,6 +91,25 @@ export default class Transaction {
     this.doc._apply_op(op);
   }
 
+  /**
+   * Creates a new node in the document.
+   *
+   * The node must have a valid SVID and must not already exist in the document.
+   * The node is validated against the document schema before creation.
+   *
+   * @param {any} node - The node object to create (must include id, type, and other properties)
+   * @returns {Transaction} This transaction instance for method chaining
+   * @throws {Error} If the node ID is invalid or if the node already exists
+   *
+   * @example
+   * ```js
+   * tr.create({
+   *   id: 'para_123',
+   *   type: 'paragraph',
+   *   content: ['Hello world', []]
+   * });
+   * ```
+   */
   create(node) {
     if (!is_valid_svid(node.id)) {
       throw new Error('Each node must have a valid SVID provided');
@@ -45,10 +117,10 @@ export default class Transaction {
     if (this.doc.get(node.id)) {
       throw new Error('Node with id ' + node.id + ' already exists');
     }
-    
+
     // Validate node against schema
     this.doc.validate_node(node);
-    
+
     const op = ['create', node];
     this.ops.push(op);
     this.inverse_ops.push(['delete', node.id]);
@@ -56,6 +128,19 @@ export default class Transaction {
     return this;
   }
 
+  /**
+   * Deletes a node from the document by its ID.
+   *
+   * The node's current state is captured for undo support before deletion.
+   *
+   * @param {any} id - The ID of the node to delete
+   * @returns {Transaction} This transaction instance for method chaining
+   *
+   * @example
+   * ```js
+   * tr.delete('node_123');
+   * ```
+   */
   delete(id) {
     const previous_value = $state.snapshot(this.doc.get(id));
     const op = ['delete', id];
@@ -65,12 +150,39 @@ export default class Transaction {
     return this;
   }
 
+  /**
+   * Sets the document selection.
+   *
+   * @param {Selection} selection - The new selection object
+   * @returns {Transaction} This transaction instance for method chaining
+   * @todo Check if selection is valid and throw error if not
+   */
   set_selection(selection) {
     // TODO: Check if selection is valid and throw error if not
     this.doc.selection = selection;
     return this;
   }
 
+  /**
+   * Adds, updates, or removes text annotations in the current selection.
+   *
+   * Handles various annotation scenarios including adding new annotations,
+   * updating existing ones (especially for links), and removing annotations
+   * when conflicting types are applied.
+   *
+   * @param {any} annotation_type - The type of annotation (e.g., 'link', 'bold', 'italic')
+   * @param {any} annotation_data - Additional data for the annotation (e.g., href for links)
+   * @returns {Transaction} This transaction instance for method chaining
+   *
+   * @example
+   * ```js
+   * // Add a link annotation
+   * tr.annotate_text('link', { href: 'https://example.com' });
+   *
+   * // Add emphasis
+   * tr.annotate_text('emphasis', {});
+   * ```
+   */
   annotate_text(annotation_type, annotation_data) {
     if (this.doc.selection.type !== 'text') return this;
 
@@ -89,7 +201,7 @@ export default class Transaction {
     if (annotation_type === 'link' && start === end && existing_annotations) {
 
       // Use findIndex for deep comparison of annotation properties (comparison of annotation properties rather than object reference via indexOf)
-      const index = annotations.findIndex(anno =>
+      const index = annotations.findIndex(/** @param {any} anno */ (anno) =>
         anno[0] === existing_annotations[0] &&
         anno[1] === existing_annotations[1] &&
         anno[2] === existing_annotations[2]
@@ -117,13 +229,13 @@ export default class Transaction {
     // Regular annotation handling
     if (start === end) {
       // For non-link annotations: You can not annotate text if the selection is collapsed.
-      return;
+      return this;
     }
 
     if (existing_annotations) {
       // If there's an existing annotation of the same type, remove it
       if (existing_annotations[2] === annotation_type) {
-        const index = annotations.findIndex(anno =>
+        const index = annotations.findIndex(/** @param {any} anno */ (anno) =>
           anno[0] === existing_annotations[0] &&
           anno[1] === existing_annotations[1] &&
           anno[2] === existing_annotations[2]
@@ -147,9 +259,18 @@ export default class Transaction {
     return this;
   }
 
-  // Deletes selected text or nodes
+  /**
+   * Deletes the currently selected text or nodes.
+   *
+   * Behavior depends on selection type:
+   * - For node selections: Removes selected nodes and cascades deletion of unreferenced nodes
+   * - For text selections: Removes selected text and adjusts annotations accordingly
+   * - For collapsed selections: Deletes the previous character/node
+   *
+   * @returns {Transaction} This transaction instance for method chaining
+   */
   delete_selection() {
-    if (!this.doc.selection) return;
+    if (!this.doc.selection) return this;
     const path = this.doc.selection.path;
     // Get the start and end indices for the selection
     let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
@@ -195,7 +316,7 @@ export default class Transaction {
 
       // Update annotation offsets for deletion
       const deletion_length = end - start;
-      const new_annotations = text[1].map(annotation => {
+      const new_annotations = text[1].map(/** @param {any} annotation */ (annotation) => {
         const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
         // Adjust start offset
@@ -242,9 +363,28 @@ export default class Transaction {
     return this;
   }
 
-  // NOTE: We assume that we only insert new nodes, not reference existing ones
+  /**
+   * Inserts an array of nodes at the current node selection.
+   *
+   * If there's a current selection, it will be deleted first. New nodes are
+   * created if they don't already exist (e.g., for cut+paste scenarios).
+   *
+   * @param {SerializedNode[]} nodes - Array of node objects to insert
+   * @returns {Transaction} This transaction instance for method chaining
+   *
+   * @note Assumes we only insert new nodes, not reference existing ones
+   *
+   * @example
+   * ```js
+   * tr.insert_nodes([
+   *   {id: 'para_1', type: 'paragraph', content: ['Hello', []]},
+   *   {id: 'para_2', type: 'paragraph', content: ['World', []]}
+   * ]);
+   * ```
+   */
   insert_nodes(nodes) {
-    if (this.doc.selection.type !== 'node') return;
+    console.log('nodes', nodes);
+    if (this.doc.selection.type !== 'node') return this;
 
     // Unless cursor is collapsed, delete the selected nodes as a first step
     if (this.doc.selection.anchor_offset !== this.doc.selection.focus_offset) {
@@ -286,10 +426,24 @@ export default class Transaction {
     return this;
   }
 
-  // TODO: we need to also support annotations attached to replaced_text. This is needed to
-  // support copy&paste including annotations. Currently the annotations are lost on paste.
+  /**
+   * Inserts text at the current text selection, replacing any selected content.
+   *
+   * Updates both the text content and adjusts annotation offsets to maintain
+   * annotation integrity after the text insertion.
+   *
+   * @param {string} replaced_text - The text to insert
+   * @returns {Transaction} This transaction instance for method chaining
+   *
+   * @todo Support annotations attached to replaced_text for full copy&paste support
+   *
+   * @example
+   * ```js
+   * tr.insert_text('Hello, world!');
+   * ```
+   */
   insert_text(replaced_text) {
-    if (this.doc.selection.type !== 'text') return;
+    if (this.doc.selection.type !== 'text') return this;
 
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const { start, end } = this.doc.get_selection_range();
@@ -307,7 +461,7 @@ export default class Transaction {
     // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
     // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
     const delta = replaced_text.length - (end - start);
-    const new_annotations = annotated_string[1].map(annotation => {
+    const new_annotations = annotated_string[1].map(/** @param {any} annotation */ (annotation) => {
       const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
       // Case 4: annotation is wrapped in start and end (remove it)
@@ -357,22 +511,35 @@ export default class Transaction {
     return this;
   }
 
+  /**
+   * Recursively deletes nodes that become unreferenced after the initial deletion.
+   *
+   * This method implements cascade deletion by checking reference counts and
+   * removing nodes that are no longer referenced by any other nodes in the document.
+   *
+   * @param {NodeId[]} removed_node_ids - Array of node IDs that were initially removed
+   * @private
+   */
   _cascade_delete_unreferenced_nodes(removed_node_ids) {
-    const nodes_to_delete = new Set();
+    /** @type {Record<NodeId, boolean>} */
+    const nodes_to_delete = {};
     const to_check = [...removed_node_ids];
 
     while (to_check.length > 0) {
       const node_id = to_check.pop();
 
+      // Skip if node_id is undefined (shouldn't happen since we check length)
+      if (!node_id) continue;
+
       // Skip if already marked for deletion
-      if (nodes_to_delete.has(node_id)) continue;
+      if (nodes_to_delete[node_id]) continue;
 
       // Count references excluding nodes already marked for deletion
       const ref_count = this._count_references_excluding_deleted(node_id, nodes_to_delete);
 
       if (ref_count === 0) {
         // No more references, safe to delete this node
-        nodes_to_delete.add(node_id);
+        nodes_to_delete[node_id] = true;
 
         // Also check all nodes referenced by this node
         const referenced_nodes = this.doc.get_referenced_nodes(node_id);
@@ -381,18 +548,28 @@ export default class Transaction {
     }
 
     // Delete all unreferenced nodes
-    for (const node_id of nodes_to_delete) {
+    for (const node_id in nodes_to_delete) {
       this.delete(node_id);
     }
   }
 
-  // Count references to a node, excluding nodes that are marked for deletion
+  /**
+   * Counts references to a target node, excluding nodes that are marked for deletion.
+   *
+   * This is used during cascade deletion to determine if a node can be safely
+   * deleted without breaking document integrity.
+   *
+   * @param {NodeId} target_node_id - The node ID to count references for
+   * @param {Record<NodeId, boolean>} nodes_to_delete - Nodes already marked for deletion
+   * @returns {number} The number of references to the target node
+   * @private
+   */
   _count_references_excluding_deleted(target_node_id, nodes_to_delete) {
     let count = 0;
 
     for (const node of Object.values(this.doc.nodes)) {
       // Skip nodes that are marked for deletion
-      if (nodes_to_delete.has(node.id)) continue;
+      if (nodes_to_delete[node.id]) continue;
 
       for (const [property, value] of Object.entries(node)) {
         if (property === 'id' || property === 'type') continue;

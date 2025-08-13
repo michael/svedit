@@ -457,12 +457,5 @@ const document_config = {
 
 export default function create_demo_doc() {
   const doc = new Document(document_schema, raw_doc, { config: document_config });
-
-  // Test the typed approach
-  // This should give us autocomplete based on schema
-  const hero_node = doc.getTyped(['page_1', 'body', 0], 'hero');
-  console.log('Hero title:', hero_node.title);
-  console.log('Hero description:', hero_node.description);
-
   return doc;
 }

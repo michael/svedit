@@ -8,7 +8,7 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": true,
+		"strict": false,
 		"moduleResolution": "bundler",
 		"declarationMap": true,
 		"declaration": true

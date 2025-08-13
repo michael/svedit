@@ -263,7 +263,11 @@ export default class Document {
     validate_node(node, this.schema, this.nodes);
   }
 
-  // Creates a new transaction
+  /**
+   * Creates a new transaction for making atomic changes to the document.
+   * 
+   * @returns {Transaction} A new transaction instance
+   */
   get tr() {
     // We create a copy of the current document to avoid modifying the original
     const transaction_doc = new Document(this.schema, this.to_json(), {
@@ -273,7 +277,11 @@ export default class Document {
     return new Transaction(transaction_doc);
   }
 
-  // Applies a transaction
+  /**
+   * Applies a transaction to the document.
+   * 
+   * @param {Transaction} transaction - The transaction to apply
+   */
   apply(transaction) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
     // Make sure selection gets a new reference (is rerendered)
