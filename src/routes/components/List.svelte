@@ -12,9 +12,14 @@
 </Node>
 
 <style>
-  .list {
-    padding: var(--s-10) 0;
-    counter-reset: listcounter;
+  .list :global(.list-node-array) {
     --layout-orientation: vertical;
+    --padding-block: var(--s-10);
+    --row-gap: var(--s-4);
+    counter-reset: listcounter;
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--row-gap);
+    padding-block: var(--padding-block);
   }
 </style>

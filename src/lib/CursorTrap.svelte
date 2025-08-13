@@ -44,12 +44,9 @@ Example usage in component styles:
 	.cursor-trap {
 		z-index: 20;
 		/* We make the cursor as large as possible (filling the gap between nodes), so it's easy to click on it, with a minimum of 20px */
-		--cursor-trap-size: max(20px, var(--column-gap, 0px));
+		--preferred-cursor-trap-size: 48px;
+		--min-cursor-trap-size: 8px;
 		position: absolute;
-		width: var(--cursor-trap-size);
-		min-height: var(--cursor-trap-size);
-		top: 0;
-		height: 100%;
 		background-image: repeating-linear-gradient(to bottom,
 			var(--stroke-color) 0%,
 			var(--stroke-color) 4px,
@@ -61,6 +58,12 @@ Example usage in component styles:
 		background-size: 1px 100%;
 		background-position: center;
 		background-repeat: no-repeat;
+	}
+	
+	.cursor-trap {
+		transition-property: background-image;
+		transition-delay: 0.05s;
+		transition-behavior: allow-discrete;
 	}
 
 	/* TODO: We may want to limit this to non-selected cursor traps only */
@@ -76,23 +79,31 @@ Example usage in component styles:
 	/* Container query-based orientation detection */
 	/* For horizontal layouts (children in rows), cursor traps should be vertical */
 	@container style(--layout-orientation: horizontal) {
+		.cursor-trap {
+			top: 0;
+			height: 100%;
+		}
 		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
 		.cursor-trap.position-zero-cursor-trap {
 			/* Width is constrained to available padding space to prevent overflow */
-			--width: min(var(--cursor-trap-size), var(--padding-inline, 0px));
+			--width: max(
+				var(--min-cursor-trap-size),
+				min(var(--preferred-cursor-trap-size), var(--padding-inline, 0px))
+			);
 			width: var(--width);
-			left: calc(-1 * var(--width) / 2 - var(--padding-inline, 0px) / 2);
+			left: calc(-1 * var(--width) / 2 - max(var(--padding-inline, 0px), 0px) / 2);
 		}
 		.cursor-trap.after-node-cursor-trap {
 			/* When gap ≠ padding, we subtract their difference to ensure the cursor trap doesn't
 			   extend beyond the smaller of the two spaces, preventing overflow.
 				 We then center align the cursor trap to the gap space. */
-			--width: calc(
-				min(var(--cursor-trap-size), var(--column-gap, 0px), var(--padding-inline, 0px)) 
-				- abs(var(--column-gap, 0px) - var(--padding-inline, 0px))
+			--width: max(
+				var(--min-cursor-trap-size),
+				(min(var(--preferred-cursor-trap-size), var(--column-gap, 0px), var(--padding-inline, 0px)) 
+				- abs(var(--column-gap, 0px) - var(--padding-inline, 0px)))
 			);
 			width: var(--width);
-			right: calc(-1 * var(--width) / 2 - var(--column-gap, 0px) / 2);
+			right: calc(-1 * var(--width) / 2 - max(var(--column-gap, 0px), 0px) / 2); /** max here is to prevent negative values */
 		}
 	}
 
@@ -101,9 +112,7 @@ Example usage in component styles:
 		.cursor-trap {
 			/* Reset vertical styles */
 			width: auto;
-			height: var(--cursor-trap-size);
 			top: auto;
-			bottom: calc(-1 * var(--cursor-trap-size) / 2 - var(--row-gap, 0px) / 2);
 			left: 0;
 			right: 0;
 			
@@ -132,12 +141,23 @@ Example usage in component styles:
 		
 		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
 		.cursor-trap.position-zero-cursor-trap {
+			/* Height is constrained to available padding space to prevent overflow */
+			--height: max(
+				var(--min-cursor-trap-size),
+				min(var(--preferred-cursor-trap-size), var(--padding-block, 0px))
+			);
+			height: var(--height);
 			bottom: auto;
-			top: calc(-1 * var(--cursor-trap-size) / 2 - var(--padding-block, 0px) / 2);
-			left: 0;
+			top: calc(-1 * var(--height) / 2 - max(var(--padding-block, 0px), 0px) / 2);
 		}
 		.cursor-trap.after-node-cursor-trap {
-			bottom: calc(-1 * var(--cursor-trap-size) / 2 - var(--row-gap, 0px) / 2);
+			/* Height is constrained to the smaller of gap and padding, ensuring no overflow */
+			--height: max(
+				var(--min-cursor-trap-size),
+				min(var(--preferred-cursor-trap-size), var(--row-gap, 0px), var(--padding-block, 0px))
+			);
+			height: var(--height);
+			bottom: calc(-1 * var(--height) / 2 - max(var(--row-gap, 0px), 0px) / 2);
 		}
 
 	}
