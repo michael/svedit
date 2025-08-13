@@ -3,14 +3,17 @@
   import CursorTrap from './CursorTrap.svelte';
   import UnknownNode from './UnknownNode.svelte';
 
+  /** @import { NodeArrayPropertyProps } from './types.d.ts'; */
+
   const svedit = getContext('svedit');
 
+  /** @type {NodeArrayPropertyProps} */
   let {
     path,
     class: css_class,
   } = $props();
 
-  let nodes = $derived(svedit.doc.get(path).map(node_id => svedit.doc.get(node_id)));
+  let nodes = $derived(svedit.doc.get(path).map(/** @param {string} node_id */ (node_id) => svedit.doc.get(node_id)));
 </script>
 
 <div class={css_class} data-type="node_array" data-path={path.join('.')}>
@@ -30,7 +33,7 @@
       <CursorTrap node_array_path={path} type="position-zero-cursor-trap" />
     </div>
   {/if}
-  {#each nodes as node, index }
+  {#each nodes as node, index (index) }
     {@const Component = svedit.doc.config.node_components[node.type]}
     {#if Component}
       <Component path={[...path, index]} />

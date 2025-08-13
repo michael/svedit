@@ -1,7 +1,7 @@
 <script>
-  import { getContext } from 'svelte';
-  const svedit = getContext('svedit');
+  /** @import { CustomPropertyProps } from './types.d.ts'; */
 
+  /** @type {CustomPropertyProps} */
   let {
     path,
     class: css_class,

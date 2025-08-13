@@ -1,20 +1,11 @@
 <script>
 	import { getContext } from 'svelte';
-	
-  /**
-  * @import {
-  *   DocumentPath,
-  * AnnotatedStringPropertyProps
-  * } from './types.d.ts';
-  */
- 
+
+  /** @import { AnnotatedStringPropertyProps, AnnotationFragment } from './types.d.ts'; */
+
 	const svedit = getContext('svedit');
 
-
-
- /**
-  * @type {AnnotatedStringPropertyProps}
-  */
+ /** @type {AnnotatedStringPropertyProps} */
 	let {
 		path,
 		class: css_class,
@@ -24,14 +15,6 @@
 	let is_focused = $derived.by(() => {
 		return svedit.doc.selection?.type === 'text' && path.join('.') === svedit.doc.selection?.path.join('.');
 	});
-
-	/**
-	 * @typedef {Object} AnnotationFragment
-	 * @property {string} type - The annotation type (e.g., 'link', 'emphasis', 'strong')
-	 * @property {string} content - The text content of the annotation
-	 * @property {number} annotation_index - Index of the annotation in the original array
-	 * @property {any} [data] - Optional properties from the annotation's options object
-	 */
 
 	/**
 	 * Converts text with annotations into renderable fragments for display.

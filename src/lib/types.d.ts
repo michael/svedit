@@ -1,3 +1,10 @@
+// ===== SVELTE TYPE IMPORTS =====
+
+/**
+ * Import Svelte's Snippet type for properly typing children in components
+ */
+import type { Snippet } from 'svelte';
+
 // ===== SELECTION TYPE DEFINITIONS =====
 
 /**
@@ -160,4 +167,62 @@ export type AnnotatedStringPropertyProps = {
   class?: string;
   /** A placeholder to be rendered for empty content */
   placeholder?: string;
+};
+
+/**
+ * Props for the CustomProperty component
+ */
+export type CustomPropertyProps = {
+  /** The full path to the property */
+  path: DocumentPath;
+  /** The `class` attribute on the content element */
+  class?: string;
+  /** The content of the custom property (e.g. an image) */
+  children: Snippet;
+};
+
+/**
+ * Props for the NodeArray component
+ */
+export type NodeArrayPropertyProps = {
+  /** The full path to the property */
+  path: DocumentPath;
+  /** The `class` attribute on the container element */
+  class?: string;
+};
+
+/**
+ * Props for the Node component
+ */
+export type NodeProps = {
+  /** The full path to the node */
+  path: DocumentPath;
+  /** The type-specific content of the node */
+  children: Snippet;
+};
+
+/**
+ * Props for the CustomProperty component
+ */
+export type CustomPropertyProps = {
+  /** The full path to the property */
+  path: DocumentPath;
+  /** The `class` attribute on the content element */
+  class?: string;
+  /** The content of the custom property (e.g. an image) */
+  children: Snippet;
+};
+
+/**
+ * Represents a fragment of annotated text content
+ */
+export type AnnotationFragment = {
+  /** The annotation type (e.g., 'link', 'emphasis', 'strong') */
+  type: string;
+  /** The text content of the annotation */
+  content: string;
+  /** Index of the annotation in the original array */
+  annotation_index: number;
+  /** Optional properties from the annotation's options object */
+  data?: any;
 };
