@@ -1,121 +1,25 @@
 import Transaction from './Transaction.svelte.js';
 import { is_valid_svid } from './util.js';
 
-// ============================================================================
-// SCHEMA TYPE DEFINITIONS
-// ============================================================================
-
 /**
- * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document
- * @typedef {Array<string|number>} DocumentPath
- */
-
-/**
- * Basic scalar types supported by the schema system.
- * @typedef {"string" | "number" | "boolean" | "integer" | "datetime"} ScalarType
- */
-
-/**
- * Array types for collections of scalar values.
- * @typedef {"string_array" | "number_array" | "boolean_array" | "integer_array"} ArrayType
- */
-
-/**
- * Special types for rich content.
- * @typedef {"annotated_string"} RichType
- */
-
-/**
- * Node reference types for linking to other nodes.
- * @typedef {"node" | "node_array"} NodeType
- */
-
-/**
- * All primitive types that can be used in property definitions.
- * @typedef {ScalarType | ArrayType | RichType | NodeType} PrimitiveType
- */
-
-/**
- * Document schema primitive types - all possible property types in document schemas.
- * @typedef {"string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_string" | "node" | "node_array"} DocumentSchemaPrimitive
- */
-
-/**
- * Maps document schema types to their JavaScript runtime types.
- * @template T
- * @typedef {T extends "string" ? string :
- *           T extends "number" ? number :
- *           T extends "boolean" ? boolean :
- *           T extends "integer" ? number :
- *           T extends "datetime" ? string :
- *           T extends "string_array" ? Array<string> :
- *           T extends "number_array" ? Array<number> :
- *           T extends "boolean_array" ? Array<boolean> :
- *           T extends "integer_array" ? Array<number> :
- *           T extends "annotated_string" ? [string, Array<any>] :
- *           T extends "node" ? string :
- *           T extends "node_array" ? Array<string> :
- *           never} DocumentSchemaValueToJs
- */
-
-/**
- * Converts a document node schema definition to its inferred JS type.
- * Handles the {type: "..."} wrapper structure used in document schemas.
- * @template {Record<string, {type: DocumentSchemaPrimitive}>} S
- * @typedef {{ id: string, type: string } & { [K in keyof S]: DocumentSchemaValueToJs<S[K]["type"]> }} DocumentNodeToJs
- */
-
-/**
- * A property that stores a primitive value.
- * @typedef {object} PrimitiveProperty
- * @property {PrimitiveType} type - The primitive type
- */
-
-/**
- * A property that stores a reference to a single node.
- * @typedef {object} NodeProperty
- * @property {"node"} type - Indicates this is a node reference
- * @property {string[]} node_types - Array of allowed node types
- * @property {string} [default_node_type] - Default type when creating new nodes
- */
-
-/**
- * A property that stores an array of node references.
- * @typedef {object} NodeArrayProperty
- * @property {"node_array"} type - Indicates this is a node array
- * @property {string[]} node_types - Array of allowed node types
- * @property {string} [default_node_type] - Default type when creating new nodes
- */
-
-/**
- * Union type for all possible property definitions.
- * @typedef {PrimitiveProperty | NodeProperty | NodeArrayProperty} PropertyDefinition
- */
-
-/**
- * A node schema defines the structure of a specific node type.
- * Maps property names to their definitions.
- * @typedef {Record<string, PropertyDefinition>} NodeSchema
- */
-
-/**
- * A document schema defines all node types available in a document.
- * Maps node type names to their schemas.
- * @typedef {Record<string, NodeSchema>} DocumentSchema
- */
-
-/**
- * A serialized node in the document format.
- * Must have id and type properties, with other properties defined by the schema.
- * @typedef {object} SerializedNode
- * @property {string} id - The unique node ID (SVID)
- * @property {string} type - The node type (must exist in DocumentSchema)
- */
-
-/**
- * The document serialization format - an array of serialized nodes.
- * Nodes must be ordered so that referenced nodes come before nodes that reference them.
- * @typedef {SerializedNode[]} SerializedDocument
+ * @import {
+ *   DocumentPath,
+ *   Selection,
+ *   ScalarType,
+ *   ArrayType,
+ *   RichType,
+ *   NodeType,
+ *   PrimitiveType,
+ *   DocumentSchemaPrimitive,
+ *   DocumentSchemaValueToJs,
+ *   DocumentNodeToJs,
+ *   PrimitiveProperty,
+ *   NodeProperty,
+ *   NodeArrayProperty,
+ *   PropertyDefinition,
+ *   NodeSchema,
+ *   DocumentSchema
+ * } from './types.d.ts';
  */
 
 /**
@@ -272,6 +176,7 @@ function validate_node(node, schema, all_nodes = {}) {
 }
 
 export default class Document {
+  /** @type {Selection | undefined} */
   selection = $state();
   config = $state();
   document_id = $state();
@@ -419,15 +324,15 @@ export default class Document {
    * @example
    * // Get a node by ID
    * doc.get('list_1') // => { type: 'list', id: 'list_1', ... }
-   * 
+   *
    * @example
    * // Get a node array property
    * doc.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
-   * 
+   *
    * @example
    * // Get a specific node from an array
    * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
-   * 
+   *
    * @example
    * // Get an annotated string property
    * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]

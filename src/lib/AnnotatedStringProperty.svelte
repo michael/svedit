@@ -38,7 +38,6 @@
 	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
 	 */
 	function render_annotated_string(text, annotations) {
-	  console.log('render_annotated_string', text, annotations);
 		let fragments = [];
 		let last_index = 0;
 
