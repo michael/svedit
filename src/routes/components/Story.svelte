@@ -46,19 +46,25 @@
 		gap: var(--s-10);
 		padding: var(--s-10) var(--s-6);
 	}
+	.caption {
+		container-type: inline-size;
+	}
 
 	.story :global(.buttons:not(.empty)) {
 		--column-gap: var(--s-2);
 		--row-gap: var(--s-2);
 		padding-top: 24px;
+	}
+	.story :global(.buttons) {
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
 		column-gap: var(--column-gap);
 		row-gap: var(--row-gap);
-	}
-	.story :global(.buttons) {
 		--layout-orientation: horizontal;
+		@container (max-width: 320px) {
+			--layout-orientation: vertical;
+		}
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {
