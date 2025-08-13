@@ -48,11 +48,13 @@
 	}
 
 	.story :global(.buttons:not(.empty)) {
-	  padding-top: 24px;
+		padding-top: 24px;
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
 		gap: var(--s-2);
+	}
+	.story :global(.buttons) {
 		--layout-orientation: horizontal;
 	}
 

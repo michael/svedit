@@ -163,14 +163,8 @@ Example usage in component styles:
 	}
 
 	:global(.empty-node-array .cursor-trap) {
-		min-height: 48px;
-		min-width: 48px;
+		min-width: 1em;
+		border-top: 1px dashed var(--stroke-color);
 		border-bottom: 1px dashed var(--stroke-color);
-		/* outline: 1px dashed var(--stroke-color);
-		background: none; */
-		@media (pointer: fine) {
-			min-height: 24px;
-			min-width: 24px;
-		}
 	}
 </style>
