@@ -1,14 +1,16 @@
 <script>
 	import { getContext } from 'svelte';
-	/** @typedef {import('./Document.svelte.js').DocumentPath} DocumentPath */
+	
+  /**
+  * @import {
+  *   DocumentPath,
+  * AnnotatedStringPropertyProps
+  * } from './types.d.ts';
+  */
+ 
 	const svedit = getContext('svedit');
 
-  /**
-  * @typedef {object} AnnotatedStringPropertyProps
-  * @property {DocumentPath} path The full path to the property
-  * @property {string} [class] The `class` attribute on the content element
-  * @property {string} [placeholder] A placeholder to be rendered for empty content
-  */
+
 
  /**
   * @type {AnnotatedStringPropertyProps}

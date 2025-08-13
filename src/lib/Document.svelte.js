@@ -3,6 +3,7 @@ import { is_valid_svid } from './util.js';
 
 /**
  * @import {
+ *   NodeId,
  *   DocumentPath,
  *   Selection,
  *   ScalarType,
@@ -649,6 +650,10 @@ export default class Document {
   }
 
   // Get all nodes referenced by a given node (recursively)
+  /**
+   * @param {NodeId} node_id
+   * @returns {NodeId[]}
+   */
   get_referenced_nodes(node_id) {
     const traversed_nodes = this.traverse(node_id);
 

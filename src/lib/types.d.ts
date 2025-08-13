@@ -1,3 +1,10 @@
+// ===== SELECTION TYPE DEFINITIONS =====
+
+/**
+ * A unique node identifier (SVID - Svelte ID)
+ */
+export type NodeId = string;
+
 /**
  * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document
  */
@@ -142,3 +149,15 @@ export type SerializedNode = {
  * Nodes must be ordered so that referenced nodes come before nodes that reference them.
  */
 export type SerializedDocument = SerializedNode[];
+
+/**
+ * Props for the AnnotatedStringProperty component
+ */
+export type AnnotatedStringPropertyProps = {
+  /** The full path to the property */
+  path: DocumentPath;
+  /** The `class` attribute on the content element */
+  class?: string;
+  /** A placeholder to be rendered for empty content */
+  placeholder?: string;
+};
