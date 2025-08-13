@@ -119,9 +119,6 @@ const document_config = {
     list: 5,
     list_item: 1,
   },
-  // Those node types have horizontal-ish node_arrays
-  // E.g. used by Overlays.svelte to render node cursors the right way.
-  node_types_with_horizontal_node_arrays: ['image_grid', 'story'],
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
   // intended behavior.
   inserters: {
