@@ -122,7 +122,7 @@
 	}
 
 	.node-cursor {
-		--node-cursor-size: 2px;
+		--node-cursor-size: 4px;
 		position: absolute;
 		pointer-events: none;	
 		container-type: size;
@@ -136,6 +136,8 @@
 	.cursor-bar {
 		position: absolute;
 		background: var(--editing-stroke-color);
+		border: 1px solid var(--canvas-fill-color);
+		box-shadow: 0 0 10px oklch(from var(--primary-text-color) l c h / 0.17);
 		/* 1s is blink rate of the regular text cursor */		
 		animation: blink 1s step-end infinite; 
 		/* Default: vertical cursor for row oriented nodes */

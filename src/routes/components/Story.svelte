@@ -48,11 +48,14 @@
 	}
 
 	.story :global(.buttons:not(.empty)) {
+		--column-gap: var(--s-2);
+		--row-gap: var(--s-2);
 		padding-top: 24px;
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
-		gap: var(--s-2);
+		column-gap: var(--column-gap);
+		row-gap: var(--row-gap);
 	}
 	.story :global(.buttons) {
 		--layout-orientation: horizontal;
