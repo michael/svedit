@@ -14,9 +14,9 @@
 
 <style>
   :global(.image-grid) {
-    --row-gap: 30px;
-    --column-gap: 30px;
-    --padding-inline: var(--s-6);
+    --row-gap: var(--s-8);
+    --column-gap: var(--s-8);
+    --padding-inline: var(--s-8);
     --padding-block: var(--s-10);
     --layout-orientation: horizontal;
     padding: var(--padding-block) var(--padding-inline);
