@@ -5,7 +5,6 @@
 
   let {
     doc,
-    children,
     overlays,
     editable = false,
     ref = $bindable(),

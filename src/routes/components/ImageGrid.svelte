@@ -1,12 +1,6 @@
 <script>
-  import Node from '../../lib/Node.svelte';
-  import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
-  import ImageGridItem from './ImageGridItem.svelte';
-  import { getContext } from 'svelte';
-
-  const svedit = getContext('svedit');
+  import { Node, NodeArrayProperty } from 'svedit';
   let { path } = $props();
-  let node = $derived(svedit.doc.get(path));
 </script>
 
 <Node {path}>

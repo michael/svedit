@@ -1,8 +1,6 @@
 <script>
 	import { fly } from 'svelte/transition';
 	import Icon from './Icon.svelte';
-	import { svid } from '../../lib/util.js';
-	import { tick } from 'svelte';
 
 	let { doc, focus_canvas } = $props();
 

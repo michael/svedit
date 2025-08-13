@@ -1,9 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
-	import CustomProperty from '../../lib/CustomProperty.svelte';
-	import NodeArrayProperty from '../../lib/NodeArrayProperty.svelte';
-	import Node from '../../lib/Node.svelte';
+	import { AnnotatedStringProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();

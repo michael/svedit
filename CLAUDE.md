@@ -19,6 +19,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The user prefers to run all tests manually
 - Focus on implementing code changes and let the user handle testing
 
+**Implementation Guidelines:**
+- Do exactly what the user asks for - one step at a time
+- Do NOT think 4 steps ahead or add extra features/improvements
+- Only implement the specific change requested
+- You can suggest what the next step could be, but don't implement it
+
 **Code Style:**
 - Use snake_case for all variable names, function names, and identifiers
 - This applies to JavaScript/TypeScript code, test files, and any new code written

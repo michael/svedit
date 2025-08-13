@@ -1,6 +1,5 @@
 <script>
-	import Node from '../../lib/Node.svelte';
-	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
+	import { Node, AnnotatedStringProperty } from 'svedit';
 	import { getContext } from 'svelte';
 
   const svedit = getContext('svedit');
@@ -10,6 +9,7 @@
 	let list_node = $derived(svedit.doc.get(path.slice(0, -2)));
 	let list_style = $derived(get_list_style_from_layout(list_node?.layout));
 
+	/** @param {number} layout */
 	function get_list_style_from_layout(layout) {
 		if (layout === 1) return 'square';
 		if (layout === 2) return 'disc';
