@@ -36,12 +36,13 @@ Example usage in component styles:
 ><br></div>
 
 <style>
-	.cursor-trap {
+	/* These should be always applied, e.g. in CustomProperty.svelte */
+	:global(.cursor-trap) {
 		cursor: pointer;
-		z-index: 20;
 	}
-
+	
 	.cursor-trap {
+		z-index: 20;
 		/* We make the cursor as large as possible (filling the gap between nodes), so it's easy to click on it, with a minimum of 20px */
 		--cursor-trap-size: max(20px, var(--column-gap, 0px));
 		position: absolute;
@@ -49,14 +50,14 @@ Example usage in component styles:
 		min-height: var(--cursor-trap-size);
 		top: 0;
 		height: 100%;
-	}
-	.cursor-trap {
 		background-image: repeating-linear-gradient(to bottom,
 			var(--stroke-color) 0%,
 			var(--stroke-color) 4px,
 			transparent 4px,
 			transparent 8px
 		);
+	}
+	.cursor-trap, .cursor-trap:hover {
 		background-size: 1px 100%;
 		background-position: center;
 		background-repeat: no-repeat;
@@ -70,9 +71,6 @@ Example usage in component styles:
 			transparent 2px,
 			transparent 100%
 		);
-		background-size: 1px 100%;
-		background-position: center;
-		background-repeat: no-repeat;
 	}
 
 	/* Container query-based orientation detection */
@@ -80,10 +78,21 @@ Example usage in component styles:
 	@container style(--layout-orientation: horizontal) {
 		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
 		.cursor-trap.position-zero-cursor-trap {
-			left: calc(-1 * var(--cursor-trap-size) / 2 - var(--padding-inline, 0px) / 2);
+			/* Width is constrained to available padding space to prevent overflow */
+			--width: min(var(--cursor-trap-size), var(--padding-inline, 0px));
+			width: var(--width);
+			left: calc(-1 * var(--width) / 2 - var(--padding-inline, 0px) / 2);
 		}
 		.cursor-trap.after-node-cursor-trap {
-			right: calc(-1 * var(--cursor-trap-size) / 2 - var(--column-gap, 0px) / 2);
+			/* When gap ≠ padding, we subtract their difference to ensure the cursor trap doesn't
+			   extend beyond the smaller of the two spaces, preventing overflow.
+				 We then center align the cursor trap to the gap space. */
+			--width: calc(
+				min(var(--cursor-trap-size), var(--column-gap, 0px), var(--padding-inline, 0px)) 
+				- abs(var(--column-gap, 0px) - var(--padding-inline, 0px))
+			);
+			width: var(--width);
+			right: calc(-1 * var(--width) / 2 - var(--column-gap, 0px) / 2);
 		}
 	}
 
@@ -93,7 +102,6 @@ Example usage in component styles:
 			/* Reset vertical styles */
 			width: auto;
 			height: var(--cursor-trap-size);
-			min-height: var(--cursor-trap-size);
 			top: auto;
 			bottom: calc(-1 * var(--cursor-trap-size) / 2 - var(--row-gap, 0px) / 2);
 			left: 0;
@@ -106,6 +114,8 @@ Example usage in component styles:
 				transparent 4px,
 				transparent 8px
 			);
+		}
+		.cursor-trap, .cursor-trap:hover {
 			background-size: 100% 1px;
 			background-position: center;
 			background-repeat: no-repeat;
@@ -118,9 +128,6 @@ Example usage in component styles:
 				transparent 2px,
 				transparent 100%
 			);
-			background-size: 100% 1px;
-			background-position: center;
-			background-repeat: no-repeat;
 		}
 		
 		/* We place the cursor trap in the empty padding / gap space to not overlap node content */
