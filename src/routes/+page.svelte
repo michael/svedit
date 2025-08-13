@@ -1,6 +1,5 @@
 <script>
-  import Svedit from '$lib/Svedit.svelte';
-  import NodeArrayProperty from '$lib/NodeArrayProperty.svelte';
+  import { Svedit } from 'svedit';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
   import create_demo_doc from './create_demo_doc.js';

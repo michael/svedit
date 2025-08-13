@@ -3,12 +3,20 @@
 	/** @typedef {import('./Document.svelte.js').DocumentPath} DocumentPath */
 	const svedit = getContext('svedit');
 
+  /**
+  * @typedef {object} AnnotatedStringPropertyProps
+  * @property {DocumentPath} path The full path to the property
+  * @property {string} [class] The `class` attribute on the content element
+  * @property {string} [placeholder] A placeholder to be rendered for empty content
+  */
+
+ /**
+  * @type {AnnotatedStringPropertyProps}
+  */
 	let {
-		/** @type {DocumentPath} */
 		path,
 		class: css_class,
-		editable = true,
-		placeholder,
+		placeholder = '',
 	} = $props();
 
 	let is_focused = $derived.by(() => {
@@ -70,9 +78,7 @@
 	 * @param {MouseEvent} e - The click event
 	 */
 	function handle_link_click(e) {
-		if (editable) {
-			e.preventDefault();
-		}
+		e.preventDefault();
 	}
 </script>
 

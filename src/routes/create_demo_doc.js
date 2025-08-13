@@ -1,5 +1,4 @@
-import { svid } from '$lib/util.js';
-import Document, { define_document_schema } from '$lib/Document.svelte';
+import { Document, define_document_schema, svid } from 'svedit';
 
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
