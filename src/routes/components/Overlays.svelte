@@ -145,7 +145,7 @@
 		bottom: 0;
 		border-radius: var(--node-cursor-size);
 	}
-	:global(.svedit:has(*:active)) {
+	:global(.svedit:active) {
 		.cursor-bar {
 			/* When the is keep pressing the mouse button, we don't want the cursor to blink */
 			/* This mimics the behavior of the regular text cursor */
