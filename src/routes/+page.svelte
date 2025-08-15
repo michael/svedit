@@ -22,11 +22,13 @@
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} />
   <!-- Svedit editable canvas composed of Svedit nodes -->
-  <Svedit {doc} editable={true} bind:this={svedit_ref} path={[doc.document_id]}>
-    {#snippet overlays()}
-      <Overlays />
-    {/snippet}
-  </Svedit>
+  <Svedit
+    {doc}
+    editable={true}
+    bind:this={svedit_ref}
+    path={[doc.document_id]}
+    {Overlays}
+  />
   <hr/>
   <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
     <p>Selection:</p>

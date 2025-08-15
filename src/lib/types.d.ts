@@ -1,9 +1,12 @@
+import type Document from './Document.svelte.js';
+import type Svedit from './Svedit.svelte';
+
 // ===== SVELTE TYPE IMPORTS =====
 
 /**
  * Import Svelte's Snippet type for properly typing children in components
  */
-import type { Snippet } from 'svelte';
+import type { Component, Snippet } from 'svelte';
 
 // ===== SELECTION TYPE DEFINITIONS =====
 
@@ -38,9 +41,17 @@ export type NodeSelection = {
 };
 
 /**
+ * Property selection within a node
+ */
+export type PropertySelection = {
+  type: "property";
+  path: DocumentPath;
+};
+
+/**
  * Union type for all possible selection types
  */
-export type Selection = TextSelection | NodeSelection;
+export type Selection = TextSelection | NodeSelection | PropertySelection;
 
 // ===== SCHEMA TYPE DEFINITIONS =====
 
@@ -212,6 +223,23 @@ export type CustomPropertyProps = {
   /** The content of the custom property (e.g. an image) */
   children: Snippet;
 };
+
+/**
+ * Props for the CustomProperty component
+ */
+export type SveditProps = {
+  /** The full path to the property */
+  doc: Document,
+  /** The component to render your overlays */
+  Overlays: Component,
+  /** Determines wether the document should be editable or read-only. */
+  editable?: boolean,
+  /** The path to the root element (e.g. ['page_1']) */
+  path: DocumentPath,
+  /** The `class` attribute on the content element */
+  class?: string;
+};
+
 
 /**
  * Represents a fragment of annotated text content

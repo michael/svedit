@@ -31,7 +31,6 @@
 		if (!sel) return;
 
 		if (sel.type === 'node' && sel.anchor_offset === sel.focus_offset) {
-			const node_array = svedit.doc.get(sel.path);
 			const orientation = determine_node_array_orientation(svedit.doc, sel.path);
 			let node_index, position;
 
