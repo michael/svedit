@@ -3,7 +3,7 @@
   import { svid } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
-  /** @import { SveditProps } from './types.d.ts'; */
+  /** @import { SveditProps, DocumentPath, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
   /** @type {SveditProps} */
   let {
     doc,
@@ -27,6 +27,9 @@
     }
   });
 
+  /**
+   * @param {InputEvent} event
+   */
   function onbeforeinput(event) {
     const inserted_char = event.data;
 
@@ -53,6 +56,9 @@
   }
 
 
+  /**
+   * @param {NodeId[]} selected_node_ids
+   */
   function prepare_copy_payload(selected_node_ids) {
     const nodes = {};
 
@@ -72,6 +78,11 @@
     return { nodes, main_nodes: selected_node_ids };
   }
 
+
+  /**
+   * @param {ClipboardEvent} event
+   * @param {boolean} delete_selection - used by oncut()
+   */
   function oncopy(event, delete_selection = false) {
     // Only handle copy events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
@@ -140,8 +151,8 @@
     try {
       const json_blob = await clipboardItems[0].getType('web application/json');
       pasted_json = JSON.parse(await json_blob.text());
-    } catch(e) {
-      console.error(e);
+    } catch {
+      pasted_json = undefined;
     }
 
     if (pasted_json) {
@@ -253,7 +264,7 @@
     // Only handle keyboard events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-    const selection = doc.selection;
+    const selection = /** @type {any} */ (doc.selection);
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
@@ -415,6 +426,13 @@
     }
   }
 
+  /**
+   * Extracts a NodeSelection from the current DOM selection.
+   *
+   *
+   * @returns {NodeSelection | null} A NodeSelection object if the DOM selection
+   *   represents a valid node selection, null otherwise
+   */
   function __get_node_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
@@ -436,15 +454,15 @@
         console.log('No corresponding node found for after-node-cursor-trap');
         return null;
       }
-      const node_path = node.dataset.path.split('.');
-      const node_index = parseInt(node_path.at(-1));
-      const result = {
-        type: 'node',
+      const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
+      const node_index = parseInt(String(node_path.at(-1)), 10);
+
+      return {
+        type: "node",
         path: node_path.slice(0, -1),
         anchor_offset: node_index + 1,
         focus_offset: node_index + 1,
       }
-      return result;
     }
 
     // EDGE CASE: Let's check if we are in a position-zero-cursor-trap for node_arrays.
@@ -452,13 +470,12 @@
     if (position_zero_cursor_trap && focus_node === anchor_node) {
       const node_array_el = /** @type {HTMLElement} */ (position_zero_cursor_trap.closest('[data-type="node_array"]'));
       const node_array_path = node_array_el.dataset.path.split('.');
-      const result = {
+      return {
         type: 'node',
         path: node_array_path,
         anchor_offset: 0,
         focus_offset: 0,
       }
-      return result;
     }
 
     let focus_root = /** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
@@ -502,15 +519,22 @@
       focus_offset += 1;
     }
 
-    const result = {
+    return {
       type: 'node',
       path: anchor_root_path.slice(0, -1),
       anchor_offset: anchor_offset,
       focus_offset: focus_offset,
     };
-    return result;
   }
 
+
+  /**
+   * Extracts a PropertySelection from the current DOM selection.
+   *
+   *
+   * @returns {PropertySelection | null} A PropertySelection object if the DOM selection
+   *   represents a valid property selection, null otherwise
+   */
   function __get_property_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
@@ -529,15 +553,23 @@
     return null;
   }
 
+  /**
+   * Extracts a TextSelection from the current DOM selection.
+   *
+   *
+   * @returns {TextSelection | null} A TextSelection object if the DOM selection
+   *   represents a valid text selection, null otherwise
+   */
   function __get_text_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
+    const focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
     let focus_root, anchor_root;
 
-    if (dom_selection.focusNode === dom_selection.anchorNode && dom_selection.focusNode.dataset?.type === 'text') {
+    if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text') {
       // This is the case when the text node is empty (only a <br> is present)
-      focus_root = anchor_root = dom_selection.focusNode;
+      focus_root = anchor_root = focus_node;
     } else {
       focus_root = /** @type {HTMLElement} */ (dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]'));
       if (!focus_root) return null;
@@ -612,7 +644,7 @@
   }
 
   function __render_node_selection() {
-    const selection = doc.selection;
+    const selection = /** @type {NodeSelection} */ (doc.selection);
     const node_array_path = selection.path.join('.');
 
     let is_collapsed = selection.anchor_offset === selection.focus_offset;
@@ -709,7 +741,7 @@
   }
 
   function __render_text_selection() {
-    const selection = doc.selection;
+    const selection = /** @type {any} */ (doc.selection);
     // The element that holds the annotated string
     const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
     const empty_text = doc.get(selection.path)[0].length === 0;
@@ -717,14 +749,21 @@
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
     let current_offset = 0;
-    let anchor_node, anchor_node_offset, focus_node, focus_node_offset;
+    /** @type {HTMLElement | Text} */
+    let anchor_node;
+    /** @type {HTMLElement | Text} */
+    let focus_node;
+    /** @type {number} */
+    let anchor_node_offset
+    /** @type {number} */
+    let focus_node_offset;
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
 
 
     // Helper function to process each node
-    function processNode(node) {
+    function process_node(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const node_length = node.length;
 
@@ -757,8 +796,8 @@
 
         current_offset += node_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const childNode of node.childNodes) {
-          if (processNode(childNode)) return true; // Stop iteration if end found
+        for (const child_node of node.childNodes) {
+          if (process_node(child_node)) return true; // Stop iteration if end found
         }
       }
       return false; // Continue iteration
@@ -775,13 +814,17 @@
     } else {
       // DEFAULT CASE
       for (const child_node of el.childNodes) {
-        if (processNode(child_node)) break;
+        if (process_node(child_node)) break;
       }
 
       // EDGE CASE: cursor at the end of an annotation
+      // TODO: It seems this edge case is handled elsewhere. We keep around the checker for a
+      // while and delete this branch, if we don't see any problems.
       if (anchor_node && !focus_node && current_offset === end_offset) {
-        focus_node = anchor_node.nextSibling || anchor_node;
-        focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
+        alert('EDGE CASE: cursor at the end of an annotation.');
+        // console.log('EDGE CASE: cursor at the end of an annotation');
+        // focus_node = /** @type {HTMLElement | Text} */ (anchor_node.nextSibling || anchor_node);
+        // focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
       }
     }
 
