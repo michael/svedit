@@ -7,16 +7,11 @@ import { is_valid_svid } from './util.js';
  *   DocumentPath,
  *   Selection,
  *   Annotation,
- *   ReferenceType,
  *   PrimitiveType,
  *   DocumentSchemaPrimitive,
- *   DocumentSchemaValueToJs,
- *   DocumentNodeToJs,
  *   NodeProperty,
  *   NodeArrayProperty,
- *   NodeSchema,
  *   DocumentSchema,
- *   SerializedNode,
  *   SerializedDocument
  * } from './types.d.ts';
  */
