@@ -453,30 +453,18 @@ export default class Transaction {
 
     // Transform the annotations (annotated_string[1])
     // NOTE: Annotations are stored as [start_offset, end_offset, type]
-    // Cover the following cases for all annotations:
-    // 1. text inserted before the annotation (the annotation should be shifted by replaced_text.length - (end - start))
-    // 2. text inserted inside an annotation (start>=annotation.start_offset und end <=annotation.end_offset)
-    // 3. text inserted after an annotation (the annotation should be unchanged)
-    // 4. the annotation is wrapped in start and end (the annotation should be removed)
-    // 5. the annotation is partly selected towards right (e.g. start > annotation.start_offset && start < annotation.end_offset && end > annotation.end_offset): annotation_end_offset should be updated
-    // 6. the annotation is partly selected towards left (e.g. start < annotation.start_offset && end > annotation.start_offset && end < annotation.end_offset): annotation_start_offset and end_offset should be updated
     const delta = replaced_text.length - (end - start);
     const new_annotations = annotated_string[1].map(/** @param {any} annotation */ (annotation) => {
       const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
-      // Case 4: annotation is wrapped in start and end (remove it)
+      // Case 1: annotation is wrapped in start and end (remove it)
       if (start <= annotation_start && end >= annotation_end) {
         return false;
       }
 
-      // Case 1: text inserted before the annotation
+      // Case 2: text inserted before the annotation
       if (end <= annotation_start) {
         return [annotation_start + delta, annotation_end + delta, type, annotation_data];
-      }
-
-      // Case 2: text inserted inside an annotation
-      if (start >= annotation_start && start <= annotation_end && end < annotation_end && end >= annotation_start) {
-        return [annotation_start, annotation_end + delta, type, annotation_data];
       }
 
       // Case 3: text inserted after the annotation
@@ -484,18 +472,24 @@ export default class Transaction {
         return annotation;
       }
 
-      // Case 5: annotation is partly selected towards right
-      if (start > annotation_start && start < annotation_end && end > annotation_end) {
+      // Case 4: annotation is partly selected towards right
+      // NOTE: replaced_text will not be part of the annotation, we treat it the same as
+      // a cursor right after the annotation
+      if (start > annotation_start && start < annotation_end && end === annotation_end) {
         return [annotation_start, start, type, annotation_data];
       }
 
-      // Case 6: annotation is partly selected towards left
-      if (start < annotation_start && end > annotation_start && end < annotation_end) {
-        return [end + delta, annotation_end + delta, type, annotation_data];
+      // Case 5: text inserted inside an annotation
+      // NOTE: This also covers the case when a annotation is partly selected towards left
+      if (start >= annotation_start && start <= annotation_end && end < annotation_end && end >= annotation_start) {
+        return [annotation_start, annotation_end + delta, type, annotation_data];
       }
 
-      // Default case: shouldn't happen, but keep the annotation unchanged
-      return annotation;
+      // Unhandled edge case:
+      console.error('annotation could not be transformed: ', annotation);
+      throw new Error('Case for transforming annotation not covered');
+
+      // return annotation;
     }).filter(Boolean);
 
     this.set(this.doc.selection.path, [annotated_string[0], new_annotations]); // this will update the current state and create a history entry
