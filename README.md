@@ -204,9 +204,9 @@ At the very moment, the best way to help is to donate or sponsor us, so we can b
 Find my contact details [here](https://editable.website).
 
 
-## Alpha version
+## Beta version
 
-It's very early. Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.
+It's early. Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.
 
 ## Credits
 

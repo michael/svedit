@@ -406,7 +406,7 @@ const document_config = {
       };
   		tr.insert_nodes([new_image_grid]);
     },
-    image_grid_item: function(tr, content = ['', []]) {
+    image_grid_item: function(tr) {
       const new_image_grid_item = {
         id: svid(),
         type: 'image_grid_item',
@@ -421,7 +421,7 @@ const document_config = {
         focus_offset: tr.doc.selection.focus_offset
       });
     },
-    button: function(tr, content = ['', []]) {
+    button: function(tr) {
       const new_button = {
         id: svid(),
         type: 'button',

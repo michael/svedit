@@ -7,18 +7,13 @@ import { is_valid_svid } from './util.js';
  *   DocumentPath,
  *   Selection,
  *   Annotation,
- *   ScalarType,
- *   ArrayType,
- *   RichType,
  *   ReferenceType,
  *   PrimitiveType,
  *   DocumentSchemaPrimitive,
  *   DocumentSchemaValueToJs,
  *   DocumentNodeToJs,
- *   PrimitiveProperty,
  *   NodeProperty,
  *   NodeArrayProperty,
- *   PropertyDefinition,
  *   NodeSchema,
  *   DocumentSchema,
  *   SerializedNode,
@@ -385,26 +380,6 @@ export default class Document {
       }
     }
     return val;
-  }
-
-  /**
-   * EXPERIMENTAL: Get a typed node using schema-based type inference.
-   *
-   * @template {keyof this['schema']} NodeType
-   * @param {DocumentPath} path - Path to the node
-   * @param {ReferenceType} node_type - Expected node type for type inference
-   * @returns {DocumentNodeToJs<this['schema'][NodeType]>} Typed node with schema-based properties
-   * @example
-   * // Get a story node with typed properties
-   * const story = doc.getTyped(['page_1', 'body', 0], 'story');
-   * // Now story.title, story.description, etc. have proper types
-   */
-  get_typed(path, node_type) {
-    const node = this.get(path);
-    if (node && node.type === node_type) {
-      return /** @type {any} */ (node);
-    }
-    throw new Error(`Expected ${node_type} node at path ${path.join('.')}, got ${node?.type || 'undefined'}`);
   }
 
   /**
