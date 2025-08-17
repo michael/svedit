@@ -10,7 +10,7 @@ describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {
     const doc = create_test_doc();
 
-    const { container }  = render(SveditTest, { props: { doc } });
+    /* const { container } = */ render(SveditTest, { doc });
 
     // Now set node cursor between first and second node
     doc.selection = {
@@ -31,13 +31,15 @@ describe('Svedit.svelte', () => {
     expect(dom_selection.isCollapsed).toBe(true);
     expect(dom_selection.type).toBe('Caret');
 
+    // @ts-ignore
     expect(dom_selection.anchorNode.classList.contains('cursor-trap')).toBe(true);
+    // @ts-ignore
     expect(dom_selection.focusNode.classList.contains('cursor-trap')).toBe(true);
   });
 
   it('should map property selection to DOM', async () => {
     const doc = create_test_doc();
-    const { container }  = render(SveditTest, { props: { doc } });
+    /* const { container }  = */ render(SveditTest, { doc });
 
     // Now set property selection
     doc.selection = {
@@ -59,12 +61,12 @@ describe('Svedit.svelte', () => {
 
   it('should allow copying and pasting a story node with button reference multiple times', async () => {
     const doc = create_test_doc();
-    const { container } = render(SveditTest, { props: { doc } });
+    const { container } = render(SveditTest, { doc });
 
     // Get the original story and button content
     const original_story = doc.get(story_1_id);
     const original_button = doc.get(button_1_id);
-    
+
     expect(original_story.title).toEqual(['First story', []]);
     expect(original_story.buttons).toEqual([button_1_id]);
     expect(original_button.label).toEqual(['Get started', []]);
@@ -86,8 +88,9 @@ describe('Svedit.svelte', () => {
     // Simulate copy event
     const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
     const svedit_element = container.querySelector('.svedit-canvas');
+    // @ts-ignore
     svedit_element.focus();
-    
+
     // Mock clipboard API
     let clipboard_data = null;
     Object.defineProperty(navigator, 'clipboard', {
@@ -106,7 +109,7 @@ describe('Svedit.svelte', () => {
 
     // Verify something was copied
     expect(clipboard_data).not.toBeNull();
-    
+
     // Keep same selection for paste (to replace, not insert)
     doc.selection = {
       type: 'node',
@@ -126,7 +129,7 @@ describe('Svedit.svelte', () => {
     // Verify first paste - should still have 3 items (replaced, not inserted)
     const body_after_first_paste = doc.get([page_1_id, 'body']);
     expect(body_after_first_paste.length).toBe(3);
-    
+
     // Get the new story ID (first element should be the replaced one)
     const first_new_story_id = body_after_first_paste[0];
     const first_new_story = doc.get(first_new_story_id);
@@ -211,7 +214,7 @@ describe('Svedit.svelte', () => {
 
       const tr = doc.tr;
       tr.create(empty_text_node);
-      
+
       // Insert the empty text node after the first story
       const body = doc.get([page_1_id, 'body']);
       const new_body = [body[0], empty_text_id, ...body.slice(1)];
@@ -233,7 +236,7 @@ describe('Svedit.svelte', () => {
 
       // Empty text node should be deleted
       expect(doc.get(empty_text_id)).toBeUndefined();
-      
+
       // Body should be back to original state
       const final_body = doc.get([page_1_id, 'body']);
       expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
@@ -258,7 +261,7 @@ describe('Svedit.svelte', () => {
 
       const tr = doc.tr;
       tr.create(text_node);
-      
+
       // Insert the text node after the first story
       const body = doc.get([page_1_id, 'body']);
       const new_body = [body[0], text_id, ...body.slice(1)];
@@ -279,11 +282,11 @@ describe('Svedit.svelte', () => {
 
       // Should return false (no action taken)
       expect(result).toBe(false);
-      
+
       // Text node should still exist
       expect(doc.get(text_id)).toBeDefined();
       expect(doc.get(text_id).content).toEqual(['Some content', []]);
-      
+
       // Body should remain unchanged
       const final_body = doc.get([page_1_id, 'body']);
       expect(final_body).toEqual([story_1_id, text_id, story_1_id, list_1_id]);
@@ -303,7 +306,7 @@ describe('Svedit.svelte', () => {
 
       const tr = doc.tr;
       tr.create(empty_text_node);
-      
+
       // Insert the empty text node at the beginning
       const body = doc.get([page_1_id, 'body']);
       const new_body = [empty_text_id, ...body];
@@ -325,7 +328,7 @@ describe('Svedit.svelte', () => {
 
       // Empty text node should be deleted
       expect(doc.get(empty_text_id)).toBeUndefined();
-      
+
       // Body should be back to original state
       const final_body = doc.get([page_1_id, 'body']);
       expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
@@ -350,7 +353,7 @@ describe('Svedit.svelte', () => {
 
       const tr = doc.tr;
       tr.create(text_node);
-      
+
       // Insert the text node at the beginning
       const body = doc.get([page_1_id, 'body']);
       const new_body = [text_id, ...body];
@@ -371,11 +374,11 @@ describe('Svedit.svelte', () => {
 
       // Should return false (no action taken)
       expect(result).toBe(false);
-      
+
       // Text node should still exist
       expect(doc.get(text_id)).toBeDefined();
       expect(doc.get(text_id).content).toEqual(['Some content', []]);
-      
+
       // Body should remain unchanged
       const final_body = doc.get([page_1_id, 'body']);
       expect(final_body).toEqual([text_id, story_1_id, story_1_id, list_1_id]);
@@ -387,14 +390,14 @@ describe('Svedit.svelte', () => {
       // Create two text nodes
       const first_text_id = svid();
       const second_text_id = svid();
-      
+
       const first_text_node = {
         id: first_text_id,
         type: 'text',
         layout: 1,
         content: ['First text', []]
       };
-      
+
       const second_text_node = {
         id: second_text_id,
         type: 'text',
@@ -405,7 +408,7 @@ describe('Svedit.svelte', () => {
       const tr = doc.tr;
       tr.create(first_text_node);
       tr.create(second_text_node);
-      
+
       // Replace body with our two text nodes
       tr.set([page_1_id, 'body'], [first_text_id, second_text_id]);
       doc.apply(tr);
@@ -425,11 +428,11 @@ describe('Svedit.svelte', () => {
 
       // Second text node should be deleted
       expect(doc.get(second_text_id)).toBeUndefined();
-      
+
       // First text node should contain joined content
       const first_text = doc.get(first_text_id);
       expect(first_text.content).toEqual(['First text second text', []]);
-      
+
       // Body should only contain the first text node
       const final_body = doc.get([page_1_id, 'body']);
       expect(final_body).toEqual([first_text_id]);

@@ -1,4 +1,4 @@
-import Document from '../lib/Document.svelte.js';
+import Document, { define_document_schema } from '../lib/Document.svelte.js';
 import { svid } from '../lib/util.js';
 
 import Page from '../routes/components/Page.svelte';
@@ -15,7 +15,7 @@ export const list_1_id = svid();
 export const list_item_1_id = svid();
 export const list_item_2_id = svid();
 
-const document_schema = {
+const document_schema = define_document_schema({
   page: {
     body: {
       type: 'node_array',
@@ -58,7 +58,7 @@ const document_schema = {
       default_node_type: 'list_item',
     },
   },
-};
+});
 
 const raw_doc = [
   {
@@ -125,7 +125,7 @@ const document_config = {
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
   // intended behavior.
   inserters: {
-    button: function(tr, content = ['', []]) {
+    button: function(tr) {
       const new_button = {
         id: svid(),
         type: 'button',

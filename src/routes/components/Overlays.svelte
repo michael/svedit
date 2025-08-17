@@ -31,7 +31,6 @@
 		if (!sel) return;
 
 		if (sel.type === 'node' && sel.anchor_offset === sel.focus_offset) {
-			const node_array = svedit.doc.get(sel.path);
 			const orientation = determine_node_array_orientation(svedit.doc, sel.path);
 			let node_index, position;
 
@@ -85,7 +84,7 @@
 <!-- NOTE: we are using CSS Anchor Positioning, which currently only works in the latest Chrome browser -->
 {#if node_array_selection_paths}
 	<!-- Render node selection fragments (one per selected node)-->
-	{#each node_array_selection_paths as path}
+	{#each node_array_selection_paths as path (path.join('-'))}
 		<div class="node-selection-fragment" style="position-anchor: --{path.join('-')};"></div>
 	{/each}
 {:else if node_cursor_info}

@@ -3,23 +3,22 @@
   import { svid } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
+  /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
+  /** @type {SveditProps} */
   let {
     doc,
-    children,
-    overlays,
+    Overlays,
     editable = false,
-    ref = $bindable(),
     path,
     class: css_class,
   } = $props();
 
+  let canvas_ref;
   let root_node = $derived(doc.get(path));
   let RootComponent = $derived(doc.config.node_components[root_node.type]);
 
-  // Expose focus_canvas method to parent component
+  /** Expose function so parent can call it */
   export { focus_canvas };
-
-  let is_mouse_down = $state(false);
 
   setContext("svedit", {
     get doc() {
@@ -27,14 +26,9 @@
     }
   });
 
-  function onmousedown() {
-    is_mouse_down = true;
-  }
-
-  function onmouseup() {
-    is_mouse_down = false;
-  }
-
+  /**
+   * @param {InputEvent} event
+   */
   function onbeforeinput(event) {
     const inserted_char = event.data;
 
@@ -47,13 +41,13 @@
   }
 
   // Map DOM selection to internal model
-  function onselectionchange(event) {
+  function onselectionchange() {
     const dom_selection = window.getSelection();
     if (!dom_selection.rangeCount) return;
 
     // Only handle selection changes if selection is within the canvas
     const range = dom_selection.getRangeAt(0);
-    if (!ref?.contains(range.commonAncestorContainer)) return;
+    if (!canvas_ref?.contains(range.commonAncestorContainer)) return;
     let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
     if (selection) {
       doc.selection = selection;
@@ -61,6 +55,9 @@
   }
 
 
+  /**
+   * @param {NodeId[]} selected_node_ids
+   */
   function prepare_copy_payload(selected_node_ids) {
     const nodes = {};
 
@@ -80,9 +77,14 @@
     return { nodes, main_nodes: selected_node_ids };
   }
 
+
+  /**
+   * @param {ClipboardEvent} event
+   * @param {boolean} delete_selection - used by oncut()
+   */
   function oncopy(event, delete_selection = false) {
     // Only handle copy events if focus is within the canvas
-    if (!ref?.contains(document.activeElement)) return;
+    if (!canvas_ref?.contains(document.activeElement)) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -136,7 +138,7 @@
 
   async function onpaste(event) {
     // Only handle paste events if focus is within the canvas
-    if (!ref?.contains(document.activeElement)) return;
+    if (!canvas_ref?.contains(document.activeElement)) return;
 
     event.preventDefault();
     const clipboardItems = await navigator.clipboard.read();
@@ -148,7 +150,9 @@
     try {
       const json_blob = await clipboardItems[0].getType('web application/json');
       pasted_json = JSON.parse(await json_blob.text());
-    } catch(e) {}
+    } catch {
+      pasted_json = undefined;
+    }
 
     if (pasted_json) {
       const tr = doc.tr;
@@ -185,12 +189,6 @@
           updated_nodes[new_node.id] = new_node;
         }
 
-        console.log('Paste operation:', {
-          original_main_nodes: main_nodes,
-          new_main_nodes: main_nodes.map(id => id_mapping[id]),
-          total_nodes: Object.keys(updated_nodes).length
-        });
-
         // Create all nodes first
         for (const node of Object.values(updated_nodes)) {
           tr.create(node);
@@ -212,7 +210,7 @@
   }
 
   function render_selection() {
-    const selection = doc.selection;
+    const selection = /** @type {Selection} */ (doc.selection);
     let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
 
     if (!selection) {
@@ -223,7 +221,7 @@
     }
 
     // NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
-    if (JSON.stringify(selection) === JSON.stringify(prev_selection) && ref?.contains(document.activeElement)) {
+    if (JSON.stringify(selection) === JSON.stringify(prev_selection) && canvas_ref?.contains(document.activeElement)) {
       // Skip. No need to rerender.
       return;
     }
@@ -235,7 +233,7 @@
     } else if (selection?.type === 'property') {
       __render_property_selection();
     } else {
-      console.log('unsupported selection type', selection.type);
+      console.log('unsupported selection', selection);
     }
   }
 
@@ -243,7 +241,7 @@
     // Find the first interactive element in the toolbar and focus it
     const toolbar = document.querySelector('.editor-toolbar');
     if (toolbar) {
-      const firstInteractive = toolbar.querySelector('input, button, select, textarea');
+      const firstInteractive = /** @type {HTMLElement} */ (toolbar.querySelector('input, button, select, textarea'));
       if (firstInteractive) {
         firstInteractive.focus();
       }
@@ -257,9 +255,9 @@
 
   function onkeydown(e) {
     // Only handle keyboard events if focus is within the canvas
-    if (!ref?.contains(document.activeElement)) return;
+    if (!canvas_ref?.contains(document.activeElement)) return;
 
-    const selection = doc.selection;
+    const selection = /** @type {any} */ (doc.selection);
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
@@ -421,56 +419,62 @@
     }
   }
 
+  /**
+   * Extracts a NodeSelection from the current DOM selection.
+   *
+   *
+   * @returns {NodeSelection | null} A NodeSelection object if the DOM selection
+   *   represents a valid node selection, null otherwise
+   */
   function __get_node_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    let focus_node = dom_selection.focusNode;
-    let anchor_node = dom_selection.anchorNode;
+    let focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
+    let anchor_node = /** @type {HTMLElement} */ (dom_selection.anchorNode);
 
-    // If focus_node or anchor_node is a text node, we need to use the parent element,
-    // so we can perform the closest() query on it
-    if (!focus_node.closest) focus_node = focus_node.parentElement;
-    if (!anchor_node.closest) anchor_node = anchor_node.parentElement;
+    // If focus_node or anchor_node not an element node (e.g. a text node), we need
+    // to use the parent element, so we can perform the closest() query on it.
+    if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
+    if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
     // EDGE CASE: Let's first check if we are in a cursor trap for node cursors
-    let after_node_cursor_trap = focus_node.closest('[data-type="after-node-cursor-trap"]');
+    let after_node_cursor_trap = focus_node && focus_node?.closest('[data-type="after-node-cursor-trap"]');
     if (after_node_cursor_trap && focus_node === anchor_node) {
       // Find the node that this cursor trap belongs to
-      let node = after_node_cursor_trap.closest('[data-type="node"]');
+      let node = /** @type {HTMLElement} */ (after_node_cursor_trap.closest('[data-type="node"]'));
       if (!node) {
         console.log('No corresponding node found for after-node-cursor-trap');
         return null;
       }
-      const node_path = node.dataset.path.split('.');
-      const node_index = parseInt(node_path.at(-1));
-      const result = {
-        type: 'node',
+      const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
+      const node_index = parseInt(String(node_path.at(-1)), 10);
+
+      return {
+        type: "node",
         path: node_path.slice(0, -1),
         anchor_offset: node_index + 1,
         focus_offset: node_index + 1,
       }
-      return result;
     }
 
     // EDGE CASE: Let's check if we are in a position-zero-cursor-trap for node_arrays.
     let position_zero_cursor_trap = focus_node.closest('[data-type="position-zero-cursor-trap"]');
     if (position_zero_cursor_trap && focus_node === anchor_node) {
-      const node_array_el = position_zero_cursor_trap.closest('[data-type="node_array"]');
+      const node_array_el = /** @type {HTMLElement} */ (position_zero_cursor_trap.closest('[data-type="node_array"]'));
       const node_array_path = node_array_el.dataset.path.split('.');
-      const result = {
+      return {
         type: 'node',
         path: node_array_path,
         anchor_offset: 0,
         focus_offset: 0,
       }
-      return result;
     }
 
-    let focus_root = focus_node.closest('[data-path][data-type="node"]');
+    let focus_root = /** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
     if (!focus_root) return null;
 
-    let anchor_root = anchor_node.closest('[data-path][data-type="node"]');
+    let anchor_root = /** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
     if (!anchor_root) return null;
 
     if (!(focus_root && anchor_root)) {
@@ -508,22 +512,29 @@
       focus_offset += 1;
     }
 
-    const result = {
+    return {
       type: 'node',
       path: anchor_root_path.slice(0, -1),
       anchor_offset: anchor_offset,
       focus_offset: focus_offset,
     };
-    return result;
   }
 
+
+  /**
+   * Extracts a PropertySelection from the current DOM selection.
+   *
+   *
+   * @returns {PropertySelection | null} A PropertySelection object if the DOM selection
+   *   represents a valid property selection, null otherwise
+   */
   function __get_property_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
-    let focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="property"]');
+    let focus_root = /** @type {HTMLElement} */ (dom_selection.focusNode.parentElement?.closest('[data-path][data-type="property"]'));
     if (!focus_root) return null;
-    let anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="property"]');
+    let anchor_root = /** @type {HTMLElement} */ (dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="property"]'));
     if (!anchor_root) return null;
 
     if (focus_root === anchor_root) {
@@ -535,19 +546,27 @@
     return null;
   }
 
+  /**
+   * Extracts a TextSelection from the current DOM selection.
+   *
+   *
+   * @returns {TextSelection | null} A TextSelection object if the DOM selection
+   *   represents a valid text selection, null otherwise
+   */
   function __get_text_selection_from_dom() {
     const dom_selection = window.getSelection();
     if (dom_selection.rangeCount === 0) return null;
 
+    const focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
     let focus_root, anchor_root;
 
-    if (dom_selection.focusNode === dom_selection.anchorNode && dom_selection.focusNode.dataset?.type === 'text') {
+    if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text') {
       // This is the case when the text node is empty (only a <br> is present)
-      focus_root = anchor_root = dom_selection.focusNode;
+      focus_root = anchor_root = focus_node;
     } else {
-      focus_root = dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]');
+      focus_root = /** @type {HTMLElement} */ (dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]'));
       if (!focus_root) return null;
-      anchor_root = dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]');
+      anchor_root = /** @type {HTMLElement} */ (dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]'));
       if (!anchor_root) return null;
     }
 
@@ -608,7 +627,7 @@
   }
 
   function __get_node_element(node_array_path, node_offset) {
-    const node_array_el = ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
+    const node_array_el = canvas_ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
     if (!node_array_el) return null;
 
     const node_elements = node_array_el.children;
@@ -617,13 +636,8 @@
     return node_elements[node_offset];
   }
 
-  function __is_selection_collapsed(sel) {
-    return sel.anchor_offset === sel.focus_offset;
-  }
-
   function __render_node_selection() {
-    const selection = doc.selection;
-    const node_array = doc.get(selection.path);
+    const selection = /** @type {NodeSelection} */ (doc.selection);
     const node_array_path = selection.path.join('.');
 
     let is_collapsed = selection.anchor_offset === selection.focus_offset;
@@ -691,7 +705,7 @@
     }
 
     // Ensure the node_array is focused
-    const node_array_el = ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
+    const node_array_el = canvas_ref.querySelector(`[data-path="${node_array_path}"][data-type="node_array"]`);
     if (node_array_el) {
       node_array_el.focus();
       // Scroll the selection into view
@@ -706,7 +720,7 @@
   function __render_property_selection() {
     const selection = doc.selection;
     // The element that holds the property
-    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
+    const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
     const cursor_trap = el.querySelector('.cursor-trap');
 
     const range = window.document.createRange();
@@ -720,22 +734,29 @@
   }
 
   function __render_text_selection() {
-    const selection = doc.selection;
+    const selection = /** @type {any} */ (doc.selection);
     // The element that holds the annotated string
-    const el = ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
+    const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
     const empty_text = doc.get(selection.path)[0].length === 0;
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
     let current_offset = 0;
-    let anchor_node, anchor_node_offset, focus_node, focus_node_offset;
+    /** @type {HTMLElement | Text} */
+    let anchor_node;
+    /** @type {HTMLElement | Text} */
+    let focus_node;
+    /** @type {number} */
+    let anchor_node_offset
+    /** @type {number} */
+    let focus_node_offset;
     const is_backward = selection.anchor_offset > selection.focus_offset;
     const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
 
 
     // Helper function to process each node
-    function processNode(node) {
+    function process_node(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const node_length = node.length;
 
@@ -768,8 +789,8 @@
 
         current_offset += node_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const childNode of node.childNodes) {
-          if (processNode(childNode)) return true; // Stop iteration if end found
+        for (const child_node of node.childNodes) {
+          if (process_node(child_node)) return true; // Stop iteration if end found
         }
       }
       return false; // Continue iteration
@@ -786,13 +807,17 @@
     } else {
       // DEFAULT CASE
       for (const child_node of el.childNodes) {
-        if (processNode(child_node)) break;
+        if (process_node(child_node)) break;
       }
 
       // EDGE CASE: cursor at the end of an annotation
+      // TODO: It seems this edge case is handled elsewhere. We keep around the checker for a
+      // while and delete this branch, if we don't see any problems.
       if (anchor_node && !focus_node && current_offset === end_offset) {
-        focus_node = anchor_node.nextSibling || anchor_node;
-        focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
+        alert('EDGE CASE: cursor at the end of an annotation.');
+        // console.log('EDGE CASE: cursor at the end of an annotation');
+        // focus_node = /** @type {HTMLElement | Text} */ (anchor_node.nextSibling || anchor_node);
+        // focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
       }
     }
 
@@ -865,8 +890,6 @@
 -->
 <svelte:document
   {onselectionchange}
-  {onmousedown}
-  {onmouseup}
   {oncut}
   {oncopy}
   {onpaste}
@@ -880,15 +903,13 @@
   <div
     class="svedit-canvas {css_class}"
     class:hide-selection={doc.selection?.type === 'node'}
-    bind:this={ref}
+    bind:this={canvas_ref}
     {onbeforeinput}
     contenteditable={editable ? 'true' : 'false'}
   >
     <RootComponent {path} />
   </div>
-  <div class="svedit-overlays">
-    {@render overlays()}
-  </div>
+  <Overlays />
 </div>
 
 <style>

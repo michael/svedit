@@ -1,5 +1,4 @@
-import { svid } from '$lib/util.js';
-import Document from '$lib/Document.svelte';
+import { Document, define_document_schema, svid } from 'svedit';
 
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
@@ -11,12 +10,17 @@ import ImageGrid from './components/ImageGrid.svelte';
 import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
 
-const document_schema = {
+const document_schema = define_document_schema({
   page: {
     body: {
       type: 'node_array',
       node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
       default_node_type: 'text',
+    },
+    hero: {
+      type: 'node',
+      node_types: ['hero'],
+      default_node_type: 'hero',
     },
     keywords: {
       type: 'string_array',
@@ -68,7 +72,9 @@ const document_schema = {
     },
     layout: { type: 'integer' },
   },
-};
+});
+
+
 
 // Generate IDs for all content nodes
 const page_1_id = 'page_1';
@@ -238,7 +244,7 @@ const raw_doc = [
   {
     id: list_item_4_id,
     type: 'list_item',
-    content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed. ', []]
+    content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed.', []]
   },
   {
     id: list_1_id,
@@ -266,6 +272,7 @@ const raw_doc = [
     id: page_1_id,
     type: 'page',
     body: [hero_1_id, heading_1_id, paragraph_1_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
+    hero: hero_1_id,
     keywords: ['svelte', 'editor', 'rich content'],
     daily_visitors: [10, 20, 30, 100],
     created_at: '2025-05-30T10:39:59.987Z'
@@ -399,7 +406,7 @@ const document_config = {
       };
   		tr.insert_nodes([new_image_grid]);
     },
-    image_grid_item: function(tr, content = ['', []]) {
+    image_grid_item: function(tr) {
       const new_image_grid_item = {
         id: svid(),
         type: 'image_grid_item',
@@ -414,7 +421,7 @@ const document_config = {
         focus_offset: tr.doc.selection.focus_offset
       });
     },
-    button: function(tr, content = ['', []]) {
+    button: function(tr) {
       const new_button = {
         id: svid(),
         type: 'button',

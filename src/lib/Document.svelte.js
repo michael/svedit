@@ -1,7 +1,174 @@
 import Transaction from './Transaction.svelte.js';
-import { validate_node } from './util.js';
+import { is_valid_svid } from './util.js';
+
+/**
+ * @import {
+ *   NodeId,
+ *   DocumentPath,
+ *   Selection,
+ *   Annotation,
+ *   PrimitiveType,
+ *   DocumentSchemaPrimitive,
+ *   NodeProperty,
+ *   NodeArrayProperty,
+ *   DocumentSchema,
+ *   SerializedDocument
+ * } from './types.d.ts';
+ */
+
+/**
+ * Identity function — keeps schema at runtime & makes IDE infer types.
+ * Similar to your define_schema pattern but for document schemas.
+ *
+ * @template {Record<string, Record<string, {type: DocumentSchemaPrimitive}>>} S
+ * @param {S} schema - The document schema to validate
+ * @returns {S} The same schema, but with type information preserved
+ */
+export function define_document_schema(schema) {
+  return schema;
+}
+
+/**
+ * Check if a string represents a valid primitive type.
+ * @param {string} type - The type string to check
+ * @returns {type is PrimitiveType} True if it's a valid primitive type
+ */
+export function is_primitive_type(type) {
+  return [
+    'string', 'number', 'boolean', 'integer', 'datetime',
+    'annotated_string', 'string_array', 'number_array',
+    'boolean_array', 'integer_array'
+  ].includes(type);
+}
+
+/**
+ * Get the default node type for a property that references nodes.
+ * @param {NodeProperty | NodeArrayProperty} property_definition - The property definition
+ * @returns {string | null} The default node type, or null if none specified
+ */
+export function get_default_node_type(property_definition) {
+  if (!property_definition || !property_definition.node_types) {
+    return null;
+  }
+
+  return property_definition.default_node_type ||
+    (property_definition.node_types.length === 1 ? property_definition.node_types[0] : null);
+}
+
+/**
+ * Validate a document schema to ensure all referenced node types exist.
+ * @param {DocumentSchema} document_schema - The document schema to validate
+ * @throws {Error} Throws if the document schema is invalid
+ */
+export function validate_document_schema(document_schema) {
+  // Check that all referenced node types exist
+  for (const [node_type, node_schema] of Object.entries(document_schema)) {
+    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+      if (prop_def.type === 'node' || prop_def.type === 'node_array') {
+        const missing_types = prop_def.node_types.filter(ref_type => !(ref_type in document_schema));
+        if (missing_types.length > 0) {
+          throw new Error(`Node type "${node_type}" property "${prop_name}" references unknown node types: ${missing_types.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validate a primitive value against its schema type.
+ * @param {PrimitiveType} type - The expected type
+ * @param {any} value - The value to validate
+ * @returns {boolean} True if the value matches the type
+ */
+function validate_primitive_value(type, value) {
+  switch (type) {
+    case 'string':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number' && !isNaN(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'integer':
+      return Number.isInteger(value);
+    case 'datetime':
+      return typeof value === 'string' && !isNaN(Date.parse(value));
+    case 'annotated_string':
+      return Array.isArray(value) &&
+             value.length === 2 &&
+             typeof value[0] === 'string' &&
+             Array.isArray(value[1]);
+    case 'string_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'string');
+    case 'number_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'number' && !isNaN(v));
+    case 'boolean_array':
+      return Array.isArray(value) && value.every(v => typeof v === 'boolean');
+    case 'integer_array':
+      return Array.isArray(value) && value.every(v => Number.isInteger(v));
+    default:
+      return false;
+  }
+}
+
+/**
+ * Validate a node against its schema.
+ * @param {any} node - The node to validate
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Record<string, any>} all_nodes - All nodes in the document to check references
+ * @throws {Error} Throws if the node is invalid
+ */
+function validate_node(node, schema, all_nodes = {}) {
+  if (!node.id || !is_valid_svid(node.id)) {
+    throw new Error(`Node ${node.id} has an invalid id. Must be a SVID.`);
+  }
+
+  if (!node.type || !schema[node.type]) {
+    throw new Error(`Node ${node.id} has an invalid type: ${node.type}`);
+  }
+
+  const node_schema = schema[node.type];
+
+  for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+    const value = node[prop_name];
+
+    // Check primitive types
+    if (is_primitive_type(prop_def.type)) {
+      if (!validate_primitive_value(prop_def.type, value)) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be of type ${prop_def.type}.`);
+      }
+    }
+    // Check node references
+    if (prop_def.type === 'node') {
+      if (typeof value !== 'string' || !is_valid_svid(value)) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be a SVID.`);
+      }
+      // Check if referenced node exists and is of allowed type
+      const referenced_node = all_nodes[value];
+      if (
+        referenced_node &&
+        !prop_def.node_types.includes(referenced_node.type)
+      ) {
+        throw new Error(`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${(/** @type {NodeProperty} */ (prop_def)).node_types.join(', ')}] are allowed.`);
+      }
+    }
+    // Check node arrays
+    else if (prop_def.type === 'node_array') {
+      if (!Array.isArray(value) || !value.every(id => typeof id === 'string' && is_valid_svid(id))) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be an array of SVIDs.`);
+      }
+      // Check if all referenced nodes are of allowed types
+      for (const ref_id of value) {
+        const referenced_node = all_nodes[ref_id];
+        if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
+          throw new Error(`Node ${node.id} property ${prop_name} references node ${ref_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`);
+        }
+      }
+    }
+  }
+}
 
 export default class Document {
+  /** @type {Selection | undefined} */
   selection = $state();
   config = $state();
   document_id = $state();
@@ -16,20 +183,31 @@ export default class Document {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 
-  constructor(schema, raw_doc, { selection, config } = {}) {
+  /**
+   * @param {DocumentSchema} schema - The document schema
+   * @param {SerializedDocument} serialized_doc - The serialized document array
+   * @param {object} [options] - Optional configuration
+   * @param {Selection} [options.selection] - Initial selection state
+   * @param {any} [options.config] - Document configuration
+   */
+  constructor(schema, serialized_doc, { selection, config } = {}) {
+    // Validate the schema first
+    validate_document_schema(schema);
+
     this.schema = schema;
     this.selection = selection;
     this.config = config;
     this.nodes = {};
 
-    // Initialize the nodes
-    for (const node of raw_doc) {
-      validate_node(node, this.schema);
+    // Initialize and validate nodes one by one
+    // This ensures references only point to already-loaded nodes
+    for (const node of serialized_doc) {
+      this.validate_node(node);
       this.nodes[node.id] = node;
     }
 
-    // The last element in the raw_doc is the document itself (the root node)
-    this.document_id = raw_doc.at(-1).id;
+    // The last element in the serialized_doc is the document itself (the root node)
+    this.document_id = serialized_doc.at(-1)?.id;
   }
 
  	// Helper function to get the currently selected node
@@ -65,7 +243,20 @@ export default class Document {
     }
   }
 
-  // Creates a new transaction
+  /**
+   * Validate a node against the document schema.
+   * @param {any} node - The node to validate
+   * @throws {Error} Throws if the node is invalid
+   */
+  validate_node(node) {
+    validate_node(node, this.schema, this.nodes);
+  }
+
+  /**
+   * Creates a new transaction for making atomic changes to the document.
+   *
+   * @returns {Transaction} A new transaction instance
+   */
   get tr() {
     // We create a copy of the current document to avoid modifying the original
     const transaction_doc = new Document(this.schema, this.to_json(), {
@@ -75,7 +266,11 @@ export default class Document {
     return new Transaction(transaction_doc);
   }
 
-  // Applies a transaction
+  /**
+   * Applies a transaction to the document.
+   *
+   * @param {Transaction} transaction - The transaction to apply
+   */
   apply(transaction) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
     // Make sure selection gets a new reference (is rerendered)
@@ -122,16 +317,32 @@ export default class Document {
     return this;
   }
 
-  // doc.get('list_1') => { type: 'list', id: 'list_1', ... }
-  // doc.get(['list_1', 'list_items']) => [ 'list_item_1', 'list_item_2' ]
-  // doc.get(['page_1', 'body', 3, 'list_items', 0]) => { type: 'list_item', id: 'list_item_1', ... }
-  // doc.get(['page_1', 'cover', 'title']) => ['Hello world', []]
+  /**
+   * Gets a node instance or property value at the specified path.
+   * @param {DocumentPath|string} path - Path to the node or property
+   * @returns {any} Either a node instance object or the value of a property
+   * @example
+   * // Get a node by ID
+   * doc.get('list_1') // => { type: 'list', id: 'list_1', ... }
+   *
+   * @example
+   * // Get a node array property
+   * doc.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
+   *
+   * @example
+   * // Get a specific node from an array
+   * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
+   *
+   * @example
+   * // Get an annotated string property
+   * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]
+   */
   get(path) {
     if (typeof path === 'string') {
       path = [ path ];
     }
     if (!(Array.isArray(path) && path.length >= 1)) {
-      throw new Error('Invalid path provided', path);
+      throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
     }
 
     let val = this.nodes[path[0]];
@@ -166,23 +377,32 @@ export default class Document {
     return val;
   }
 
-  // While .get gives you the value of a path, inspect gives you
-  // the type info of that value.
-  //
-  // doc.inspect(['page_1', 'body'] => {
-  //   kind: 'property',
-  //   name: 'body',
-  //   type: 'node_array',
-  //   node_types: ['text', 'story', 'list'],
-  //   default_node_type: 'text'
-  // }
-  //
-  // doc.inspect(['page_1', 'body', 1]) => {
-  //   kind: 'node',
-  //   id: 'paragraph_234',
-  //   type: 'paragraph',
-  //   properties: {...}
-  // }
+  /**
+   * While .get gives you the value of a path, inspect gives you
+   * the type info of that value.
+   *
+   * @todo The layout of these should be improved and more explictly typed
+   *
+   * @example
+   * doc.inspect(['page_1', 'body']) => {
+   *   kind: 'property',
+   *   name: 'body',
+   *   type: 'node_array',
+   *   node_types: ['text', 'story', 'list'],
+   *   default_node_type: 'text'
+   * }
+   *
+   * @example
+   * doc.inspect(['page_1', 'body', 1]) => {
+   *   kind: 'node',
+   *   id: 'paragraph_234',
+   *   type: 'paragraph',
+   *   properties: {...}
+   * }
+   *
+   * @param {DocumentPath} path
+   * @returns {{kind: 'property'|'node', [key: string]: any}}
+   */
   inspect(path) {
     const parent = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
     if (parent?.type) {
@@ -206,8 +426,12 @@ export default class Document {
     }
   }
 
-  // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
-  // NOTE: currently we assume a 'content' property for pure text nodes
+  /**
+   * Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
+   * NOTE: currently we assume a 'content' property for pure text nodes
+   * @param {any} node
+   * @returns {'text'|'node'}
+   */
   kind(node) {
     if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
       return 'text'
@@ -216,6 +440,13 @@ export default class Document {
     }
   }
 
+  /**
+   * Returns the annotation object that is currently "under the cursor".
+   * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
+   *
+   * @param {string} annotation_type
+   * @returns {Annotation|null}
+   */
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
 
@@ -223,14 +454,14 @@ export default class Document {
     const annotated_string = this.get(this.selection.path);
     const annotations = annotated_string[1];
 
-    const active_annotation = annotations.find(([annotation_start, annotation_end, type]) =>
+    const active_annotation = annotations.find(([annotation_start, annotation_end]) =>
       (annotation_start <= start && annotation_end > start) ||
       (annotation_start < end && annotation_end >= end) ||
       (annotation_start >= start && annotation_end <= end)
     ) || null;
 
     if (annotation_type) {
-      return active_annotation?.[2] === annotation_type;
+      return active_annotation?.[2] === annotation_type ? active_annotation : null;
     } else {
       return active_annotation;
     }
@@ -291,12 +522,13 @@ export default class Document {
   }
 
   select_parent() {
+    if (!this.selection) return;
     if (['text', 'property'].includes(this.selection?.type)) {
       // For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
       // in the path
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
         this.selection = {
           type: 'node',
           path: parent_path,
@@ -306,11 +538,11 @@ export default class Document {
       } else {
         this.selection = undefined;
       }
-    } else if (this.selection?.type === 'node') {
+    } else if (this.selection.type === 'node') {
       // For node selections, we go up one level
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
 
         this.selection = {
           type: 'node',
@@ -327,16 +559,18 @@ export default class Document {
   }
 
   get_selection_range() {
-    if (!this.selection) return null;
+    if (this.selection && this.selection.type !== 'property') {
+      const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+      const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 
-    const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-    return {
-      start,
-      end,
-      length: end - start
-    };
+      return {
+        start,
+        end,
+        length: end - start
+      };
+    } else {
+      return null;
+    }
   }
 
   // Traverses the document and returns a JSON representation.
@@ -350,7 +584,7 @@ export default class Document {
         return;
       }
       visited[node.id] = true;
-      for (const [key, value] of Object.entries(node)) {
+      for (const [, value] of Object.entries(node)) {
         // TODO: Use schema inspection and do this only for properties of type `node_array`
         if (Array.isArray(value)) {
           for (const v of value) {
@@ -372,7 +606,11 @@ export default class Document {
     return json;
   }
 
-  to_json(node_id) {
+  /**
+   * Convert the document to serialized format.
+   * @returns {SerializedDocument} The serialized document array
+   */
+  to_json() {
     return this.traverse(this.document_id);
   }
 
@@ -413,6 +651,10 @@ export default class Document {
   }
 
   // Get all nodes referenced by a given node (recursively)
+  /**
+   * @param {NodeId} node_id
+   * @returns {NodeId[]}
+   */
   get_referenced_nodes(node_id) {
     const traversed_nodes = this.traverse(node_id);
 

@@ -1,8 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import Node from '../../lib/Node.svelte';
-	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
-
+	import { Node, AnnotatedStringProperty } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
@@ -26,7 +24,6 @@
 			  <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
 			</div>
 		</div>
-
 	</div>
 </Node>
 

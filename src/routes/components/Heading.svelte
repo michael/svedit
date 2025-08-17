@@ -1,12 +1,6 @@
 <script>
-	import { getContext } from 'svelte';
-	import Node from '../../lib/Node.svelte';
-	import AnnotatedStringProperty from '../../lib/AnnotatedStringProperty.svelte';
-
-	const svedit = getContext('svedit');
-
+	import { Node, AnnotatedStringProperty } from 'svedit';
 	let { path } = $props();
-	let node = $derived(svedit.doc.get(path));
 </script>
 
 <Node {path}>

@@ -7,9 +7,5 @@
 </script>
 
 <Layout>
-  <Svedit {doc} editable={true} path={[doc.document_id]}>
-    {#snippet overlays()}
-      <Overlays />
-    {/snippet}
-  </Svedit>
+  <Svedit {doc} editable={true} path={[doc.document_id]} {Overlays} />
 </Layout>
