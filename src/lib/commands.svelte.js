@@ -1,4 +1,4 @@
-import { split_annotated_string, join_annotated_string, svid } from './util.js';
+import { split_annotated_string, join_annotated_string } from './util.js';
 import { get_default_node_type } from './Document.svelte.js';
 
 export function break_text_node(tr) {
@@ -6,7 +6,7 @@ export function break_text_node(tr) {
   // Keep a reference of the original selection (before any transforms are applied)
   const selection = doc.selection;
   // First we need to ensure we have a text selection
-  if (!selection.type === 'text') return false;
+  if (selection.type !== 'text') return false;
 
   // Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
   // which is wrapped inside a node_array (e.g. page.body)
@@ -69,17 +69,17 @@ export function join_text_node(tr) {
   if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
   const node_index = parseInt(doc.selection.path.at(-2), 10);
-  
+
   // Determine if we can join with the previous node
   let can_join = false;
   let predecessor_node = null;
-  
+
   if (node_index > 0) {
     const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
     predecessor_node = doc.get(previous_text_path);
     can_join = doc.kind(predecessor_node) === 'text';
   }
-  
+
   // Special behavior: if we can't join and current node is empty, delete it
   if (!can_join && node.content[0] === '') {
     tr.set_selection({
@@ -91,12 +91,12 @@ export function join_text_node(tr) {
     tr.delete_selection();
     return true;
   }
-  
+
   // If we can't join for any reason, return false
   if (!can_join) {
     return false;
   }
-  
+
   // Normal joining logic - both nodes are text nodes
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
   const joined_text = join_annotated_string(predecessor_node.content, node.content);
@@ -199,7 +199,6 @@ export function select_all(tr) {
   } else if (selection.type === 'node') {
     const node_array_path = selection.path;
     const node_array = doc.get(node_array_path);
-    const selection_length = Math.abs(selection.focus_offset - selection.anchor_offset);
 
     // Check if the entire node_array is already selected
     const is_entire_node_array_selected =

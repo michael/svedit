@@ -1,6 +1,5 @@
 <script>
   import { Node, NodeArrayProperty } from 'svedit';
-  import ListItem from './ListItem.svelte';
   let { path } = $props();
 </script>
 
