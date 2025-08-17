@@ -16,8 +16,6 @@ export function is_valid_svid(id) {
   return typeof id === 'string' && id.length > 0;
 }
 
-
-
 // split_annotated_string(["Hello world", [[6,11, "strong"]]], 8)
 // =>
 // [
@@ -89,12 +87,3 @@ export function join_annotated_string(first_text, second_text) {
 
   return [joined_text, joined_annotations];
 }
-
-
-export function determine_node_array_orientation(doc, path_to_node_array) {
-  // path_to_node_array minus the last element has the owner node of the node_rray
-  const owner_node = doc.get(path_to_node_array.slice(0, -1));
-  return doc.config?.node_types_with_horizontal_node_arrays?.includes(owner_node?.type) ? 'horizontal' : 'vertical';
-}
-
-

@@ -26,11 +26,11 @@
   style="anchor-name: --{path.join('-')};"
 >
   {#if is_first_node_array_child}
-    <CursorTrap node_array_path={path.slice(0, -1)} type="position-zero-cursor-trap" />
+    <CursorTrap {path} type="position-zero-cursor-trap" />
   {/if}
   {@render children()}
   {#if is_inside_node_array}
-    <CursorTrap node_array_path={path.slice(0, -1)} type="after-node-cursor-trap" />
+    <CursorTrap {path} type="after-node-cursor-trap" />
   {/if}
 </div>
 

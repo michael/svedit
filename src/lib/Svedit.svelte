@@ -914,6 +914,7 @@
 
 <style>
   .svedit-canvas {
+    --layout-orientation: vertical;
     caret-color: var(--editing-stroke-color);
     caret-shape: block;
     &:focus {
