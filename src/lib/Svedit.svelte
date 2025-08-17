@@ -3,7 +3,7 @@
   import { svid } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
-  /** @import { SveditProps, DocumentPath, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
+  /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
   /** @type {SveditProps} */
   let {
     doc,
@@ -13,12 +13,11 @@
     class: css_class,
   } = $props();
 
-
   let canvas_ref;
   let root_node = $derived(doc.get(path));
   let RootComponent = $derived(doc.config.node_components[root_node.type]);
 
-  // Expose focus_canvas method to parent component
+  /** Expose function so parent can call it */
   export { focus_canvas };
 
   setContext("svedit", {
@@ -217,7 +216,7 @@
   }
 
   function render_selection() {
-    const selection = doc.selection;
+    const selection = /** @type {Selection} */ (doc.selection);
     let prev_selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
 
     if (!selection) {
@@ -240,7 +239,7 @@
     } else if (selection?.type === 'property') {
       __render_property_selection();
     } else {
-      console.log('unsupported selection type', selection.type);
+      console.log('unsupported selection', selection);
     }
   }
 

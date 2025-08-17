@@ -73,12 +73,17 @@ export type RichType = "annotated_string";
 /**
  * Node reference types for linking to other nodes.
  */
-export type NodeType = "node" | "node_array";
+export type ReferenceType = "node" | "node_array";
 
 /**
  * All primitive types that can be used in property definitions.
  */
-export type PrimitiveType = ScalarType | ArrayType | RichType | NodeType;
+export type PrimitiveType = ScalarType | ArrayType | RichType;
+
+/**
+ * All possible property types in schemas.
+ */
+export type PropertyType = PrimitiveType | ReferenceType;
 
 /**
  * Document schema primitive types - all possible property types in document schemas.
@@ -114,8 +119,8 @@ export type DocumentNodeToJs<S extends Record<string, {type: DocumentSchemaPrimi
  * A property that stores a primitive value.
  */
 export type PrimitiveProperty = {
-  type: PrimitiveType;
-};
+  [K in PrimitiveType]: { type: K }
+}[PrimitiveType];
 
 /**
  * A property that stores a reference to a single node.
@@ -240,6 +245,11 @@ export type SveditProps = {
   class?: string;
 };
 
+/**
+ * Represents an annotation in an annotated string
+ * Format: [start_offset, end_offset, type, options?]
+ */
+export type Annotation = [number, number, string, Record<string, any>?];
 
 /**
  * Represents a fragment of annotated text content

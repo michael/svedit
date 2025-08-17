@@ -6,10 +6,11 @@ import { is_valid_svid } from './util.js';
  *   NodeId,
  *   DocumentPath,
  *   Selection,
+ *   Annotation,
  *   ScalarType,
  *   ArrayType,
  *   RichType,
- *   NodeType,
+ *   ReferenceType,
  *   PrimitiveType,
  *   DocumentSchemaPrimitive,
  *   DocumentSchemaValueToJs,
@@ -64,9 +65,6 @@ export function get_default_node_type(property_definition) {
     (property_definition.node_types.length === 1 ? property_definition.node_types[0] : null);
 }
 
-
-
-
 /**
  * Validate a document schema to ensure all referenced node types exist.
  * @param {DocumentSchema} document_schema - The document schema to validate
@@ -77,9 +75,7 @@ export function validate_document_schema(document_schema) {
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
     for (const [prop_name, prop_def] of Object.entries(node_schema)) {
       if (prop_def.type === 'node' || prop_def.type === 'node_array') {
-        const missing_types = prop_def.node_types.filter(ref_type =>
-          !(ref_type in document_schema)
-        );
+        const missing_types = prop_def.node_types.filter(ref_type => !(ref_type in document_schema));
         if (missing_types.length > 0) {
           throw new Error(`Node type "${node_type}" property "${prop_name}" references unknown node types: ${missing_types.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`);
         }
@@ -152,14 +148,17 @@ function validate_node(node, schema, all_nodes = {}) {
       }
     }
     // Check node references
-    else if (prop_def.type === 'node') {
+    if (prop_def.type === 'node') {
       if (typeof value !== 'string' || !is_valid_svid(value)) {
         throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be a SVID.`);
       }
       // Check if referenced node exists and is of allowed type
       const referenced_node = all_nodes[value];
-      if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
-        throw new Error(`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`);
+      if (
+        referenced_node &&
+        !prop_def.node_types.includes(referenced_node.type)
+      ) {
+        throw new Error(`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${(/** @type {NodeProperty} */ (prop_def)).node_types.join(', ')}] are allowed.`);
       }
     }
     // Check node arrays
@@ -265,7 +264,7 @@ export default class Document {
 
   /**
    * Creates a new transaction for making atomic changes to the document.
-   * 
+   *
    * @returns {Transaction} A new transaction instance
    */
   get tr() {
@@ -279,7 +278,7 @@ export default class Document {
 
   /**
    * Applies a transaction to the document.
-   * 
+   *
    * @param {Transaction} transaction - The transaction to apply
    */
   apply(transaction) {
@@ -330,7 +329,7 @@ export default class Document {
 
   /**
    * Gets a node instance or property value at the specified path.
-   * @param {DocumentPath} path - Path to the node or property
+   * @param {DocumentPath|string} path - Path to the node or property
    * @returns {any} Either a node instance object or the value of a property
    * @example
    * // Get a node by ID
@@ -389,41 +388,51 @@ export default class Document {
   }
 
   /**
-   * Get a typed node using schema-based type inference.
+   * EXPERIMENTAL: Get a typed node using schema-based type inference.
+   *
    * @template {keyof this['schema']} NodeType
    * @param {DocumentPath} path - Path to the node
-   * @param {NodeType} nodeType - Expected node type for type inference
+   * @param {ReferenceType} node_type - Expected node type for type inference
    * @returns {DocumentNodeToJs<this['schema'][NodeType]>} Typed node with schema-based properties
    * @example
    * // Get a story node with typed properties
    * const story = doc.getTyped(['page_1', 'body', 0], 'story');
    * // Now story.title, story.description, etc. have proper types
    */
-  getTyped(path, nodeType) {
+  get_typed(path, node_type) {
     const node = this.get(path);
-    if (node && node.type === nodeType) {
+    if (node && node.type === node_type) {
       return /** @type {any} */ (node);
     }
-    throw new Error(`Expected ${nodeType} node at path ${path.join('.')}, got ${node?.type || 'undefined'}`);
+    throw new Error(`Expected ${node_type} node at path ${path.join('.')}, got ${node?.type || 'undefined'}`);
   }
 
-  // While .get gives you the value of a path, inspect gives you
-  // the type info of that value.
-  //
-  // doc.inspect(['page_1', 'body'] => {
-  //   kind: 'property',
-  //   name: 'body',
-  //   type: 'node_array',
-  //   node_types: ['text', 'story', 'list'],
-  //   default_node_type: 'text'
-  // }
-  //
-  // doc.inspect(['page_1', 'body', 1]) => {
-  //   kind: 'node',
-  //   id: 'paragraph_234',
-  //   type: 'paragraph',
-  //   properties: {...}
-  // }
+  /**
+   * While .get gives you the value of a path, inspect gives you
+   * the type info of that value.
+   *
+   * @todo The layout of these should be improved and more explictly typed
+   *
+   * @example
+   * doc.inspect(['page_1', 'body']) => {
+   *   kind: 'property',
+   *   name: 'body',
+   *   type: 'node_array',
+   *   node_types: ['text', 'story', 'list'],
+   *   default_node_type: 'text'
+   * }
+   *
+   * @example
+   * doc.inspect(['page_1', 'body', 1]) => {
+   *   kind: 'node',
+   *   id: 'paragraph_234',
+   *   type: 'paragraph',
+   *   properties: {...}
+   * }
+   *
+   * @param {DocumentPath} path
+   * @returns {{kind: 'property'|'node', [key: string]: any}}
+   */
   inspect(path) {
     const parent = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
     if (parent?.type) {
@@ -447,8 +456,12 @@ export default class Document {
     }
   }
 
-  // Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
-  // NOTE: currently we assume a 'content' property for pure text nodes
+  /**
+   * Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
+   * NOTE: currently we assume a 'content' property for pure text nodes
+   * @param {any} node
+   * @returns {'text'|'node'}
+   */
   kind(node) {
     if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
       return 'text'
@@ -457,6 +470,13 @@ export default class Document {
     }
   }
 
+  /**
+   * Returns the annotation object that is currently "under the cursor".
+   * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
+   *
+   * @param {string} annotation_type
+   * @returns {Annotation|null}
+   */
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
 
@@ -464,14 +484,14 @@ export default class Document {
     const annotated_string = this.get(this.selection.path);
     const annotations = annotated_string[1];
 
-    const active_annotation = annotations.find(([annotation_start, annotation_end, type]) =>
+    const active_annotation = annotations.find(([annotation_start, annotation_end]) =>
       (annotation_start <= start && annotation_end > start) ||
       (annotation_start < end && annotation_end >= end) ||
       (annotation_start >= start && annotation_end <= end)
     ) || null;
 
     if (annotation_type) {
-      return active_annotation?.[2] === annotation_type;
+      return active_annotation?.[2] === annotation_type ? active_annotation : null;
     } else {
       return active_annotation;
     }
@@ -532,12 +552,13 @@ export default class Document {
   }
 
   select_parent() {
+    if (!this.selection) return;
     if (['text', 'property'].includes(this.selection?.type)) {
       // For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
       // in the path
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
         this.selection = {
           type: 'node',
           path: parent_path,
@@ -547,11 +568,11 @@ export default class Document {
       } else {
         this.selection = undefined;
       }
-    } else if (this.selection?.type === 'node') {
+    } else if (this.selection.type === 'node') {
       // For node selections, we go up one level
       if (this.selection.path.length > 3) {
         const parent_path = this.selection.path.slice(0, -2);
-        const current_index = parseInt(this.selection.path[this.selection.path.length - 2]);
+        const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
 
         this.selection = {
           type: 'node',
@@ -568,16 +589,18 @@ export default class Document {
   }
 
   get_selection_range() {
-    if (!this.selection) return null;
+    if (this.selection && this.selection.type !== 'property') {
+      const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+      const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 
-    const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-    const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-    return {
-      start,
-      end,
-      length: end - start
-    };
+      return {
+        start,
+        end,
+        length: end - start
+      };
+    } else {
+      return null;
+    }
   }
 
   // Traverses the document and returns a JSON representation.
@@ -591,7 +614,7 @@ export default class Document {
         return;
       }
       visited[node.id] = true;
-      for (const [key, value] of Object.entries(node)) {
+      for (const [, value] of Object.entries(node)) {
         // TODO: Use schema inspection and do this only for properties of type `node_array`
         if (Array.isArray(value)) {
           for (const v of value) {

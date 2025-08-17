@@ -112,7 +112,6 @@
 	function insert_node(node_type) {
 		if (!is_node_cursor) return;
 		const tr = doc.tr;
-		const node_insertion_path = [...doc.selection.path, doc.selection.anchor_offset]
 		doc.config.inserters[node_type](tr);
 		doc.apply(tr);
 	}
@@ -135,12 +134,6 @@
 
 	function update_image_url() {
 		console.log('input_ref.value', input_ref.value);
-		const tr = doc.tr;
-		tr.set(doc.selection.path, input_ref.value);
-		doc.apply(tr);
-	}
-
-	function update_button_url() {
 		const tr = doc.tr;
 		tr.set(doc.selection.path, input_ref.value);
 		doc.apply(tr);
@@ -238,7 +231,7 @@
 	{/if}
 
 	{#if doc.selection?.type === 'node' && doc.selected_node?.type === 'story'}
-		{#each layout_options as option}
+		{#each layout_options as option (option.value)}
 			<button
 				onclick={() => handle_layout_change(option.value)}
 				class:active={doc.selected_node.layout === option.value}
@@ -249,7 +242,7 @@
 	{/if}
 	{#if doc.selection?.type === 'node' && doc.selected_node?.type === 'list'}
 		<hr />
-		{#each list_layout_options as option}
+		{#each list_layout_options as option (option.value)}
 			<button
 				onclick={() => handle_list_layout_change(option.value)}
 				class:active={doc.selected_node.layout === option.value}
@@ -261,7 +254,7 @@
 
 	{#if is_node_cursor && allowed_node_types.length > 0}
 		<hr />
-		{#each allowed_node_types as node_type}
+		{#each allowed_node_types as node_type (node_type)}
 			<button title={`Add ${snake_to_human(node_type)}`} onclick={() => insert_node(node_type)}>
 				<Icon name="square" />
 				{snake_to_human(node_type)}
