@@ -189,12 +189,6 @@
           updated_nodes[new_node.id] = new_node;
         }
 
-        console.log('Paste operation:', {
-          original_main_nodes: main_nodes,
-          new_main_nodes: main_nodes.map(id => id_mapping[id]),
-          total_nodes: Object.keys(updated_nodes).length
-        });
-
         // Create all nodes first
         for (const node of Object.values(updated_nodes)) {
           tr.create(node);

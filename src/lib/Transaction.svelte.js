@@ -383,7 +383,6 @@ export default class Transaction {
    * ```
    */
   insert_nodes(nodes) {
-    console.log('nodes', nodes);
     if (this.doc.selection.type !== 'node') return this;
 
     // Unless cursor is collapsed, delete the selected nodes as a first step
