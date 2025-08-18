@@ -6,7 +6,7 @@
 
 <Node {path}>
   <div class="page">
-    <NodeArrayProperty class="body-node-array" path={[path, 'body']} />
+    <NodeArrayProperty class="body-node-array" path={[...path, 'body']} />
   </div>
 </Node>
 

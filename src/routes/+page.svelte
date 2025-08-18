@@ -2,6 +2,7 @@
   import { Svedit } from 'svedit';
   import Toolbar from './components/Toolbar.svelte';
   import Overlays from './components/Overlays.svelte';
+  import NodeCursorTrap from './components/NodeCursorTrap.svelte';
   import create_demo_doc from './create_demo_doc.js';
 
   const doc = create_demo_doc();
@@ -28,6 +29,7 @@
     bind:this={svedit_ref}
     path={[doc.document_id]}
     {Overlays}
+    {NodeCursorTrap}
   />
   <hr/>
   <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>

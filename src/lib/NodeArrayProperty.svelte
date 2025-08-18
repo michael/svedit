@@ -1,11 +1,11 @@
 <script>
   import { getContext } from 'svelte';
-  import CursorTrap from './CursorTrap.svelte';
   import UnknownNode from './UnknownNode.svelte';
 
   /** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 
   const svedit = getContext('svedit');
+  const NodeCursorTrap = svedit.NodeCursorTrap;
 
   /** @type {NodeArrayPropertyProps} */
   let {
@@ -30,7 +30,7 @@
       data-type="node"
       style="anchor-name: --{[...path, 0].join('-')}; position: relative; min-height: 40px; min-width: 40px;"
     >
-      <CursorTrap node_array_path={path} type="position-zero-cursor-trap" />
+      <NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" />
     </div>
   {/if}
   {#each nodes as node, index (index) }

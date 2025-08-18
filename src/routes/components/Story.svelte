@@ -52,6 +52,10 @@
 		gap: var(--s-2);
 	}
 
+	.story :global(.buttons) {
+  	--layout-orientation: horizontal;
+	}
+
 	.story :global(.buttons.empty .node.empty-node-array) {
 	  position: absolute !important;
 	}
