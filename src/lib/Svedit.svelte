@@ -8,6 +8,7 @@
   let {
     doc,
     Overlays,
+    NodeCursorTrap,
     editable = false,
     path,
     class: css_class,
@@ -23,7 +24,8 @@
   setContext("svedit", {
     get doc() {
       return doc;
-    }
+    },
+    NodeCursorTrap
   });
 
   /**

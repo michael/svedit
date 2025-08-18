@@ -237,6 +237,7 @@ export type SveditProps = {
   doc: Document,
   /** The component to render your overlays */
   Overlays: Component,
+  NodeCursorTrap: Component,
   /** Determines wether the document should be editable or read-only. */
   editable?: boolean,
   /** The path to the root element (e.g. ['page_1']) */
