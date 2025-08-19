@@ -72,5 +72,6 @@
 		right: 28px;
 		top: 28px;
 		color: color-mix(in oklch, currentcolor 50%, transparent);
+		pointer-events: none;
 	}
 </style>
