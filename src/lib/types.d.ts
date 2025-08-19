@@ -11,7 +11,7 @@ import type { Component, Snippet } from 'svelte';
 // ===== SELECTION TYPE DEFINITIONS =====
 
 /**
- * A unique node identifier (SVID - Svelte ID)
+ * A unique node identifier (ideally UUID)
  */
 export type NodeId = string;
 

@@ -1,9 +1,11 @@
 import Document, { define_document_schema } from '../lib/Document.svelte.js';
-import { svid } from '../lib/util.js';
+import nanoid from '../routes/nanoid.js';
 
+// System components
 import Overlays from '../routes/components/Overlays.svelte';
 import NodeCursorTrap from '../routes/components/NodeCursorTrap.svelte';
 
+// Node components
 import Page from '../routes/components/Page.svelte';
 import Story from '../routes/components/Story.svelte';
 import Button from '../routes/components/Button.svelte';
@@ -11,12 +13,12 @@ import Text from '../routes/components/Text.svelte';
 import List from '../routes/components/List.svelte';
 import ListItem from '../routes/components/ListItem.svelte';
 
-export const button_1_id = svid();
-export const story_1_id = svid();
-export const page_1_id = svid();
-export const list_1_id = svid();
-export const list_item_1_id = svid();
-export const list_item_2_id = svid();
+export const button_1_id = 'button_1';
+export const story_1_id = 'story_1';
+export const page_1_id = 'page_1';
+export const list_1_id = 'list_1';
+export const list_item_1_id = 'list_item_1';
+export const list_item_2_id = 'list_item_2';
 
 const document_schema = define_document_schema({
   page: {
@@ -107,6 +109,7 @@ const serialized_doc = [
 
 // App-specific config object, always available via doc.config for introspection
 const document_config = {
+  generate_id: nanoid,
   system_components: {
     NodeCursorTrap,
     Overlays,
@@ -131,7 +134,7 @@ const document_config = {
   inserters: {
     button: function(tr) {
       const new_button = {
-        id: svid(),
+        id: nanoid(),
         type: 'button',
         label: ['', []],
         href: 'https://editable.website'
@@ -146,7 +149,7 @@ const document_config = {
     },
     text: function(tr, content = ['', []], layout = 1) {
       const new_text = {
-   			id: svid(),
+   			id: nanoid(),
    			type: 'text',
         layout,
    			content
@@ -162,14 +165,14 @@ const document_config = {
     },
     story: function(tr) {
       const new_button = {
-        id: svid(),
+        id: nanoid(),
         type: 'button',
         label: ['', []],
         href: 'https://editable.website'
       };
       tr.create(new_button);
       const new_story = {
-        id: svid(),
+        id: nanoid(),
         type: 'story',
         layout: 1,
         image: '',
@@ -188,13 +191,13 @@ const document_config = {
     },
     list: function(tr) {
       const new_list_item = {
-        id: svid(),
+        id: nanoid(),
         type: 'list_item',
         content: ['', []]
       };
       tr.create(new_list_item);
       const new_list = {
-        id: svid(),
+        id: nanoid(),
         type: 'list',
         list_items: [new_list_item.id],
         layout: 3,
@@ -209,7 +212,7 @@ const document_config = {
     },
     list_item: function(tr, content = ['', []]) {
       const new_list_item = {
-        id: svid(),
+        id: nanoid(),
         type: 'list_item',
         content
       };

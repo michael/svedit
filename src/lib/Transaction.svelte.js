@@ -1,5 +1,3 @@
-import { is_valid_svid } from './util.js';
-
 /**
  * @import { NodeId, SerializedNode, Selection, DocumentPath } from './types.js'
  */
@@ -94,7 +92,7 @@ export default class Transaction {
   /**
    * Creates a new node in the document.
    *
-   * The node must have a valid SVID and must not already exist in the document.
+   * The node must have a valid id and must not already exist in the document.
    * The node is validated against the document schema before creation.
    *
    * @param {any} node - The node object to create (must include id, type, and other properties)
@@ -111,15 +109,12 @@ export default class Transaction {
    * ```
    */
   create(node) {
-    if (!is_valid_svid(node.id)) {
-      throw new Error('Each node must have a valid SVID provided');
-    }
+    // Validate node against schema
+    this.doc.validate_node(node);
+
     if (this.doc.get(node.id)) {
       throw new Error('Node with id ' + node.id + ' already exists');
     }
-
-    // Validate node against schema
-    this.doc.validate_node(node);
 
     const op = ['create', node];
     this.ops.push(op);

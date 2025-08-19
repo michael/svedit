@@ -164,6 +164,10 @@ For Svedit to work, you also need to provide an app-specific config object, alwa
 
 ```js
 const document_config = {
+  // Provide a custom id generator (ideally a UUID to avoid collisions)
+  generate_id: function() {
+    return nanoid();
+  },
   system_components: {
     NodeCursorTrap,
     Overlay,
@@ -190,7 +194,7 @@ const document_config = {
   inserters: {
     text: function(tr, content = ['', []], layout = 1) {
       const new_text = {
-   			id: svid(),
+   			id: nanoid(),
    			type: 'text',
         layout,
    			content
@@ -208,7 +212,6 @@ The Document API is central to Svedit. First you need to create a Document insta
 ```js
 const doc = new Document(document_schema, serialized_doc, { config: document_config });
 ```
-
 
 To read/traverse and write the document graph:
 

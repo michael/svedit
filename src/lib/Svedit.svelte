@@ -1,6 +1,6 @@
 <script>
   import { setContext } from 'svelte';
-  import { svid, snake_to_pascal } from './util.js';
+  import { snake_to_pascal } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
@@ -164,7 +164,7 @@
         // Generate new IDs for all nodes during paste
         const id_mapping = {};
         for (const node_id in nodes) {
-          id_mapping[node_id] = svid();
+          id_mapping[node_id] = doc.generate_id();
         }
 
         // Create nodes with new IDs and updated references

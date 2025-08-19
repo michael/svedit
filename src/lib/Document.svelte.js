@@ -1,5 +1,4 @@
 import Transaction from './Transaction.svelte.js';
-import { is_valid_svid } from './util.js';
 
 /**
  * @import {
@@ -111,6 +110,14 @@ function validate_primitive_value(type, value) {
 }
 
 /**
+ * @param {String} id
+ * @returns {boolean}
+ */
+function is_id_valid(id) {
+  return typeof id === 'string' && id.length > 0
+}
+
+/**
  * Validate a node against its schema.
  * @param {any} node - The node to validate
  * @param {DocumentSchema} schema - The document schema
@@ -118,8 +125,8 @@ function validate_primitive_value(type, value) {
  * @throws {Error} Throws if the node is invalid
  */
 function validate_node(node, schema, all_nodes = {}) {
-  if (!node.id || !is_valid_svid(node.id)) {
-    throw new Error(`Node ${node.id} has an invalid id. Must be a SVID.`);
+  if (!is_id_valid(node.id)) {
+    throw new Error(`Node ${node.id} has an invalid id.`);
   }
 
   if (!node.type || !schema[node.type]) {
@@ -139,8 +146,8 @@ function validate_node(node, schema, all_nodes = {}) {
     }
     // Check node references
     if (prop_def.type === 'node') {
-      if (typeof value !== 'string' || !is_valid_svid(value)) {
-        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be a SVID.`);
+      if (!is_id_valid(value)) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be a valid node id.`);
       }
       // Check if referenced node exists and is of allowed type
       const referenced_node = all_nodes[value];
@@ -153,8 +160,8 @@ function validate_node(node, schema, all_nodes = {}) {
     }
     // Check node arrays
     else if (prop_def.type === 'node_array') {
-      if (!Array.isArray(value) || !value.every(id => typeof id === 'string' && is_valid_svid(id))) {
-        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be an array of SVIDs.`);
+      if (!Array.isArray(value) || !value.every(id => typeof id === 'string' && is_id_valid(id))) {
+        throw new Error(`Node ${node.id} has an invalid property: ${prop_name} must be an array of node ids.`);
       }
       // Check if all referenced nodes are of allowed types
       for (const ref_id of value) {
@@ -208,6 +215,14 @@ export default class Document {
 
     // The last element in the serialized_doc is the document itself (the root node)
     this.document_id = serialized_doc.at(-1)?.id;
+  }
+
+  generate_id() {
+    if (this.config.generate_id) {
+      return this.config.generate_id();
+    } else {
+      return crypto.randomUUID();
+    }
   }
 
  	// Helper function to get the currently selected node

@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import create_test_doc, { story_1_id, button_1_id, page_1_id, list_1_id } from './create_test_doc.js';
 import { join_text_node } from '../lib/commands.svelte.js';
-import { svid } from '../lib/util.js';
+import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
   it('should map node cursor to DOM', async () => {
@@ -204,7 +204,7 @@ describe('Svedit.svelte', () => {
       const doc = create_test_doc();
 
       // Create an empty text node after a story
-      const empty_text_id = svid();
+      const empty_text_id = nanoid();
       const empty_text_node = {
         id: empty_text_id,
         type: 'text',
@@ -251,7 +251,7 @@ describe('Svedit.svelte', () => {
       const doc = create_test_doc();
 
       // Create a non-empty text node after a story
-      const text_id = svid();
+      const text_id = nanoid();
       const text_node = {
         id: text_id,
         type: 'text',
@@ -296,7 +296,7 @@ describe('Svedit.svelte', () => {
       const doc = create_test_doc();
 
       // Create an empty text node and put it at the beginning
-      const empty_text_id = svid();
+      const empty_text_id = nanoid();
       const empty_text_node = {
         id: empty_text_id,
         type: 'text',
@@ -343,7 +343,7 @@ describe('Svedit.svelte', () => {
       const doc = create_test_doc();
 
       // Create a non-empty text node and put it at the beginning
-      const text_id = svid();
+      const text_id = nanoid();
       const text_node = {
         id: text_id,
         type: 'text',
@@ -388,8 +388,8 @@ describe('Svedit.svelte', () => {
       const doc = create_test_doc();
 
       // Create two text nodes
-      const first_text_id = svid();
-      const second_text_id = svid();
+      const first_text_id = nanoid();
+      const second_text_id = nanoid();
 
       const first_text_node = {
         id: first_text_id,

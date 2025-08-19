@@ -1,4 +1,5 @@
-import { Document, define_document_schema, svid } from 'svedit';
+import { Document, define_document_schema } from 'svedit';
+import nanoid from './nanoid.js';
 
 // System components
 import NodeCursorTrap from './components/NodeCursorTrap.svelte';
@@ -286,6 +287,8 @@ const serialized_doc = [
 
 // App-specific config object, always available via doc.config for introspection
 const document_config = {
+  // Custom ID generator function
+  generate_id: nanoid,
   // Provide definitions/overrides for system native components,
   // such as NodeCursorTrap or Overlays
   system_components: {
@@ -319,7 +322,7 @@ const document_config = {
   inserters: {
     text: function(tr, content = ['', []], layout = 1) {
       const new_text = {
-   			id: svid(),
+   			id: nanoid(),
    			type: 'text',
         layout,
    			content
@@ -335,14 +338,14 @@ const document_config = {
     },
     story: function(tr) {
       const new_button = {
-        id: svid(),
+        id: nanoid(),
         type: 'button',
         label: ['', []],
         href: 'https://editable.website'
       };
       tr.create(new_button);
       const new_story = {
-        id: svid(),
+        id: nanoid(),
         type: 'story',
         layout: 1,
         image: '',
@@ -361,13 +364,13 @@ const document_config = {
     },
     list: function(tr) {
       const new_list_item = {
-        id: svid(),
+        id: nanoid(),
         type: 'list_item',
         content: ['', []]
       };
       tr.create(new_list_item);
       const new_list = {
-        id: svid(),
+        id: nanoid(),
         type: 'list',
         list_items: [new_list_item.id],
         layout: 3,
@@ -382,7 +385,7 @@ const document_config = {
     },
     list_item: function(tr, content = ['', []]) {
       const new_list_item = {
-        id: svid(),
+        id: nanoid(),
         type: 'list_item',
         content
       };
@@ -399,7 +402,7 @@ const document_config = {
       const new_image_grid_items = [];
       for (let i = 0; i < 6; i++) {
         const image_grid_item = {
-          id: svid(),
+          id: nanoid(),
           type: 'image_grid_item',
           title: ['', []],
           image: ''
@@ -408,7 +411,7 @@ const document_config = {
         new_image_grid_items.push(image_grid_item.id);
       }
       const new_image_grid = {
-        id: svid(),
+        id: nanoid(),
         type: 'image_grid',
         image_grid_items: new_image_grid_items,
       };
@@ -416,7 +419,7 @@ const document_config = {
     },
     image_grid_item: function(tr) {
       const new_image_grid_item = {
-        id: svid(),
+        id: nanoid(),
         type: 'image_grid_item',
         title: ['', []],
         image: ''
@@ -431,7 +434,7 @@ const document_config = {
     },
     button: function(tr) {
       const new_button = {
-        id: svid(),
+        id: nanoid(),
         type: 'button',
         label: ['', []],
         href: 'https://editable.website'
@@ -446,7 +449,7 @@ const document_config = {
     },
     hero: function(tr) {
       const new_hero = {
-        id: svid(),
+        id: nanoid(),
         type: 'hero',
         title: ['', []],
         description: ['', []],

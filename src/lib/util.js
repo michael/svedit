@@ -1,19 +1,3 @@
-import { customAlphabet } from "nanoid";
-
-const _nanoid = customAlphabet(
-  "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz",
-  23
-);
-
-// A Svedit ID (svid) is a nanoid of length 23 with no numbers and no "_" or "-" to be used as HTML ids
-export function svid() {
-  return _nanoid();
-}
-
-export function is_valid_svid(id) {
-  return typeof id === 'string' && id.length > 0;
-}
-
 // split_annotated_string(["Hello world", [[6,11, "strong"]]], 8)
 // =>
 // [
