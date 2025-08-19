@@ -261,7 +261,10 @@
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     // console.log('onkeydown', e.key);
-    if (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) {
+    if (
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) ||
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+    ) {
       const node = doc.selected_node;
       const layout_count = doc.config.node_layouts[node.type];
 
@@ -272,7 +275,10 @@
         tr.set([doc.selected_node?.id, 'layout'], next_layout);
         doc.apply(tr);
       }
-    } else if (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) {
+    } else if (
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) ||
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+    ) {
       const node = doc.selected_node;
       const layout_count = doc.config.node_layouts[node.type];
       if (layout_count > 1 && node?.layout) {
@@ -282,7 +288,10 @@
         doc.apply(tr);
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
-    } else if (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) {
+    } else if (
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) ||
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node  )
+    ) {
       const node = doc.selected_node;
 
       if (doc.selection.type !== 'node') {
@@ -301,9 +310,10 @@
       doc.config.inserters[next_type](tr);
       tr.set_selection(old_selection);
       doc.apply(tr);
-
-
-    } else if (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) {
+    } else if (
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) ||
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+    ) {
       const node = doc.selected_node;
 
       if (doc.selection.type !== 'node') {
