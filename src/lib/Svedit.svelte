@@ -14,7 +14,7 @@
 
   let canvas_ref;
   let root_node = $derived(doc.get(path));
-  let Overlays = doc.config.system_components.Overlays;
+  let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
   /** Expose function so parent can call it */
