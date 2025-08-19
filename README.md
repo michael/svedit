@@ -165,18 +165,19 @@ For Svedit to work, you also need to provide an app-specific config object, alwa
 ```js
 const document_config = {
   system_components: {
-    node_cursor_trap: NodeCursorTrap,
+    NodeCursorTrap,
+    Overlay,
   },
   node_components: {
-    page: Page,
-    button: Button,
-    text: Text,
-    story: Story,
-    list: List,
-    list_item: ListItem,
-    image_grid: ImageGrid,
-    image_grid_item: ImageGridItem,
-    hero: Hero
+    Page,
+    Button,
+    Text,
+    Story,
+    List,
+    ListItem,
+    ImageGrid,
+    ImageGridItem,
+    Hero
   },
   // TEMPORARY: Determines how many layouts are available for each node type
   node_layouts: {

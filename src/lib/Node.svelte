@@ -4,7 +4,7 @@
   /** @import { NodeProps } from './types.d.ts'; */
 
   const svedit = getContext('svedit');
-  const NodeCursorTrap = svedit.NodeCursorTrap;
+  const NodeCursorTrap = svedit.doc.config.system_components.NodeCursorTrap;
 
   /** @type {NodeProps} */
   let {

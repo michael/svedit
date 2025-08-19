@@ -11,8 +11,6 @@ export function svid() {
 }
 
 export function is_valid_svid(id) {
-  // TODO: Consider re-enabling strict id format checking
-  // return /^[a-zA-Z]{23}$/i.test(id);
   return typeof id === 'string' && id.length > 0;
 }
 
@@ -86,4 +84,11 @@ export function join_annotated_string(first_text, second_text) {
   }
 
   return [joined_text, joined_annotations];
+}
+
+export function snake_to_pascal(str) {
+  return str
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
 }

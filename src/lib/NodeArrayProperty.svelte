@@ -1,11 +1,12 @@
 <script>
   import { getContext } from 'svelte';
   import UnknownNode from './UnknownNode.svelte';
+  import { snake_to_pascal } from './util.js';
 
   /** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 
   const svedit = getContext('svedit');
-  const NodeCursorTrap = svedit.NodeCursorTrap;
+  const NodeCursorTrap = svedit.doc.config.system_components.NodeCursorTrap;
 
   /** @type {NodeArrayPropertyProps} */
   let {
@@ -34,7 +35,7 @@
     </div>
   {/if}
   {#each nodes as node, index (index) }
-    {@const Component = svedit.doc.config.node_components[node.type]}
+    {@const Component = svedit.doc.config.node_components[snake_to_pascal(node.type)]}
     {#if Component}
       <Component path={[...path, index]} />
     {:else}

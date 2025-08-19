@@ -1,14 +1,12 @@
 <script>
   import { setContext } from 'svelte';
-  import { svid } from './util.js';
+  import { svid, snake_to_pascal } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
   /** @type {SveditProps} */
   let {
     doc,
-    Overlays,
-    NodeCursorTrap,
     editable = false,
     path,
     class: css_class,
@@ -16,7 +14,8 @@
 
   let canvas_ref;
   let root_node = $derived(doc.get(path));
-  let RootComponent = $derived(doc.config.node_components[root_node.type]);
+  let Overlays = doc.config.system_components.Overlays;
+  let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -24,8 +23,7 @@
   setContext("svedit", {
     get doc() {
       return doc;
-    },
-    NodeCursorTrap
+    }
   });
 
   /**

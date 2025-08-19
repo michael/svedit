@@ -1,6 +1,9 @@
 import Document, { define_document_schema } from '../lib/Document.svelte.js';
 import { svid } from '../lib/util.js';
 
+import Overlays from '../routes/components/Overlays.svelte';
+import NodeCursorTrap from '../routes/components/NodeCursorTrap.svelte';
+
 import Page from '../routes/components/Page.svelte';
 import Story from '../routes/components/Story.svelte';
 import Button from '../routes/components/Button.svelte';
@@ -104,14 +107,18 @@ const serialized_doc = [
 
 // App-specific config object, always available via doc.config for introspection
 const document_config = {
+  system_components: {
+    NodeCursorTrap,
+    Overlays,
+  },
   // Registry of components for each node type
   node_components: {
-    page: Page,
-    button: Button,
-    text: Text,
-    story: Story,
-    list: List,
-    list_item: ListItem,
+    Page,
+    Button,
+    Text,
+    Story,
+    List,
+    ListItem,
   },
   node_layouts: {
     text: 4,

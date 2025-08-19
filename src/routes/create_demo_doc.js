@@ -1,5 +1,10 @@
 import { Document, define_document_schema, svid } from 'svedit';
 
+// System components
+import NodeCursorTrap from './components/NodeCursorTrap.svelte';
+import Overlays from './components/Overlays.svelte';
+
+// Node components
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
 import Button from './components/Button.svelte';
@@ -281,17 +286,23 @@ const serialized_doc = [
 
 // App-specific config object, always available via doc.config for introspection
 const document_config = {
+  // Provide definitions/overrides for system native components,
+  // such as NodeCursorTrap or Overlays
+  system_components: {
+    NodeCursorTrap,
+    Overlays,
+  },
   // Registry of components for each node type
   node_components: {
-    page: Page,
-    button: Button,
-    text: Text,
-    story: Story,
-    list: List,
-    list_item: ListItem,
-    image_grid: ImageGrid,
-    image_grid_item: ImageGridItem,
-    hero: Hero
+    Page,
+    Button,
+    Text,
+    Story,
+    List,
+    ListItem,
+    ImageGrid,
+    ImageGridItem,
+    Hero
   },
   node_layouts: {
     button: 1,
