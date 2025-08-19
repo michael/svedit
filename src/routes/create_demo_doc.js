@@ -104,7 +104,7 @@ const image_grid_item_4_id = 'image_grid_item_4';
 const image_grid_item_5_id = 'image_grid_item_5';
 const image_grid_item_6_id = 'image_grid_item_6';
 
-const raw_doc = [
+const serialized_doc = [
   {
     id: hero_1_id,
     type: 'hero',
@@ -303,9 +303,6 @@ const document_config = {
     image_grid_item: 1,
     hero: 1
   },
-  // Those node types have horizontal-ish node_arrays
-  // E.g. used by Overlays.svelte to render node cursors the right way.
-  node_types_with_horizontal_node_arrays: ['image_grid', 'story'],
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
   // intended behavior.
   inserters: {
@@ -456,6 +453,6 @@ const document_config = {
 };
 
 export default function create_demo_doc() {
-  const doc = new Document(document_schema, raw_doc, { config: document_config });
+  const doc = new Document(document_schema, serialized_doc, { config: document_config });
   return doc;
 }

@@ -615,7 +615,7 @@ export default class Document {
   }
 
   // property_type('page', 'body') => 'node_array'
-  // property_type('paragraph', 'content') => 'annotated_text'
+  // property_type('paragraph', 'content') => 'annotated_string'
   property_type(type, property) {
     if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
     if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);

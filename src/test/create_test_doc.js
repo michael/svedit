@@ -60,7 +60,7 @@ const document_schema = define_document_schema({
   },
 });
 
-const raw_doc = [
+const serialized_doc = [
   {
     id: button_1_id,
     type: 'button',
@@ -119,9 +119,6 @@ const document_config = {
     list: 5,
     list_item: 1,
   },
-  // Those node types have horizontal-ish node_arrays
-  // E.g. used by Overlays.svelte to render node cursors the right way.
-  node_types_with_horizontal_node_arrays: ['image_grid', 'story'],
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
   // intended behavior.
   inserters: {
@@ -221,6 +218,6 @@ const document_config = {
 };
 
 export default function create_test_doc() {
-  const doc = new Document(document_schema, raw_doc, { config: document_config });
+  const doc = new Document(document_schema, serialized_doc, { config: document_config });
   return doc;
 }
