@@ -16,6 +16,10 @@
   let root_node = $derived(doc.get(path));
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
+  
+  // Track composition state for input methods like dead keys
+  let composition_start_offset = null;
+  let is_composing = false;
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -30,6 +34,11 @@
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
+    // Skip processing during composition to avoid conflicts
+    if (is_composing) {
+      return;
+    }
+
     const inserted_char = event.data;
 
     event.preventDefault();
@@ -427,6 +436,89 @@
       e.preventDefault();
       e.stopPropagation();
     }
+
+  }
+
+  /**
+   * Handles composition start events for input methods like dead keys
+   * This occurs when user starts typing a composed character (e.g., backtick for accents)
+   * @param {CompositionEvent} event
+   */
+  function oncompositionstart(event) {
+    if (!canvas_ref?.contains(document.activeElement)) return;
+    
+    is_composing = true;
+  
+    // Store the current selection position to handle overwriting
+    // of already-inserted characters when composition starts
+    const selection = doc.selection;
+    
+    if (selection?.type === 'text') {
+      if (selection.anchor_offset !== selection.focus_offset) {
+        // If there's a text selection, use the anchor position
+        composition_start_offset = selection.anchor_offset;
+      } else if (event.data) {
+        // If there's composition data, we might need to overwrite
+        // previously inserted text (e.g., dead key scenarios where a character
+        // was already inserted before composition started)
+        const data_length = event.data.length;
+        composition_start_offset = Math.max(0, selection.anchor_offset - data_length);
+      } else {
+        // Normal case - start from current cursor position
+        composition_start_offset = selection.anchor_offset;
+      }
+    } else {
+      composition_start_offset = null;
+    }
+  }
+
+  /**
+   * Handles composition end events for input methods like dead keys
+   * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
+   * @param {CompositionEvent} event
+   */
+  function oncompositionend(event) {
+    if (!canvas_ref?.contains(document.activeElement)) return;
+  
+    event.preventDefault();
+    event.stopPropagation();
+  
+    // Reset composition state if no data
+    if (!event.data) {
+      composition_start_offset = null;
+      return;
+    }
+
+    const selection = doc.selection;
+    
+    if (selection?.type === 'text') {
+      const tr = doc.tr;
+      
+      if (composition_start_offset !== null) {
+        // Handle the case where we need to replace previously inserted text
+        // This happens when a dead key inserts a character first, then composition completes
+        const current_offset = selection.anchor_offset;
+        
+        // Ensure we have valid offsets
+        if (composition_start_offset >= 0 && current_offset >= composition_start_offset) {
+          // Create selection from composition start to current position to replace
+          tr.set_selection({
+            type: 'text',
+            path: selection.path,
+            anchor_offset: composition_start_offset,
+            focus_offset: current_offset
+          });
+        }
+      }
+      
+      // Insert the composed text (this will replace any selected text)
+      tr.insert_text(event.data);
+      doc.apply(tr);
+    }
+  
+    // Always reset composition state
+    composition_start_offset = null;
+    is_composing = false;
   }
 
   /**
@@ -937,6 +1029,8 @@
     class:hide-selection={doc.selection?.type === 'node'}
     bind:this={canvas_ref}
     {onbeforeinput}
+    {oncompositionstart}
+    {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
   >
     <RootComponent {path} />
