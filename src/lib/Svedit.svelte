@@ -263,7 +263,7 @@
     // console.log('onkeydown', e.key);
     if (
       (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
     ) {
       const node = doc.selected_node;
       const layout_count = doc.config.node_layouts[node.type];
@@ -277,7 +277,7 @@
       }
     } else if (
       (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
     ) {
       const node = doc.selected_node;
       const layout_count = doc.config.node_layouts[node.type];
@@ -290,7 +290,7 @@
       }
     } else if (
       (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node  )
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node  )
     ) {
       const node = doc.selected_node;
 
@@ -312,7 +312,7 @@
       doc.apply(tr);
     } else if (
       (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.cmdKey && doc.selected_node)
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
     ) {
       const node = doc.selected_node;
 
