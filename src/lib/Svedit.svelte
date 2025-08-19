@@ -483,6 +483,8 @@
 
     let focus_root_path = focus_root.dataset.path.split('.');
     let anchor_root_path = anchor_root.dataset.path.split('.');
+    let focus_node_depth = focus_root_path.length;
+    let anchor_node_depth = anchor_root_path.length;
 
     // HACK: this works only for one level nesting - should be done recursively to work generally
     if (focus_root_path.length > anchor_root_path.length) {
@@ -521,13 +523,14 @@
     ) {
       anchor_offset += 1;
     }
-
     // Exclude first node when focus_node[data-type="after-node-cursor-trap"]
     // in a non-collapsed backward selection
-    if (
+    else if (
       focus_node.dataset.type === 'after-node-cursor-trap' &&
       is_backwards &&
-      anchor_offset !== focus_offset
+      anchor_offset !== focus_offset &&
+      // EDGE CASE: only apply this rule if focus node and anchor node are in the same container
+      focus_node_depth === anchor_node_depth
     ) {
       focus_offset += 1;
     }
