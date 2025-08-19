@@ -286,7 +286,9 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 <Svedit {doc} path={[doc.document_id]} editable={true} />
 ```
 
-Is there more documentation? No yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scences.
+## Full API docs?
+
+Not yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scences.
 
 ## Developing Svedit
 
