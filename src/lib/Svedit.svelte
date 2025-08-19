@@ -522,6 +522,16 @@
       anchor_offset += 1;
     }
 
+    // Exclude first node when focus_node[data-type="after-node-cursor-trap"]
+    // in a non-collapsed backward selection
+    if (
+      focus_node.dataset.type === 'after-node-cursor-trap' &&
+      is_backwards &&
+      anchor_offset !== focus_offset
+    ) {
+      focus_offset += 1;
+    }
+
     return {
       type: 'node',
       path: anchor_root_path.slice(0, -1),
