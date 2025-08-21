@@ -286,6 +286,42 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 <Svedit {doc} path={[doc.document_id]} editable={true} />
 ```
 
+## Mastering contenteditable
+
+Svedit relies on the contenteditable attribute to make elements editable. The below example shows you
+a simplified version of the markup of `<NodeCursorTrap>` and why it is implemented the way it is.
+
+```html
+<div contenteditable="true">
+  <div class="some-wrapper">
+    <!--
+      Putting a <br> tag into a div gives you a single addressable cursor position.
+
+      Adding a &ZeroWidthSpace; (or any character) here will lead to 2 cursor
+      positions (one before, and one after the character)
+
+      Svedit uses this behavior for node-cursor-traps, and when an
+      <AnnotatedTextProperty> is empty.
+    -->
+    <div class="cursor-trap"><br></div>
+    <!--
+      If you create a contenteditable="false" island, there needs to be some content in it,
+      otherwise it will create two additional cursor positions. One before, and another one
+      after the island.
+
+      The Svedit demo uses this technique in `<NodeCursorTrap>` to create a node-cursor
+      visualization, that doesn't mess with the contenteditable cursor positions.
+    -->
+    <div contenteditable="false" class="node-cursor">&ZeroWidthSpace;</div>
+  </div>
+</div>
+```
+
+Further things to consider:
+
+- If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
+- `<AnnotatedString>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
+
 ## Full API docs?
 
 Not yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scences.
