@@ -27,7 +27,7 @@
     bind:this={svedit_ref}
     path={[doc.document_id]}
   />
-  <hr/>
+
   <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
     <p>Selection:</p>
     <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>

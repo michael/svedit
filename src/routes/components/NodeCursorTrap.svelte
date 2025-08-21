@@ -43,6 +43,7 @@
 		position: relative;
 		cursor: pointer;
 		z-index: 20;
+		overflow:hidden;
 	}
 
 	.node-cursor {
