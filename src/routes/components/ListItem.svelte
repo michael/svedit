@@ -30,12 +30,14 @@
 	.list-item {
 		position: relative;
 		padding-left: 3em;
+		padding-top: 1em;
+		padding-bottom: 1em;
 	}
 
 	.list-item::before {
 		position: absolute;
 		left: 0;
-		top: 0;
+		top: 1em;
 		font-size: 1em;
 		content: counter(listcounter, var(--list-style));
 		color: var(--primary-fill-color);

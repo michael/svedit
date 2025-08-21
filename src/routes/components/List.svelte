@@ -4,14 +4,14 @@
 </script>
 
 <Node {path}>
-  <div class="list max-w-screen-md mx-auto">
+  <div class="list max-w-screen-lg mx-auto">
     <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']} />
   </div>
 </Node>
 
 <style>
   .list {
-    padding: var(--s-10) 0;
+    padding: var(--s-10) var(--s-6);
     counter-reset: listcounter;
   }
 </style>
