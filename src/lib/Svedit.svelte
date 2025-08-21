@@ -524,19 +524,17 @@
       focus_offset += 1;
     }
 
-    // Exclude first node when anchor_node[data-type="after-node-cursor-trap"]
-    // in a non-collapsed forward selection
+    // NOTE: We need to use anchor_node.parentElement because the selectable (.svedit-selectable)
+    // is now a child of .cursor-trap
     if (
-      anchor_node.dataset.type === 'after-node-cursor-trap' &&
+      anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
       !is_backwards &&
       anchor_offset !== focus_offset
     ) {
       anchor_offset += 1;
     }
-    // Exclude first node when focus_node[data-type="after-node-cursor-trap"]
-    // in a non-collapsed backward selection
     else if (
-      focus_node.dataset.type === 'after-node-cursor-trap' &&
+      focus_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
       is_backwards &&
       anchor_offset !== focus_offset &&
       // EDGE CASE: only apply this rule if focus node and anchor node are in the same container
@@ -552,7 +550,6 @@
       focus_offset: focus_offset,
     };
   }
-
 
   /**
    * Extracts a PropertySelection from the current DOM selection.
@@ -754,13 +751,13 @@
     const selection = doc.selection;
     // The element that holds the property
     const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
-    const cursor_trap = el.querySelector('.cursor-trap');
+    const cursor_trap_selectable = el.querySelector('.svedit-selectable');
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
 
     // Select the entire cursor trap element contents and collapse to start
-    range.selectNodeContents(cursor_trap);
+    range.selectNodeContents(cursor_trap_selectable);
     range.collapse(true); // Collapse to start position
     dom_selection.removeAllRanges();
     dom_selection.addRange(range);

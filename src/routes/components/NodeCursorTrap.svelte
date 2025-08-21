@@ -26,17 +26,21 @@
 
 <!-- Cursor trap that provides a contenteditable target for node_array cursor positioning -->
 <div
-	class="cursor-trap svedit-selectable"
-	class:after-node-cursor-trap={type === 'after-node-cursor-trap'}
-	class:position-zero-cursor-trap={type === 'position-zero-cursor-trap'}
-	data-type={type}
-><br>{#if is_focused}<div contenteditable="false" class="node-cursor"></div>{/if}</div>
+ 	class="cursor-trap"
+ 	class:after-node-cursor-trap={type === 'after-node-cursor-trap'}
+ 	class:position-zero-cursor-trap={type === 'position-zero-cursor-trap'}
+ 	data-type={type}
+>
+  <!-- This is where the cursor gets trapped -->
+  <div class="svedit-selectable"><br></div>
+  <!-- And this is the blinking cursor -->
+  {#if is_focused}<div contenteditable="false" class="node-cursor">&ZeroWidthSpace;</div>{/if}
+</div>
 
 <style>
 	.cursor-trap {
     outline: 1px dashed var(--stroke-color);
 		position: relative;
-		/* outline: none; */
 		cursor: pointer;
 		z-index: 20;
 	}
