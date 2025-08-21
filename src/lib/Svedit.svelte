@@ -524,8 +524,8 @@
       focus_offset += 1;
     }
 
-    // NOTE: We need to use anchor_node.parentElement because the selectable (.svedit-selectable)
-    // is now a child of .cursor-trap
+    // EDGE CASE: Exclude first node when anchor_node is an afer-node-cursor-trap
+    // in a non-collapsed forward selection
     if (
       anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
       !is_backwards &&
@@ -533,13 +533,14 @@
     ) {
       anchor_offset += 1;
     }
+    // EDGE CASE: Exclude first node when focus_node is an afer-node-cursor-trap
+    // in a non-collapsed backward selection
     else if (
       focus_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
       is_backwards &&
       anchor_offset !== focus_offset &&
-      // EDGE CASE: Skip correction if anchor node is an 'after-node-cursor-trap' too, but on another level
-      // E.g. when you select after-node-cursor-trap of list, and drag backwards to after-node-cursor-trap inside a list item.
-      !(focus_node_depth !== anchor_node_depth && anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap')
+      // EDGE CASE: Only do correction when drag started from a deeper or equally deep anchor node
+      anchor_node_depth >= focus_node_depth
     ) {
       focus_offset += 1;
     }
