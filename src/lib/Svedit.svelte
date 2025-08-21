@@ -350,7 +350,7 @@
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.shiftKey)) {
+    } else if (e.key === 'Enter' && (e.altKey)) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
