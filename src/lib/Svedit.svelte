@@ -537,8 +537,9 @@
       focus_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
       is_backwards &&
       anchor_offset !== focus_offset &&
-      // EDGE CASE: only apply this rule if focus node and anchor node are in the same container
-      focus_node_depth === anchor_node_depth
+      // EDGE CASE: Skip correction if anchor node is an 'after-node-cursor-trap' too, but on another level
+      // E.g. when you select after-node-cursor-trap of list, and drag backwards to after-node-cursor-trap inside a list item.
+      !(focus_node_depth !== anchor_node_depth && anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap')
     ) {
       focus_offset += 1;
     }
