@@ -962,7 +962,9 @@
 		background: var(--editing-fill-color);
 	}
 
-	.svedit-canvas.hide-selection :global(::selection) {
-    background: transparent;
+	@media not (pointer: coarse) {
+    .svedit-canvas.hide-selection :global(::selection) {
+      background: transparent;
+    }
   }
 </style>
