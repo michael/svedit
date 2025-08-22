@@ -89,11 +89,10 @@
     event.preventDefault();
     event.stopPropagation();
 
-    let plain_text, html, json_data;
+    let plain_text, json_data;
 
     if (doc.selection?.type === 'text') {
       plain_text = doc.get_selected_plain_text();
-      html = plain_text;
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
@@ -108,20 +107,16 @@
       });
     }
 
-    // Create a ClipboardItem with multiple formats
-    const data = {
-      'text/plain': new Blob([plain_text], {type: 'text/plain'}),
-      'text/html': new Blob([html], {type: 'text/html'}),
-    };
+    // For better Safari compatibility, serialize everything as plain text
+    let clipboard_text = plain_text;
 
     if (json_data) {
-      const json_blob = new Blob([JSON.stringify(json_data)], {type: 'application/json'});
-      data['web application/json'] = json_blob;
+      // Prefix JSON data with special marker for svedit content
+      clipboard_text = `SVEDIT_JSON:${JSON.stringify(json_data)}`;
     }
-    const clipboard_item_raw = new ClipboardItem(data);
 
-    // Write to clipboard
-    navigator.clipboard.write([clipboard_item_raw]).then(() => {
+    // Write to clipboard using simple text method
+    navigator.clipboard.writeText(clipboard_text).then(() => {
       console.log('Data copied to clipboard successfully');
     }).catch(err => {
       console.error('Failed to copy data: ', err);
@@ -141,17 +136,32 @@
     if (!canvas_ref?.contains(document.activeElement)) return;
 
     event.preventDefault();
-    const clipboardItems = await navigator.clipboard.read();
+
+    let clipboard_text;
+
+    // Use the simple text clipboard API for better Safari compatibility
+    try {
+      clipboard_text = await navigator.clipboard.readText();
+    } catch {
+      console.error('Failed to read clipboard');
+      return;
+    }
 
     let pasted_json;
+    let plain_text;
 
-    // Wrapping this in a try-catch as this API only works in Chrome. We fallback to
-    // plaintext copy and pasting for all other situations.
-    try {
-      const json_blob = await clipboardItems[0].getType('web application/json');
-      pasted_json = JSON.parse(await json_blob.text());
-    } catch {
-      pasted_json = undefined;
+    // Check if it's svedit JSON data
+    if (clipboard_text.startsWith('SVEDIT_JSON:')) {
+      try {
+        const json_string = clipboard_text.substring('SVEDIT_JSON:'.length);
+        pasted_json = JSON.parse(json_string);
+      } catch {
+        console.error('Failed to parse svedit JSON data');
+        return;
+      }
+    } else {
+      // It's regular plain text
+      plain_text = clipboard_text;
     }
 
     if (pasted_json) {
@@ -201,10 +211,8 @@
       }
 
       doc.apply(tr);
-    } else {
-      const plain_text_blob = await clipboardItems[0].getType('text/plain');
-      // Convert the Blob to text
-      const plain_text = await plain_text_blob.text();
+    } else if (plain_text) {
+      // Fallback to plain text paste
       doc.apply(doc.tr.insert_text(plain_text));
     }
   }
