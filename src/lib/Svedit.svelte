@@ -1012,6 +1012,7 @@
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
+    autocapitalize="off"
   >
     <RootComponent {path} />
   </div>
