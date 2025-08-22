@@ -19,7 +19,7 @@
 
   // true if the user is currently composing a replacement character
   // false otherwise (e.g. when composing with a dead key)
-  let is_composing_replacement = false;
+  let is_composing = undefined;
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -432,11 +432,11 @@
       // Node selections with multiple nodes do nothing on Enter
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && selection?.type === 'text' && !is_composing_replacement) {
+    } else if (e.key === 'Enter' && selection?.type === 'text' && !is_composing) {
       const tr = doc.tr;
       break_text_node(tr);
       doc.apply(tr);
-    } else if (e.key === 'Escape' && selection && !is_composing_replacement) {
+    } else if (e.key === 'Escape' && selection && !is_composing) {
       doc.select_parent();
       e.preventDefault();
       e.stopPropagation();
@@ -452,15 +452,17 @@
     // If we are starting not from a real character, not a dead key
     // NOTE: the dead key has event.data === ''
     if (event.data !== '') {
-      is_composing_replacement = true;
+      is_composing = 'replace';
+    } else {
+      is_composing = 'deadkey';
     }
   }
 
-  function insert_composed_character(char, is_composing_replacement = false) {
-    // console.log('insert_composed_character', char, 'replace', is_composing_replacement);
+  function insert_composed_character(char, is_composing) {
+    // console.log('insert_composed_character', char, 'is_composing', is_composing);
     if (doc.selection.type !== 'text') return;
     const tr = doc.tr;
-    if (is_composing_replacement) {
+    if (is_composing === 'replace') {
       tr.delete_selection();
     } else {
       // NOTE: Because of in-progress composition (a character is in the DOM, but not
@@ -488,14 +490,14 @@
     // which will only run for non-compositioned events.
     event.preventDefault();
     event.stopPropagation();
-    insert_composed_character(inserted_char, is_composing_replacement);
+    insert_composed_character(inserted_char, is_composing);
 
     // This makes sure, that when the composed character was selected via
     // keyboard (e.g. enter or a typing a number), that this keystroke is not
-    // registered as a new input. So we stay in the is_composing_replacement
+    // registered as a new input. So we stay in the is_composing
     // state just for a little longer.
     setTimeout(() => {
-      is_composing_replacement = false;
+      is_composing = undefined;
     }, 0);
   }
 
