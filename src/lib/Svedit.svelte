@@ -16,10 +16,10 @@
   let root_node = $derived(doc.get(path));
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
-  
-  // Track composition state for input methods like dead keys
-  let composition_start_offset = null;
-  let is_composing = false;
+
+  // true if the user is currently composing a replacement character
+  // false otherwise (e.g. when composing with a dead key)
+  let is_composing_replacement = false;
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -34,14 +34,19 @@
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
-    // Skip processing during composition to avoid conflicts
-    if (is_composing) {
+    // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", is_composing: ${event.isComposing}`);
+
+    // While composing, we do nothing and let the oncompositionend
+    // event handle the insertion of the character.
+    if (event.isComposing) {
+      event.preventDefault();
       return;
     }
 
     const inserted_char = event.data;
 
     event.preventDefault();
+    // Insert the character, unless
     if (inserted_char) {
       const tr = doc.tr;
       tr.insert_text(inserted_char);
@@ -427,16 +432,15 @@
       // Node selections with multiple nodes do nothing on Enter
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && selection?.type === 'text') {
+    } else if (e.key === 'Enter' && selection?.type === 'text' && !is_composing_replacement) {
       const tr = doc.tr;
       break_text_node(tr);
       doc.apply(tr);
-    } else if (e.key === 'Escape' && selection) {
+    } else if (e.key === 'Escape' && selection && !is_composing_replacement) {
       doc.select_parent();
       e.preventDefault();
       e.stopPropagation();
     }
-
   }
 
   /**
@@ -445,31 +449,28 @@
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
-    if (!canvas_ref?.contains(document.activeElement)) return;
-    
-    is_composing = true;
-  
-    // Store the current selection position to handle overwriting
-    // of already-inserted characters when composition starts
-    const selection = doc.selection;
-    
-    if (selection?.type === 'text') {
-      if (selection.anchor_offset !== selection.focus_offset) {
-        // If there's a text selection, use the anchor position
-        composition_start_offset = selection.anchor_offset;
-      } else if (event.data) {
-        // If there's composition data, we might need to overwrite
-        // previously inserted text (e.g., dead key scenarios where a character
-        // was already inserted before composition started)
-        const data_length = event.data.length;
-        composition_start_offset = Math.max(0, selection.anchor_offset - data_length);
-      } else {
-        // Normal case - start from current cursor position
-        composition_start_offset = selection.anchor_offset;
-      }
-    } else {
-      composition_start_offset = null;
+    // If we are starting not from a real character, not a dead key
+    // NOTE: the dead key has event.data === ''
+    if (event.data !== '') {
+      is_composing_replacement = true;
     }
+  }
+
+  function insert_composed_character(char, is_composing_replacement = false) {
+    // console.log('insert_composed_character', char, 'replace', is_composing_replacement);
+    if (doc.selection.type !== 'text') return;
+    const tr = doc.tr;
+    if (is_composing_replacement) {
+      tr.delete_selection();
+    } else {
+      // NOTE: Because of in-progress composition (a character is in the DOM, but not
+      // in the model), anchor_offset and focus_offset are wrong, and need to be corrected
+      doc.selection.anchor_offset = doc.selection.anchor_offset - 1;
+      doc.selection.focus_offset = doc.selection.focus_offset - 1;
+    }
+    // Now the previous character will be replaced instead of an additional character added.
+    tr.insert_text(char);
+    doc.apply(tr);
   }
 
   /**
@@ -479,46 +480,23 @@
    */
   function oncompositionend(event) {
     if (!canvas_ref?.contains(document.activeElement)) return;
-  
+
+    // console.log('oncompositionend, insert:', event.data);
+    const inserted_char = event.data;
+
+    // Now insert the composed character (just like in onbeforeinput)
+    // which will only run for non-compositioned events.
     event.preventDefault();
     event.stopPropagation();
-  
-    // Reset composition state if no data
-    if (!event.data) {
-      composition_start_offset = null;
-      return;
-    }
+    insert_composed_character(inserted_char, is_composing_replacement);
 
-    const selection = doc.selection;
-    
-    if (selection?.type === 'text') {
-      const tr = doc.tr;
-      
-      if (composition_start_offset !== null) {
-        // Handle the case where we need to replace previously inserted text
-        // This happens when a dead key inserts a character first, then composition completes
-        const current_offset = selection.anchor_offset;
-        
-        // Ensure we have valid offsets
-        if (composition_start_offset >= 0 && current_offset >= composition_start_offset) {
-          // Create selection from composition start to current position to replace
-          tr.set_selection({
-            type: 'text',
-            path: selection.path,
-            anchor_offset: composition_start_offset,
-            focus_offset: current_offset
-          });
-        }
-      }
-      
-      // Insert the composed text (this will replace any selected text)
-      tr.insert_text(event.data);
-      doc.apply(tr);
-    }
-  
-    // Always reset composition state
-    composition_start_offset = null;
-    is_composing = false;
+    // This makes sure, that when the composed character was selected via
+    // keyboard (e.g. enter or a typing a number), that this keystroke is not
+    // registered as a new input. So we stay in the is_composing_replacement
+    // state just for a little longer.
+    setTimeout(() => {
+      is_composing_replacement = false;
+    }, 0);
   }
 
   /**
