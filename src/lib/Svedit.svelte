@@ -11,13 +11,8 @@
    * @returns {number}
    */
   function get_char_length(str) {
-    // Use Intl.Segmenter for proper grapheme cluster counting if available
-    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      return [...segmenter.segment(str)].length;
-    }
-    // Fallback to Array.from for basic Unicode code point handling
-    return Array.from(str).length;
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    return [...segmenter.segment(str)].length;
   }
 
   /**
@@ -27,31 +22,14 @@
    * @returns {number}
    */
   function utf16_to_char_offset(str, utf16_offset) {
-    // Use Intl.Segmenter for proper grapheme cluster handling if available
-    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      const segments = [...segmenter.segment(str)];
-      let char_offset = 0;
-      let utf16_count = 0;
-      
-      for (const segment of segments) {
-        if (utf16_count >= utf16_offset) break;
-        utf16_count += segment.segment.length;
-        if (utf16_count > utf16_offset) break;
-        char_offset++;
-      }
-      
-      return char_offset;
-    }
-    
-    // Fallback to Array.from for basic Unicode code point handling
-    const chars = Array.from(str);
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    const segments = [...segmenter.segment(str)];
     let char_offset = 0;
     let utf16_count = 0;
     
-    for (const char of chars) {
+    for (const segment of segments) {
       if (utf16_count >= utf16_offset) break;
-      utf16_count += char.length; // length in UTF-16 code units
+      utf16_count += segment.segment.length;
       if (utf16_count > utf16_offset) break;
       char_offset++;
     }
@@ -66,25 +44,12 @@
    * @returns {number}
    */
   function char_to_utf16_offset(str, char_offset) {
-    // Use Intl.Segmenter for proper grapheme cluster handling if available
-    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      const segments = [...segmenter.segment(str)];
-      let utf16_offset = 0;
-      
-      for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
-        utf16_offset += segments[i].segment.length;
-      }
-      
-      return utf16_offset;
-    }
-    
-    // Fallback to Array.from for basic Unicode code point handling
-    const chars = Array.from(str);
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    const segments = [...segmenter.segment(str)];
     let utf16_offset = 0;
     
-    for (let i = 0; i < Math.min(char_offset, chars.length); i++) {
-      utf16_offset += chars[i].length; // length in UTF-16 code units
+    for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
+      utf16_offset += segments[i].segment.length;
     }
     
     return utf16_offset;
@@ -149,15 +114,9 @@
       doc.selection.anchor_offset === doc.selection.focus_offset
     ) {
       const text = doc.get(doc.selection.path)[0];
-      let predecessor_char;
-      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-        const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-        const segments = [...segmenter.segment(text)];
-        predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
-      } else {
-        const chars = Array.from(text);
-        predecessor_char = chars?.[doc.selection.anchor_offset - 1];
-      }
+      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+      const segments = [...segmenter.segment(text)];
+      const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
 
       function get_base_char(char) {
         return char.normalize('NFD')[0];
