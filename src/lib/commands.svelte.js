@@ -1,4 +1,4 @@
-import { split_annotated_string, join_annotated_string } from './util.js';
+import { split_annotated_string, join_annotated_string, get_char_length } from './util.js';
 import { get_default_node_type } from './Document.svelte.js';
 
 export function break_text_node(tr) {
@@ -113,8 +113,8 @@ export function join_text_node(tr) {
   tr.set_selection({
     type: 'text',
     path: [...previous_text_path, 'content'],
-    anchor_offset: predecessor_node.content[0].length,
-    focus_offset: predecessor_node.content[0].length,
+    anchor_offset: get_char_length(predecessor_node.content[0]),
+    focus_offset: get_char_length(predecessor_node.content[0]),
   });
   tr.set([predecessor_node.id, 'content'], joined_text);
   return true;
@@ -161,7 +161,7 @@ export function select_all(tr) {
 
   if (selection.type === 'text') {
     const text_content = doc.get(selection.path);
-    const text_length = text_content[0].length;
+    const text_length = get_char_length(text_content[0]);
 
     // Check if all text is already selected
     const is_all_text_selected =
