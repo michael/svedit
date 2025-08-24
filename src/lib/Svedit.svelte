@@ -1,59 +1,9 @@
 <script>
   import { setContext } from 'svelte';
-  import { snake_to_pascal } from './util.js';
+  import { snake_to_pascal, get_char_length, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
-
-  /**
-   * Get the actual character length (accounting for multi-byte characters)
-   * @param {string} str
-   * @returns {number}
-   */
-  function get_char_length(str) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-    return [...segmenter.segment(str)].length;
-  }
-
-  /**
-   * Convert UTF-16 code unit offset to grapheme cluster offset within a string
-   * @param {string} str
-   * @param {number} utf16_offset
-   * @returns {number}
-   */
-  function utf16_to_char_offset(str, utf16_offset) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-    const segments = [...segmenter.segment(str)];
-    let char_offset = 0;
-    let utf16_count = 0;
-    
-    for (const segment of segments) {
-      if (utf16_count >= utf16_offset) break;
-      utf16_count += segment.segment.length;
-      if (utf16_count > utf16_offset) break;
-      char_offset++;
-    }
-    
-    return char_offset;
-  }
-
-  /**
-   * Convert grapheme cluster offset to UTF-16 code unit offset within a string
-   * @param {string} str
-   * @param {number} char_offset
-   * @returns {number}
-   */
-  function char_to_utf16_offset(str, char_offset) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-    const segments = [...segmenter.segment(str)];
-    let utf16_offset = 0;
-    
-    for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
-      utf16_offset += segments[i].segment.length;
-    }
-    
-    return utf16_offset;
-  }
   /** @type {SveditProps} */
   let {
     doc,

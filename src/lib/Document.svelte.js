@@ -1,4 +1,5 @@
 import Transaction from './Transaction.svelte.js';
+import { char_slice } from './util.js';
 
 /**
  * @import {
@@ -489,7 +490,7 @@ export default class Document {
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
     const annotated_string = this.get(this.selection.path);
-    return annotated_string[0].slice(start, end);
+    return char_slice(annotated_string[0], start, end);
   }
 
   get_selected_nodes() {

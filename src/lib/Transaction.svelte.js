@@ -2,28 +2,7 @@
  * @import { NodeId, SerializedNode, Selection, DocumentPath } from './types.js'
  */
 
-/**
- * Get the actual character length (accounting for multi-byte characters)
- * @param {string} str
- * @returns {number}
- */
-function get_char_length(str) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  return [...segmenter.segment(str)].length;
-}
-
-/**
- * Slice string by character positions (accounting for multi-byte characters)
- * @param {string} str
- * @param {number} start
- * @param {number} end
- * @returns {string}
- */
-function char_slice(str, start, end = undefined) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(str)];
-  return segments.slice(start, end).map(s => s.segment).join('');
-}
+import { get_char_length, char_slice } from './util.js';
 
 /**
  * Transaction class for managing atomic document operations with undo/redo support.
