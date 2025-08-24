@@ -8,13 +8,8 @@
  * @returns {number}
  */
 function get_char_length(str) {
-  // Use Intl.Segmenter for proper grapheme cluster counting if available
-  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-    return [...segmenter.segment(str)].length;
-  }
-  // Fallback to Array.from for basic Unicode code point handling
-  return Array.from(str).length;
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  return [...segmenter.segment(str)].length;
 }
 
 /**
@@ -25,15 +20,9 @@ function get_char_length(str) {
  * @returns {string}
  */
 function char_slice(str, start, end = undefined) {
-  // Use Intl.Segmenter for proper grapheme cluster handling if available
-  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-    const segments = [...segmenter.segment(str)];
-    return segments.slice(start, end).map(s => s.segment).join('');
-  }
-  // Fallback to Array.from for basic Unicode code point handling
-  const chars = Array.from(str);
-  return chars.slice(start, end).join('');
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  const segments = [...segmenter.segment(str)];
+  return segments.slice(start, end).map(s => s.segment).join('');
 }
 
 /**
