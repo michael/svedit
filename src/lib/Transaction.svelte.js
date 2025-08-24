@@ -3,6 +3,40 @@
  */
 
 /**
+ * Get the actual character length (accounting for multi-byte characters)
+ * @param {string} str
+ * @returns {number}
+ */
+function get_char_length(str) {
+  // Use Intl.Segmenter for proper grapheme cluster counting if available
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    return [...segmenter.segment(str)].length;
+  }
+  // Fallback to Array.from for basic Unicode code point handling
+  return Array.from(str).length;
+}
+
+/**
+ * Slice string by character positions (accounting for multi-byte characters)
+ * @param {string} str
+ * @param {number} start
+ * @param {number} end
+ * @returns {string}
+ */
+function char_slice(str, start, end = undefined) {
+  // Use Intl.Segmenter for proper grapheme cluster handling if available
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    const segments = [...segmenter.segment(str)];
+    return segments.slice(start, end).map(s => s.segment).join('');
+  }
+  // Fallback to Array.from for basic Unicode code point handling
+  const chars = Array.from(str);
+  return chars.slice(start, end).join('');
+}
+
+/**
  * Transaction class for managing atomic document operations with undo/redo support.
  *
  * A Transaction provides a way to group multiple document operations (create, delete, set)
@@ -306,8 +340,9 @@ export default class Transaction {
       const path = this.doc.selection.path;
       let text = structuredClone($state.snapshot(this.doc.get(path)));
 
-      // Update the text content
-      text[0] = text[0].slice(0, start) + text[0].slice(end);
+      // Update the text content using character-based operations
+      const original_text = text[0];
+      text[0] = char_slice(original_text, 0, start) + char_slice(original_text, end, get_char_length(original_text));
 
       // Update annotation offsets for deletion
       const deletion_length = end - start;
@@ -437,17 +472,19 @@ export default class Transaction {
    * ```
    */
   insert_text(replaced_text) {
+    console.log('replaced_text', replaced_text);
     if (this.doc.selection.type !== 'text') return this;
 
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const { start, end } = this.doc.get_selection_range();
 
-    // Transform the plain text string.
-    annotated_string[0] = annotated_string[0].slice(0, start) + replaced_text + annotated_string[0].slice(end);
+    // Transform the plain text string using character-based operations
+    const text = annotated_string[0];
+    annotated_string[0] = char_slice(text, 0, start) + replaced_text + char_slice(text, end, get_char_length(text));
 
     // Transform the annotations (annotated_string[1])
     // NOTE: Annotations are stored as [start_offset, end_offset, type]
-    const delta = replaced_text.length - (end - start);
+    const delta = get_char_length(replaced_text) - (end - start);
     const new_annotations = annotated_string[1].map(/** @param {any} annotation */ (annotation) => {
       const [annotation_start, annotation_end, type, annotation_data] = annotation;
 
@@ -492,8 +529,8 @@ export default class Transaction {
     const new_selection = {
       type: 'text',
       path: this.doc.selection.path,
-      anchor_offset: start + replaced_text.length,
-      focus_offset: start + replaced_text.length,
+      anchor_offset: start + get_char_length(replaced_text),
+      focus_offset: start + get_char_length(replaced_text),
     };
     this.doc.selection = new_selection;
     return this;

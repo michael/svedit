@@ -4,6 +4,91 @@
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
+
+  /**
+   * Get the actual character length (accounting for multi-byte characters)
+   * @param {string} str
+   * @returns {number}
+   */
+  function get_char_length(str) {
+    // Use Intl.Segmenter for proper grapheme cluster counting if available
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+      return [...segmenter.segment(str)].length;
+    }
+    // Fallback to Array.from for basic Unicode code point handling
+    return Array.from(str).length;
+  }
+
+  /**
+   * Convert UTF-16 code unit offset to grapheme cluster offset within a string
+   * @param {string} str
+   * @param {number} utf16_offset
+   * @returns {number}
+   */
+  function utf16_to_char_offset(str, utf16_offset) {
+    // Use Intl.Segmenter for proper grapheme cluster handling if available
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+      const segments = [...segmenter.segment(str)];
+      let char_offset = 0;
+      let utf16_count = 0;
+      
+      for (const segment of segments) {
+        if (utf16_count >= utf16_offset) break;
+        utf16_count += segment.segment.length;
+        if (utf16_count > utf16_offset) break;
+        char_offset++;
+      }
+      
+      return char_offset;
+    }
+    
+    // Fallback to Array.from for basic Unicode code point handling
+    const chars = Array.from(str);
+    let char_offset = 0;
+    let utf16_count = 0;
+    
+    for (const char of chars) {
+      if (utf16_count >= utf16_offset) break;
+      utf16_count += char.length; // length in UTF-16 code units
+      if (utf16_count > utf16_offset) break;
+      char_offset++;
+    }
+    
+    return char_offset;
+  }
+
+  /**
+   * Convert grapheme cluster offset to UTF-16 code unit offset within a string
+   * @param {string} str
+   * @param {number} char_offset
+   * @returns {number}
+   */
+  function char_to_utf16_offset(str, char_offset) {
+    // Use Intl.Segmenter for proper grapheme cluster handling if available
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+      const segments = [...segmenter.segment(str)];
+      let utf16_offset = 0;
+      
+      for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
+        utf16_offset += segments[i].segment.length;
+      }
+      
+      return utf16_offset;
+    }
+    
+    // Fallback to Array.from for basic Unicode code point handling
+    const chars = Array.from(str);
+    let utf16_offset = 0;
+    
+    for (let i = 0; i < Math.min(char_offset, chars.length); i++) {
+      utf16_offset += chars[i].length; // length in UTF-16 code units
+    }
+    
+    return utf16_offset;
+  }
   /** @type {SveditProps} */
   let {
     doc,
@@ -64,7 +149,15 @@
       doc.selection.anchor_offset === doc.selection.focus_offset
     ) {
       const text = doc.get(doc.selection.path)[0];
-      const predecessor_char = text?.[doc.selection.anchor_offset - 1];
+      let predecessor_char;
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+        const segments = [...segmenter.segment(text)];
+        predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
+      } else {
+        const chars = Array.from(text);
+        predecessor_char = chars?.[doc.selection.anchor_offset - 1];
+      }
 
       function get_base_char(char) {
         return char.normalize('NFD')[0];
@@ -749,16 +842,21 @@
 
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const nodeLength = node.length;
+        const nodeText = node.textContent;
+        const nodeCharLength = get_char_length(nodeText);
 
         if (node === range.startContainer) {
-          anchorOffset = currentOffset + range.startOffset;
+          // Convert UTF-16 offset to character offset
+          const charStartOffset = utf16_to_char_offset(nodeText, range.startOffset);
+          anchorOffset = currentOffset + charStartOffset;
         }
         if (node === range.endContainer) {
-          focusOffset = currentOffset + range.endOffset;
+          // Convert UTF-16 offset to character offset
+          const charEndOffset = utf16_to_char_offset(nodeText, range.endOffset);
+          focusOffset = currentOffset + charEndOffset;
         }
 
-        currentOffset += nodeLength;
+        currentOffset += nodeCharLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           processNode(childNode);
@@ -922,36 +1020,41 @@
     // Helper function to process each node
     function process_node(node) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const node_length = node.length;
+        const node_text = node.textContent;
+        const node_char_length = get_char_length(node_text);
 
         if (is_backward) {
-          if (!focus_node && current_offset + node_length >= start_offset) {
+          if (!focus_node && current_offset + node_char_length >= start_offset) {
             focus_node = node;
-            focus_node_offset = start_offset - current_offset;
+            const char_offset = start_offset - current_offset;
+            focus_node_offset = char_to_utf16_offset(node_text, char_offset);
           }
         } else {
-          if (!anchor_node && current_offset + node_length >= start_offset) {
+          if (!anchor_node && current_offset + node_char_length >= start_offset) {
             anchor_node = node;
-            anchor_node_offset = start_offset - current_offset;
+            const char_offset = start_offset - current_offset;
+            anchor_node_offset = char_to_utf16_offset(node_text, char_offset);
           }
         }
 
         // Find end node
         if (is_backward) {
-          if (!anchor_node && current_offset + node_length >= end_offset) {
+          if (!anchor_node && current_offset + node_char_length >= end_offset) {
             anchor_node = node;
-            anchor_node_offset = end_offset - current_offset;
+            const char_offset = end_offset - current_offset;
+            anchor_node_offset = char_to_utf16_offset(node_text, char_offset);
             return true; // Stop iteration
           }
         } else {
-          if (!focus_node && current_offset + node_length >= end_offset) {
+          if (!focus_node && current_offset + node_char_length >= end_offset) {
             focus_node = node;
-            focus_node_offset = end_offset - current_offset;
+            const char_offset = end_offset - current_offset;
+            focus_node_offset = char_to_utf16_offset(node_text, char_offset);
             return true; // Stop iteration
           }
         }
 
-        current_offset += node_length;
+        current_offset += node_char_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const child_node of node.childNodes) {
           if (process_node(child_node)) return true; // Stop iteration if end found
