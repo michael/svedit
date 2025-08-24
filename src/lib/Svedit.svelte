@@ -543,7 +543,7 @@
   function oncompositionend(event) {
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-    // console.log('oncompositionend, insert:', event.data);
+    // console.log('DEBUG: oncompositionend, insert:', event.data, 'is_composing:', is_composing);
     const inserted_char = event.data;
 
     // Now insert the composed character (just like in onbeforeinput)
