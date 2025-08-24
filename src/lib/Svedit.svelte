@@ -492,9 +492,10 @@
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'text') {
       const tr = doc.tr;
-      break_text_node(tr);
-      doc.apply(tr);
-    } else if (e.key === 'Escape' && selection && !is_composing) {
+      if (break_text_node(tr)) {
+        doc.apply(tr);
+      }
+    } else if (e.key === 'Escape' && selection) {
       doc.select_parent();
       e.preventDefault();
       e.stopPropagation();

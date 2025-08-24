@@ -53,6 +53,7 @@ export function break_text_node(tr) {
   tr.set_selection(node_insert_position);
 
   doc.config.inserters[target_node_type](tr, right_text);
+  return true;
 }
 
 export function join_text_node(tr) {
@@ -116,6 +117,7 @@ export function join_text_node(tr) {
     focus_offset: predecessor_node.content[0].length,
   });
   tr.set([predecessor_node.id, 'content'], joined_text);
+  return true;
 }
 
 export function insert_default_node(tr) {
