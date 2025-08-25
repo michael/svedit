@@ -745,34 +745,31 @@
 
     if (!path) return null;
 
-    let anchorOffset = 0;
-    let focusOffset = 0;
-    let currentOffset = 0;
+    let anchor_offset = 0;
+    let focus_offset = 0;
+    let current_offset = 0;
 
     function processNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const nodeText = node.textContent;
         const nodeCharLength = get_char_length(nodeText);
-
         if (node === range.startContainer) {
           // Convert UTF-16 offset to character offset
-          const charStartOffset = utf16_to_char_offset(nodeText, range.startOffset);
-          anchorOffset = currentOffset + charStartOffset;
+          const char_start_offset = utf16_to_char_offset(nodeText, range.startOffset);
+          anchor_offset = current_offset + char_start_offset;
         }
         if (node === range.endContainer) {
           // Convert UTF-16 offset to character offset
-          const charEndOffset = utf16_to_char_offset(nodeText, range.endOffset);
-          focusOffset = currentOffset + charEndOffset;
+          const char_end_offset = utf16_to_char_offset(nodeText, range.endOffset);
+          focus_offset = current_offset + char_end_offset;
         }
-
-        currentOffset += nodeCharLength;
+        current_offset += nodeCharLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const childNode of node.childNodes) {
           processNode(childNode);
         }
       }
-
-      return (focusOffset !== 0);
+      return (focus_offset !== 0);
     }
 
     // Process nodes to find offsets
@@ -786,14 +783,14 @@
 
     // Swap offsets if it's a backward selection
     if (is_backward) {
-      [anchorOffset, focusOffset] = [focusOffset, anchorOffset];
+      [anchor_offset, focus_offset] = [focus_offset, anchor_offset];
     }
 
     return {
       type: 'text',
       path,
-      anchor_offset: anchorOffset,
-      focus_offset: focusOffset
+      anchor_offset: anchor_offset,
+      focus_offset: focus_offset
     };
   }
 
