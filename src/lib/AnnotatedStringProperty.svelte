@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { char_slice, get_char_length } from './util.js';
 
   /** @import { AnnotatedStringPropertyProps, AnnotationFragment } from './types.d.ts'; */
 
@@ -30,13 +31,13 @@
 		const sorted_annotations = $state.snapshot(annotations).sort((a, b) => a[0] - b[0]);
 
 		for (let [index, annotation] of sorted_annotations.entries()) {
-			// Add text before the annotation
+			// Add text before the annotation using character-aware slicing
 			if (annotation[0] > last_index) {
-				fragments.push(text.slice(last_index, annotation[0]));
+				fragments.push(char_slice(text, last_index, annotation[0]));
 			}
 
-			// Add the annotated string
-			const annotated_content = text.slice(annotation[0], annotation[1]);
+			// Add the annotated string using character-aware slicing
+			const annotated_content = char_slice(text, annotation[0], annotation[1]);
 			fragments.push({
 				type: annotation[2],
 				content: annotated_content,
@@ -47,9 +48,9 @@
 			last_index = annotation[1];
 		}
 
-		// Add any remaining text after the last annotation
-		if (last_index < text.length) {
-			fragments.push(text.slice(last_index));
+		// Add any remaining text after the last annotation using character-aware slicing
+		if (last_index < get_char_length(text)) {
+			fragments.push(char_slice(text, last_index));
 		}
 
 		return fragments;
