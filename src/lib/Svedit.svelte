@@ -59,6 +59,7 @@
     // Can be removed once all browsers implement https://www.w3.org/TR/input-events-2/
     // so we can capture `event.inputType === 'insertReplacementText'`
     if (
+      event.data &&
       !event.isComposing &&
       doc.selection.type === 'text' &&
       doc.selection.anchor_offset === doc.selection.focus_offset
@@ -69,6 +70,7 @@
       const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
 
       function get_base_char(char) {
+        if (!char) return undefined;
         const normalized = char.normalize('NFD');
         // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
         if (normalized.length <= 2 && normalized !== char) {
