@@ -738,8 +738,9 @@
     const focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
     let focus_root, anchor_root;
 
+
     if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text') {
-      // This is the case when the text node is empty (only a <br> is present)
+      // EDGE CASE 1: Either text node is empty (only a <br> is present), or cursor is after a <br> at the very end of the text node
       focus_root = anchor_root = focus_node;
     } else {
       focus_root = /** @type {HTMLElement} */ (dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]'));
@@ -756,6 +757,17 @@
     const path = focus_root.dataset.path.split('.');
 
     if (!path) return null;
+
+    // EDGE CASE 1B: Cursor is at the last position of a text and the last char is a <br/>
+    if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text' && !focus_node.classList.contains('empty')) {
+      const text_length = get_char_length(doc.get(path)[0]);
+      return {
+        type: 'text',
+        path,
+        anchor_offset: text_length,
+        focus_offset: text_length
+      };
+    }
 
     let anchor_offset = 0;
     let focus_offset = 0;
