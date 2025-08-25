@@ -313,16 +313,22 @@
 
 <style>
   .toggle-editable {
+    font-size: var(--base-size);
+    border-radius: var(--s-2);
     font-weight: 700;
     display: block;
     text-decoration: none;
-	  background: var(--primary-fill-color);
+	  background: var(--editing-stroke-color);
 		color: var(--canvas-fill-color);
 		padding: var(--s-1) var(--s-8);
 	}
 
+	.editor-toolbar.editable .toggle-editable {
+		margin-left: var(--s-4);
+	}
+
 	.toggle-editable:hover {
-		background: var(--primary-fill-color);
+		background: var(--editing-stroke-color);
 		color: var(--canvas-fill-color);
 	  opacity: 0.9;
 	}

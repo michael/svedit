@@ -7,7 +7,7 @@
   /** @type {SveditProps} */
   let {
     doc,
-    editable = false,
+    editable = $bindable(false),
     path,
     class: css_class,
   } = $props();
@@ -337,6 +337,21 @@
   }
 
   function onkeydown(e) {
+    // Turn editable on
+    if (e.key === 'e' && (e.ctrlKey || e.metaKey)) {
+      editable = true;
+      return;
+    }
+
+    // Turn editable off (=save)
+    if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+      doc.selection = null;
+      editable = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     // Only handle keyboard events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
 
