@@ -72,9 +72,19 @@
         return char.normalize('NFD')[0];
       }
 
+      function has_base_character(char) {
+        const normalized = char.normalize('NFD');
+        // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+        return normalized.length <= 2 && normalized !== char;
+      }
+      console.log('predecessor_char', 'new_char', predecessor_char, event.data);
+      console.log('base(predecessor_char)', 'base(new_char)', get_base_char(predecessor_char), get_base_char(event.data));
+
       if (
         predecessor_char &&
         event.data &&
+        has_base_character(predecessor_char) &&
+        has_base_character(event.data) &&
         // true when 'a' followed by 'ä'
         get_base_char(predecessor_char) === get_base_char(event.data) &&
         // Only apply if new character is a modified character (e.g. "ä") not an "a"
