@@ -69,27 +69,27 @@
       const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
 
       function get_base_char(char) {
-        return char.normalize('NFD')[0];
-      }
-
-      function has_base_character(char) {
         const normalized = char.normalize('NFD');
         // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-        return normalized.length <= 2 && normalized !== char;
+        if (normalized.length <= 2 && normalized !== char) {
+          return normalized[0];
+        }
+        return undefined;
       }
-      console.log('predecessor_char', 'new_char', predecessor_char, event.data);
-      console.log('base(predecessor_char)', 'base(new_char)', get_base_char(predecessor_char), get_base_char(event.data));
+
+      const predecessor_base = get_base_char(predecessor_char);
+      const new_char_base = get_base_char(event.data);
 
       if (
         predecessor_char &&
         event.data &&
-        has_base_character(predecessor_char) &&
-        has_base_character(event.data) &&
+        predecessor_base &&
+        new_char_base &&
         // true when 'a' followed by 'ä'
-        get_base_char(predecessor_char) === get_base_char(event.data) &&
+        predecessor_base === new_char_base &&
         // Only apply if new character is a modified character (e.g. "ä") not an "a"
         // otherwise you can't add an a after an a without the first one being replaced.
-        get_base_char(event.data) !== event.data &&
+        new_char_base !== event.data &&
         // only replace if chars are not the same
         event.data !== predecessor_char
       ) {
