@@ -143,7 +143,7 @@ const serialized_doc = [
     image: '/images/editable.svg',
     title: ['Visual in‑place editing', []],
     description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []],
-    buttons: [button_1_id]
+    buttons: []
   },
   {
     id: story_2_id,
@@ -230,7 +230,7 @@ const serialized_doc = [
     image: '/images/extendable.svg',
     title: ['Alpha version', []],
     description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we\'ll be working to get fixed next:', []],
-    buttons: []
+    buttons: [button_1_id]
   },
   {
     id: list_item_1_id,

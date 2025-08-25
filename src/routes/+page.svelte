@@ -25,7 +25,7 @@
   <!-- Svedit editable canvas composed of Svedit nodes -->
   <Svedit
     {doc}
-    {editable}
+    bind:editable
     bind:this={svedit_ref}
     path={[doc.document_id]}
   />

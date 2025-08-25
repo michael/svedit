@@ -17,6 +17,7 @@
 	.button {
     display: block;
     text-decoration: none;
+    border-radius: var(--s-2);
 	  background: var(--primary-fill-color);
 		color: var(--canvas-fill-color);
 		padding: var(--s-2) var(--s-4);
