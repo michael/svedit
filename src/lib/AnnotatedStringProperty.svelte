@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { char_slice, get_char_length } from './util.js';
 
-  /** @import { AnnotatedStringPropertyProps, AnnotationFragment } from './types.d.ts'; */
+  /** @import { AnnotatedStringPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
@@ -20,7 +20,7 @@
 	/**
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
-	 * @param {Array<[number, number, string, ...any]>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
+	 * @param {Array<Annotation>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
 	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
 	 */
 	function render_annotated_string(text, annotations) {
@@ -28,7 +28,7 @@
 		let last_index = 0;
 
 		// Sort annotations by start_offset
-		const sorted_annotations = $state.snapshot(annotations).sort((a, b) => a[0] - b[0]);
+		const sorted_annotations = [...annotations].sort((a, b) => a[0] - b[0]);
 
 		for (let [index, annotation] of sorted_annotations.entries()) {
 			// Add text before the annotation using character-aware slicing
