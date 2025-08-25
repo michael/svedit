@@ -778,15 +778,15 @@
     if (!path) return null;
 
     // EDGE CASE 1B: Cursor is at the last position of a text and the last char is a <br/>
-    if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text' && !focus_node.classList.contains('empty')) {
-      const text_length = get_char_length(doc.get(path)[0]);
-      return {
-        type: 'text',
-        path,
-        anchor_offset: text_length,
-        focus_offset: text_length
-      };
-    }
+    // if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text' && !focus_node.classList.contains('empty')) {
+    //   const text_length = get_char_length(doc.get(path)[0]);
+    //   return {
+    //     type: 'text',
+    //     path,
+    //     anchor_offset: text_length,
+    //     focus_offset: text_length
+    //   };
+    // }
 
     let anchor_offset = 0;
     let focus_offset = 0;

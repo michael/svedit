@@ -6,7 +6,7 @@
   const doc = create_demo_doc();
 
   let svedit_ref;
-  let editable = $state(false);
+  let editable = $state(true);
 
   function focus_canvas() {
     if (svedit_ref) {
