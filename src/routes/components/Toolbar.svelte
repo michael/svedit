@@ -1,8 +1,11 @@
 <script>
-	import { fly } from 'svelte/transition';
 	import Icon from './Icon.svelte';
 
-	let { doc, focus_canvas } = $props();
+	let {
+  	doc,
+  	focus_canvas,
+  	editable = $bindable(false)
+  } = $props();
 
 	let input_ref = $state();
 
@@ -36,6 +39,13 @@
           : word.toLowerCase()
       )
       .join(' ');
+  }
+
+  function toggle_editable() {
+    if (editable) {
+      doc.selection = null;
+    }
+    editable = !editable;
   }
 
 	function handle_layout_change(layout_index) {
@@ -161,8 +171,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="editor-toolbar p-1"
-	in:fly={{ duration: 100, y: 5 }}
-	out:fly={{ duration: 100, y: 5 }}
+	class:editable={editable}
 	onkeydown={handle_toolbar_keydown}
 >
 	{#if show_image_input}
@@ -265,36 +274,59 @@
 	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'node' && doc.selected_node?.type === 'story') || (doc.selection?.type === 'node' && doc.selected_node?.type === 'list')}
 		<hr />
 	{/if}
-	<button
-		title="Undo"
-		onclick={() => {
-			console.log('Undo clicked, can_undo:', doc.can_undo, 'history_index:', doc.history_index);
-			doc.undo();
-		}}
-		disabled={!doc.can_undo}
-	>
-		<Icon name="rotate-left" />
-	</button>
-	<button
-		title="Redo"
-		onclick={() => {
-			console.log(
-				'Redo clicked, can_redo:',
-				doc.can_redo,
-				'history_index:',
-				doc.history_index,
-				'history_length:',
-				doc.history.length
-			);
-			doc.redo();
-		}}
-		disabled={!doc.can_redo}
-	>
-		<Icon name="rotate-right" />
-	</button>
+
+	{#if editable}
+  	<button
+  		title="Undo"
+  		onclick={() => {
+  			console.log('Undo clicked, can_undo:', doc.can_undo, 'history_index:', doc.history_index);
+  			doc.undo();
+  		}}
+  		disabled={!doc.can_undo}
+  	>
+  		<Icon name="rotate-left" />
+  	</button>
+  	<button
+  		title="Redo"
+  		onclick={() => {
+  			console.log(
+  				'Redo clicked, can_redo:',
+  				doc.can_redo,
+  				'history_index:',
+  				doc.history_index,
+  				'history_length:',
+  				doc.history.length
+  			);
+  			doc.redo();
+  		}}
+  		disabled={!doc.can_redo}
+  	>
+  		<Icon name="rotate-right" />
+  	</button>
+   {/if}
+ 	<button class="toggle-editable" onclick={toggle_editable}>
+    { editable ? 'Save' : 'Edit' }
+  </button>
 </div>
 
+
+
 <style>
+  .toggle-editable {
+    font-weight: 700;
+    display: block;
+    text-decoration: none;
+	  background: var(--primary-fill-color);
+		color: var(--canvas-fill-color);
+		padding: var(--s-1) var(--s-8);
+	}
+
+	.toggle-editable:hover {
+		background: var(--primary-fill-color);
+		color: var(--canvas-fill-color);
+	  opacity: 0.9;
+	}
+
 	.editor-toolbar {
 		color: var(--primary-text-color);
 		background-color: var(--canvas-fill-color);
