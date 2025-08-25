@@ -440,7 +440,6 @@ export default class Transaction {
    * ```
    */
   insert_text(replaced_text) {
-    console.log('replaced_text', replaced_text);
     if (this.doc.selection.type !== 'text') return this;
 
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
