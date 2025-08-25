@@ -11,6 +11,7 @@
 
 <style>
   .image-grid {
+    width: 100%;
     padding: var(--s-6);
   }
   .image-grid :global {

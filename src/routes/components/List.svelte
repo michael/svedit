@@ -4,7 +4,7 @@
 </script>
 
 <Node {path}>
-  <div class="list max-w-screen-lg mx-auto">
+  <div class="list max-w-screen-md mx-auto">
     <NodeArrayProperty class="list-node-array" path={[...path, 'list_items']} />
   </div>
 </Node>

@@ -30,6 +30,9 @@
   setContext("svedit", {
     get doc() {
       return doc;
+    },
+    get editable() {
+      return editable;
     }
   });
 
@@ -121,6 +124,7 @@
 
   // Map DOM selection to internal model
   function onselectionchange() {
+    if (!editable) return;
     const dom_selection = window.getSelection();
     if (!dom_selection.rangeCount) return;
 

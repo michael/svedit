@@ -18,7 +18,7 @@
 </script>
 
 <div class={css_class} data-type="node_array" data-path={path.join('.')}>
-  {#if nodes.length === 0}
+  {#if nodes.length === 0 && svedit.editable}
     <!--
     Experimental: We'll let .empty-node-array act like a node, so the existing
     code paths for selection mapping will work as expected.

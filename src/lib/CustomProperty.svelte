@@ -1,5 +1,9 @@
 <script>
+  import { getContext } from 'svelte';
+
   /** @import { CustomPropertyProps } from './types.d.ts'; */
+
+  const svedit = getContext('svedit');
 
   /** @type {CustomPropertyProps} */
   let {
@@ -9,19 +13,23 @@
   } = $props();
 </script>
 
-<!-- NOTE: It's super crucial that there is no extra whitespace, to not introduce additional cursor positions in contenteditable -->
-<div
-  class="property {css_class}"
-  data-type="property"
-  data-path={path.join('.')}
-  style="anchor-name: --{path.join('-')};"
->
-  <div class="cursor-trap">
-    <div class="svedit-selectable"><br/></div>
-  </div>
+{#if svedit.editable}
+  <!-- NOTE: It's super crucial that there is no extra whitespace, to not introduce additional cursor positions in contenteditable -->
+  <div
+    class="property {css_class}"
+    data-type="property"
+    data-path={path.join('.')}
+    style="anchor-name: --{path.join('-')};"
+  >
+    <div class="cursor-trap">
+      <div class="svedit-selectable"><br/></div>
+    </div>
 
-  <div class="property-content" contenteditable="false">{@render children()}</div>
-</div>
+    <div class="property-content" contenteditable="false">{@render children()}</div>
+  </div>
+{:else}
+  {@render children()}
+{/if}
 
 <style>
   .property {

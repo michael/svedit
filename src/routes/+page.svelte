@@ -4,7 +4,9 @@
   import create_demo_doc from './create_demo_doc.js';
 
   const doc = create_demo_doc();
+
   let svedit_ref;
+  let editable = $state(false);
 
   function focus_canvas() {
     if (svedit_ref) {
@@ -23,17 +25,19 @@
   <!-- Svedit editable canvas composed of Svedit nodes -->
   <Svedit
     {doc}
-    editable={true}
+    {editable}
     bind:this={svedit_ref}
     path={[doc.document_id]}
   />
 
-  <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
-    <p>Selection:</p>
-    <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>
-    <p>Nodes:</p>
-    <pre class='debug-info p-4'>{JSON.stringify(doc.to_json(), null, '  ')}</pre>
-  </div>
+  {#if editable}
+    <div class='flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto'>
+      <p>Selection:</p>
+      <pre class='debug-info p-4'>{JSON.stringify(doc.selection || {}, null, '  ')}</pre>
+      <p>Nodes:</p>
+      <pre class='debug-info p-4'>{JSON.stringify(doc.to_json(), null, '  ')}</pre>
+    </div>
+  {/if}
 </div>
 
 <style>
