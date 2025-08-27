@@ -19,12 +19,7 @@
 
 
   // Composition tracking state
-  let composition_state = {
-    is_active: false,           // Are we currently composing?
-    start_offset: null,         // Where composition started (cursor position)
-    initial_selection: null,    // Store initial selection state
-    mode: null,                 // 'deadkey' or 'replace'
-  };
+  let composing = undefined;    // undefined or { start_offset, mode }
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -42,6 +37,7 @@
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
+    if (doc.selection.type !== 'text') return;
     // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
     // For deleteByComposition we let Safari do it's thing (removing the old character from the DOM);
@@ -55,18 +51,13 @@
     if (event.inputType === 'insertReplacementText') {
       const composed_char = event.dataTransfer.getData('text/plain');
       // Set up temporary composition state for this replacement
-      composition_state = {
-        is_active: true,
+      composing = {
         start_offset: doc.selection.anchor_offset - 1,
-        initial_selection: { ...doc.selection },
+        mode: 'replace',
       };
-      insert_composed_character(composed_char);
+      insert_composed_text(composed_char);
       // Reset composition state
-      composition_state = {
-        is_active: false,
-        start_offset: null,
-        initial_selection: null,
-      };
+      composing = undefined;
       event.preventDefault();
       return;
     }
@@ -110,18 +101,13 @@
     //   ) {
     //     console.log('DEBUG: applying insertReplacementText hack...');
     //     // Set up temporary composition state for this replacement
-    //     composition_state = {
-    //       is_active: true,
+    //     composing = {
     //       start_offset: doc.selection.anchor_offset - 1,
-    //       initial_selection: { ...doc.selection },
+    //       mode: 'replace',
     //     };
-    //     insert_composed_character(event.data);
+    //     insert_composed_text(event.data);
     //     // Reset composition state
-    //     composition_state = {
-    //       is_active: false,
-    //       start_offset: null,
-    //       initial_selection: null,
-    //     };
+    //     composing = undefined;
     //     event.preventDefault();
     //     return;
     //   }
@@ -129,7 +115,7 @@
 
     // While composing, we do nothing and let the oncompositionend
     // event handle the insertion of the character.
-    if (event.isComposing) {
+    if (event.isComposing || composing) {
       event.preventDefault();
       return;
     }
@@ -379,7 +365,7 @@
 
 
     // Key handling while character composition takes place
-    if (composition_state.is_active) {
+    if (composing) {
       // Currently we do nothing, but we could handle keydown during character composition here.
       return;
     }
@@ -563,41 +549,40 @@
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
+    if (doc.selection.type !== 'text') return;
     console.log('DEBUG: oncompositionstart', event.data);
 
     // Determine composition mode based on event.data
     // Dead key has event.data === ''
     const mode = event.data === '' ? 'deadkey' : 'replace';
 
-    // Reset and initialize composition state
-    composition_state = {
-      is_active: true,
+    // Initialize composition state
+    composing = {
       start_offset: doc.selection.anchor_offset,
-      initial_selection: { ...doc.selection },
       mode: mode,
     };
 
-    console.log('Composition started at offset:', composition_state.start_offset, 'mode:', mode);
+    console.log('Composition started at offset:', composing.start_offset, 'mode:', mode);
   }
 
 
 
   function insert_composed_text(text) {
-    console.log('insert_composed_text', text, 'composition_state:', composition_state);
+    console.log('insert_composed_text', text, 'composing:', composing);
     if (doc.selection.type !== 'text') return;
 
     const tr = doc.tr;
 
     // Handle different composition modes
-    if (composition_state.mode === 'replace') {
+    if (composing.mode === 'replace') {
       // Long-press case: replace the original character with composed text
-      tr.doc.selection.anchor_offset = composition_state.start_offset;
+      tr.doc.selection.anchor_offset = composing.start_offset;
       tr.doc.selection.focus_offset = doc.selection.focus_offset;
       tr.delete_selection();
     } else {
       // Dead key case: just set cursor to start position
-      tr.doc.selection.anchor_offset = composition_state.start_offset;
-      tr.doc.selection.focus_offset = composition_state.start_offset;
+      tr.doc.selection.anchor_offset = composing.start_offset;
+      tr.doc.selection.focus_offset = composing.start_offset;
     }
 
     // Insert the composed text
@@ -613,7 +598,7 @@
   function oncompositionend(event) {
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-    console.log('DEBUG: oncompositionend, insert:', event.data, 'composition_state:', JSON.stringify(composition_state));
+    console.log('DEBUG: oncompositionend, insert:', event.data, 'composing:', JSON.stringify(composing));
     const inserted_char = event.data;
 
     // Now insert the composed character
@@ -622,12 +607,7 @@
     insert_composed_text(inserted_char);
 
     // Reset composition state
-    composition_state = {
-      is_active: false,
-      start_offset: null,
-      initial_selection: null,
-      mode: null,
-    };
+    composing = undefined;
   }
 
   /**
