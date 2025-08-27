@@ -17,12 +17,14 @@
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
-  /**
-   * Defines character composition state: undefined when not composing,
-   * 'deadkey' when deadkey was pressed, 'replace' when replacement character is selected
-   * @type {undefined | 'deadkey' | 'replace'}
-   */
-  let is_composing = undefined;
+
+  // Composition tracking state
+  let composition_state = {
+    is_active: false,           // Are we currently composing?
+    start_offset: null,         // Where composition started (cursor position)
+    composed_length: 0,         // How many characters are currently composed
+    initial_selection: null,    // Store initial selection state
+  };
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -52,7 +54,21 @@
     // insertReplacementText is fired, instead of insertText.
     if (event.inputType === 'insertReplacementText') {
       const composed_char = event.dataTransfer.getData('text/plain');
-      insert_composed_character(composed_char, 'replace');
+      // Set up temporary composition state for this replacement
+      composition_state = {
+        is_active: true,
+        start_offset: doc.selection.anchor_offset,
+        composed_length: 0,
+        initial_selection: { ...doc.selection },
+      };
+      insert_composed_character(composed_char);
+      // Reset composition state
+      composition_state = {
+        is_active: false,
+        start_offset: null,
+        composed_length: 0,
+        initial_selection: null,
+      };
       event.preventDefault();
       return;
     }
@@ -61,49 +77,63 @@
     // that don't support insertReplacementText.
     // Can be removed once all browsers implement https://www.w3.org/TR/input-events-2/
     // so we can capture `event.inputType === 'insertReplacementText'`
-    if (
-      event.data &&
-      !event.isComposing &&
-      doc.selection.type === 'text' &&
-      doc.selection.anchor_offset === doc.selection.focus_offset
-    ) {
-      const text = doc.get(doc.selection.path)[0];
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      const segments = [...segmenter.segment(text)];
-      const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
+    // if (
+    //   event.data &&
+    //   !event.isComposing &&
+    //   doc.selection.type === 'text' &&
+    //   doc.selection.anchor_offset === doc.selection.focus_offset
+    // ) {
+    //   const text = doc.get(doc.selection.path)[0];
+    //   const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    //   const segments = [...segmenter.segment(text)];
+    //   const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
 
-      function get_base_char(char) {
-        if (!char) return undefined;
-        const normalized = char.normalize('NFD');
-        // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-        if (normalized.length <= 2 && normalized !== char) {
-          return normalized[0];
-        }
-        return undefined;
-      }
+    //   function get_base_char(char) {
+    //     if (!char) return undefined;
+    //     const normalized = char.normalize('NFD');
+    //     // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+    //     if (normalized.length <= 2 && normalized !== char) {
+    //       return normalized[0];
+    //     }
+    //     return undefined;
+    //   }
 
-      const predecessor_base = get_base_char(predecessor_char);
-      const new_char_base = get_base_char(event.data);
+    //   const predecessor_base = get_base_char(predecessor_char);
+    //   const new_char_base = get_base_char(event.data);
 
-      if (
-        predecessor_char &&
-        event.data &&
-        predecessor_base &&
-        new_char_base &&
-        // true when 'a' followed by 'ä'
-        predecessor_base === new_char_base &&
-        // Only apply if new character is a modified character (e.g. "ä") not an "a"
-        // otherwise you can't add an a after an a without the first one being replaced.
-        new_char_base !== event.data &&
-        // only replace if chars are not the same
-        event.data !== predecessor_char
-      ) {
-        console.log('DEBUG: applying insertReplacementText hack...');
-        insert_composed_character(event.data, 'replace');
-        event.preventDefault();
-        return;
-      }
-    }
+    //   if (
+    //     predecessor_char &&
+    //     event.data &&
+    //     predecessor_base &&
+    //     new_char_base &&
+    //     // true when 'a' followed by 'ä'
+    //     predecessor_base === new_char_base &&
+    //     // Only apply if new character is a modified character (e.g. "ä") not an "a"
+    //     // otherwise you can't add an a after an a without the first one being replaced.
+    //     new_char_base !== event.data &&
+    //     // only replace if chars are not the same
+    //     event.data !== predecessor_char
+    //   ) {
+    //     console.log('DEBUG: applying insertReplacementText hack...');
+    //     // Set up temporary composition state for this replacement
+    //     composition_state = {
+    //       is_active: true,
+    //       start_offset: doc.selection.anchor_offset - 1,
+    //       composed_length: 1,
+    //       initial_selection: { ...doc.selection },
+    //     };
+    //     insert_composed_character(event.data);
+    //     // Reset composition state
+    //     composition_state = {
+    //       is_active: false,
+    //       start_offset: null,
+    //       composed_length: 0,
+    //       initial_selection: null,
+    //     };
+    //     event.preventDefault();
+    //     return;
+    //   }
+    // }
 
     // While composing, we do nothing and let the oncompositionend
     // event handle the insertion of the character.
@@ -357,7 +387,7 @@
 
 
     // Key handling while character composition takes place
-    if (is_composing) {
+    if (composition_state.is_active) {
       // Currently we do nothing, but we could handle keydown during character composition here.
       return;
     }
@@ -541,29 +571,53 @@
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
-    // console.log('DEBUG: oncompositionstart', event.data);
-    // If we are starting not from a real character, not a dead key
-    // NOTE: the dead key has event.data === ''
-    if (event.data !== '') {
-      is_composing = 'replace';
-    } else {
-      is_composing = 'deadkey';
+    console.log('DEBUG: oncompositionstart', event.data);
+
+    // Reset and initialize composition state
+    composition_state = {
+      is_active: true,
+      start_offset: doc.selection.anchor_offset,
+      composed_length: 0,
+      initial_selection: { ...doc.selection },
+    };
+
+    console.log('Composition started at offset:', composition_state.start_offset);
+  }
+
+  /**
+   * Handles composition update events - tracks changes during composition
+   * @param {CompositionEvent} event
+   */
+  function oncompositionupdate(event) {
+    if (!composition_state.is_active) return;
+
+    console.log('DEBUG: oncompositionupdate, data:', event.data);
+
+    // Update the composed length as composition progresses
+    if (event.data) {
+      composition_state.composed_length = get_char_length(event.data);
+      console.log('Composition updated, length now:', composition_state.composed_length);
     }
   }
 
-  function insert_composed_character(char, is_composing) {
-    // console.log('insert_composed_character', char, 'is_composing', is_composing);
+  function insert_composed_character(char) {
+    console.log('insert_composed_character', char, 'composition_state:', composition_state);
     if (doc.selection.type !== 'text') return;
+
     const tr = doc.tr;
-    if (is_composing === 'replace') {
+
+    // Set selection to the composition range
+    doc.selection.anchor_offset = composition_state.start_offset;
+    doc.selection.focus_offset = doc.selection.anchor_offset + composition_state.composed_length;
+
+    console.log('Using composition range:', composition_state.start_offset, 'to', doc.selection.focus_offset);
+
+    // Delete the composition range if there's content to replace
+    if (composition_state.composed_length > 0) {
       tr.delete_selection();
-    } else {
-      // NOTE: Because of in-progress composition (a character is in the DOM, but not
-      // in the model), anchor_offset and focus_offset are wrong, and need to be corrected
-      doc.selection.anchor_offset = doc.selection.anchor_offset - 1;
-      doc.selection.focus_offset = doc.selection.focus_offset - 1;
     }
-    // Now the previous character will be replaced instead of an additional character added.
+
+    // Insert the composed character
     tr.insert_text(char);
     doc.apply(tr);
   }
@@ -576,22 +630,28 @@
   function oncompositionend(event) {
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-    // console.log('DEBUG: oncompositionend, insert:', event.data, 'is_composing:', is_composing);
+    console.log('DEBUG: oncompositionend, insert:', event.data, 'composition_state:', JSON.stringify(composition_state));
     const inserted_char = event.data;
+
+    // Track the length of the composed result
+    if (inserted_char) {
+      composition_state.composed_length = get_char_length(inserted_char);
+      console.log('Composed length:', composition_state.composed_length);
+    }
 
     // Now insert the composed character (just like in onbeforeinput)
     // which will only run for non-compositioned events.
     event.preventDefault();
     event.stopPropagation();
-    insert_composed_character(inserted_char, is_composing);
+    insert_composed_character(inserted_char);
 
-    // This makes sure, that when the composed character was selected via
-    // keyboard (e.g. enter or a typing a number), that this keystroke is not
-    // registered as a new input or handled via onkeydown. So we stay in the is_composing
-    // state just for a little longer.
-    setTimeout(() => {
-      is_composing = undefined;
-    }, 20);
+    // Reset composition state
+    composition_state = {
+      is_active: false,
+      start_offset: null,
+      composed_length: 0,
+      initial_selection: null,
+    };
   }
 
   /**
@@ -1122,6 +1182,7 @@
     bind:this={canvas_ref}
     {onbeforeinput}
     {oncompositionstart}
+    {oncompositionupdate}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
     autocapitalize="off"
