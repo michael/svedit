@@ -21,8 +21,9 @@
   // Composition tracking state
   let composition_state = {
     is_active: false,           // Are we currently composing?
-    start_offset: null,         // Where composition started (cursor position)  
+    start_offset: null,         // Where composition started (cursor position)
     initial_selection: null,    // Store initial selection state
+    mode: null,                 // 'deadkey' or 'replace'
   };
 
   /** Expose function so parent can call it */
@@ -564,34 +565,43 @@
   function oncompositionstart(event) {
     console.log('DEBUG: oncompositionstart', event.data);
 
+    // Determine composition mode based on event.data
+    // Dead key has event.data === ''
+    const mode = event.data === '' ? 'deadkey' : 'replace';
+
     // Reset and initialize composition state
     composition_state = {
       is_active: true,
       start_offset: doc.selection.anchor_offset,
       initial_selection: { ...doc.selection },
+      mode: mode,
     };
 
-    console.log('Composition started at offset:', composition_state.start_offset);
+    console.log('Composition started at offset:', composition_state.start_offset, 'mode:', mode);
   }
 
 
 
-  function insert_composed_character(char) {
-    console.log('insert_composed_character', char, 'composition_state:', composition_state);
+  function insert_composed_text(text) {
+    console.log('insert_composed_text', text, 'composition_state:', composition_state);
     if (doc.selection.type !== 'text') return;
 
     const tr = doc.tr;
-    
-    // For character replacement cases, we need to select the range to replace
-    if (composition_state.start_offset < doc.selection.anchor_offset) {
-      // Set selection to replace from start_offset to current position
-      doc.selection.anchor_offset = composition_state.start_offset;
-      // focus_offset is already at current position
+
+    // Handle different composition modes
+    if (composition_state.mode === 'replace') {
+      // Long-press case: replace the original character with composed text
+      tr.doc.selection.anchor_offset = composition_state.start_offset;
+      tr.doc.selection.focus_offset = doc.selection.focus_offset;
       tr.delete_selection();
+    } else {
+      // Dead key case: just set cursor to start position
+      tr.doc.selection.anchor_offset = composition_state.start_offset;
+      tr.doc.selection.focus_offset = composition_state.start_offset;
     }
 
-    // Insert the composed character
-    tr.insert_text(char);
+    // Insert the composed text
+    tr.insert_text(text);
     doc.apply(tr);
   }
 
@@ -609,13 +619,14 @@
     // Now insert the composed character
     event.preventDefault();
     event.stopPropagation();
-    insert_composed_character(inserted_char);
+    insert_composed_text(inserted_char);
 
     // Reset composition state
     composition_state = {
       is_active: false,
       start_offset: null,
       initial_selection: null,
+      mode: null,
     };
   }
 
