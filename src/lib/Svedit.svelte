@@ -21,8 +21,7 @@
   // Composition tracking state
   let composition_state = {
     is_active: false,           // Are we currently composing?
-    start_offset: null,         // Where composition started (cursor position)
-    composed_length: 0,         // How many characters are currently composed
+    start_offset: null,         // Where composition started (cursor position)  
     initial_selection: null,    // Store initial selection state
   };
 
@@ -57,8 +56,7 @@
       // Set up temporary composition state for this replacement
       composition_state = {
         is_active: true,
-        start_offset: doc.selection.anchor_offset,
-        composed_length: 0,
+        start_offset: doc.selection.anchor_offset - 1,
         initial_selection: { ...doc.selection },
       };
       insert_composed_character(composed_char);
@@ -66,7 +64,6 @@
       composition_state = {
         is_active: false,
         start_offset: null,
-        composed_length: 0,
         initial_selection: null,
       };
       event.preventDefault();
@@ -76,9 +73,8 @@
     // HACK: Checks for the same as above but for browsers (like Chrome)
     // that don't support insertReplacementText.
     // Can be removed once all browsers implement https://www.w3.org/TR/input-events-2/
-    // so we can capture `event.inputType === 'insertReplacementText'`
+    // TODO: Deal with a→ä replacement separately
     // if (
-    //   event.data &&
     //   !event.isComposing &&
     //   doc.selection.type === 'text' &&
     //   doc.selection.anchor_offset === doc.selection.focus_offset
@@ -87,9 +83,8 @@
     //   const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
     //   const segments = [...segmenter.segment(text)];
     //   const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
-
+    //
     //   function get_base_char(char) {
-    //     if (!char) return undefined;
     //     const normalized = char.normalize('NFD');
     //     // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
     //     if (normalized.length <= 2 && normalized !== char) {
@@ -97,13 +92,11 @@
     //     }
     //     return undefined;
     //   }
-
+    //
     //   const predecessor_base = get_base_char(predecessor_char);
     //   const new_char_base = get_base_char(event.data);
-
+    //
     //   if (
-    //     predecessor_char &&
-    //     event.data &&
     //     predecessor_base &&
     //     new_char_base &&
     //     // true when 'a' followed by 'ä'
@@ -119,7 +112,6 @@
     //     composition_state = {
     //       is_active: true,
     //       start_offset: doc.selection.anchor_offset - 1,
-    //       composed_length: 1,
     //       initial_selection: { ...doc.selection },
     //     };
     //     insert_composed_character(event.data);
@@ -127,7 +119,6 @@
     //     composition_state = {
     //       is_active: false,
     //       start_offset: null,
-    //       composed_length: 0,
     //       initial_selection: null,
     //     };
     //     event.preventDefault();
@@ -577,43 +568,25 @@
     composition_state = {
       is_active: true,
       start_offset: doc.selection.anchor_offset,
-      composed_length: 0,
       initial_selection: { ...doc.selection },
     };
 
     console.log('Composition started at offset:', composition_state.start_offset);
   }
 
-  /**
-   * Handles composition update events - tracks changes during composition
-   * @param {CompositionEvent} event
-   */
-  function oncompositionupdate(event) {
-    if (!composition_state.is_active) return;
 
-    console.log('DEBUG: oncompositionupdate, data:', event.data);
-
-    // Update the composed length as composition progresses
-    if (event.data) {
-      composition_state.composed_length = get_char_length(event.data);
-      console.log('Composition updated, length now:', composition_state.composed_length);
-    }
-  }
 
   function insert_composed_character(char) {
     console.log('insert_composed_character', char, 'composition_state:', composition_state);
     if (doc.selection.type !== 'text') return;
 
     const tr = doc.tr;
-
-    // Set selection to the composition range
-    doc.selection.anchor_offset = composition_state.start_offset;
-    doc.selection.focus_offset = doc.selection.anchor_offset + composition_state.composed_length;
-
-    console.log('Using composition range:', composition_state.start_offset, 'to', doc.selection.focus_offset);
-
-    // Delete the composition range if there's content to replace
-    if (composition_state.composed_length > 0) {
+    
+    // For character replacement cases, we need to select the range to replace
+    if (composition_state.start_offset < doc.selection.anchor_offset) {
+      // Set selection to replace from start_offset to current position
+      doc.selection.anchor_offset = composition_state.start_offset;
+      // focus_offset is already at current position
       tr.delete_selection();
     }
 
@@ -633,14 +606,7 @@
     console.log('DEBUG: oncompositionend, insert:', event.data, 'composition_state:', JSON.stringify(composition_state));
     const inserted_char = event.data;
 
-    // Track the length of the composed result
-    if (inserted_char) {
-      composition_state.composed_length = get_char_length(inserted_char);
-      console.log('Composed length:', composition_state.composed_length);
-    }
-
-    // Now insert the composed character (just like in onbeforeinput)
-    // which will only run for non-compositioned events.
+    // Now insert the composed character
     event.preventDefault();
     event.stopPropagation();
     insert_composed_character(inserted_char);
@@ -649,7 +615,6 @@
     composition_state = {
       is_active: false,
       start_offset: null,
-      composed_length: 0,
       initial_selection: null,
     };
   }
@@ -1182,7 +1147,6 @@
     bind:this={canvas_ref}
     {onbeforeinput}
     {oncompositionstart}
-    {oncompositionupdate}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
     autocapitalize="off"
