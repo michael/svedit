@@ -18,8 +18,10 @@
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
 
+
   // Composition tracking state
   let composing = undefined;    // undefined or { start_offset, mode }
+  let skip_onkeydown = false;
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -49,6 +51,7 @@
     // On Safari, if you use long-press + click to select a replacement character
     // insertReplacementText is fired, instead of insertText.
     if (event.inputType === 'insertReplacementText') {
+      console.log('insertReplacementText fired');
       const composed_char = event.dataTransfer.getData('text/plain');
       // Set up temporary composition state for this replacement
       composing = {
@@ -363,9 +366,9 @@
     // Only handle keyboard events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-
-    // Key handling while character composition takes place
-    if (composing) {
+    // Key handling temporarily disabled (e.g. while character composition takes place)
+    if (composing || skip_onkeydown) {
+      console.log('onkeydown skipped');
       // Currently we do nothing, but we could handle keydown during character composition here.
       return;
     }
@@ -573,6 +576,7 @@
 
     const tr = doc.tr;
 
+
     // Handle different composition modes
     if (composing.mode === 'replace') {
       // Long-press case: replace the original character with composed text
@@ -605,13 +609,17 @@
     event.preventDefault();
     event.stopPropagation();
     insert_composed_text(inserted_char);
+    composing = undefined;
 
     // This makes sure, that when the composed character was selected via
     // keyboard (e.g. enter or a typing a number), that this keystroke is not
-    // registered as a new input or handled via onkeydown. So we stay in the composing
-    // state just for a little longer.
+    // registered as a new input or handled via onkeydown
+    // NOTE: We can not combine skip_onkeydown and composing (as we had it) because there
+    // are situations where a compositionstart is fired right after compositionend (e.g. at
+    // complete character boundaries when inputting korean)
+    skip_onkeydown = true;
     setTimeout(() => {
-      composing = undefined;
+      skip_onkeydown = false;
     }, 20);
   }
 
