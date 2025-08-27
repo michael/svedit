@@ -606,8 +606,13 @@
     event.stopPropagation();
     insert_composed_text(inserted_char);
 
-    // Reset composition state
-    composing = undefined;
+    // This makes sure, that when the composed character was selected via
+    // keyboard (e.g. enter or a typing a number), that this keystroke is not
+    // registered as a new input or handled via onkeydown. So we stay in the composing
+    // state just for a little longer.
+    setTimeout(() => {
+      composing = undefined;
+    }, 20);
   }
 
   /**
