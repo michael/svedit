@@ -40,7 +40,7 @@
    */
   function onbeforeinput(event) {
     if (doc.selection.type !== 'text') return;
-    // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+    console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
     // For deleteByComposition we let Safari do it's thing (removing the old character from the DOM);
     if (event.isComposing && event.inputType === 'deleteByComposition') {
@@ -51,14 +51,14 @@
     // On Safari, if you use long-press + click to select a replacement character
     // insertReplacementText is fired, instead of insertText.
     if (event.inputType === 'insertReplacementText') {
-      console.log('insertReplacementText fired');
-      const composed_char = event.dataTransfer.getData('text/plain');
+      const replacement_text = event.dataTransfer.getData('text/plain');
+      console.log('insertReplacementText fired', replacement_text, event.getTargetRanges());
       // Set up temporary composition state for this replacement
       composing = {
         start_offset: doc.selection.anchor_offset - 1,
         mode: 'replace',
       };
-      insert_composed_text(composed_char);
+      insert_composed_text(replacement_text);
       // Reset composition state
       composing = undefined;
       event.preventDefault();
