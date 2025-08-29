@@ -67,35 +67,37 @@
 	}
 </script>
 
-<!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
-<div
- 	data-type="text"
- 	data-path={path.join('.')}
- 	style="anchor-name: --{path.join('-')};"
- 	class="text svedit-selectable {css_class}"
- 	class:empty={get_char_length(plain_text) === 0}
-  class:focused={is_focused}
-  placeholder={placeholder}
->
-  {#each fragments as fragment, index (index)}
-		{#if typeof fragment === 'string'}<!--
-      -->{fragment}<!--
-    -->{:else if fragment.type === 'emphasis'}<!--
-      --><em>{fragment.content}</em><!--
-    -->{:else if fragment.type === 'strong'}<!--
-      --><strong>{fragment.content}</strong><!--
-    -->{:else if fragment.type === 'link'}<!--
-      --><a
-				onclick={handle_link_click}
-				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
-				href={fragment.data.href}
-				target={fragment.data.target || '_self'}>{fragment.content}</a><!--
-    -->{:else}<!--
-      -->{fragment.content}<!--
-    -->{/if}
-	{/each}<!--
-  --><br>
-</div>
+{#key plain_text}
+  <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
+  <div
+   	data-type="text"
+   	data-path={path.join('.')}
+   	style="anchor-name: --{path.join('-')};"
+   	class="text svedit-selectable {css_class}"
+   	class:empty={get_char_length(plain_text) === 0}
+    class:focused={is_focused}
+    placeholder={placeholder}
+  >
+    {#each fragments as fragment, index (index)}
+  		{#if typeof fragment === 'string'}<!--
+        -->{fragment}<!--
+      -->{:else if fragment.type === 'emphasis'}<!--
+        --><em>{fragment.content}</em><!--
+      -->{:else if fragment.type === 'strong'}<!--
+        --><strong>{fragment.content}</strong><!--
+      -->{:else if fragment.type === 'link'}<!--
+        --><a
+  				onclick={handle_link_click}
+  				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
+  				href={fragment.data.href}
+  				target={fragment.data.target || '_self'}>{fragment.content}</a><!--
+      -->{:else}<!--
+        -->{fragment.content}<!--
+      -->{/if}
+  	{/each}<!--
+    --><br>
+  </div>
+{/key}
 
 <style>
   .text {
