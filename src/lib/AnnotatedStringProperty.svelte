@@ -58,6 +58,14 @@
 
 	let fragments = $derived(render_annotated_string(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
 	let plain_text = $derived(svedit.doc.get(path)[0]);
+	let text_length = $derived(get_char_length(plain_text));
+
+	// Create a key that forces re-render in problematic edge cases
+	let render_key = $derived.by(() => {
+		const text_length = get_char_length(plain_text);
+		// Force re-render when transitioning from empty to non-empty or vice versa
+		return `${text_length === 0 ? 'empty' : 'nonempty'}`;
+	});
 
 	/**
 	 * @param {MouseEvent} e - The click event
@@ -67,14 +75,14 @@
 	}
 </script>
 
-{#key plain_text}
+{#key render_key}
   <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
   <div
    	data-type="text"
    	data-path={path.join('.')}
    	style="anchor-name: --{path.join('-')};"
    	class="text svedit-selectable {css_class}"
-   	class:empty={get_char_length(plain_text) === 0}
+   	class:empty={text_length === 0}
     class:focused={is_focused}
     placeholder={placeholder}
   >

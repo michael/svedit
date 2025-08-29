@@ -1,5 +1,5 @@
 <script>
-  import { setContext } from 'svelte';
+  import { setContext, tick } from 'svelte';
   import { snake_to_pascal, get_char_length, char_slice, get_char_at, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
@@ -28,6 +28,8 @@
       return editable;
     }
   });
+
+  let skip_onkeydown = false;
 
   function diff_text(old_text, new_text) {
     const old_length = get_char_length(old_text);
@@ -70,6 +72,16 @@
     // console.log('mdl_text:', model_text);
     // console.log('dom_text:', dom_text);
     // console.log('op', op);
+
+    // NOTE: We are currently in an out-of-sync DOM state, right after
+    // contenteditable applied the input. But we can use this state
+    // to determine the ideal intended selection after the operation.
+    // Because our diffing may miss some context. E.g. when you replace "mchael"
+    // to "Michael" it will replace "m" with "Mi" and put the cursor after the "i",
+    // but
+    const before_selection = __get_text_selection_from_dom();
+
+    // Now we are applying the change to the document
     const tr = doc.tr;
     tr.set_selection({
       type: 'text',
@@ -78,7 +90,13 @@
       focus_offset: op.end_offset,
     });
     tr.insert_text(op.replacement_text);
+    tr.set_selection(before_selection);
     doc.apply(tr);
+
+    console.log('applied op', op);
+
+    // After each commit we are running keydown handlers again.
+    skip_onkeydown = false;
   }
 
   function oninput(event) {
@@ -95,12 +113,22 @@
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
+    console.log('onbeforeinput', event, event.type, event.isComposing);
     // Do not accepts inputs outside of a text selection
     if (doc.selection?.type !== 'text') {
       event.preventDefault();
       event.stopPropagation();
       return;
     }
+    // skip_onkeydown = true;
+  }
+
+  function oncompositionstart(event) {
+    console.log('oncompositionstart', event.data);
+    // We disable our custom keydown handlers during composition.
+    // E.g. ENTER (break_text_node) is not run during composition when you
+    // select and confirm a diacritic (like ã) for instance.
+    skip_onkeydown = true;
   }
 
   /**
@@ -108,6 +136,7 @@
    * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
    */
   function oncompositionend() {
+    skip_onkeydown = false;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
       commit_input();
     }
@@ -325,7 +354,7 @@
     render_selection();
   }
 
-  function onkeydown(e) {
+  async function onkeydown(e) {
     // Turn editable on
     if (e.key === 'e' && (e.ctrlKey || e.metaKey)) {
       editable = true;
@@ -340,6 +369,12 @@
       e.stopPropagation();
       return;
     }
+
+    // Custom onkeydown handling is temporarily disabled (e.g. while character composition takes place)
+    if (skip_onkeydown) {
+      return;
+    }
+
 
     // Only handle keyboard events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
@@ -506,10 +541,14 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'text') {
-      const tr = doc.tr;
-      if (break_text_node(tr)) {
-        doc.apply(tr);
-      }
+
+      setTimeout(() => {
+        const tr = doc.tr;
+        if (break_text_node(tr)) {
+          doc.apply(tr);
+        }
+      }, 50);
+
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
@@ -1048,9 +1087,9 @@
     bind:this={canvas_ref}
     {oninput}
     {onbeforeinput}
+    {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
-    autocapitalize="off"
   >
     <RootComponent {path} />
   </div>
