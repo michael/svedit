@@ -1,6 +1,6 @@
 <script>
   import { setContext } from 'svelte';
-  import { snake_to_pascal, get_char_length, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
+  import { snake_to_pascal, get_char_length, char_slice, get_char_at, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
@@ -29,42 +29,34 @@
     }
   });
 
-  function split_graphemes(str) {
-    if (typeof Intl !== "undefined" && Intl.Segmenter) {
-      const seg = new Intl.Segmenter("en", { granularity: "grapheme" });
-      return Array.from(seg.segment(str), s => s.segment);
-    }
-    return Array.from(str);
-  }
-
-  function diff_text(oldText, newText) {
-    const oldClusters = split_graphemes(oldText);
-    const newClusters = split_graphemes(newText);
+  function diff_text(old_text, new_text) {
+    const old_length = get_char_length(old_text);
+    const new_length = get_char_length(new_text);
 
     let start = 0;
     while (
-      start < oldClusters.length &&
-      start < newClusters.length &&
-      oldClusters[start] === newClusters[start]
+      start < old_length &&
+      start < new_length &&
+      get_char_at(old_text, start) === get_char_at(new_text, start)
     ) {
       start++;
     }
 
-    let oldEnd = oldClusters.length;
-    let newEnd = newClusters.length;
+    let old_end = old_length;
+    let new_end = new_length;
     while (
-      oldEnd > start &&
-      newEnd > start &&
-      oldClusters[oldEnd - 1] === newClusters[newEnd - 1]
+      old_end > start &&
+      new_end > start &&
+      get_char_at(old_text, old_end - 1) === get_char_at(new_text, new_end - 1)
     ) {
-      oldEnd--;
-      newEnd--;
+      old_end--;
+      new_end--;
     }
 
     return {
       start_offset: start,
-      end_offset: oldEnd,
-      replacement_text: newClusters.slice(start, newEnd).join("")
+      end_offset: old_end,
+      replacement_text: char_slice(new_text, start, new_end)
     };
   }
 
