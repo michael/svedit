@@ -1,5 +1,5 @@
 <script>
-  import { setContext, tick } from 'svelte';
+  import { setContext } from 'svelte';
   import { snake_to_pascal, get_char_length, char_slice, get_char_at, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
@@ -1090,6 +1090,12 @@
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
+    spellcheck="true"
+    autocapitalize="off"
+    {...{
+      // autocomplete: "off",
+      // autocorrect: "off"
+    }}
   >
     <RootComponent {path} />
   </div>
