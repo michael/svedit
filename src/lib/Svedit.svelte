@@ -1,6 +1,6 @@
 <script>
   import { setContext } from 'svelte';
-  import { snake_to_pascal, get_char_length, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
+  import { snake_to_pascal, get_char_length, char_slice, get_char_at, utf16_to_char_offset, char_to_utf16_offset } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
@@ -17,13 +17,6 @@
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
-  /**
-   * Defines character composition state: undefined when not composing,
-   * 'deadkey' when deadkey was pressed, 'replace' when replacement character is selected
-   * @type {undefined | 'deadkey' | 'replace'}
-   */
-  let is_composing = undefined;
-
   /** Expose function so parent can call it */
   export { focus_canvas };
 
@@ -36,90 +29,117 @@
     }
   });
 
+  let skip_onkeydown = false;
+
+  function diff_text(old_text, new_text) {
+    const old_length = get_char_length(old_text);
+    const new_length = get_char_length(new_text);
+
+    let start = 0;
+    while (
+      start < old_length &&
+      start < new_length &&
+      get_char_at(old_text, start) === get_char_at(new_text, start)
+    ) {
+      start++;
+    }
+
+    let old_end = old_length;
+    let new_end = new_length;
+    while (
+      old_end > start &&
+      new_end > start &&
+      get_char_at(old_text, old_end - 1) === get_char_at(new_text, new_end - 1)
+    ) {
+      old_end--;
+      new_end--;
+    }
+
+    return {
+      start_offset: start,
+      end_offset: old_end,
+      replacement_text: char_slice(new_text, start, new_end)
+    };
+  }
+
+  function commit_input() {
+    if (doc.selection?.type !== 'text') return;
+    const model_text = doc.get(doc.selection.path)[0];
+    const dom_text_element = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
+    const dom_text = dom_text_element.textContent;
+    const op = diff_text(model_text, dom_text);
+    // console.log('======== COMMIT INPUT ========')
+    // console.log('mdl_text:', model_text);
+    // console.log('dom_text:', dom_text);
+    // console.log('op', op);
+
+    // NOTE: We are currently in an out-of-sync DOM state, right after
+    // contenteditable applied the input. But we can use this state
+    // to determine the ideal intended selection after the operation.
+    // Because our diffing may miss some context. E.g. when you replace "mchael"
+    // to "Michael" it will replace "m" with "Mi" and put the cursor after the "i",
+    // but
+    const before_selection = __get_text_selection_from_dom();
+
+    // Now we are applying the change to the document
+    const tr = doc.tr;
+    tr.set_selection({
+      type: 'text',
+      path: [...doc.selection.path],
+      anchor_offset: op.start_offset,
+      focus_offset: op.end_offset,
+    });
+    tr.insert_text(op.replacement_text);
+    tr.set_selection(before_selection);
+    doc.apply(tr);
+
+    console.log('applied op', op);
+
+    // After each commit we are running keydown handlers again.
+    skip_onkeydown = false;
+  }
+
+  function oninput(event) {
+    if (
+      canvas_ref?.contains(document.activeElement) &&
+      doc.selection?.type === 'text' &&
+      !event.isComposing
+    ) {
+      commit_input();
+    }
+  }
+
   /**
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
-    // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
-
-    // For deleteByComposition we let Safari do it's thing (removing the old character from the DOM);
-    if (event.isComposing && event.inputType === 'deleteByComposition') {
-      // IMPORTANT: No preventDefault here!
-      return;
-    }
-
-    // On Safari, if you use long-press + click to select a replacement character
-    // insertReplacementText is fired, instead of insertText.
-    if (event.inputType === 'insertReplacementText') {
-      const composed_char = event.dataTransfer.getData('text/plain');
-      insert_composed_character(composed_char, 'replace');
+    console.log('onbeforeinput', event, event.type, event.isComposing);
+    // Do not accepts inputs outside of a text selection
+    if (doc.selection?.type !== 'text') {
       event.preventDefault();
+      event.stopPropagation();
       return;
     }
+    // skip_onkeydown = true;
+  }
 
-    // HACK: Checks for the same as above but for browsers (like Chrome)
-    // that don't support insertReplacementText.
-    // Can be removed once all browsers implement https://www.w3.org/TR/input-events-2/
-    // so we can capture `event.inputType === 'insertReplacementText'`
-    if (
-      event.data &&
-      !event.isComposing &&
-      doc.selection.type === 'text' &&
-      doc.selection.anchor_offset === doc.selection.focus_offset
-    ) {
-      const text = doc.get(doc.selection.path)[0];
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      const segments = [...segmenter.segment(text)];
-      const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
+  function oncompositionstart(event) {
+    console.log('oncompositionstart', event.data);
+    // We disable our custom keydown handlers during composition.
+    // E.g. ENTER (break_text_node) is not run during composition when you
+    // select and confirm a diacritic (like ã) for instance.
+    skip_onkeydown = true;
+  }
 
-      function get_base_char(char) {
-        if (!char) return undefined;
-        const normalized = char.normalize('NFD');
-        // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-        if (normalized.length <= 2 && normalized !== char) {
-          return normalized[0];
-        }
-        return undefined;
-      }
-
-      const predecessor_base = get_base_char(predecessor_char);
-      const new_char_base = get_base_char(event.data);
-
-      if (
-        predecessor_char &&
-        event.data &&
-        predecessor_base &&
-        new_char_base &&
-        // true when 'a' followed by 'ä'
-        predecessor_base === new_char_base &&
-        // Only apply if new character is a modified character (e.g. "ä") not an "a"
-        // otherwise you can't add an a after an a without the first one being replaced.
-        new_char_base !== event.data &&
-        // only replace if chars are not the same
-        event.data !== predecessor_char
-      ) {
-        console.log('DEBUG: applying insertReplacementText hack...');
-        insert_composed_character(event.data, 'replace');
-        event.preventDefault();
-        return;
-      }
+  /**
+   * Handles composition end events for input methods like dead keys
+   * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
+   */
+  function oncompositionend() {
+    skip_onkeydown = false;
+    if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
+      commit_input();
     }
-
-    // While composing, we do nothing and let the oncompositionend
-    // event handle the insertion of the character.
-    if (event.isComposing) {
-      event.preventDefault();
-      return;
-    }
-
-    // Insert the character, unless there is none.
-    const inserted_char = event.data;
-    if (inserted_char) {
-      const tr = doc.tr;
-      tr.insert_text(inserted_char);
-      doc.apply(tr);
-    }
-    event.preventDefault();
   }
 
   // Map DOM selection to internal model
@@ -136,7 +156,6 @@
       doc.selection = selection;
     }
   }
-
 
   /**
    * @param {NodeId[]} selected_node_ids
@@ -159,7 +178,6 @@
     // Keep original IDs - we'll generate new ones during paste
     return { nodes, main_nodes: selected_node_ids };
   }
-
 
   /**
    * @param {ClipboardEvent} event
@@ -336,7 +354,7 @@
     render_selection();
   }
 
-  function onkeydown(e) {
+  async function onkeydown(e) {
     // Turn editable on
     if (e.key === 'e' && (e.ctrlKey || e.metaKey)) {
       editable = true;
@@ -352,15 +370,14 @@
       return;
     }
 
-    // Only handle keyboard events if focus is within the canvas
-    if (!canvas_ref?.contains(document.activeElement)) return;
-
-
-    // Key handling while character composition takes place
-    if (is_composing) {
-      // Currently we do nothing, but we could handle keydown during character composition here.
+    // Custom onkeydown handling is temporarily disabled (e.g. while character composition takes place)
+    if (skip_onkeydown) {
       return;
     }
+
+
+    // Only handle keyboard events if focus is within the canvas
+    if (!canvas_ref?.contains(document.activeElement)) return;
 
     const selection = /** @type {any} */ (doc.selection);
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
@@ -524,10 +541,16 @@
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'text') {
-      const tr = doc.tr;
-      if (break_text_node(tr)) {
-        doc.apply(tr);
-      }
+
+      setTimeout(() => {
+        const tr = doc.tr;
+        if (break_text_node(tr)) {
+          doc.apply(tr);
+        }
+      }, 50);
+
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'Escape' && selection) {
       doc.select_parent();
       e.preventDefault();
@@ -535,64 +558,6 @@
     }
   }
 
-  /**
-   * Handles composition start events for input methods like dead keys
-   * This occurs when user starts typing a composed character (e.g., backtick for accents)
-   * @param {CompositionEvent} event
-   */
-  function oncompositionstart(event) {
-    // console.log('DEBUG: oncompositionstart', event.data);
-    // If we are starting not from a real character, not a dead key
-    // NOTE: the dead key has event.data === ''
-    if (event.data !== '') {
-      is_composing = 'replace';
-    } else {
-      is_composing = 'deadkey';
-    }
-  }
-
-  function insert_composed_character(char, is_composing) {
-    // console.log('insert_composed_character', char, 'is_composing', is_composing);
-    if (doc.selection.type !== 'text') return;
-    const tr = doc.tr;
-    if (is_composing === 'replace') {
-      tr.delete_selection();
-    } else {
-      // NOTE: Because of in-progress composition (a character is in the DOM, but not
-      // in the model), anchor_offset and focus_offset are wrong, and need to be corrected
-      doc.selection.anchor_offset = doc.selection.anchor_offset - 1;
-      doc.selection.focus_offset = doc.selection.focus_offset - 1;
-    }
-    // Now the previous character will be replaced instead of an additional character added.
-    tr.insert_text(char);
-    doc.apply(tr);
-  }
-
-  /**
-   * Handles composition end events for input methods like dead keys
-   * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
-   * @param {CompositionEvent} event
-   */
-  function oncompositionend(event) {
-    if (!canvas_ref?.contains(document.activeElement)) return;
-
-    // console.log('DEBUG: oncompositionend, insert:', event.data, 'is_composing:', is_composing);
-    const inserted_char = event.data;
-
-    // Now insert the composed character (just like in onbeforeinput)
-    // which will only run for non-compositioned events.
-    event.preventDefault();
-    event.stopPropagation();
-    insert_composed_character(inserted_char, is_composing);
-
-    // This makes sure, that when the composed character was selected via
-    // keyboard (e.g. enter or a typing a number), that this keystroke is not
-    // registered as a new input or handled via onkeydown. So we stay in the is_composing
-    // state just for a little longer.
-    setTimeout(() => {
-      is_composing = undefined;
-    }, 20);
-  }
 
   /**
    * Extracts a NodeSelection from the current DOM selection.
@@ -1120,11 +1085,17 @@
     class="svedit-canvas {css_class}"
     class:hide-selection={doc.selection?.type === 'node'}
     bind:this={canvas_ref}
+    {oninput}
     {onbeforeinput}
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
+    spellcheck="true"
     autocapitalize="off"
+    {...{
+      // autocomplete: "off",
+      // autocorrect: "off"
+    }}
   >
     <RootComponent {path} />
   </div>

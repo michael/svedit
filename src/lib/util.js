@@ -22,6 +22,27 @@ export function get_char_length(str) {
 }
 
 /**
+ * Get a single character at the specified position (accounting for multi-byte characters)
+ *
+ * Uses Intl.Segmenter to access grapheme clusters rather than UTF-16 code units,
+ * ensuring emojis and other complex Unicode sequences are treated as single characters.
+ *
+ * @param {string} str - The string to access
+ * @param {number} index - Character position (0-based)
+ * @returns {string} The character at the specified position, or empty string if index is out of bounds
+ *
+ * @example
+ * get_char_at('Hello', 1) // Returns: 'e'
+ * get_char_at('a😀b', 1) // Returns: '😀' (full emoji)
+ * get_char_at('👋🏽', 0) // Returns: '👋🏽' (skin tone modifier included)
+ */
+export function get_char_at(str, index) {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  const segments = [...segmenter.segment(str)];
+  return segments[index].segment;
+}
+
+/**
  * Slice string by character positions (accounting for multi-byte characters)
  *
  * Uses Intl.Segmenter to slice by grapheme clusters rather than UTF-16 code units,
