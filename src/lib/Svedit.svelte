@@ -17,12 +17,11 @@
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
-  /**
-   * Defines character composition state: undefined when not composing,
-   * 'deadkey' when deadkey was pressed, 'replace' when replacement character is selected
-   * @type {undefined | 'deadkey' | 'replace'}
-   */
-  let is_composing = undefined;
+
+
+  // Composition tracking state
+  let composing = undefined;    // undefined or { start_offset, mode }
+  let skip_onkeydown = false;
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -40,7 +39,8 @@
    * @param {InputEvent} event
    */
   function onbeforeinput(event) {
-    // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+    if (doc.selection.type !== 'text') return;
+    console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
     // For deleteByComposition we let Safari do it's thing (removing the old character from the DOM);
     if (event.isComposing && event.inputType === 'deleteByComposition') {
@@ -51,8 +51,16 @@
     // On Safari, if you use long-press + click to select a replacement character
     // insertReplacementText is fired, instead of insertText.
     if (event.inputType === 'insertReplacementText') {
-      const composed_char = event.dataTransfer.getData('text/plain');
-      insert_composed_character(composed_char, 'replace');
+      const replacement_text = event.dataTransfer.getData('text/plain');
+      console.log('insertReplacementText fired', replacement_text, event.getTargetRanges());
+      // Set up temporary composition state for this replacement
+      composing = {
+        start_offset: doc.selection.anchor_offset - 1,
+        mode: 'replace',
+      };
+      insert_composed_text(replacement_text);
+      // Reset composition state
+      composing = undefined;
       event.preventDefault();
       return;
     }
@@ -60,54 +68,57 @@
     // HACK: Checks for the same as above but for browsers (like Chrome)
     // that don't support insertReplacementText.
     // Can be removed once all browsers implement https://www.w3.org/TR/input-events-2/
-    // so we can capture `event.inputType === 'insertReplacementText'`
-    if (
-      event.data &&
-      !event.isComposing &&
-      doc.selection.type === 'text' &&
-      doc.selection.anchor_offset === doc.selection.focus_offset
-    ) {
-      const text = doc.get(doc.selection.path)[0];
-      const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-      const segments = [...segmenter.segment(text)];
-      const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
-
-      function get_base_char(char) {
-        if (!char) return undefined;
-        const normalized = char.normalize('NFD');
-        // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-        if (normalized.length <= 2 && normalized !== char) {
-          return normalized[0];
-        }
-        return undefined;
-      }
-
-      const predecessor_base = get_base_char(predecessor_char);
-      const new_char_base = get_base_char(event.data);
-
-      if (
-        predecessor_char &&
-        event.data &&
-        predecessor_base &&
-        new_char_base &&
-        // true when 'a' followed by 'ä'
-        predecessor_base === new_char_base &&
-        // Only apply if new character is a modified character (e.g. "ä") not an "a"
-        // otherwise you can't add an a after an a without the first one being replaced.
-        new_char_base !== event.data &&
-        // only replace if chars are not the same
-        event.data !== predecessor_char
-      ) {
-        console.log('DEBUG: applying insertReplacementText hack...');
-        insert_composed_character(event.data, 'replace');
-        event.preventDefault();
-        return;
-      }
-    }
+    // TODO: Deal with a→ä replacement separately
+    // if (
+    //   !event.isComposing &&
+    //   doc.selection.type === 'text' &&
+    //   doc.selection.anchor_offset === doc.selection.focus_offset
+    // ) {
+    //   const text = doc.get(doc.selection.path)[0];
+    //   const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    //   const segments = [...segmenter.segment(text)];
+    //   const predecessor_char = segments?.[doc.selection.anchor_offset - 1]?.segment;
+    //
+    //   function get_base_char(char) {
+    //     const normalized = char.normalize('NFD');
+    //     // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+    //     if (normalized.length <= 2 && normalized !== char) {
+    //       return normalized[0];
+    //     }
+    //     return undefined;
+    //   }
+    //
+    //   const predecessor_base = get_base_char(predecessor_char);
+    //   const new_char_base = get_base_char(event.data);
+    //
+    //   if (
+    //     predecessor_base &&
+    //     new_char_base &&
+    //     // true when 'a' followed by 'ä'
+    //     predecessor_base === new_char_base &&
+    //     // Only apply if new character is a modified character (e.g. "ä") not an "a"
+    //     // otherwise you can't add an a after an a without the first one being replaced.
+    //     new_char_base !== event.data &&
+    //     // only replace if chars are not the same
+    //     event.data !== predecessor_char
+    //   ) {
+    //     console.log('DEBUG: applying insertReplacementText hack...');
+    //     // Set up temporary composition state for this replacement
+    //     composing = {
+    //       start_offset: doc.selection.anchor_offset - 1,
+    //       mode: 'replace',
+    //     };
+    //     insert_composed_text(event.data);
+    //     // Reset composition state
+    //     composing = undefined;
+    //     event.preventDefault();
+    //     return;
+    //   }
+    // }
 
     // While composing, we do nothing and let the oncompositionend
     // event handle the insertion of the character.
-    if (event.isComposing) {
+    if (event.isComposing || composing) {
       event.preventDefault();
       return;
     }
@@ -355,9 +366,9 @@
     // Only handle keyboard events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-
-    // Key handling while character composition takes place
-    if (is_composing) {
+    // Key handling temporarily disabled (e.g. while character composition takes place)
+    if (composing || skip_onkeydown) {
+      console.log('onkeydown skipped');
       // Currently we do nothing, but we could handle keydown during character composition here.
       return;
     }
@@ -541,30 +552,45 @@
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
-    // console.log('DEBUG: oncompositionstart', event.data);
-    // If we are starting not from a real character, not a dead key
-    // NOTE: the dead key has event.data === ''
-    if (event.data !== '') {
-      is_composing = 'replace';
-    } else {
-      is_composing = 'deadkey';
-    }
+    if (doc.selection.type !== 'text') return;
+    console.log('DEBUG: oncompositionstart', event.data);
+
+    // Determine composition mode based on event.data
+    // Dead key has event.data === ''
+    const mode = event.data === '' ? 'deadkey' : 'replace';
+
+    // Initialize composition state
+    composing = {
+      start_offset: doc.selection.anchor_offset,
+      mode: mode,
+    };
+
+    console.log('Composition started at offset:', composing.start_offset, 'mode:', mode);
   }
 
-  function insert_composed_character(char, is_composing) {
-    // console.log('insert_composed_character', char, 'is_composing', is_composing);
+
+
+  function insert_composed_text(text) {
+    console.log('insert_composed_text', text, 'composing:', composing);
     if (doc.selection.type !== 'text') return;
+
     const tr = doc.tr;
-    if (is_composing === 'replace') {
+
+
+    // Handle different composition modes
+    if (composing.mode === 'replace') {
+      // Long-press case: replace the original character with composed text
+      tr.doc.selection.anchor_offset = composing.start_offset;
+      tr.doc.selection.focus_offset = doc.selection.focus_offset;
       tr.delete_selection();
     } else {
-      // NOTE: Because of in-progress composition (a character is in the DOM, but not
-      // in the model), anchor_offset and focus_offset are wrong, and need to be corrected
-      doc.selection.anchor_offset = doc.selection.anchor_offset - 1;
-      doc.selection.focus_offset = doc.selection.focus_offset - 1;
+      // Dead key case: just set cursor to start position
+      tr.doc.selection.anchor_offset = composing.start_offset;
+      tr.doc.selection.focus_offset = composing.start_offset;
     }
-    // Now the previous character will be replaced instead of an additional character added.
-    tr.insert_text(char);
+
+    // Insert the composed text
+    tr.insert_text(text);
     doc.apply(tr);
   }
 
@@ -576,21 +602,24 @@
   function oncompositionend(event) {
     if (!canvas_ref?.contains(document.activeElement)) return;
 
-    // console.log('DEBUG: oncompositionend, insert:', event.data, 'is_composing:', is_composing);
+    console.log('DEBUG: oncompositionend, insert:', event.data, 'composing:', JSON.stringify(composing));
     const inserted_char = event.data;
 
-    // Now insert the composed character (just like in onbeforeinput)
-    // which will only run for non-compositioned events.
+    // Now insert the composed character
     event.preventDefault();
     event.stopPropagation();
-    insert_composed_character(inserted_char, is_composing);
+    insert_composed_text(inserted_char);
+    composing = undefined;
 
     // This makes sure, that when the composed character was selected via
     // keyboard (e.g. enter or a typing a number), that this keystroke is not
-    // registered as a new input or handled via onkeydown. So we stay in the is_composing
-    // state just for a little longer.
+    // registered as a new input or handled via onkeydown
+    // NOTE: We can not combine skip_onkeydown and composing (as we had it) because there
+    // are situations where a compositionstart is fired right after compositionend (e.g. at
+    // complete character boundaries when inputting korean)
+    skip_onkeydown = true;
     setTimeout(() => {
-      is_composing = undefined;
+      skip_onkeydown = false;
     }, 20);
   }
 
@@ -1125,6 +1154,7 @@
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
     autocapitalize="off"
+    spellcheck="true"
   >
     <RootComponent {path} />
   </div>
