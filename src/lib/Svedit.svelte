@@ -121,7 +121,12 @@
    */
   function onbeforeinput(event) {
     // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
-    if (doc.selection.type !== 'text') {
+
+    // Only take input when in a valid text selection inside the canvas
+    if (
+      !(canvas_ref?.contains(document.activeElement)) ||
+      (doc.selection?.type !== 'text')
+    ) {
       event.preventDefault();
       return;
     }
