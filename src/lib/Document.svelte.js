@@ -240,7 +240,9 @@ export default class Document {
    		return node_id ? this.get(node_id) : null;
 		} else {
 		  // we are assuming we are either in a text or property (=custom) selection
-			const owner_node = this.get(this.selection.path.slice(0, -1));
+			const node_id = this.selection?.path?.slice(0, -1);
+			if (!node_id) return null;
+			const owner_node = this.get(node_id);
 			return owner_node;
 		}
 	}
