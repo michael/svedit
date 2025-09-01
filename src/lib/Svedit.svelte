@@ -22,6 +22,8 @@
 
   let is_composing = $state(false);
 
+  let input_selection = undefined;
+
   /** Expose function so parent can call it */
   export { focus_canvas };
 
@@ -69,9 +71,9 @@
   }
 
   function commit_input() {
-    if (doc.selection?.type !== 'text') return;
-    const model_text = doc.get(doc.selection.path)[0];
-    const dom_text_element = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
+    if (input_selection?.type !== 'text') return;
+    const model_text = doc.get(input_selection.path)[0];
+    const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
     const dom_text = dom_text_element.textContent;
     const op = diff_text(model_text, dom_text);
     // console.log('======== COMMIT INPUT ========')
@@ -91,7 +93,7 @@
     const tr = doc.tr;
     tr.set_selection({
       type: 'text',
-      path: [...doc.selection.path],
+      path: [...input_selection.path],
       anchor_offset: op.start_offset,
       focus_offset: op.end_offset,
     });
@@ -103,13 +105,15 @@
     // After each commited replacement, we start accepting custom key handlers again.
     skip_onkeydown = false;
     is_composing = false;
+    input_selection = null;
   }
 
   function oninput(event) {
     // console.log(`oninput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
     if (
-      canvas_ref?.contains(document.activeElement) &&
-      doc.selection?.type === 'text' &&
+      // canvas_ref?.contains(document.activeElement) &&
+      // doc.selection?.type === 'text' &&
+      input_selection.type === 'text' &&
       !event.isComposing
     ) {
       commit_input();
@@ -130,6 +134,10 @@
       event.preventDefault();
       return;
     }
+
+    // We remember the "input selection", because in some mobile browsers (Samsung Android) the onbeforeinput event
+    // is fired on a different selection than the input event.
+    input_selection = { ...doc.selection };
 
     // If replacement is detected, I let contenteditable do the thing and wait for
     // the oninput event to do the diffing and update the model.
