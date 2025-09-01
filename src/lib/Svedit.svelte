@@ -135,6 +135,19 @@
       return;
     }
 
+    if (event.inputType === 'formatBold') {
+      doc.apply(doc.tr.annotate_text('strong'));
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (event.inputType === 'formatItalic') {
+      doc.apply(doc.tr.annotate_text('emphasis'));
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+
     // We remember the "input selection", because in some mobile browsers (Samsung Android) the onbeforeinput event
     // is fired on a different selection than the input event.
     input_selection = { ...doc.selection };
@@ -202,6 +215,7 @@
     const tr = doc.tr;
     tr.insert_text(inserted_text);
     doc.apply(tr);
+    input_selection = undefined;
     event.preventDefault();
   }
 
@@ -537,14 +551,6 @@
       e.stopPropagation();
     } else if (e.key === 'Enter' && (e.shiftKey)) {
       doc.apply(doc.tr.insert_text('\n'));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
-      doc.apply(doc.tr.annotate_text('strong'));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey)) {
-      doc.apply(doc.tr.annotate_text('emphasis'));
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
