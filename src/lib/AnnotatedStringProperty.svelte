@@ -74,7 +74,7 @@
    	data-path={path.join('.')}
    	style="anchor-name: --{path.join('-')};"
    	class="text svedit-selectable {css_class}"
-   	class:empty={get_char_length(plain_text) === 0}
+   	class:empty={get_char_length(plain_text) === 0 && !svedit.is_composing}
     class:focused={is_focused}
     placeholder={placeholder}
   >
