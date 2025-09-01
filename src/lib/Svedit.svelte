@@ -147,8 +147,15 @@
       inserted_text = event.dataTransfer?.getData('text/plain');
     }
 
+    // If there's no inserted_text, we are not handling this.
     if (!inserted_text) {
-      // No inserted_text, we are not handling this.
+      event.preventDefault();
+      return;
+    }
+
+    // We don't accept structural replacements for savety reasons.
+    // E.g. this will catch Apple's writing tools that will attempt to mess with our DOM.
+    if (inserted_text.includes('\n') || inserted_text.includes('\t')) {
       event.preventDefault();
       return;
     }
@@ -191,7 +198,6 @@
       doc.selection = selection;
     }
   }
-
 
   /**
    * @param {NodeId[]} selected_node_ids
@@ -370,7 +376,7 @@
     } else if (selection?.type === 'property') {
       __render_property_selection();
     } else {
-      console.log('unsupported selection', selection);
+      console.log('unsupported selection', $state.snapshot(selection));
     }
   }
 
