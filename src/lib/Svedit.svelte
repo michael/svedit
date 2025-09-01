@@ -131,13 +131,21 @@
       return;
     }
 
-    // If we detect an a replacement, we let contenteditable do the thing and wait for
+    // If replacement is detected, I let contenteditable do the thing and wait for
     // the oninput event to do the diffing and update the model.
     if (event.inputType === 'insertReplacementText') {
       return;
     }
 
-    // While composing, we do nothing and let the oncompositionend
+    // For now I reject drag+drop text movements.
+    // TODO: If I want to support those, I need to handle them in such a way that
+    // you can drag from one text property to another too.
+    if (event.inputType === 'deleteByDrag' || event.inputType === 'insertFromDrop') {
+      event.preventDefault();
+      return;
+    }
+
+    // While composing, I do nothing and let the oncompositionend
     // event handle the final replacement by recovering it from the DOM.
     if (event.isComposing) {
       return;
@@ -152,13 +160,13 @@
       inserted_text = event.dataTransfer?.getData('text/plain');
     }
 
-    // If there's no inserted_text, we are not handling this.
+    // If there's no inserted_text, I'm not handling this.
     if (!inserted_text) {
       event.preventDefault();
       return;
     }
 
-    // We don't accept structural replacements for savety reasons.
+    // For now I don't accept structural replacements for savety reasons.
     // E.g. this will catch Apple's writing tools that will attempt to mess with our DOM.
     if (inserted_text.includes('\n') || inserted_text.includes('\t')) {
       event.preventDefault();
