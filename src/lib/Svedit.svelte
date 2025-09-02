@@ -753,9 +753,8 @@ ${fallback_html}`;
   /**
    * Handles composition end events for input methods like dead keys
    * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
-   * @param {CompositionEvent} event
    */
-  function oncompositionend(event) {
+  function oncompositionend(/*event*/) {
     // console.log('DEBUG: oncompositionend, insert:', event.data);
     if (!canvas_ref?.contains(document.activeElement)) return;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
