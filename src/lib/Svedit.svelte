@@ -24,6 +24,20 @@
 
   let input_selection = undefined;
 
+  // Detect Chrome on desktop (not mobile) - only available in browser
+  let is_chrome_desktop = $state(false);
+  
+  $effect(() => {
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+      const user_agent = navigator.userAgent;
+      const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+      const is_mobile = /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) || 
+                       ('ontouchstart' in window) || 
+                       (navigator.maxTouchPoints > 0);
+      is_chrome_desktop = is_chrome && !is_mobile;
+    }
+  });
+
   /** Expose function so parent can call it */
   export { focus_canvas };
 
@@ -1374,12 +1388,12 @@ ${fallback_html}`;
     spellcheck="true"
     {...{
       // NOTE: Autocomplete and autocorrect make immense troubles
-      // on Desktop Chrome, so I just disable them.
+      // on Desktop Chrome, so we disable them only for Chrome desktop.
       // Additionally, OSX-native auto-complete also breaks, because
       // I'm using a keyed block that always wipes the DOM of a text node
       // on every change.
-      autocomplete: "off",
-      autocorrect: "off"
+      autocomplete: is_chrome_desktop ? "off" : "on",
+      autocorrect: is_chrome_desktop ? "off" : "on"
     }}
   >
     <RootComponent {path} />
