@@ -444,4 +444,187 @@ describe('Svedit.svelte', () => {
       expect(doc.selection.focus_offset).toBe(10);
     });
   });
+
+  it('should encode and decode svedit data in HTML clipboard format', async () => {
+    const doc = create_test_doc();
+    const { container } = render(SveditTest, { doc });
+
+    // Select a story node to copy
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 0,
+      focus_offset: 1
+    };
+
+    await tick();
+
+    // Simulate copy event
+    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    const svedit_element = container.querySelector('.svedit-canvas');
+    svedit_element.focus();
+
+    // Mock clipboard API to capture HTML format
+    let clipboard_data = null;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        write: async (items) => {
+          clipboard_data = items[0];
+        },
+        read: async () => {
+          return [clipboard_data];
+        }
+      }
+    });
+
+    document.dispatchEvent(copy_event);
+    await tick();
+
+    // Verify clipboard data was captured
+    expect(clipboard_data).not.toBeNull();
+
+    // Get the HTML content from clipboard
+    const html_blob = await clipboard_data.getType('text/html');
+    const html_content = await html_blob.text();
+
+    // Verify HTML contains svedit data marker
+    expect(html_content).toContain('data-svedit=');
+
+    // Verify HTML contains fallback content
+    expect(html_content).toContain('<meta charset="utf-8">');
+    
+    // Extract and verify the embedded data can be decoded
+    const svedit_regex = /data-svedit="([^"]+)"/;
+    const match = html_content.match(svedit_regex);
+    expect(match).not.toBeNull();
+    
+    // Use our extraction function to properly decode the data
+    const extract_svedit_data_from_html = (html) => {
+      const svedit_regex = /data-svedit="([^"]+)"/;
+      const match = html.match(svedit_regex);
+      
+      if (match && match[1]) {
+        try {
+          const base64_decoded = atob(match[1]);
+          const decoded_data = decodeURIComponent(base64_decoded);
+          return JSON.parse(decoded_data);
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      return null;
+    };
+    
+    const decoded_data = extract_svedit_data_from_html(html_content);
+    expect(decoded_data).toHaveProperty('nodes');
+    expect(decoded_data).toHaveProperty('main_nodes');
+    expect(decoded_data.main_nodes).toContain(story_1_id);
+
+    // Test paste functionality with HTML format - insert at end
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 3,
+      focus_offset: 3
+    };
+
+    const paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    document.dispatchEvent(paste_event);
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 20)); // Give time for async paste operation
+
+    // Verify paste worked - should have 4 items now (original 3 + 1 pasted)
+    const body_after_paste = doc.get([page_1_id, 'body']);
+    expect(body_after_paste).toHaveLength(4);
+  });
+
+  it('should handle Unicode characters in clipboard data', async () => {
+    const doc = create_test_doc();
+    const { container } = render(SveditTest, { doc });
+
+    // Create a text node with Unicode characters (emojis, special chars)
+    const unicode_text_id = nanoid();
+    const unicode_text_node = {
+      id: unicode_text_id,
+      type: 'text',
+      layout: 1,
+      content: ['Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', []]
+    };
+
+    const tr = doc.tr;
+    tr.create(unicode_text_node);
+    
+    // Insert the text node at the beginning
+    const body = doc.get([page_1_id, 'body']);
+    const new_body = [unicode_text_id, ...body];
+    tr.set([page_1_id, 'body'], new_body);
+    doc.apply(tr);
+
+    // Select the Unicode text node
+    doc.selection = {
+      type: 'node',
+      path: [page_1_id, 'body'],
+      anchor_offset: 0,
+      focus_offset: 1
+    };
+
+    await tick();
+
+    // Mock clipboard API
+    let clipboard_data = null;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        write: async (items) => {
+          clipboard_data = items[0];
+        },
+        read: async () => {
+          return [clipboard_data];
+        }
+      }
+    });
+
+    // Copy the Unicode content
+    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    const svedit_element = container.querySelector('.svedit-canvas');
+    svedit_element.focus();
+    document.dispatchEvent(copy_event);
+    await tick();
+
+    // Verify clipboard data was captured
+    expect(clipboard_data).not.toBeNull();
+
+    // Get HTML content and verify Unicode data survives encoding/decoding
+    const html_blob = await clipboard_data.getType('text/html');
+    const html_content = await html_blob.text();
+
+    // Extract and decode the data using our extraction function
+    const extract_svedit_data_from_html = (html) => {
+      const svedit_regex = /data-svedit="([^"]+)"/;
+      const match = html.match(svedit_regex);
+      
+      if (match && match[1]) {
+        try {
+          const base64_decoded = atob(match[1]);
+          const decoded_data = decodeURIComponent(base64_decoded);
+          return JSON.parse(decoded_data);
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      return null;
+    };
+    
+    const decoded_data = extract_svedit_data_from_html(html_content);
+    expect(decoded_data).not.toBeNull();
+    expect(decoded_data.nodes[unicode_text_id].content[0]).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
+
+    // Verify that the decoded data contains the correct Unicode content
+    expect(decoded_data.nodes[unicode_text_id]).toBeDefined();
+    expect(decoded_data.nodes[unicode_text_id].content[0]).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
+    
+    // Verify that encoding/decoding preserves Unicode characters perfectly
+    expect(decoded_data.main_nodes).toContain(unicode_text_id);
+  });
 });
