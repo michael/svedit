@@ -1325,12 +1325,15 @@ ${fallback_html}`;
 	}
 
 	@media not (pointer: coarse) {
+	  .svedit-canvas.hide-selection {
+      caret-color: transparent;
+    }
+  }
+
+  @media not (pointer: coarse) {
 	  @supports (anchor-name: --test) {
-      .svedit-canvas.hide-selection {
-       	caret-color: transparent;
-      }
       .svedit-canvas.hide-selection :global(::selection) {
-        background: transparent;
+         background: transparent;
       }
 		}
   }
