@@ -235,6 +235,104 @@
   }
 
   /**
+   * Creates HTML clipboard format with embedded svedit data
+   * @param {Object} json_data - The svedit data to embed
+   * @param {string} fallback_html - HTML for cross-app compatibility
+   * @returns {string} HTML with embedded svedit data
+   */
+  function create_svedit_html_format(json_data, fallback_html) {
+    // Use encodeURIComponent to handle Unicode, then base64 encode
+    const json_string = JSON.stringify(json_data);
+    const encoded_data = btoa(encodeURIComponent(json_string));
+    
+    return `<meta charset="utf-8">
+<div>
+  <span data-svedit="${encoded_data}"></span>
+</div>
+${fallback_html}`;
+  }
+
+  /**
+   * Extracts svedit data from HTML clipboard format
+   * @param {string} html - HTML content from clipboard
+   * @returns {Object|null} Parsed svedit data or null if not found
+   */
+  function extract_svedit_data_from_html(html) {
+    const svedit_regex = /data-svedit="([^"]+)"/;
+    const match = html.match(svedit_regex);
+    
+    if (match && match[1]) {
+      try {
+        // Decode base64, then decode URI component to handle Unicode
+        const base64_decoded = atob(match[1]);
+        const decoded_data = decodeURIComponent(base64_decoded);
+        return JSON.parse(decoded_data);
+      } catch (e) {
+        console.warn('Failed to decode svedit data from HTML:', e);
+        return null;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Generates fallback HTML representation of nodes for cross-app compatibility
+   * @param {Object[]} nodes - Array of node objects
+   * @returns {string} HTML representation
+   */
+  function generate_fallback_html(nodes) {
+    let html = '';
+
+    for (const node of nodes) {
+      if (node.type === 'story') {
+        // Extract title text from annotated string format
+        const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || 'Untitled Story');
+        html += `<h1>${title_text}</h1>\n`;
+
+        // Extract description text from annotated string format
+        if (node.description) {
+          const description_text = Array.isArray(node.description) ? node.description[0] : node.description;
+          html += `<p>${description_text}</p>\n`;
+        }
+
+        // Add image if present
+        if (node.image) {
+          html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto;" />\n`;
+        }
+      } else if (node.type === 'list') {
+        html += `<ul>\n`;
+        if (node.items && Array.isArray(node.items)) {
+          for (const item of node.items) {
+            const item_text = Array.isArray(item) ? item[0] : (item || 'List item');
+            html += `  <li>${item_text}</li>\n`;
+          }
+        } else {
+          html += `  <li>List item</li>\n`;
+        }
+        html += `</ul>\n`;
+      } else if (node.type === 'text') {
+        const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
+        if (content.trim()) {
+          html += `<p style="white-space:pre-wrap;">${content}</p>\n`;
+        }
+      } else if (node.type === 'button') {
+        const label_text = Array.isArray(node.label) ? node.label[0] : (node.label || 'Button');
+        if (node.href) {
+          html += `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${label_text}</a>\n`;
+        } else {
+          html += `<button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px;">${label_text}</button>\n`;
+        }
+      } else {
+        // Generic fallback for unknown node types
+        html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
+      }
+    }
+
+    return html || '<p>Copied content</p>';
+  }
+
+  /**
    * @param {NodeId[]} selected_node_ids
    */
   function prepare_copy_payload(selected_node_ids) {
@@ -267,16 +365,16 @@
     event.preventDefault();
     event.stopPropagation();
 
-    let plain_text, html, json_data;
+    let plain_text, html;
 
     if (doc.selection?.type === 'text') {
       plain_text = doc.get_selected_plain_text();
-      html = plain_text;
+      html = `<span style="white-space:pre-wrap;">${plain_text}</span>`;
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
 
-      json_data = { nodes, main_nodes };
+      const json_data = { nodes, main_nodes };
 
       console.log('Copy operation:', {
         selected_nodes,
@@ -284,18 +382,29 @@
         total_nodes: Object.keys(nodes).length,
         operation: delete_selection ? 'cut' : 'copy'
       });
+
+      // Generate fallback HTML for cross-app compatibility
+      const selected_node_objects = main_nodes.map(id => nodes[id]);
+      const fallback_html = generate_fallback_html(selected_node_objects);
+
+      // Create HTML with embedded svedit data
+      html = create_svedit_html_format(json_data, fallback_html);
+
+      // Create plain text representation
+      plain_text = selected_node_objects.map(node => {
+        if (node.type === 'story') {
+          return (node.title || 'Untitled Story') + (node.content ? '\n' + node.content : '');
+        }
+        return `Content from ${node.type}`;
+      }).join('\n\n');
     }
 
     // Create a ClipboardItem with multiple formats
     const data = {
-      'text/plain': new Blob([plain_text], {type: 'text/plain'}),
-      'text/html': new Blob([html], {type: 'text/html'}),
+      'text/plain': new Blob([plain_text || ''], {type: 'text/plain'}),
+      'text/html': new Blob([html || ''], {type: 'text/html'}),
     };
 
-    if (json_data) {
-      const json_blob = new Blob([JSON.stringify(json_data)], {type: 'application/json'});
-      data['web application/json'] = json_blob;
-    }
     const clipboard_item_raw = new ClipboardItem(data);
 
     // Write to clipboard
@@ -323,14 +432,17 @@
 
     let pasted_json;
 
-    // Wrapping this in a try-catch as this API only works in Chrome. We fallback to
-    // plaintext copy and pasting for all other situations.
+    // First try to extract svedit data from HTML format
     try {
-      const json_blob = await clipboardItems[0].getType('web application/json');
-      pasted_json = JSON.parse(await json_blob.text());
-    } catch {
+      const html_blob = await clipboardItems[0].getType('text/html');
+      const html_content = await html_blob.text();
+      pasted_json = extract_svedit_data_from_html(html_content);
+    } catch (e) {
+      console.log('No HTML format available or failed to extract svedit data:', e);
       pasted_json = undefined;
     }
+
+
 
     if (pasted_json) {
       const tr = doc.tr;
@@ -380,10 +492,14 @@
 
       doc.apply(tr);
     } else {
-      const plain_text_blob = await clipboardItems[0].getType('text/plain');
-      // Convert the Blob to text
-      const plain_text = await plain_text_blob.text();
-      doc.apply(doc.tr.insert_text(plain_text));
+      // Fallback to plain text when no svedit data is found
+      try {
+        const plain_text_blob = await clipboardItems[0].getType('text/plain');
+        const plain_text = await plain_text_blob.text();
+        doc.apply(doc.tr.insert_text(plain_text));
+      } catch (e) {
+        console.error('Failed to paste any content:', e);
+      }
     }
   }
 
