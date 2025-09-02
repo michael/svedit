@@ -244,7 +244,7 @@
     // Use encodeURIComponent to handle Unicode, then base64 encode
     const json_string = JSON.stringify(json_data);
     const encoded_data = btoa(encodeURIComponent(json_string));
-    
+
     return `<meta charset="utf-8">
 <div>
   <span data-svedit="${encoded_data}"></span>
@@ -260,7 +260,7 @@ ${fallback_html}`;
   function extract_svedit_data_from_html(html) {
     const svedit_regex = /data-svedit="([^"]+)"/;
     const match = html.match(svedit_regex);
-    
+
     if (match && match[1]) {
       try {
         // Decode base64, then decode URI component to handle Unicode
@@ -272,60 +272,57 @@ ${fallback_html}`;
         return null;
       }
     }
-    
+
     return null;
   }
 
   /**
-   * Generates fallback HTML representation of nodes for cross-app compatibility
+   * Default node exporter for nodes without specific exporters
+   * @param {Object} node - Node object
+   * @returns {string} HTML representation
+   */
+  function default_node_exporter(node) {
+    let html = '';
+    let has_content = false;
+    
+    for (const [prop_name, prop_value] of Object.entries(node)) {
+      if (prop_name === 'id' || prop_name === 'type') continue;
+      
+      // Check if this is an annotated_string property (array with string as first element)
+      if (Array.isArray(prop_value) && typeof prop_value[0] === 'string') {
+        const text_content = prop_value[0];
+        if (text_content.trim()) {
+          html += `<p>${text_content}</p>\n`;
+          has_content = true;
+        }
+      }
+    }
+    
+    if (!has_content) {
+      // Generic fallback for unknown node types with no annotated_string content
+      html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
+    }
+    
+    return html;
+  }
+
+  /**
+   * Exports nodes to HTML using document config exporters
    * @param {Object[]} nodes - Array of node objects
    * @returns {string} HTML representation
    */
-  function generate_fallback_html(nodes) {
+  function export_html(nodes) {
     let html = '';
 
     for (const node of nodes) {
-      if (node.type === 'story') {
-        // Extract title text from annotated string format
-        const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || 'Untitled Story');
-        html += `<h1>${title_text}</h1>\n`;
-
-        // Extract description text from annotated string format
-        if (node.description) {
-          const description_text = Array.isArray(node.description) ? node.description[0] : node.description;
-          html += `<p>${description_text}</p>\n`;
-        }
-
-        // Add image if present
-        if (node.image) {
-          html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto;" />\n`;
-        }
-      } else if (node.type === 'list') {
-        html += `<ul>\n`;
-        if (node.items && Array.isArray(node.items)) {
-          for (const item of node.items) {
-            const item_text = Array.isArray(item) ? item[0] : (item || 'List item');
-            html += `  <li>${item_text}</li>\n`;
-          }
-        } else {
-          html += `  <li>List item</li>\n`;
-        }
-        html += `</ul>\n`;
-      } else if (node.type === 'text') {
-        const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
-        if (content.trim()) {
-          html += `<p style="white-space:pre-wrap;">${content}</p>\n`;
-        }
-      } else if (node.type === 'button') {
-        const label_text = Array.isArray(node.label) ? node.label[0] : (node.label || 'Button');
-        if (node.href) {
-          html += `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${label_text}</a>\n`;
-        } else {
-          html += `<button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px;">${label_text}</button>\n`;
-        }
+      const html_exporters = doc.config.html_exporters || {};
+      
+      if (html_exporters[node.type]) {
+        // Use custom exporter for this node type
+        html += html_exporters[node.type](node, doc);
       } else {
-        // Generic fallback for unknown node types
-        html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
+        // Use default exporter
+        html += default_node_exporter(node);
       }
     }
 
@@ -385,7 +382,7 @@ ${fallback_html}`;
 
       // Generate fallback HTML for cross-app compatibility
       const selected_node_objects = main_nodes.map(id => nodes[id]);
-      const fallback_html = generate_fallback_html(selected_node_objects);
+      const fallback_html = export_html(selected_node_objects);
 
       // Create HTML with embedded svedit data
       html = create_svedit_html_format(json_data, fallback_html);
