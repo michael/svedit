@@ -565,7 +565,7 @@ ${fallback_html}`;
 
     // Key handling temporarily disabled (e.g. while character composition takes place)
     if (skip_onkeydown) {
-      console.log('onkeydown skipped');
+      // console.log('onkeydown skipped');
       // Currently we do nothing, but we could handle keydown during character composition here.
       return;
     }
@@ -756,7 +756,7 @@ ${fallback_html}`;
    * @param {CompositionEvent} event
    */
   function oncompositionend(event) {
-    console.log('DEBUG: oncompositionend, insert:', event.data);
+    // console.log('DEBUG: oncompositionend, insert:', event.data);
     if (!canvas_ref?.contains(document.activeElement)) return;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
       commit_input();
