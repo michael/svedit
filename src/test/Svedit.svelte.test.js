@@ -89,10 +89,10 @@ describe('Svedit.svelte', () => {
     const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
     const svedit_element = container.querySelector('.svedit-canvas');
     // @ts-ignore
-    svedit_element.focus();
+    svedit_element?.focus();
 
     // Mock clipboard API
-    let clipboard_data = null;
+    let clipboard_data = /** @type {ClipboardItem | null} */ (null);
     Object.defineProperty(navigator, 'clipboard', {
       value: {
         write: async (items) => {
@@ -462,10 +462,11 @@ describe('Svedit.svelte', () => {
     // Simulate copy event
     const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
     const svedit_element = container.querySelector('.svedit-canvas');
-    svedit_element.focus();
+    // @ts-ignore
+    svedit_element?.focus();
 
     // Mock clipboard API to capture HTML format
-    let clipboard_data = null;
+    let clipboard_data = /** @type {ClipboardItem | null} */ (null);
     Object.defineProperty(navigator, 'clipboard', {
       value: {
         write: async (items) => {
@@ -484,7 +485,8 @@ describe('Svedit.svelte', () => {
     expect(clipboard_data).not.toBeNull();
 
     // Get the HTML content from clipboard
-    const html_blob = await clipboard_data.getType('text/html');
+    if (!clipboard_data) throw new Error('clipboard_data is null');
+    const html_blob = await (/** @type {ClipboardItem} */ (clipboard_data)).getType('text/html');
     const html_content = await html_blob.text();
 
     // Verify HTML contains svedit data marker
@@ -508,7 +510,7 @@ describe('Svedit.svelte', () => {
           const base64_decoded = atob(match[1]);
           const decoded_data = decodeURIComponent(base64_decoded);
           return JSON.parse(decoded_data);
-        } catch (e) {
+        } catch {
           return null;
         }
       }
@@ -572,7 +574,7 @@ describe('Svedit.svelte', () => {
     await tick();
 
     // Mock clipboard API
-    let clipboard_data = null;
+    let clipboard_data = /** @type {ClipboardItem | null} */ (null);
     Object.defineProperty(navigator, 'clipboard', {
       value: {
         write: async (items) => {
@@ -587,7 +589,8 @@ describe('Svedit.svelte', () => {
     // Copy the Unicode content
     const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
     const svedit_element = container.querySelector('.svedit-canvas');
-    svedit_element.focus();
+    // @ts-ignore
+    svedit_element?.focus();
     document.dispatchEvent(copy_event);
     await tick();
 
@@ -595,7 +598,8 @@ describe('Svedit.svelte', () => {
     expect(clipboard_data).not.toBeNull();
 
     // Get HTML content and verify Unicode data survives encoding/decoding
-    const html_blob = await clipboard_data.getType('text/html');
+    if (!clipboard_data) throw new Error('clipboard_data is null');
+    const html_blob = await (/** @type {ClipboardItem} */ (clipboard_data)).getType('text/html');
     const html_content = await html_blob.text();
 
     // Extract and decode the data using our extraction function
@@ -608,7 +612,7 @@ describe('Svedit.svelte', () => {
           const base64_decoded = atob(match[1]);
           const decoded_data = decodeURIComponent(base64_decoded);
           return JSON.parse(decoded_data);
-        } catch (e) {
+        } catch {
           return null;
         }
       }
