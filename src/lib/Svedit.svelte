@@ -284,10 +284,10 @@ ${fallback_html}`;
   function default_node_exporter(node) {
     let html = '';
     let has_content = false;
-    
+
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
-      
+
       // Check if this is an annotated_string property (array with string as first element)
       if (Array.isArray(prop_value) && typeof prop_value[0] === 'string') {
         const text_content = prop_value[0];
@@ -297,12 +297,12 @@ ${fallback_html}`;
         }
       }
     }
-    
+
     if (!has_content) {
       // Generic fallback for unknown node types with no annotated_string content
       html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
     }
-    
+
     return html;
   }
 
@@ -316,7 +316,7 @@ ${fallback_html}`;
 
     for (const node of nodes) {
       const html_exporters = doc.config.html_exporters || {};
-      
+
       if (html_exporters[node.type]) {
         // Use custom exporter for this node type
         html += html_exporters[node.type](node, doc);
@@ -1320,17 +1320,18 @@ ${fallback_html}`;
     }
   }
 
-  .svedit-canvas.hide-selection {
-		caret-color: transparent;
-	}
-
 	.svedit-canvas :global(::selection) {
 		background: var(--editing-fill-color);
 	}
 
 	@media not (pointer: coarse) {
-    .svedit-canvas.hide-selection :global(::selection) {
-      background: transparent;
-    }
+	  @supports (anchor-name: --test) {
+      .svedit-canvas.hide-selection {
+       	caret-color: transparent;
+      }
+      .svedit-canvas.hide-selection :global(::selection) {
+        background: transparent;
+      }
+		}
   }
 </style>
