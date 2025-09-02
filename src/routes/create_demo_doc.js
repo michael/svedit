@@ -307,6 +307,98 @@ const document_config = {
     ImageGridItem,
     Hero
   },
+  // HTML exporters for different node types
+  html_exporters: {
+    list: (node, doc) => {
+      let html = '<ul>\n';
+      for (const list_item_id of node.list_items) {
+        const list_item = doc.get(list_item_id);
+        html += `<li>${list_item.content[0]}</li>\n`
+      }
+      return html += '</ul>';
+    },
+    story: (node) => {
+      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || 'Untitled Story');
+      let html = `<h1>${title_text}</h1>\n`;
+
+      if (node.description) {
+        const description_text = Array.isArray(node.description) ? node.description[0] : node.description;
+        html += `<p>${description_text}</p>\n`;
+      }
+
+      if (node.image) {
+        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto; display: block;" />\n`;
+      }
+
+      return html;
+    },
+    text: (node) => {
+      const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
+      if (content.trim()) {
+        return `<p style="white-space:pre-wrap;">${content}</p>\n`;
+      }
+      return '';
+    },
+    button: (node) => {
+      const label_text = Array.isArray(node.label) ? node.label[0] : (node.label || 'Button');
+      if (node.href) {
+        return `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${label_text}</a>\n`;
+      } else {
+        return `<button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px;">${label_text}</button>\n`;
+      }
+    },
+    hero: (node) => {
+      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || '');
+      const description_text = Array.isArray(node.description) ? node.description[0] : (node.description || '');
+      let html = '';
+
+      if (title_text.trim()) {
+        html += `<h1>${title_text}</h1>\n`;
+      }
+
+      if (description_text.trim()) {
+        html += `<p>${description_text}</p>\n`;
+      }
+
+      if (node.image) {
+        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto;" />\n`;
+      }
+
+      return html;
+    },
+    image_grid: (node, doc) => {
+      let html = '<div class="image-grid">\n';
+      for (const image_grid_item_id of node.image_grid_items) {
+        const image_grid_item = doc.get(image_grid_item_id);
+        const title_text = Array.isArray(image_grid_item.title) ? image_grid_item.title[0] : (image_grid_item.title || '');
+        html += '<div class="image-grid-item">\n';
+        if (image_grid_item.image) {
+          html += `<img src="${image_grid_item.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
+        }
+        if (title_text.trim()) {
+          html += `<p>${title_text}</p>\n`;
+        }
+        html += '</div>\n';
+      }
+      return html += '</div>';
+    },
+    image_grid_item: (node) => {
+      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || '');
+      let html = '<div class="image-grid-item">\n';
+      if (node.image) {
+        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
+      }
+      if (title_text.trim()) {
+        html += `<p>${title_text}</p>\n`;
+      }
+      return html += '</div>';
+    },
+    list_item: (node) => {
+      const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
+      return `<li>${content}</li>\n`;
+    },
+
+  },
   node_layouts: {
     button: 1,
     text: 4,
