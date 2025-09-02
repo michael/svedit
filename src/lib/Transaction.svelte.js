@@ -473,14 +473,20 @@ export default class Transaction {
       // Case 4: annotation is partly selected towards right
       // NOTE: replaced_text will not be part of the annotation, we treat it the same as
       // a cursor right after the annotation
-      if (start > annotation_start && start < annotation_end && end === annotation_end) {
+      if (start > annotation_start && start < annotation_end && end >= annotation_end) {
         return [annotation_start, start, type, annotation_data];
       }
 
       // Case 5: text inserted inside an annotation
-      // NOTE: This also covers the case when a annotation is partly selected towards left
       if (start >= annotation_start && start <= annotation_end && end < annotation_end && end >= annotation_start) {
         return [annotation_start, annotation_end + delta, type, annotation_data];
+      }
+
+      // Case 6: annotation is partly selected towards left
+      // NOTE: replaced_text will not be part of the annotation, we treat it the same as
+      // a cursor right before the annotation
+      if (start < annotation_start && end > annotation_start && end < annotation_end) {
+        return [start + get_char_length(replaced_text), annotation_end + delta, type, annotation_data];
       }
 
       // Unhandled edge case:
