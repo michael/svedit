@@ -682,7 +682,6 @@ ${fallback_html}`;
         }
       } else {
         if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
-          console.log('try to join with previous node');
           const tr = doc.tr;
           join_text_node(tr);
           doc.apply(tr);
@@ -948,16 +947,54 @@ ${fallback_html}`;
 
     if (!path) return null;
 
-    // EDGE CASE 1B: Cursor is at the last position of a text and the last char is a <br/>
-    // if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text' && !focus_node.classList.contains('empty')) {
-    //   const text_length = get_char_length(doc.get(path)[0]);
-    //   return {
-    //     type: 'text',
-    //     path,
-    //     anchor_offset: text_length,
-    //     focus_offset: text_length
-    //   };
-    // }
+    // EDGE CASE 1B: Cursor after trailing <br> at end of text
+    //
+    // When text ends with a newline (\n), the browser renders it as a <br> element.
+    // If the user places their cursor after this <br>, the selection detection
+    // incorrectly reports position 0 instead of the actual text length.
+    //
+    // Example DOM structure when text is "Hello\n":
+    // <div data-type="text">
+    //   #text "Hello"    ← index 0
+    //   <br>             ← index 1 (represents the \n)
+    // </div>
+    //
+    // When cursor is after the <br>, we get:
+    // - focusNode: the div element
+    // - focusOffset: 2 (after the 2nd child)
+    // - But normal processing returns position 0 instead of text.length
+    //
+    // This edge case detects when:
+    // 1. Text content ends with \n
+    // 2. Last child node is a <br> (the visual representation of that \n)
+    // 3. Cursor is positioned at or near the end
+    // And returns the correct text.length position instead.
+    const text_content = doc.get(path)[0];
+    const text_length = get_char_length(text_content);
+    if (text_length > 0) {
+      const last_char = get_char_at(text_content, text_length - 1);
+      if (dom_selection.focusNode === dom_selection.anchorNode &&
+          dom_selection.focusNode === focus_node &&
+          focus_node.dataset?.type === 'text' &&
+          !focus_node.classList.contains('empty') &&
+          last_char === '\n') {
+
+        const child_nodes = focus_node.childNodes;
+
+        // Check if the last child is a BR (indicating text ends with newline)
+        // and cursor is positioned near the end (after any of the last few elements)
+        if (child_nodes.length > 0 &&
+            child_nodes[child_nodes.length - 1].nodeName === 'BR' &&
+            dom_selection.focusOffset >= child_nodes.length - 2) {
+          return {
+            type: 'text',
+            path,
+            anchor_offset: text_length,
+            focus_offset: text_length
+          };
+        }
+      }
+    }
 
     let anchor_offset = 0;
     let focus_offset = 0;
