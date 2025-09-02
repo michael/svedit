@@ -696,6 +696,47 @@ ${fallback_html}`;
 
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'Delete') {
+      // Forward delete: only handle collapsed text selections
+      if (selection?.type === 'text' && is_collapsed) {
+        const text_content = doc.get(selection.path)[0];
+        const text_length = get_char_length(text_content);
+
+        if (selection.focus_offset < text_length) {
+          // There's a character after the cursor - select and delete it
+          const tr = doc.tr;
+          tr.set_selection({
+            type: 'text',
+            path: [...selection.path],
+            anchor_offset: selection.focus_offset,
+            focus_offset: selection.focus_offset + 1
+          });
+          tr.delete_selection();
+          doc.apply(tr);
+        } else {
+          // At end of text - try to join with next text node
+          const tr = doc.tr;
+          const node_index = parseInt(selection.path.at(-2), 10);
+          const successor_node = doc.get([...selection.path.slice(0, -2), node_index + 1]);
+
+          // Check if next node is a text node
+          if (successor_node && doc.kind(successor_node) === 'text') {
+            // Set selection to beginning of next text node
+            tr.set_selection({
+              type: 'text',
+              path: [...selection.path.slice(0, -2), node_index + 1, 'content'],
+              anchor_offset: 0,
+              focus_offset: 0
+            });
+            // Use join_text_node to merge with previous
+            join_text_node(tr);
+            doc.apply(tr);
+          }
+        }
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'property') {
       // Focus toolbar for property selections
       focus_toolbar();
