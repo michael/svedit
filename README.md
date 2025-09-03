@@ -321,6 +321,8 @@ Further things to consider:
 
 - If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
 - `<AnnotatedString>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
+- Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) destroys the DOM.
+- Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a div while editing, and an `<a>` in read-only mode.
 
 ## Full API docs?
 
