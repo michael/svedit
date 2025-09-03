@@ -128,7 +128,7 @@ const serialized_doc = [
     id: paragraph_1_id,
     type: 'text',
     layout: 1,
-    content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured form-like content.', []]
+    content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.', []]
   },
   {
     id: button_1_id,
@@ -245,12 +245,12 @@ const serialized_doc = [
   {
     id: list_item_3_id,
     type: 'list_item',
-    content: ['Only the latest Chrome is supported at the moment as we rely on CSS Anchor Positioning for overlays.', []]
+    content: ['Works best in Chrome, as Svedit uses CSS Anchor Positioning for overlays.', []]
   },
   {
     id: list_item_4_id,
     type: 'list_item',
-    content: ['Mobile editing support is no longer on the roadmap. We need to focus our limited resources, and we understood that to match our high bar for UX, a native app is needed.', []]
+    content: ['Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn\'t optimized yet.', []]
   },
   {
     id: list_1_id,
