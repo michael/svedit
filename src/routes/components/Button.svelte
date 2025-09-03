@@ -8,9 +8,13 @@
 </script>
 
 <Node {path}>
-	<a href={node.href} class="button">
-		<AnnotatedStringProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
-	</a>
+  <svelte:element
+    this={svedit.editable ? 'div' : 'a'}
+    href={svedit.editable ? undefined : node.href}
+    class="button"
+  >
+    <AnnotatedStringProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
+  </svelte:element>
 </Node>
 
 <style>
