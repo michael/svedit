@@ -26,13 +26,13 @@
 
   // Detect Chrome on desktop (not mobile) - only available in browser
   let is_chrome_desktop = $state(false);
-  
+
   $effect(() => {
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
       const user_agent = navigator.userAgent;
       const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-      const is_mobile = /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) || 
-                       ('ontouchstart' in window) || 
+      const is_mobile = /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
+                       ('ontouchstart' in window) ||
                        (navigator.maxTouchPoints > 0);
       is_chrome_desktop = is_chrome && !is_mobile;
     }
@@ -1378,6 +1378,7 @@ ${fallback_html}`;
   <div
     class="svedit-canvas {css_class}"
     class:hide-selection={doc.selection?.type === 'node'}
+    class:node-cursor={doc.selection?.type === 'node' && doc.selection.anchor_offset === doc.selection.focus_offset}
     bind:this={canvas_ref}
     {oninput}
     {onbeforeinput}
@@ -1419,6 +1420,11 @@ ${fallback_html}`;
 	  .svedit-canvas.hide-selection {
       caret-color: transparent;
     }
+  }
+
+  /* When the cursor is in a cursor-trap we never want to see the caret */
+  .svedit-canvas.node-cursor {
+    caret-color: transparent;
   }
 
   @media not (pointer: coarse) {
