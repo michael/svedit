@@ -58,13 +58,18 @@
 </Node>
 
 <style>
+  /* ATTENTION: We can not set this on .text because it makes contenteditable break the DOM.*/
+  /* See: https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s */
+  :global(.node) {
+    position: relative;
+  }
+
 	.text {
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
 		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
 		padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
 		padding: var(--s-6);
-		position: relative;
 	}
 
 	.shortcuts {
