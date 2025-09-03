@@ -142,24 +142,26 @@
 	// Get current link URL value
 	let current_link_url = $derived(show_link_input ? doc.selected_node?.href : '');
 
-	function update_image_url() {
-		console.log('input_ref.value', input_ref.value);
+	function update_url() {
 		const tr = doc.tr;
-		tr.set(doc.selection.path, input_ref.value);
+		if (doc.selection.path.at(-1) === 'label') {
+		  // We are updating the href property of a button
+		  tr.set([...doc.selection.path.slice(0, -1), 'href'], input_ref.value);
+		} else {
+		  // Otherwise it's the image property
+		  tr.set(doc.selection.path, input_ref.value);
+		}
 		doc.apply(tr);
 	}
 
 	function handle_toolbar_keydown(event) {
-		console.log('toolbar keydown', event.key);
 		if (event.key === 'Enter' && input_ref) {
-			console.log('enter pressed. updating image url');
-			update_image_url();
+			update_url();
 			event.preventDefault();
 			event.stopPropagation();
 			// Apply the change and return focus to canvas
 			focus_canvas();
 		} else if (event.key === 'Escape') {
-			// console.log('aosdfhsdof');
 			// Cancel and return focus to canvas without applying changes
 			event.preventDefault();
 			event.stopPropagation();
