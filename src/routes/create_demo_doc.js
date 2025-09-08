@@ -16,7 +16,6 @@ import ImageGrid from './components/ImageGrid.svelte';
 import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
 
-
 const document_schema = define_document_schema({
   page: {
     body: {
@@ -41,7 +40,9 @@ const document_schema = define_document_schema({
   },
   hero: {
     title: { type: 'annotated_string' },
-    description: { type: 'annotated_string' },
+    description: {
+      type: 'annotated_string'
+    },
     image: { type: 'string' }, // a dedicated type asset would be better
   },
   text: {
@@ -91,10 +92,6 @@ const document_schema = define_document_schema({
   },
   strong: {},
   emphasis: {},
-  // Inline
-  dino: {
-    href: { type: 'string' }
-  }
 });
 
 
@@ -116,7 +113,12 @@ const list_item_1_id = 'list_item_1';
 const list_item_2_id = 'list_item_2';
 const list_item_3_id = 'list_item_3';
 const list_item_4_id = 'list_item_4';
+const emphasis_1_id = 'emphasis_1';
 const link_1_id = 'link_1';
+const link_2_id = 'link_2';
+const link_3_id = 'link_3';
+const link_4_id = 'link_4';
+const link_5_id = 'link_5';
 const button_1_id = 'button_1';
 
 const image_grid_1_id = 'image_grid_1';
@@ -128,6 +130,31 @@ const image_grid_item_5_id = 'image_grid_item_5';
 const image_grid_item_6_id = 'image_grid_item_6';
 
 const serialized_doc = [
+  {
+    id: link_1_id,
+    type: 'link',
+    href: 'https://editable.website'
+  },
+  {
+    id: link_2_id,
+    type: 'link',
+    href: 'https://svelte.dev'
+  },
+  {
+    id: link_3_id,
+    type: 'link',
+    href: 'https://github.com/michael/svedit/'
+  },
+  {
+    id: link_4_id,
+    type: 'link',
+    href: 'https://michaelaufreiter.com'
+  },
+  {
+    id: link_5_id,
+    type: 'link',
+    href: 'https://mutter.co'
+  },
   {
     id: hero_1_id,
     type: 'hero',
@@ -168,7 +195,7 @@ const serialized_doc = [
     layout: 2,
     image: '/images/lightweight.svg',
     title: ['Minimal viable editor', []],
-    description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, "link", { "href": "https://editable.website"}]]],
+    description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, link_1_id]]],
     buttons: []
   },
   {
@@ -237,7 +264,7 @@ const serialized_doc = [
     layout: 1,
     image: '/images/svelte-logo.svg',
     title: ['Made for Svelte 5', []],
-    description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, "link", {"href": "https://svelte.dev/"}], [80, 93, "emphasis", null] ]],
+    description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, link_2_id], [80, 93, emphasis_1_id] ]],
     buttons: []
   },
   {
@@ -283,9 +310,9 @@ const serialized_doc = [
     title: ['Star us on GitHub', []],
     description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
       [
-        [0, 28, "link", {"href": "https://github.com/michael/svedit/", target: "_blank"}],
-        [95, 112, "link", {"href": "https://michaelaufreiter.com", target: "_blank"}],
-        [117,132, "link", {"href": "https://mutter.co", target: "_blank"}],
+        [0, 28, link_3_id],
+        [95, 112, link_4_id],
+        [117,132, link_5_id],
       ]
     ],
     buttons: []

@@ -602,17 +602,21 @@ export default class Document {
         return;
       }
       visited[node.id] = true;
-      for (const [, value] of Object.entries(node)) {
-        // TODO: Use schema inspection and do this only for properties of type `node_array`
-        if (Array.isArray(value)) {
+      for (const [property_name, value] of Object.entries(node)) {
+        const property_schema = this.schema[node.type][property_name];
+
+        if (property_schema?.type === 'node_array') {
           for (const v of value) {
             if (typeof v === 'string') {
               visit($state.snapshot(this.get(v)));
             }
           }
-        } else if (typeof value === 'string') {
-          // TODO: Use schema inspection and do this only for properties of type `ref`
+        } else if (property_schema?.type === 'node') {
           visit($state.snapshot(this.get(value)));
+        } else if (property_schema?.type === 'annotated_string') {
+          for (const v of value[1]) {
+            visit($state.snapshot(this.get(v[2])));
+          }
         }
       }
       // Finally add the node to the result.
