@@ -142,21 +142,85 @@
 
     // Only take input when in a valid text selection inside the canvas
     if (
-      !(canvas_ref?.contains(document.activeElement)) ||
-      (doc.selection?.type !== 'text')
+      !(canvas_ref?.contains(document.activeElement))
     ) {
       event.preventDefault();
       return;
     }
 
-    if (event.inputType === 'formatBold') {
+    if (event.inputType === 'formatBold' && doc.selection?.type === 'text') {
       doc.apply(doc.tr.annotate_text('strong'));
       event.preventDefault();
       event.stopPropagation();
     }
 
-    if (event.inputType === 'formatItalic') {
+    if (event.inputType === 'formatItalic' && doc.selection?.type === 'text') {
       doc.apply(doc.tr.annotate_text('emphasis'));
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (event.inputType === 'deleteContentBackward') {
+      if (doc.selection?.type === 'property') {
+        // For property selections, clear the property value only if it's not already falsy
+        if (doc.get(doc.selection.path)) {
+          const tr = doc.tr;
+          tr.set(doc.selection.path, '');
+          doc.apply(tr);
+        }
+      } else {
+        if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
+          const tr = doc.tr;
+          join_text_node(tr);
+          doc.apply(tr);
+        } else {
+          doc.apply(doc.tr.delete_selection());
+        }
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (event.inputType === 'deleteContentForward') {
+      // Forward delete: only handle collapsed text selections
+      if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === doc.selection?.focus_offset) {
+        const text_content = doc.get(doc.selection.path)[0];
+        const text_length = get_char_length(text_content);
+
+        if (doc.selection.focus_offset < text_length) {
+          // There's a character after the cursor - select and delete it
+          const tr = doc.tr;
+          tr.set_selection({
+            type: 'text',
+            path: [...doc.selection.path],
+            anchor_offset: doc.selection.focus_offset,
+            focus_offset: doc.selection.focus_offset + 1
+          });
+          tr.delete_selection();
+          doc.apply(tr);
+        } else {
+          // At end of text - try to join with next text node
+          const tr = doc.tr;
+          const node_index = parseInt(String(doc.selection.path.at(-2)), 10);
+          const successor_node = doc.get([...doc.selection.path.slice(0, -2), node_index + 1]);
+
+          // Check if next node is a text node
+          if (successor_node && doc.kind(successor_node) === 'text') {
+            // Set selection to beginning of next text node
+            tr.set_selection({
+              type: 'text',
+              path: [...doc.selection.path.slice(0, -2), node_index + 1, 'content'],
+              anchor_offset: 0,
+              focus_offset: 0
+            });
+            // Use join_text_node to merge with previous
+            join_text_node(tr);
+            doc.apply(tr);
+          }
+        }
+      }
+
       event.preventDefault();
       event.stopPropagation();
     }
@@ -684,71 +748,6 @@ ${fallback_html}`;
       doc.apply(doc.tr.annotate_text('link', {
         href: window.prompt('Enter the URL', 'https://example.com')
       }));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'Backspace') {
-      if (selection?.type === 'property') {
-        // For property selections, clear the property value only if it's not already falsy
-        if (doc.get(selection.path)) {
-          const tr = doc.tr;
-          tr.set(selection.path, '');
-          doc.apply(tr);
-        }
-      } else {
-        if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
-          const tr = doc.tr;
-          join_text_node(tr);
-          doc.apply(tr);
-        } else {
-          // TODO: Things are not yet properly composable, I think we need to
-          // realize delete_selection as a command as well.
-          // See https://prosemirror.net/docs/guide/#commands for inspiration.
-          // For other selections, use the normal delete behavior
-          doc.apply(doc.tr.delete_selection());
-        }
-      }
-
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'Delete') {
-      // Forward delete: only handle collapsed text selections
-      if (selection?.type === 'text' && is_collapsed) {
-        const text_content = doc.get(selection.path)[0];
-        const text_length = get_char_length(text_content);
-
-        if (selection.focus_offset < text_length) {
-          // There's a character after the cursor - select and delete it
-          const tr = doc.tr;
-          tr.set_selection({
-            type: 'text',
-            path: [...selection.path],
-            anchor_offset: selection.focus_offset,
-            focus_offset: selection.focus_offset + 1
-          });
-          tr.delete_selection();
-          doc.apply(tr);
-        } else {
-          // At end of text - try to join with next text node
-          const tr = doc.tr;
-          const node_index = parseInt(selection.path.at(-2), 10);
-          const successor_node = doc.get([...selection.path.slice(0, -2), node_index + 1]);
-
-          // Check if next node is a text node
-          if (successor_node && doc.kind(successor_node) === 'text') {
-            // Set selection to beginning of next text node
-            tr.set_selection({
-              type: 'text',
-              path: [...selection.path.slice(0, -2), node_index + 1, 'content'],
-              anchor_offset: 0,
-              focus_offset: 0
-            });
-            // Use join_text_node to merge with previous
-            join_text_node(tr);
-            doc.apply(tr);
-          }
-        }
-      }
-
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'property') {
