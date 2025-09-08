@@ -16,6 +16,7 @@ import ImageGrid from './components/ImageGrid.svelte';
 import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
 
+
 const document_schema = define_document_schema({
   page: {
     body: {
@@ -45,10 +46,16 @@ const document_schema = define_document_schema({
   },
   text: {
     layout: { type: 'integer' },
-    content: { type: 'annotated_string' },
+    content: {
+      type: 'annotated_string',
+      node_types: ['link']
+    },
   },
   button: {
-    label: { type: 'annotated_string' },
+    label: {
+      type: 'annotated_string',
+      node_types: []
+    },
     href: { type: 'string' },
   },
   story: {
@@ -78,6 +85,16 @@ const document_schema = define_document_schema({
     },
     layout: { type: 'integer' },
   },
+  // Annotations
+  link: {
+    href: { type: 'string'}
+  },
+  strong: {},
+  emphasis: {},
+  // Inline
+  dino: {
+    href: { type: 'string' }
+  }
 });
 
 
@@ -99,7 +116,7 @@ const list_item_1_id = 'list_item_1';
 const list_item_2_id = 'list_item_2';
 const list_item_3_id = 'list_item_3';
 const list_item_4_id = 'list_item_4';
-
+const link_1_id = 'link_1';
 const button_1_id = 'button_1';
 
 const image_grid_1_id = 'image_grid_1';
@@ -295,6 +312,9 @@ const document_config = {
     NodeCursorTrap,
     Overlays,
   },
+  text_nodes: ['text'],
+  inline_nodes: ['dino'],
+
   // Registry of components for each node type
   node_components: {
     Page,
