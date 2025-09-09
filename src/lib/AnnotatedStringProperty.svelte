@@ -39,6 +39,7 @@
 			// Add the annotated string using character-aware slicing
 			const annotated_content = char_slice(text, annotation[0], annotation[1]);
 			fragments.push({
+			  node: svedit.doc.get(annotation[2]),
 				type: annotation[2],
 				content: annotated_content,
 				annotation_index: index,
@@ -81,16 +82,16 @@
     {#each fragments as fragment, index (index)}
   		{#if typeof fragment === 'string'}<!--
         -->{fragment}<!--
-      -->{:else if fragment.type === 'emphasis'}<!--
+      -->{:else if fragment.node?.type === 'emphasis'}<!--
         --><em>{fragment.content}</em><!--
-      -->{:else if fragment.type === 'strong'}<!--
+      -->{:else if fragment.node?.type === 'strong'}<!--
         --><strong>{fragment.content}</strong><!--
-      -->{:else if fragment.type === 'link'}<!--
+      -->{:else if fragment.node?.type === 'link'}<!--
         --><a
   				onclick={handle_link_click}
   				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
-  				href={fragment.data.href}
-  				target={fragment.data.target || '_self'}>{fragment.content}</a><!--
+  				href={fragment.node?.href}
+  				target={fragment.node?.target || '_self'}>{fragment.content}</a><!--
       -->{:else}<!--
         -->{fragment.content}<!--
       -->{/if}
