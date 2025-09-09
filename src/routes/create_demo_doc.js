@@ -15,6 +15,9 @@ import ListItem from './components/ListItem.svelte';
 import ImageGrid from './components/ImageGrid.svelte';
 import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
+import Strong from './components/Strong.svelte';
+import Emphasis from './components/Emphasis.svelte';
+import Link from './components/Link.svelte';
 
 const document_schema = define_document_schema({
   page: {
@@ -130,6 +133,10 @@ const image_grid_item_5_id = 'image_grid_item_5';
 const image_grid_item_6_id = 'image_grid_item_6';
 
 const serialized_doc = [
+  {
+    id: emphasis_1_id,
+    type: 'emphasis',
+  },
   {
     id: link_1_id,
     type: 'link',
@@ -352,7 +359,10 @@ const document_config = {
     ListItem,
     ImageGrid,
     ImageGridItem,
-    Hero
+    Hero,
+    Strong,
+    Emphasis,
+    Link
   },
   // HTML exporters for different node types
   html_exporters: {

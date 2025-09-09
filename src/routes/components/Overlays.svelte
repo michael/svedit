@@ -1,11 +1,11 @@
 <script>
 	import { getContext } from 'svelte';
-	import Icon from './Icon.svelte';
+	// import Icon from './Icon.svelte';
 
 	const svedit = getContext('svedit');
 
 	let node_array_selection_paths = $derived(get_node_array_selection_paths());
-	let text_selection_info = $derived(get_text_selection_info());
+	// let text_selection_info = $derived(get_text_selection_info());
 
 	function get_node_array_selection_paths() {
 		const paths = [];
@@ -24,28 +24,28 @@
 		}
 	}
 
-	function get_text_selection_info() {
-		const sel = svedit.doc.selection;
-		if (!sel || sel.type !== 'text') return null;
+	// function get_text_selection_info() {
+	// 	const sel = svedit.doc.selection;
+	// 	if (!sel || sel.type !== 'text') return null;
 
-		const active_annotation = svedit.doc.active_annotation();
-		if (active_annotation && active_annotation[2] === 'link') {
-			const annotated_string = svedit.doc.get(sel.path);
-			const annotation_index = annotated_string[1].indexOf(active_annotation);
-			return {
-				path: sel.path,
-				annotation: active_annotation,
-				annotation_index: annotation_index
-			};
-		}
-		return null;
-	}
+	// 	const active_annotation = svedit.doc.active_annotation();
+	// 	if (active_annotation && active_annotation[2] === 'link') {
+	// 		const annotated_string = svedit.doc.get(sel.path);
+	// 		const annotation_index = annotated_string[1].indexOf(active_annotation);
+	// 		return {
+	// 			path: sel.path,
+	// 			annotation: active_annotation,
+	// 			annotation_index: annotation_index
+	// 		};
+	// 	}
+	// 	return null;
+	// }
 
-	function open_link() {
-		if (text_selection_info?.annotation?.[3]?.href) {
-			window.open(text_selection_info.annotation[3].href, '_blank');
-		}
-	}
+	// function open_link() {
+	// 	if (text_selection_info?.annotation?.[3]?.href) {
+	// 		window.open(text_selection_info.annotation[3].href, '_blank');
+	// 	}
+	// }
 </script>
 
 {#if svedit.doc.selection?.type === 'property'}
@@ -63,7 +63,7 @@
 	{/each}
 {/if}
 
-{#if text_selection_info}
+<!-- {#if text_selection_info}
 	<div
 		class="text-selection-overlay"
 		style="position-anchor: --{text_selection_info.path.join('-') +
@@ -72,7 +72,7 @@
 	>
 		<button onclick={open_link} class="small"><Icon name="external-link" /></button>
 	</div>
-{/if}
+{/if} -->
 
 <style>
 	/* This should be an exact overlay */
@@ -90,7 +90,7 @@
 		pointer-events: none;
 	}
 
-	.text-selection-overlay {
+	/*.text-selection-overlay {
 		position: absolute;
 		top: anchor(top);
 		left: anchor(right);
@@ -103,5 +103,5 @@
 		color: var(--primary-text-color);
 		--icon-color: var(--primary-text-color);
 		box-shadow: var(--shadow-2);
-	}
+	}*/
 </style>
