@@ -85,9 +85,10 @@
 		  tr.annotate_text('link');
 		} else {
 		  // Create link
-  		tr.annotate_text('link', {
-  			href: window.prompt('Enter the URL', 'https://example.com')
-  		});
+			const href = window.prompt('Enter the URL', 'https://example.com');
+			if (href) {
+ 		    tr.annotate_text('link', { href });
+			}
 		}
 		doc.apply(tr);
 	}

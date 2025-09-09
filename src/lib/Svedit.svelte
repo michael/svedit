@@ -745,9 +745,18 @@ ${fallback_html}`;
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      doc.apply(doc.tr.annotate_text('link', {
-        href: window.prompt('Enter the URL', 'https://example.com')
-      }));
+      const has_link = doc.active_annotation('link');
+      if (has_link) {
+        // Delete link
+        doc.apply(doc.tr.annotate_text('link'));
+      } else {
+        // Create link
+        const href = window.prompt('Enter the URL', 'https://example.com');
+        if (href) {
+          doc.apply(doc.tr.annotate_text('link', { href }));
+        }
+      }
+
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'property') {
