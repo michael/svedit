@@ -247,18 +247,16 @@ export type SveditProps = {
  * Represents an annotation in an annotated string
  * Format: [start_offset, end_offset, type, options?]
  */
-export type Annotation = [number, number, string, Record<string, any>?];
+export type Annotation = [number, number, NodeId];
 
 /**
  * Represents a fragment of annotated text content
  */
-export type AnnotationFragment = {
-  /** The annotation type (e.g., 'link', 'emphasis', 'strong') */
-  type: string;
+export type AnnotationFragment = string | {
+  /** NodeId that has annotation type and details */
+  node: any;
   /** The text content of the annotation */
   content: string;
   /** Index of the annotation in the original array */
   annotation_index: number;
-  /** Optional properties from the annotation's options object */
-  data?: any;
 };
