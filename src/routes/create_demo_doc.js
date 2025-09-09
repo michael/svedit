@@ -19,7 +19,11 @@ import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
 import Link from './components/Link.svelte';
 
+const all_annotations = ['strong', 'emphasis', 'link'];
+const title_annotations = ['emphasis'];
+
 const document_schema = define_document_schema({
+  // Document
   page: {
     body: {
       type: 'node_array',
@@ -41,10 +45,15 @@ const document_schema = define_document_schema({
       type: 'datetime'
     }
   },
+  // Blocks
   hero: {
-    title: { type: 'annotated_string' },
+    title: {
+      type: 'annotated_string',
+      node_types: title_annotations,
+    },
     description: {
-      type: 'annotated_string'
+      type: 'annotated_string',
+      node_types: all_annotations
     },
     image: { type: 'string' }, // a dedicated type asset would be better
   },
@@ -52,7 +61,7 @@ const document_schema = define_document_schema({
     layout: { type: 'integer' },
     content: {
       type: 'annotated_string',
-      node_types: ['link']
+      node_types: all_annotations
     },
   },
   button: {
@@ -64,8 +73,14 @@ const document_schema = define_document_schema({
   },
   story: {
     layout: { type: 'integer' },
-    title: { type: 'annotated_string' },
-    description: { type: 'annotated_string' },
+    title: {
+      type: 'annotated_string',
+      node_types: title_annotations,
+    },
+    description: {
+      type: 'annotated_string',
+      node_types: all_annotations,
+    },
     buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
     image: { type: 'string' }, // a dedicated type asset would be better
   },
@@ -77,10 +92,16 @@ const document_schema = define_document_schema({
   },
   image_grid_item: {
     image: { type: 'string' }, // a dedicated type asset would be better
-    title: { type: 'annotated_string' },
+    title: {
+      type: 'annotated_string',
+      node_types: all_annotations,
+    },
   },
   list_item: {
-    content: { type: 'annotated_string' },
+    content: {
+      type: 'annotated_string',
+      node_types: all_annotations,
+    },
   },
   list: {
     list_items: {
@@ -96,7 +117,6 @@ const document_schema = define_document_schema({
   strong: {},
   emphasis: {},
 });
-
 
 
 // Generate IDs for all content nodes
