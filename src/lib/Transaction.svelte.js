@@ -206,6 +206,11 @@ export default class Transaction {
         return this;
       }
     } else {
+      if (!this.doc.available_annotation_types.includes(annotation_type)) {
+        console.log(`Annotation type ${annotation_type} is not allowed here.`);
+        return this;
+      }
+
       const new_annotation_node = {
         id: this.doc.generate_id(),
         type: annotation_type,
