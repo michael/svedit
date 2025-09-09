@@ -478,8 +478,9 @@ export default class Document {
       (annotation_start >= start && annotation_end <= end)
     ) || null;
 
-    if (annotation_type) {
-      return active_annotation?.[2] === annotation_type ? active_annotation : null;
+    if (annotation_type && active_annotation) {
+      const annotation_node = this.get(active_annotation?.[2]);
+      return annotation_node?.type === annotation_type ? active_annotation : null;
     } else {
       return active_annotation;
     }

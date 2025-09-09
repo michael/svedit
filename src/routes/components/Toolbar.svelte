@@ -76,21 +76,20 @@
 		}
 	}
 
-	function insert_link() {
+	function toggle_link() {
 		// if the user cancels the prompt it will use the previous link
-		const current_link =
-			doc.active_annotation()?.[2] === 'link' ? doc.active_annotation()[3].href : '';
-
-		const new_url = window.prompt('Enter the URL', current_link);
-
-		// Update if the user didn't cancel the prompt
-		if (new_url !== null) {
-			const tr = doc.tr;
-			tr.annotate_text('link', {
-				href: new_url // Pass the new_url directly, even if it's an empty string
-			});
-			doc.apply(tr);
+		const has_link = Boolean(doc.active_annotation('link'));
+		const tr = doc.tr;
+		if (has_link) {
+		  // Remove link
+		  tr.annotate_text('link');
+		} else {
+		  // Create link
+  		tr.annotate_text('link', {
+  			href: window.prompt('Enter the URL', 'https://example.com')
+  		});
 		}
+		doc.apply(tr);
 	}
 
 	// Check if we have a collapsed node selection (node cursor)
@@ -199,8 +198,8 @@
 				tr.annotate_text('strong');
 				doc.apply(tr);
 			}}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'strong'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'strong'}
+			disabled={doc.active_annotation() && !doc.active_annotation('strong')}
+			class:active={doc.active_annotation('strong')}
 		>
 			<Icon name="bold" />
 		</button>
@@ -212,16 +211,16 @@
 				tr.annotate_text('emphasis');
 				doc.apply(tr);
 			}}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'emphasis'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'emphasis'}
+			disabled={doc.active_annotation() && !doc.active_annotation('emphasis')}
+			class:active={doc.active_annotation('emphasis')}
 		>
 			<Icon name="italic" />
 		</button>
 		<button
 			title="Link"
-			onclick={insert_link}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'link'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'link'}
+			onclick={toggle_link}
+			disabled={doc.active_annotation() && !doc.active_annotation('link')}
+			class:active={doc.active_annotation('link')}
 		>
 			<Icon name="link" />
 		</button>

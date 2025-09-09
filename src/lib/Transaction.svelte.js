@@ -168,7 +168,7 @@ export default class Transaction {
    * when conflicting types are applied.
    *
    * @param {any} annotation_type - The type of annotation (e.g., 'link', 'bold', 'italic')
-   * @param {any} annotation_data - Additional data for the annotation (e.g., href for links)
+   * @param {any} annotation_properties - Additional data for the annotation (e.g., href for links)
    * @returns {Transaction} This transaction instance for method chaining
    *
    * @example
@@ -180,64 +180,25 @@ export default class Transaction {
    * tr.annotate_text('emphasis', {});
    * ```
    */
-  annotate_text(annotation_type, annotation_data) {
+  annotate_text(annotation_type, annotation_properties) {
     if (this.doc.selection.type !== 'text') return this;
 
     const { start, end } = this.doc.get_selection_range();
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const annotations = annotated_string[1];
-    const existing_annotations = this.doc.active_annotation();
+    const existing_annotation = this.doc.active_annotation();
+    const existing_annotation_same_type = this.doc.active_annotation(annotation_type);
 
-    // Special annotation type handling should probably be done in a separate function.
-    // The goal is to keep the core logic simple and allow developer to extend and pick only what they need.
-    // It could also be abstracted to not check for type (e.g. "link") but for a special attribute
-    // e.g. "zero-range-updatable" for annotations that are updatable without a range selection change.
-
-    // Special handling for links when there's no selection range
-    // Links should be updatable by just clicking on them without a range selection
-    if (annotation_type === 'link' && start === end && existing_annotations) {
-
-      // Use findIndex for deep comparison of annotation properties (comparison of annotation properties rather than object reference via indexOf)
-      const index = annotations.findIndex(/** @param {any} anno */ (anno) =>
-        anno[0] === existing_annotations[0] &&
-        anno[1] === existing_annotations[1] &&
-        anno[2] === existing_annotations[2]
-      );
-      // const index = annotations.indexOf(existing_annotations);
-
-      if (index !== -1) {
-        if (annotation_data.href === '') {
-          // Remove the annotation if the href is empty
-          annotations.splice(index, 1);
-        } else {
-          annotations[index] = [
-            existing_annotations[0],
-            existing_annotations[1],
-            'link',
-            { ...existing_annotations[3], ...annotation_data }
-          ];
-        }
-
-        this.set(this.doc.selection.path, annotated_string);
-        return this;
-      }
-    }
-
-    // Regular annotation handling
-    if (start === end) {
-      // For non-link annotations: You can not annotate text if the selection is collapsed.
-      return this;
-    }
-
-    if (existing_annotations) {
+    if (existing_annotation) {
       // If there's an existing annotation of the same type, remove it
-      if (existing_annotations[2] === annotation_type) {
+      if (existing_annotation_same_type) {
         const index = annotations.findIndex(/** @param {any} anno */ (anno) =>
-          anno[0] === existing_annotations[0] &&
-          anno[1] === existing_annotations[1] &&
-          anno[2] === existing_annotations[2]
+          anno[0] === existing_annotation[0] &&
+          anno[1] === existing_annotation[1]
         );
         if (index !== -1) {
+          // Remove the annotation node from the graph
+          this.delete(annotations[index][2]);
           annotations.splice(index, 1);
         }
       } else {
@@ -245,14 +206,18 @@ export default class Transaction {
         return this;
       }
     } else {
+      const new_annotation_node = {
+        id: this.doc.generate_id(),
+        type: annotation_type,
+        ...annotation_properties,
+      }
+      this.create(new_annotation_node);
       // If there's no existing annotation, add the new one
-      annotations.push([start, end, annotation_type, annotation_data]);
+      annotations.push([start, end, new_annotation_node.id]);
     }
 
     // Update the annotated string
     this.set(this.doc.selection.path, annotated_string);
-    // Not needed anymore as doc.apply makes sure selection is rerendered
-    // this.doc.selection = { ...this.doc.selection };
     return this;
   }
 
