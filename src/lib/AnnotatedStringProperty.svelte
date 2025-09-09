@@ -43,10 +43,8 @@
 
 			fragments.push({
 			  node,
-				type: annotation[2],
 				content: annotated_content,
 				annotation_index: index,
-				data: annotation[3]
 			});
 
 			last_index = annotation[1];
