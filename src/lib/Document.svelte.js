@@ -190,6 +190,7 @@ export default class Document {
 
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
+	available_annotation_types = $derived(this.get_available_annotation_types());
 
   /**
    * @param {DocumentSchema} schema - The document schema
@@ -225,6 +226,13 @@ export default class Document {
       return crypto.randomUUID();
     }
   }
+
+ 	get_available_annotation_types() {
+    if (this.selection?.type !== 'text') return [];
+    const path = this.selection.path;
+    const property_schema = this.inspect(path);
+    return property_schema.node_types || [];
+	}
 
  	// Helper function to get the currently selected node
 	get_selected_node() {

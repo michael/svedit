@@ -190,40 +190,46 @@
 		<hr />
 	{/if}
 	{#if doc.selection?.type === 'text'}
-		<button
-			title="Bold"
-			class="bold"
-			onclick={() => {
-				const tr = doc.tr;
-				tr.annotate_text('strong');
-				doc.apply(tr);
-			}}
-			disabled={doc.active_annotation() && !doc.active_annotation('strong')}
-			class:active={doc.active_annotation('strong')}
-		>
-			<Icon name="bold" />
-		</button>
-		<button
-			title="Italic"
-			class="italic"
-			onclick={() => {
-				const tr = doc.tr;
-				tr.annotate_text('emphasis');
-				doc.apply(tr);
-			}}
-			disabled={doc.active_annotation() && !doc.active_annotation('emphasis')}
-			class:active={doc.active_annotation('emphasis')}
-		>
-			<Icon name="italic" />
-		</button>
-		<button
-			title="Link"
-			onclick={toggle_link}
-			disabled={doc.active_annotation() && !doc.active_annotation('link')}
-			class:active={doc.active_annotation('link')}
-		>
-			<Icon name="link" />
-		</button>
+		{#if doc.available_annotation_types.includes('strong')}
+  		<button
+  			title="Bold"
+  			class="bold"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('strong');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('strong')}
+  			class:active={doc.active_annotation('strong')}
+  		>
+  			<Icon name="bold" />
+  		</button>
+		{/if}
+		{#if doc.available_annotation_types.includes('emphasis')}
+  		<button
+  			title="Italic"
+  			class="italic"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('emphasis');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('emphasis')}
+  			class:active={doc.active_annotation('emphasis')}
+  		>
+  			<Icon name="italic" />
+  		</button>
+		{/if}
+		{#if doc.available_annotation_types.includes('link')}
+  		<button
+  			title="Link"
+  			onclick={toggle_link}
+  			disabled={doc.active_annotation() && !doc.active_annotation('link')}
+  			class:active={doc.active_annotation('link')}
+  		>
+  			<Icon name="link" />
+  		</button>
+		{/if}
 	{/if}
 	{#if show_link_input }
   	<div class="contextual-input">
