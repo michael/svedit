@@ -277,10 +277,12 @@ export default class Transaction {
       const original_text = text[0];
       text[0] = char_slice(original_text, 0, start) + char_slice(original_text, end, get_char_length(original_text));
 
+      // To mark annotation nodes for deletion.
+      const _deleted_nodes = [];
       // Update annotation offsets for deletion
       const deletion_length = end - start;
       const new_annotations = text[1].map(/** @param {any} annotation */ (annotation) => {
-        const [annotation_start, annotation_end, type, annotation_data] = annotation;
+        const [annotation_start, annotation_end, node_id] = annotation;
 
         // Adjust start offset
         let new_start = annotation_start;
@@ -306,16 +308,24 @@ export default class Transaction {
 
         // Remove annotation if it becomes invalid (start >= end)
         if (new_start >= new_end) {
+          console.log('deleting annotation');
+          _deleted_nodes.push(node_id);
           return false;
         }
 
-        return [new_start, new_end, type, annotation_data];
+        return [new_start, new_end, node_id];
       }).filter(Boolean);
 
       text[1] = new_annotations;
 
       // Update the text in the entry (this implicitly records an op via this.set)
       this.set(path, text);
+
+      // Remove annotation nodes that were implicitly deleted.
+      for (const node_id of _deleted_nodes) {
+        this.delete(node_id);
+      }
+
       this.set_selection({
         type: 'text',
         path,
