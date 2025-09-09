@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { char_slice, get_char_length } from './util.js';
+	import { char_slice, get_char_length, snake_to_pascal } from './util.js';
 
   /** @import { AnnotatedStringPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
@@ -23,7 +23,7 @@
 	 * @param {Array<Annotation>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
 	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
 	 */
-	function render_annotated_string(text, annotations) {
+	function get_fragments(text, annotations) {
 		let fragments = [];
 		let last_index = 0;
 
@@ -38,8 +38,11 @@
 
 			// Add the annotated string using character-aware slicing
 			const annotated_content = char_slice(text, annotation[0], annotation[1]);
+			const node = svedit.doc.get(annotation[2]);
+			if (!node) throw new Error(`Node not found for annotation ${annotation[2]}`);
+
 			fragments.push({
-			  node: svedit.doc.get(annotation[2]),
+			  node,
 				type: annotation[2],
 				content: annotated_content,
 				annotation_index: index,
@@ -57,15 +60,10 @@
 		return fragments;
 	}
 
-	let fragments = $derived(render_annotated_string(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
+	let fragments = $derived(get_fragments(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
+
 	let plain_text = $derived(svedit.doc.get(path)[0]);
 
-	/**
-	 * @param {MouseEvent} e - The click event
-	 */
-	function handle_link_click(e) {
-		e.preventDefault();
-	}
 </script>
 
 {#key plain_text}
@@ -80,21 +78,10 @@
     placeholder={placeholder}
   >
     {#each fragments as fragment, index (index)}
-  		{#if typeof fragment === 'string'}<!--
-        -->{fragment}<!--
-      -->{:else if fragment.node?.type === 'emphasis'}<!--
-        --><em>{fragment.content}</em><!--
-      -->{:else if fragment.node?.type === 'strong'}<!--
-        --><strong>{fragment.content}</strong><!--
-      -->{:else if fragment.node?.type === 'link'}<!--
-        --><a
-  				onclick={handle_link_click}
-  				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
-  				href={fragment.node?.href}
-  				target={fragment.node?.target || '_self'}>{fragment.content}</a><!--
-      -->{:else}<!--
-        -->{fragment.content}<!--
-      -->{/if}
+  		{#if typeof fragment === 'string'}{fragment}{:else}
+        {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
+        <AnnotationComponent node={fragment.node} content={fragment.content} />
+      {/if}
   	{/each}<!--
     --><br>
   </div>
