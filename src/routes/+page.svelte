@@ -22,7 +22,6 @@
 
 <div class="demo-wrapper">
   <Toolbar {doc} {focus_canvas} bind:editable />
-  <!-- Svedit editable canvas composed of Svedit nodes -->
   <Svedit
     {doc}
     bind:editable
