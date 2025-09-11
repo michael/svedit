@@ -453,7 +453,7 @@ ${fallback_html}`;
 
       console.log('Copy operation:', {
         selected_nodes,
-        main_nodes,
+        nodes,
         total_nodes: Object.keys(nodes).length,
         operation: delete_selection ? 'cut' : 'copy'
       });
@@ -517,8 +517,6 @@ ${fallback_html}`;
       pasted_json = undefined;
     }
 
-
-
     if (pasted_json) {
       const tr = doc.tr;
 
@@ -548,6 +546,12 @@ ${fallback_html}`;
               new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
             } else if (prop_type === 'node' && typeof value === 'string') {
               new_node[property] = id_mapping[value] || value;
+            } else if (prop_type === 'annotated_string') {
+              const annotations = value[1].map(annotation => {
+                const [start_offset, end_offset, node_id] = annotation;
+                return [start_offset, end_offset, id_mapping[node_id] ||node_id];
+              });
+              new_node[property] = [value[0], annotations];
             }
           }
 
