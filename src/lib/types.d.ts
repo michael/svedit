@@ -112,7 +112,7 @@ export type DocumentSchemaValueToJs<T> =
  * Converts a document node schema definition to its inferred JS type.
  * Handles the {type: "..."} wrapper structure used in document schemas.
  */
-export type DocumentNodeToJs<S extends {kind: NodeKind, properties: Record<string, {type: DocumentSchemaPrimitive}>}> =
+export type DocumentNodeToJs<S extends NodeSchema> =
   { id: string, type: string } & { [K in keyof S["properties"]]: DocumentSchemaValueToJs<S["properties"][K]["type"]> };
 
 /**
@@ -151,13 +151,28 @@ export type PropertyDefinition = PrimitiveProperty | NodeProperty | NodeArrayPro
 export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
 
 /**
+ * Schema for text nodes - must have a content property of type annotated_string
+ */
+export type TextNodeSchema = {
+  kind: 'text';
+  properties: {
+    content: { type: 'annotated_string'; node_types?: string[] };
+  } & Record<string, PropertyDefinition>;
+};
+
+/**
+ * Schema for non-text nodes
+ */
+export type NonTextNodeSchema = {
+  kind: 'document' | 'block' | 'annotation';
+  properties: Record<string, PropertyDefinition>;
+};
+
+/**
  * A node schema defines the structure of a specific node type.
  * Contains a kind and properties object that maps property names to their definitions.
  */
-export type NodeSchema = {
-  kind: NodeKind;
-  properties: Record<string, PropertyDefinition>;
-};
+export type NodeSchema = TextNodeSchema | NonTextNodeSchema;
 
 /**
  * A document schema defines all node types available in a document.
