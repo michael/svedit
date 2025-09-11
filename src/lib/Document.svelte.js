@@ -12,6 +12,9 @@ import { char_slice } from './util.js';
  *   NodeProperty,
  *   NodeArrayProperty,
  *   NodeKind,
+ *   NodeSchema,
+ *   TextNodeSchema,
+ *   NonTextNodeSchema,
  *   DocumentSchema,
  *   SerializedDocument
  * } from './types.d.ts';
@@ -21,7 +24,7 @@ import { char_slice } from './util.js';
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
  *
- * @template {Record<string, {kind: NodeKind, properties: Record<string, {type: DocumentSchemaPrimitive}>}>} S
+ * @template {Record<string, NodeSchema>} S
  * @param {S} schema - The document schema to validate
  * @returns {S} The same schema, but with type information preserved
  */
@@ -454,17 +457,13 @@ export default class Document {
   }
 
   /**
-   * Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
-   * NOTE: currently we assume a 'content' property for pure text nodes
+   * Determines the kind of a node ('block' for structured blocks, 'text' for pure
+   * text nodes or 'annotation' for annotation nodes.
    * @param {any} node
-   * @returns {'text'|'node'}
+   * @returns {NodeKind}
    */
   kind(node) {
-    if (['annotated_string', 'string'].includes(this.schema[node.type]?.properties?.content?.type)) {
-      return 'text'
-    } else {
-      return 'node';
-    }
+    return this.schema[node.type].kind;
   }
 
   /**
