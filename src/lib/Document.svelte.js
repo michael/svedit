@@ -11,6 +11,7 @@ import { char_slice } from './util.js';
  *   DocumentSchemaPrimitive,
  *   NodeProperty,
  *   NodeArrayProperty,
+ *   NodeKind,
  *   DocumentSchema,
  *   SerializedDocument
  * } from './types.d.ts';
@@ -20,7 +21,7 @@ import { char_slice } from './util.js';
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
  *
- * @template {Record<string, {properties: Record<string, {type: DocumentSchemaPrimitive}>}>} S
+ * @template {Record<string, {kind: NodeKind, properties: Record<string, {type: DocumentSchemaPrimitive}>}>} S
  * @param {S} schema - The document schema to validate
  * @returns {S} The same schema, but with type information preserved
  */

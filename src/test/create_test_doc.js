@@ -22,6 +22,7 @@ export const list_item_2_id = 'list_item_2';
 
 const document_schema = define_document_schema({
   page: {
+    kind: 'document',
     properties: {
       body: {
         type: 'node_array',
@@ -40,18 +41,21 @@ const document_schema = define_document_schema({
     }
   },
   button: {
+    kind: 'block',
     properties: {
       label: { type: 'annotated_string' },
       href: { type: 'string' },
     }
   },
   text: {
+    kind: 'text',
     properties: {
       layout: { type: 'integer' },
       content: { type: 'annotated_string' },
     }
   },
   story: {
+    kind: 'block',
     properties: {
       layout: { type: 'integer' },
       title: { type: 'annotated_string' },
@@ -61,11 +65,13 @@ const document_schema = define_document_schema({
     }
   },
   list_item: {
+    kind: 'text',
     properties: {
       content: { type: 'annotated_string' },
     }
   },
   list: {
+    kind: 'block',
     properties: {
       layout: { type: 'integer' },
       list_items: {

@@ -73,6 +73,7 @@ Or references:
 ```js
 const document_schema = {
   page: {
+    kind: 'document',
     properties: {
       body: {
         type: 'node_array',
@@ -82,16 +83,19 @@ const document_schema = {
     }
   },
   paragraph: {
+    kind: 'text',
     properties: {
       content: { type: 'annotated_string' }
     }
   },
   list_item: {
+    kind: 'text',
     properties: {
       content: { type: 'annotated_string' },
     }
   },
   list: {
+    kind: 'block',
     properties: {
       list_items: {
         type: 'node_array',
@@ -101,6 +105,7 @@ const document_schema = {
     }
   },
   nav: {
+    kind: 'block',
     properties: {
       nav_items: {
         type: 'node_array',
@@ -110,6 +115,7 @@ const document_schema = {
     }
   },
   nav_item: {
+    kind: 'block',
     properties: {
       url: { type: 'string' },
       label: { type: 'string' },
