@@ -19,8 +19,8 @@ import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
 import Link from './components/Link.svelte';
 
-const all_annotations = ['strong', 'emphasis', 'link'];
-const title_annotations = ['emphasis'];
+const ALL_ANNOTATIONS = ['strong', 'emphasis', 'link'];
+const TITLE_ANNOTATIONS = ['emphasis'];
 
 const document_schema = define_document_schema({
   // Document
@@ -49,11 +49,11 @@ const document_schema = define_document_schema({
   hero: {
     title: {
       type: 'annotated_string',
-      node_types: title_annotations,
+      node_types: TITLE_ANNOTATIONS,
     },
     description: {
       type: 'annotated_string',
-      node_types: all_annotations
+      node_types: ALL_ANNOTATIONS
     },
     image: { type: 'string' }, // a dedicated type asset would be better
   },
@@ -61,7 +61,7 @@ const document_schema = define_document_schema({
     layout: { type: 'integer' },
     content: {
       type: 'annotated_string',
-      node_types: all_annotations
+      node_types: ALL_ANNOTATIONS
     },
   },
   button: {
@@ -75,11 +75,11 @@ const document_schema = define_document_schema({
     layout: { type: 'integer' },
     title: {
       type: 'annotated_string',
-      node_types: title_annotations,
+      node_types: TITLE_ANNOTATIONS,
     },
     description: {
       type: 'annotated_string',
-      node_types: all_annotations,
+      node_types: ALL_ANNOTATIONS,
     },
     buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
     image: { type: 'string' }, // a dedicated type asset would be better
@@ -94,13 +94,13 @@ const document_schema = define_document_schema({
     image: { type: 'string' }, // a dedicated type asset would be better
     title: {
       type: 'annotated_string',
-      node_types: all_annotations,
+      node_types: ALL_ANNOTATIONS,
     },
   },
   list_item: {
     content: {
       type: 'annotated_string',
-      node_types: all_annotations,
+      node_types: ALL_ANNOTATIONS,
     },
   },
   list: {
@@ -366,8 +366,6 @@ const document_config = {
     NodeCursorTrap,
     Overlays,
   },
-  text_nodes: ['text'],
-  inline_nodes: ['dino'],
 
   // Registry of components for each node type
   node_components: {
