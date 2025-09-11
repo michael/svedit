@@ -73,35 +73,47 @@ Or references:
 ```js
 const document_schema = {
   page: {
-    body: {
-      type: 'node_array',
-      node_types: ['nav', 'paragraph', 'list'],
-      default_node_type: 'paragraph',
+    properties: {
+      body: {
+        type: 'node_array',
+        node_types: ['nav', 'paragraph', 'list'],
+        default_node_type: 'paragraph',
+      }
     }
   },
   paragraph: {
-    content: { type: 'annotated_string' }
+    properties: {
+      content: { type: 'annotated_string' }
+    }
   },
   list_item: {
-    content: { type: 'annotated_string' },
+    properties: {
+      content: { type: 'annotated_string' },
+    }
   },
   list: {
-    list_items: {
-      type: 'node_array',
-      node_types: ['list_item'],
-      default_node_type: 'list_item',
+    properties: {
+      list_items: {
+        type: 'node_array',
+        node_types: ['list_item'],
+        default_node_type: 'list_item',
+      }
     }
   },
   nav: {
-    nav_items: {
-      type: 'node_array',
-      node_types: ['nav_item'],
-      default_node_type: 'nav_item',
+    properties: {
+      nav_items: {
+        type: 'node_array',
+        node_types: ['nav_item'],
+        default_node_type: 'nav_item',
+      }
     }
   },
   nav_item: {
-    url: { type: 'string' },
-    label: { type: 'string' },
+    properties: {
+      url: { type: 'string' },
+      label: { type: 'string' },
+    }
   }
 };
 ```

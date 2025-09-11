@@ -20,7 +20,7 @@ import { char_slice } from './util.js';
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
  *
- * @template {Record<string, Record<string, {type: DocumentSchemaPrimitive}>>} S
+ * @template {Record<string, {properties: Record<string, {type: DocumentSchemaPrimitive}>}>} S
  * @param {S} schema - The document schema to validate
  * @returns {S} The same schema, but with type information preserved
  */
@@ -63,7 +63,7 @@ export function get_default_node_type(property_definition) {
 export function validate_document_schema(document_schema) {
   // Check that all referenced node types exist
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
-    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+    for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
       if (prop_def.type === 'node' || prop_def.type === 'node_array') {
         const missing_types = prop_def.node_types.filter(ref_type => !(ref_type in document_schema));
         if (missing_types.length > 0) {
@@ -136,7 +136,7 @@ function validate_node(node, schema, all_nodes = {}) {
 
   const node_schema = schema[node.type];
 
-  for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+  for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
     const value = node[prop_name];
 
     // Check primitive types
@@ -438,7 +438,7 @@ export default class Document {
         kind: 'property',
         name: property_name,
         // Merge property spec from schema
-        ...this.schema[parent.type][property_name]
+        ...this.schema[parent.type].properties[property_name]
       };
     } else {
       // Parent is a property (or we are at the root), so we are dealing with a node.
@@ -459,7 +459,7 @@ export default class Document {
    * @returns {'text'|'node'}
    */
   kind(node) {
-    if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
+    if (['annotated_string', 'string'].includes(this.schema[node.type]?.properties?.content?.type)) {
       return 'text'
     } else {
       return 'node';
@@ -612,7 +612,7 @@ export default class Document {
       }
       visited[node.id] = true;
       for (const [property_name, value] of Object.entries(node)) {
-        const property_schema = this.schema[node.type][property_name];
+        const property_schema = this.schema[node.type].properties[property_name];
 
         if (property_schema?.type === 'node_array') {
           for (const v of value) {
@@ -655,9 +655,9 @@ export default class Document {
     if (property === 'id') return 'string';
 
     if (!this.schema[type]) throw new Error(`Type ${type} not found in schema`);
-    if (!this.schema[type][property]) throw new Error(`Property ${property} not found in type ${type}`);
+    if (!this.schema[type].properties[property]) throw new Error(`Property ${property} not found in type ${type}`);
 
-    return this.schema[type][property].type;
+    return this.schema[type].properties[property].type;
   }
 
   // Count how many times a node is referenced in the document

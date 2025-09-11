@@ -22,46 +22,58 @@ export const list_item_2_id = 'list_item_2';
 
 const document_schema = define_document_schema({
   page: {
-    body: {
-      type: 'node_array',
-      node_types: ['text', 'story', 'list'],
-      default_node_type: 'text',
-    },
-    keywords: {
-      type: 'string_array',
-    },
-    daily_visitors: {
-      type: 'integer_array',
-    },
-    created_at: {
-      type: 'datetime'
+    properties: {
+      body: {
+        type: 'node_array',
+        node_types: ['text', 'story', 'list'],
+        default_node_type: 'text',
+      },
+      keywords: {
+        type: 'string_array',
+      },
+      daily_visitors: {
+        type: 'integer_array',
+      },
+      created_at: {
+        type: 'datetime'
+      }
     }
   },
   button: {
-    label: { type: 'annotated_string' },
-    href: { type: 'string' },
+    properties: {
+      label: { type: 'annotated_string' },
+      href: { type: 'string' },
+    }
   },
   text: {
-    layout: { type: 'integer' },
-    content: { type: 'annotated_string' },
+    properties: {
+      layout: { type: 'integer' },
+      content: { type: 'annotated_string' },
+    }
   },
   story: {
-    layout: { type: 'integer' },
-    title: { type: 'annotated_string' },
-    description: { type: 'annotated_string' },
-    buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
-    image: { type: 'string' }, // a dedicated type asset would be better
+    properties: {
+      layout: { type: 'integer' },
+      title: { type: 'annotated_string' },
+      description: { type: 'annotated_string' },
+      buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
+      image: { type: 'string' }, // a dedicated type asset would be better
+    }
   },
   list_item: {
-    content: { type: 'annotated_string' },
+    properties: {
+      content: { type: 'annotated_string' },
+    }
   },
   list: {
-    layout: { type: 'integer' },
-    list_items: {
-      type: 'node_array',
-      node_types: ['list_item'],
-      default_node_type: 'list_item',
-    },
+    properties: {
+      layout: { type: 'integer' },
+      list_items: {
+        type: 'node_array',
+        node_types: ['list_item'],
+        default_node_type: 'list_item',
+      },
+    }
   },
 });
 
