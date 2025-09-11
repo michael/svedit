@@ -78,7 +78,7 @@
     {#each fragments as fragment, index (index)}
   		{#if typeof fragment === 'string'}{fragment}{:else}
         {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
-        <AnnotationComponent node={fragment.node} content={fragment.content} />
+        <AnnotationComponent path={[...path, 1, fragment.annotation_index, 2]} content={fragment.content} />
       {/if}
   	{/each}<!--
     --><br>

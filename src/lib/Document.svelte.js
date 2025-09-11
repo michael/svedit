@@ -384,6 +384,9 @@ export default class Document {
         if (this.property_type(val.type, path_segment) === 'node_array') {
           val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
           val_type = 'node_array';
+        } else if (this.property_type(val.type, path_segment) === 'annotated_string') {
+          val = val[path_segment];
+          val_type = 'annotated_string';
         } else if (this.property_type(val.type, path_segment) === 'node') {
           val = this.nodes[val[path_segment]];
           val_type = 'node';
@@ -391,7 +394,7 @@ export default class Document {
           val = val[path_segment];
           val_type = 'value_array';
         } else {
-          // Resolve value properties sucha as string, integer, datetime
+          // Resolve value properties such as string, integer, datetime
           val = val[path_segment];
           val_type = 'value';
         }
@@ -402,6 +405,28 @@ export default class Document {
       } else if (val_type === 'value_array') {
         val = val[path_segment];
         val_type = 'value';
+      } else if (val_type === 'annotated_string') {
+        val = val[path_segment];
+        if (path_segment == 1) {
+          val_type = 'annotation_array';
+        } else {
+          val_type = 'value';
+        }
+      } else if (val_type === 'annotation_array') {
+        val = val[path_segment];
+        val_type = 'annotation';
+      } else if (val_type === 'annotation') {
+        // 2 is for addressing the node_id that points to the node that has all
+        // annotation data (like the type and properties). In this case we
+        // resolve the node, so we could further resolve the node's properties (e.g. type)
+        if (path_segment == 2) {
+          val = this.nodes[val[path_segment]];
+          val_type = 'node';
+        } else {
+          // 0,1 are for addressing annotation_start / annotation_end
+          val = val[path_segment];
+          val_type = 'value';
+        }
       }
     }
     return val;
