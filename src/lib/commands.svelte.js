@@ -42,7 +42,7 @@ export function break_text_node(tr) {
   };
 
   // TODO: Only use default_node_type when cursor is at the end of
-  const node_array_property_definition = doc.schema[node_array_node.type][node_array_prop];
+  const node_array_property_definition = doc.schema[node_array_node.type].properties[node_array_prop];
   const target_node_type = get_default_node_type(node_array_property_definition);
 
   if (!target_node_type) {
@@ -134,7 +134,7 @@ export function insert_default_node(tr) {
   const property_name = path.at(-1);
 
   // Get the definition for this property
-  const property_definition = doc.schema[node_array_node.type][property_name];
+  const property_definition = doc.schema[node_array_node.type].properties[property_name];
   const default_type = get_default_node_type(property_definition);
 
   // Only proceed if there's exactly one allowed node_type

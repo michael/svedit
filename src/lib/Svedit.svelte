@@ -542,7 +542,7 @@ ${fallback_html}`;
           for (const [property, value] of Object.entries(new_node)) {
             if (property === 'id' || property === 'type') continue;
 
-            const prop_type = doc.schema[node.type]?.[property]?.type;
+            const prop_type = doc.schema[node.type]?.properties?.[property]?.type;
 
             if (prop_type === 'node_array' && Array.isArray(value)) {
               new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);

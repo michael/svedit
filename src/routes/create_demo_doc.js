@@ -25,97 +25,121 @@ const TITLE_ANNOTATIONS = ['emphasis'];
 const document_schema = define_document_schema({
   // Document
   page: {
-    body: {
-      type: 'node_array',
-      node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
-      default_node_type: 'text',
-    },
-    hero: {
-      type: 'node',
-      node_types: ['hero'],
-      default_node_type: 'hero',
-    },
-    keywords: {
-      type: 'string_array',
-    },
-    daily_visitors: {
-      type: 'integer_array',
-    },
-    created_at: {
-      type: 'datetime'
+    properties: {
+      body: {
+        type: 'node_array',
+        node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
+        default_node_type: 'text',
+      },
+      hero: {
+        type: 'node',
+        node_types: ['hero'],
+        default_node_type: 'hero',
+      },
+      keywords: {
+        type: 'string_array',
+      },
+      daily_visitors: {
+        type: 'integer_array',
+      },
+      created_at: {
+        type: 'datetime'
+      }
     }
   },
   // Blocks
   hero: {
-    title: {
-      type: 'annotated_string',
-      node_types: TITLE_ANNOTATIONS,
-    },
-    description: {
-      type: 'annotated_string',
-      node_types: ALL_ANNOTATIONS
-    },
-    image: { type: 'string' }, // a dedicated type asset would be better
+    properties: {
+      title: {
+        type: 'annotated_string',
+        node_types: TITLE_ANNOTATIONS,
+      },
+      description: {
+        type: 'annotated_string',
+        node_types: ALL_ANNOTATIONS
+      },
+      image: { type: 'string' }, // a dedicated type asset would be better
+    }
   },
   text: {
-    layout: { type: 'integer' },
-    content: {
-      type: 'annotated_string',
-      node_types: ALL_ANNOTATIONS
-    },
+    properties: {
+      layout: { type: 'integer' },
+      content: {
+        type: 'annotated_string',
+        node_types: ALL_ANNOTATIONS
+      },
+    }
   },
   button: {
-    label: {
-      type: 'annotated_string',
-      node_types: []
-    },
-    href: { type: 'string' },
+    properties: {
+      label: {
+        type: 'annotated_string',
+        node_types: []
+      },
+      href: { type: 'string' },
+    }
   },
   story: {
-    layout: { type: 'integer' },
-    title: {
-      type: 'annotated_string',
-      node_types: TITLE_ANNOTATIONS,
-    },
-    description: {
-      type: 'annotated_string',
-      node_types: ALL_ANNOTATIONS,
-    },
-    buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
-    image: { type: 'string' }, // a dedicated type asset would be better
+    properties: {
+      layout: { type: 'integer' },
+      title: {
+        type: 'annotated_string',
+        node_types: TITLE_ANNOTATIONS,
+      },
+      description: {
+        type: 'annotated_string',
+        node_types: ALL_ANNOTATIONS,
+      },
+      buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
+      image: { type: 'string' }, // a dedicated type asset would be better
+    }
   },
   image_grid: {
-    image_grid_items: {
-      type: 'node_array',
-      node_types: ['image_grid_item'],
+    properties: {
+      image_grid_items: {
+        type: 'node_array',
+        node_types: ['image_grid_item'],
+      }
     }
   },
   image_grid_item: {
-    image: { type: 'string' }, // a dedicated type asset would be better
-    title: {
-      type: 'annotated_string',
-      node_types: ALL_ANNOTATIONS,
-    },
+    properties: {
+      image: { type: 'string' }, // a dedicated type asset would be better
+      title: {
+        type: 'annotated_string',
+        node_types: ALL_ANNOTATIONS,
+      },
+    }
   },
   list_item: {
-    content: {
-      type: 'annotated_string',
-      node_types: ALL_ANNOTATIONS,
-    },
+    properties: {
+      content: {
+        type: 'annotated_string',
+        node_types: ALL_ANNOTATIONS,
+      },
+    }
   },
   list: {
-    list_items: {
-      type: 'node_array',
-      node_types: ['list_item'],
-    },
-    layout: { type: 'integer' },
+    properties: {
+      list_items: {
+        type: 'node_array',
+        node_types: ['list_item'],
+      },
+      layout: { type: 'integer' },
+    }
   },
   // Annotations
   link: {
-    href: { type: 'string'}
+    properties: {
+      href: { type: 'string'}
+    }
   },
-  strong: {},
-  emphasis: {},
+  strong: {
+    properties: {}
+  },
+  emphasis: {
+    properties: {}
+  },
 });
 
 

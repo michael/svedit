@@ -112,7 +112,7 @@
 		if (!node_schema) return [];
 
 		// Get property schema
-		const property_schema = node_schema[node_array_property];
+		const property_schema = node_schema.properties[node_array_property];
 		if (property_schema?.type !== 'node_array') return [];
 
 		return property_schema.node_types || [];
