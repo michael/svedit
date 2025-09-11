@@ -513,41 +513,6 @@ export default class Document {
     return $state.snapshot(node_array.slice(start, end));
   }
 
-  move_node_cursor(direction) {
-    if (this.selection?.type !== 'node') return;
-    const node_array = this.get(this.selection.path);
-
-    const { start, end } = this.get_selection_range();
-
-    if (this.selection.anchor_offset !== this.selection.focus_offset) {
-      // If selection is not collapsed, collapse it to the right or the left
-      if (direction === 'forward') {
-        this.selection.focus_offset = end;
-        this.selection.anchor_offset = end;
-      } else if (direction === 'backward') {
-        this.selection.focus_offset = start;
-        this.selection.anchor_offset = start;
-      }
-    } else if (direction === 'forward' && end < node_array.length) {
-      this.selection.focus_offset = end + 1;
-      this.selection.anchor_offset = end + 1;
-    } else if (direction === 'backward' && start > 0) {
-      this.selection.focus_offset = start - 1;
-      this.selection.anchor_offset = start - 1;
-    }
-  }
-
-  expand_node_selection(direction) {
-    if (this.selection.type !== 'node') return;
-    const node_array = this.get(this.selection.path);
-
-    if (direction === 'forward') {
-      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, node_array.length);
-    } else if (direction === 'backward') {
-      this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
-    }
-  }
-
   select_parent() {
     if (!this.selection) return;
     if (['text', 'property'].includes(this.selection?.type)) {
