@@ -30,7 +30,7 @@
 		// Sort annotations by start_offset
 		const sorted_annotations = [...annotations].sort((a, b) => a[0] - b[0]);
 
-		for (let [index, annotation] of sorted_annotations.entries()) {
+		for (let [, annotation] of sorted_annotations.entries()) {
 			// Add text before the annotation using character-aware slicing
 			if (annotation[0] > last_index) {
 				fragments.push(char_slice(text, last_index, annotation[0]));
@@ -44,7 +44,9 @@
 			fragments.push({
 			  node,
 				content: annotated_content,
-				annotation_index: index,
+				// NOTE: We need to provide the original index here, because the source data
+				// is the address space.
+				annotation_index: annotations.indexOf(annotation),
 			});
 
 			last_index = annotation[1];
