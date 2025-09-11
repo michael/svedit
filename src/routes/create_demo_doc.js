@@ -23,8 +23,8 @@ const ALL_ANNOTATIONS = ['strong', 'emphasis', 'link'];
 const TITLE_ANNOTATIONS = ['emphasis'];
 
 const document_schema = define_document_schema({
-  // Document
   page: {
+    kind: 'document',
     properties: {
       body: {
         type: 'node_array',
@@ -47,8 +47,8 @@ const document_schema = define_document_schema({
       }
     }
   },
-  // Blocks
   hero: {
+    kind: 'block',
     properties: {
       title: {
         type: 'annotated_string',
@@ -62,6 +62,7 @@ const document_schema = define_document_schema({
     }
   },
   text: {
+    kind: 'text',
     properties: {
       layout: { type: 'integer' },
       content: {
@@ -71,6 +72,7 @@ const document_schema = define_document_schema({
     }
   },
   button: {
+    kind: 'block',
     properties: {
       label: {
         type: 'annotated_string',
@@ -80,6 +82,7 @@ const document_schema = define_document_schema({
     }
   },
   story: {
+    kind: 'block',
     properties: {
       layout: { type: 'integer' },
       title: {
@@ -95,6 +98,7 @@ const document_schema = define_document_schema({
     }
   },
   image_grid: {
+    kind: 'block',
     properties: {
       image_grid_items: {
         type: 'node_array',
@@ -103,15 +107,17 @@ const document_schema = define_document_schema({
     }
   },
   image_grid_item: {
+    kind: 'block',
     properties: {
       image: { type: 'string' }, // a dedicated type asset would be better
       title: {
         type: 'annotated_string',
-        node_types: ALL_ANNOTATIONS,
+        node_types: TITLE_ANNOTATIONS,
       },
     }
   },
   list_item: {
+    kind: 'text',
     properties: {
       content: {
         type: 'annotated_string',
@@ -120,6 +126,7 @@ const document_schema = define_document_schema({
     }
   },
   list: {
+    kind: 'block',
     properties: {
       list_items: {
         type: 'node_array',
@@ -128,16 +135,18 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
     }
   },
-  // Annotations
   link: {
+    kind: 'annotation',
     properties: {
       href: { type: 'string'}
     }
   },
   strong: {
+    kind: 'annotation',
     properties: {}
   },
   emphasis: {
+    kind: 'annotation',
     properties: {}
   },
 });

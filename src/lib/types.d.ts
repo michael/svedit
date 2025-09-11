@@ -112,7 +112,7 @@ export type DocumentSchemaValueToJs<T> =
  * Converts a document node schema definition to its inferred JS type.
  * Handles the {type: "..."} wrapper structure used in document schemas.
  */
-export type DocumentNodeToJs<S extends {properties: Record<string, {type: DocumentSchemaPrimitive}>}> =
+export type DocumentNodeToJs<S extends {kind: NodeKind, properties: Record<string, {type: DocumentSchemaPrimitive}>}> =
   { id: string, type: string } & { [K in keyof S["properties"]]: DocumentSchemaValueToJs<S["properties"][K]["type"]> };
 
 /**
@@ -146,10 +146,16 @@ export type NodeArrayProperty = {
 export type PropertyDefinition = PrimitiveProperty | NodeProperty | NodeArrayProperty;
 
 /**
+ * Node kind values for different types of content nodes
+ */
+export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
+
+/**
  * A node schema defines the structure of a specific node type.
- * Contains a properties object that maps property names to their definitions.
+ * Contains a kind and properties object that maps property names to their definitions.
  */
 export type NodeSchema = {
+  kind: NodeKind;
   properties: Record<string, PropertyDefinition>;
 };
 
