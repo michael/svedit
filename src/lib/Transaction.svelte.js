@@ -152,10 +152,10 @@ export default class Transaction {
    *
    * @param {Selection} selection - The new selection object
    * @returns {Transaction} This transaction instance for method chaining
-   * @todo Check if selection is valid and throw error if not
+   * @throws {Error} Throws if the selection is invalid or out of bounds
    */
   set_selection(selection) {
-    // TODO: Check if selection is valid and throw error if not
+    this.doc._validate_selection(selection);
     this.doc.selection = selection;
     return this;
   }
