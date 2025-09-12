@@ -564,7 +564,7 @@ ${fallback_html}`;
             } else if (prop_type === 'annotated_string') {
               const annotations = value[1].map(annotation => {
                 const [start_offset, end_offset, node_id] = annotation;
-                return [start_offset, end_offset, id_mapping[node_id] ||node_id];
+                return [start_offset, end_offset, id_mapping[node_id] || node_id];
               });
               new_node[property] = [value[0], annotations];
             }
