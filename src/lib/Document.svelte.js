@@ -194,6 +194,7 @@ export default class Document {
 
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
+	layout_node = $derived(this.get_layout_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
 
   /**
@@ -252,11 +253,35 @@ export default class Document {
    		return node_id ? this.get(node_id) : null;
 		} else {
 		  // we are assuming we are either in a text or property (=custom) selection
-			const node_id = this.selection?.path?.slice(0, -1);
-			if (!node_id) return null;
-			const owner_node = this.get(node_id);
+			const owner_node_path = this.selection?.path?.slice(0, -1);
+			if (!owner_node_path) return null;
+			const owner_node = this.get(owner_node_path);
 			return owner_node;
 		}
+	}
+
+	// NOTE: This code is a bit whacky, but works for now.
+	// TODO: Refactor as we settle on a final API
+	get_layout_node() {
+    if (!this.selected_node) return null;
+
+    // The selected node already is a layout node
+    if (this.selected_node.layout) {
+      return this.selected_node;
+    }
+
+    // We resolve the parent node if available, and return it if it's a layout node.
+    // NOTE: We only support one level atm, we may want to implement this recursively
+    if (this.selection.type === 'node') {
+      const parent_node = this.get(this.selection.path.slice(0, -1));
+      return parent_node.layout ? parent_node : null;
+    } else {
+      // We are either in a text or property (=custom) selection
+      const parent_node_path = this.selection?.path?.slice(0, -3);
+			if (!parent_node_path) return null;
+			const parent_node = this.get(parent_node_path);
+      return parent_node.layout ? parent_node : null;
+    }
 	}
 
   // Internal unsafe function: Never call this directly
