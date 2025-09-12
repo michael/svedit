@@ -146,7 +146,7 @@ const document_schema = define_document_schema({
   link: {
     kind: 'annotation',
     properties: {
-      href: { type: 'string'}
+      href: { type: 'string' }
     }
   },
   strong: {
