@@ -53,10 +53,12 @@ const document_schema = define_document_schema({
       title: {
         type: 'annotated_string',
         node_types: TITLE_ANNOTATIONS,
+        allow_newlines: false,
       },
       description: {
         type: 'annotated_string',
-        node_types: ALL_ANNOTATIONS
+        node_types: ALL_ANNOTATIONS,
+        allow_newlines: true,
       },
       image: { type: 'string' }, // a dedicated type asset would be better
     }
@@ -67,7 +69,8 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
       content: {
         type: 'annotated_string',
-        node_types: ALL_ANNOTATIONS
+        node_types: ALL_ANNOTATIONS,
+        allow_newlines: true,
       },
     }
   },
@@ -76,7 +79,8 @@ const document_schema = define_document_schema({
     properties: {
       label: {
         type: 'annotated_string',
-        node_types: []
+        node_types: [],
+        allow_newlines: false,
       },
       href: { type: 'string' },
     }
@@ -88,10 +92,12 @@ const document_schema = define_document_schema({
       title: {
         type: 'annotated_string',
         node_types: TITLE_ANNOTATIONS,
+        allow_newlines: false,
       },
       description: {
         type: 'annotated_string',
         node_types: ALL_ANNOTATIONS,
+        allow_newlines: true,
       },
       buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
       image: { type: 'string' }, // a dedicated type asset would be better
@@ -113,6 +119,7 @@ const document_schema = define_document_schema({
       title: {
         type: 'annotated_string',
         node_types: TITLE_ANNOTATIONS,
+        allow_newlines: false,
       },
     }
   },
@@ -122,6 +129,7 @@ const document_schema = define_document_schema({
       content: {
         type: 'annotated_string',
         node_types: ALL_ANNOTATIONS,
+        allow_newlines: false,
       },
     }
   },

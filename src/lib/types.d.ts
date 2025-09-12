@@ -116,11 +116,20 @@ export type DocumentNodeToJs<S extends NodeSchema> =
   { id: string, type: string } & { [K in keyof S["properties"]]: DocumentSchemaValueToJs<S["properties"][K]["type"]> };
 
 /**
- * A property that stores a primitive value.
+ * A property that stores an annotated string with required allow_newlines setting.
+ */
+export type AnnotatedStringProperty = {
+  type: 'annotated_string';
+  node_types?: string[];
+  allow_newlines: boolean;
+};
+
+/**
+ * A property that stores a primitive value (excluding annotated_string).
  */
 export type PrimitiveProperty = {
-  [K in PrimitiveType]: { type: K }
-}[PrimitiveType];
+  [K in Exclude<PrimitiveType, 'annotated_string'>]: { type: K }
+}[Exclude<PrimitiveType, 'annotated_string'>];
 
 /**
  * A property that stores a reference to a single node.
@@ -143,7 +152,7 @@ export type NodeArrayProperty = {
 /**
  * Union type for all possible property definitions.
  */
-export type PropertyDefinition = PrimitiveProperty | NodeProperty | NodeArrayProperty;
+export type PropertyDefinition = PrimitiveProperty | AnnotatedStringProperty | NodeProperty | NodeArrayProperty;
 
 /**
  * Node kind values for different types of content nodes
@@ -156,7 +165,7 @@ export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
 export type TextNodeSchema = {
   kind: 'text';
   properties: {
-    content: { type: 'annotated_string'; node_types?: string[] };
+    content: AnnotatedStringProperty;
   } & Record<string, PropertyDefinition>;
 };
 

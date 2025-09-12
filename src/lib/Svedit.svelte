@@ -759,7 +759,7 @@ ${fallback_html}`;
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile_browser()) {
+    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile_browser() && selection?.type === 'text' && doc.inspect(selection.path).allow_newlines) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();

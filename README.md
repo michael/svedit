@@ -85,13 +85,13 @@ const document_schema = {
   paragraph: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_string' }
+      content: { type: 'annotated_string', allow_newlines: true }
     }
   },
   list_item: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_string' },
+      content: { type: 'annotated_string', allow_newlines: true },
     }
   },
   list: {
