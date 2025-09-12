@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice } from './util.js';
+import { char_slice, get_char_length } from './util.js';
 
 /**
  * @import {
@@ -181,7 +181,7 @@ function validate_node(node, schema, all_nodes = {}) {
 
 export default class Document {
   /** @type {Selection | undefined} */
-  selection = $state();
+  #selection = $state();
   config = $state();
   document_id = $state();
   nodes = $state();
@@ -198,6 +198,84 @@ export default class Document {
 	available_annotation_types = $derived(this.get_available_annotation_types());
 
   /**
+   * Gets the current selection
+   * @returns {Selection | undefined}
+   */
+  get selection() {
+    return this.#selection;
+  }
+
+  /**
+   * Sets the selection with validation
+   * @param {Selection | undefined} value - The new selection
+   * @throws {Error} Throws if the selection is invalid
+   */
+  set selection(value) {
+    if (value !== undefined) {
+      this._validate_selection(value);
+    }
+    this.#selection = value;
+  }
+
+  /**
+   * Validates that a selection is within bounds and refers to valid paths.
+   *
+   * @param {Selection} selection - The selection to validate
+   * @throws {Error} Throws if the selection is invalid
+   * @private
+   */
+  _validate_selection(selection) {
+    if (!selection) return; // no selection is a valid selection
+    if (selection && !Array.isArray(selection.path)) {
+      throw new Error('Selection must have a valid path');
+    }
+
+    const selection_type = selection.type;
+    if (selection_type === 'node') {
+      // For node selections, path should point to a node_array
+      if (this.inspect(selection.path).type !== 'node_array') {
+        throw new Error(`Node selection path does not point to a node array: ${selection.path.join('.')}`);
+      }
+
+      const node_array = this.get(selection.path);
+
+      // Validate anchor_offset and focus_offset are within bounds
+      const max_offset = node_array.length;
+
+      if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
+        throw new Error(`Node selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${max_offset})`);
+      }
+
+      if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
+        throw new Error(`Node selection focus_offset ${selection.focus_offset} is out of bounds (0-${max_offset})`);
+      }
+
+    } else if (selection_type === 'text') {
+      // For text selections, path should point to an annotated_string property
+      const annotated_text = this.get(selection.path);
+
+      // Validate anchor_offset and focus_offset are within text bounds
+      const char_length = get_char_length(annotated_text[0]);
+
+      if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
+        throw new Error(`Text selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${char_length})`);
+      }
+
+      if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
+        throw new Error(`Text selection focus_offset ${selection.focus_offset} is out of bounds (0-${char_length})`);
+      }
+    } else if (selection_type === 'property') {
+      // For property selections, just validate the path exists
+      if (!this.get(selection.path)) {
+        throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
+      }
+
+    } else {
+      throw new Error(`Unknown selection type: ${selection_type}`);
+    }
+  }
+
+  /**
    * @param {DocumentSchema} schema - The document schema
    * @param {SerializedDocument} serialized_doc - The serialized document array
    * @param {object} [options] - Optional configuration
@@ -209,7 +287,6 @@ export default class Document {
     validate_document_schema(schema);
 
     this.schema = schema;
-    this.selection = selection;
     this.config = config;
     this.nodes = {};
 
@@ -222,6 +299,9 @@ export default class Document {
 
     // The last element in the serialized_doc is the document itself (the root node)
     this.document_id = serialized_doc.at(-1)?.id;
+
+    // Set selection after nodes are initialized so validation can work properly
+    this.selection = selection;
   }
 
   generate_id() {
