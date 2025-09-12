@@ -10,6 +10,8 @@
     editable = $bindable(false),
     path,
     class: css_class,
+    autocapitalize = "on",
+    spellcheck = "true",
   } = $props();
 
   let canvas_ref;
@@ -1397,8 +1399,8 @@ ${fallback_html}`;
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
-    autocapitalize="off"
-    spellcheck="true"
+    {autocapitalize}
+    {spellcheck}
     {...{
       // NOTE: Autocomplete and autocorrect make immense troubles
       // on Desktop Chrome, so we disable them only for Chrome desktop.

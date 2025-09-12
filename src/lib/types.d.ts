@@ -262,8 +262,12 @@ export type SveditProps = {
   editable?: boolean,
   /** The path to the root element (e.g. ['page_1']) */
   path: DocumentPath,
-  /** The `class` attribute on the content element */
+  /** The `class` attribute on the canvas element */
   class?: string;
+  /** The `autocapitalize` attribute on the canvas element */
+  autocapitalize?: 'on' | 'off';
+  /** The `spellcheck` attribute on the canvas element */
+  spellcheck?: 'true' | 'false';
 };
 
 /**
