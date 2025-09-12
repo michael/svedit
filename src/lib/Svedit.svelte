@@ -671,37 +671,38 @@ ${fallback_html}`;
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     if (
-      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+
+      const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
 
       if (layout_count > 1 && node?.layout) {
         const next_layout = (node.layout % layout_count) + 1;
         console.log('layout / count / next_layout', node.layout, layout_count, next_layout);
         const tr = doc.tr;
-        tr.set([doc.selected_node?.id, 'layout'], next_layout);
+        tr.set([doc.layout_node?.id, 'layout'], next_layout);
         doc.apply(tr);
       }
     } else if (
-      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
       if (layout_count > 1 && node?.layout) {
         const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
         const tr = doc.tr;
-        tr.set([doc.selected_node?.id, 'layout'], prev_layout);
+        tr.set([doc.layout_node?.id, 'layout'], prev_layout);
         doc.apply(tr);
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
     } else if (
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node  )
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node  )
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
 
       if (doc.selection.type !== 'node') {
         doc.select_parent();
@@ -720,10 +721,10 @@ ${fallback_html}`;
       tr.set_selection(old_selection);
       doc.apply(tr);
     } else if (
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
 
       if (doc.selection.type !== 'node') {
         doc.select_parent();
