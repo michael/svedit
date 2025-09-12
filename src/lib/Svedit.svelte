@@ -29,13 +29,26 @@
   // Detect Chrome on desktop (not mobile) - only available in browser
   let is_chrome_desktop = $state(false);
 
+  /**
+   * Detect if the current browser is on a mobile device
+   * @returns {boolean} true if mobile browser, false otherwise
+   */
+  function is_mobile_browser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const user_agent = navigator.userAgent;
+    return /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
+           ('ontouchstart' in window) ||
+           (navigator.maxTouchPoints > 0);
+  }
+
   $effect(() => {
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
       const user_agent = navigator.userAgent;
       const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-      const is_mobile = /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-                       ('ontouchstart' in window) ||
-                       (navigator.maxTouchPoints > 0);
+      const is_mobile = is_mobile_browser();
       is_chrome_desktop = is_chrome && !is_mobile;
     }
   });
@@ -746,7 +759,7 @@ ${fallback_html}`;
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.shiftKey)) {
+    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile_browser()) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
