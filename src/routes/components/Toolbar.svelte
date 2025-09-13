@@ -49,29 +49,19 @@
   }
 
 	function handle_layout_change(layout_index) {
-		if (!doc.selection || doc.selection.type !== 'node') return;
-
-		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
-		const node_array = doc.get(doc.selection.path);
-		const node_id = node_array[start];
-
-		if (node_id) {
+	  if (!doc.layout_node) return;
+		if (doc.layout_node.id) {
 			const tr = doc.tr;
-			tr.set([node_id, 'layout'], layout_index);
+			tr.set([doc.layout_node.id, 'layout'], layout_index);
 			doc.apply(tr);
 		}
 	}
 
 	function handle_list_layout_change(layout) {
-		if (!doc.selection || doc.selection.type !== 'node') return;
-
-		const start = Math.min(doc.selection.anchor_offset, doc.selection.focus_offset);
-		const node_array = doc.get(doc.selection.path);
-		const node_id = node_array[start];
-
-		if (node_id) {
+		if (!doc.layout_node) return;
+		if (doc.layout_node.id) {
 			const tr = doc.tr;
-			tr.set([node_id, 'layout'], layout);
+			tr.set([doc.layout_node.id, 'layout'], layout);
 			doc.apply(tr);
 		}
 	}
@@ -262,22 +252,22 @@
   	<hr />
 	{/if}
 
-	{#if doc.selection?.type === 'node' && doc.selected_node?.type === 'story'}
+	{#if doc.layout_node?.type === 'story'}
 		{#each layout_options as option (option.value)}
 			<button
 				onclick={() => handle_layout_change(option.value)}
-				class:active={doc.selected_node.layout === option.value}
+				class:active={doc.layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
 		{/each}
 	{/if}
-	{#if doc.selection?.type === 'node' && doc.selected_node?.type === 'list'}
+	{#if doc.layout_node?.type === 'list'}
 		<hr />
 		{#each list_layout_options as option (option.value)}
 			<button
 				onclick={() => handle_list_layout_change(option.value)}
-				class:active={doc.selected_node.layout === option.value}
+				class:active={doc.layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
