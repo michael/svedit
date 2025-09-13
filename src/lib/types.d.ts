@@ -68,7 +68,7 @@ export type ArrayType = "string_array" | "number_array" | "boolean_array" | "int
 /**
  * Special types for rich content.
  */
-export type RichType = "annotated_string";
+export type RichType = "annotated_text";
 
 /**
  * Node reference types for linking to other nodes.
@@ -88,7 +88,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 /**
  * Document schema primitive types - all possible property types in document schemas.
  */
-export type DocumentSchemaPrimitive = "string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_string" | "node" | "node_array";
+export type DocumentSchemaPrimitive = "string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_text" | "node" | "node_array";
 
 /**
  * Maps document schema types to their JavaScript runtime types.
@@ -103,7 +103,7 @@ export type DocumentSchemaValueToJs<T> =
   T extends "number_array" ? Array<number> :
   T extends "boolean_array" ? Array<boolean> :
   T extends "integer_array" ? Array<number> :
-  T extends "annotated_string" ? [string, Array<any>] :
+  T extends "annotated_text" ? AnnotatedText :
   T extends "node" ? string :
   T extends "node_array" ? Array<string> :
   never;
@@ -112,15 +112,24 @@ export type DocumentSchemaValueToJs<T> =
  * Converts a document node schema definition to its inferred JS type.
  * Handles the {type: "..."} wrapper structure used in document schemas.
  */
-export type DocumentNodeToJs<S extends Record<string, {type: DocumentSchemaPrimitive}>> =
-  { id: string, type: string } & { [K in keyof S]: DocumentSchemaValueToJs<S[K]["type"]> };
+export type DocumentNodeToJs<S extends NodeSchema> =
+  { id: string, type: string } & { [K in keyof S["properties"]]: DocumentSchemaValueToJs<S["properties"][K]["type"]> };
 
 /**
- * A property that stores a primitive value.
+ * A property that stores an annotated text with required allow_newlines setting.
+ */
+export type AnnotatedTextProperty = {
+  type: 'annotated_text';
+  node_types?: string[];
+  allow_newlines: boolean;
+};
+
+/**
+ * A property that stores a primitive value (excluding annotated_text).
  */
 export type PrimitiveProperty = {
-  [K in PrimitiveType]: { type: K }
-}[PrimitiveType];
+  [K in Exclude<PrimitiveType, 'annotated_text'>]: { type: K }
+}[Exclude<PrimitiveType, 'annotated_text'>];
 
 /**
  * A property that stores a reference to a single node.
@@ -143,13 +152,36 @@ export type NodeArrayProperty = {
 /**
  * Union type for all possible property definitions.
  */
-export type PropertyDefinition = PrimitiveProperty | NodeProperty | NodeArrayProperty;
+export type PropertyDefinition = PrimitiveProperty | AnnotatedTextProperty | NodeProperty | NodeArrayProperty;
+
+/**
+ * Node kind values for different types of content nodes
+ */
+export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
+
+/**
+ * Schema for text nodes - must have a content property of type annotated_text
+ */
+export type TextNodeSchema = {
+  kind: 'text';
+  properties: {
+    content: AnnotatedTextProperty;
+  } & Record<string, PropertyDefinition>;
+};
+
+/**
+ * Schema for non-text nodes
+ */
+export type NonTextNodeSchema = {
+  kind: 'document' | 'block' | 'annotation';
+  properties: Record<string, PropertyDefinition>;
+};
 
 /**
  * A node schema defines the structure of a specific node type.
- * Maps property names to their definitions.
+ * Contains a kind and properties object that maps property names to their definitions.
  */
-export type NodeSchema = Record<string, PropertyDefinition>;
+export type NodeSchema = TextNodeSchema | NonTextNodeSchema;
 
 /**
  * A document schema defines all node types available in a document.
@@ -174,9 +206,9 @@ export type SerializedNode = {
 export type SerializedDocument = SerializedNode[];
 
 /**
- * Props for the AnnotatedStringProperty component
+ * Props for the AnnotatedTextProperty component
  */
-export type AnnotatedStringPropertyProps = {
+export type AnnotatedTextPropertyProps = {
   /** The full path to the property */
   path: DocumentPath;
   /** The `class` attribute on the content element */
@@ -239,26 +271,39 @@ export type SveditProps = {
   editable?: boolean,
   /** The path to the root element (e.g. ['page_1']) */
   path: DocumentPath,
-  /** The `class` attribute on the content element */
+  /** The `class` attribute on the canvas element */
   class?: string;
+  /** The `autocapitalize` attribute on the canvas element */
+  autocapitalize?: 'on' | 'off';
+  /** The `spellcheck` attribute on the canvas element */
+  spellcheck?: 'true' | 'false';
 };
 
 /**
  * Represents an annotation in an annotated string
- * Format: [start_offset, end_offset, type, options?]
  */
-export type Annotation = [number, number, string, Record<string, any>?];
+export type Annotation = {
+  start_offset: number;
+  end_offset: number;
+  node_id: NodeId;
+};
+
+/**
+ * Represents an annotated text with text and annotations
+ */
+export type AnnotatedText = {
+  text: string;
+  annotations: Array<Annotation>;
+};
 
 /**
  * Represents a fragment of annotated text content
  */
-export type AnnotationFragment = {
-  /** The annotation type (e.g., 'link', 'emphasis', 'strong') */
-  type: string;
+export type AnnotationFragment = string | {
+  /** NodeId that has annotation type and details */
+  node: any;
   /** The text content of the annotation */
   content: string;
   /** Index of the annotation in the original array */
   annotation_index: number;
-  /** Optional properties from the annotation's options object */
-  data?: any;
 };

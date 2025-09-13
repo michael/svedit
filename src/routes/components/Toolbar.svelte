@@ -76,21 +76,21 @@
 		}
 	}
 
-	function insert_link() {
+	function toggle_link() {
 		// if the user cancels the prompt it will use the previous link
-		const current_link =
-			doc.active_annotation()?.[2] === 'link' ? doc.active_annotation()[3].href : '';
-
-		const new_url = window.prompt('Enter the URL', current_link);
-
-		// Update if the user didn't cancel the prompt
-		if (new_url !== null) {
-			const tr = doc.tr;
-			tr.annotate_text('link', {
-				href: new_url // Pass the new_url directly, even if it's an empty string
-			});
-			doc.apply(tr);
+		const has_link = Boolean(doc.active_annotation('link'));
+		const tr = doc.tr;
+		if (has_link) {
+		  // Remove link
+		  tr.annotate_text('link');
+		} else {
+		  // Create link
+			const href = window.prompt('Enter the URL', 'https://example.com');
+			if (href) {
+ 		    tr.annotate_text('link', { href });
+			}
 		}
+		doc.apply(tr);
 	}
 
 	// Check if we have a collapsed node selection (node cursor)
@@ -112,7 +112,7 @@
 		if (!node_schema) return [];
 
 		// Get property schema
-		const property_schema = node_schema[node_array_property];
+		const property_schema = node_schema.properties[node_array_property];
 		if (property_schema?.type !== 'node_array') return [];
 
 		return property_schema.node_types || [];
@@ -191,40 +191,61 @@
 		<hr />
 	{/if}
 	{#if doc.selection?.type === 'text'}
-		<button
-			title="Bold"
-			class="bold"
-			onclick={() => {
-				const tr = doc.tr;
-				tr.annotate_text('strong');
-				doc.apply(tr);
-			}}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'strong'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'strong'}
-		>
-			<Icon name="bold" />
-		</button>
-		<button
-			title="Italic"
-			class="italic"
-			onclick={() => {
-				const tr = doc.tr;
-				tr.annotate_text('emphasis');
-				doc.apply(tr);
-			}}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'emphasis'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'emphasis'}
-		>
-			<Icon name="italic" />
-		</button>
-		<button
-			title="Link"
-			onclick={insert_link}
-			disabled={doc.active_annotation() && doc.active_annotation()?.[2] !== 'link'}
-			class:active={doc.active_annotation() && doc.active_annotation()?.[2] === 'link'}
-		>
-			<Icon name="link" />
-		</button>
+		{#if doc.available_annotation_types.includes('strong')}
+  		<button
+  			title="Bold"
+  			class="bold"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('strong');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('strong')}
+  			class:active={doc.active_annotation('strong')}
+  		>
+  			<Icon name="bold" />
+  		</button>
+		{/if}
+		{#if doc.available_annotation_types.includes('emphasis')}
+  		<button
+  			title="Italic"
+  			class="italic"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('emphasis');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('emphasis')}
+  			class:active={doc.active_annotation('emphasis')}
+  		>
+  			<Icon name="italic" />
+  		</button>
+		{/if}
+		{#if doc.available_annotation_types.includes('highlight')}
+  		<button
+  			title="Highlight"
+  			class="highlight"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('highlight');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('highlight')}
+  			class:active={doc.active_annotation('highlight')}
+  		>
+  			<Icon name="highlight" />
+  		</button>
+		{/if}
+		{#if doc.available_annotation_types.includes('link')}
+  		<button
+  			title="Link"
+  			onclick={toggle_link}
+  			disabled={doc.active_annotation() && !doc.active_annotation('link')}
+  			class:active={doc.active_annotation('link')}
+  		>
+  			<Icon name="link" />
+  		</button>
+		{/if}
 	{/if}
 	{#if show_link_input }
   	<div class="contextual-input">

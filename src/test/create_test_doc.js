@@ -22,46 +22,64 @@ export const list_item_2_id = 'list_item_2';
 
 const document_schema = define_document_schema({
   page: {
-    body: {
-      type: 'node_array',
-      node_types: ['text', 'story', 'list'],
-      default_node_type: 'text',
-    },
-    keywords: {
-      type: 'string_array',
-    },
-    daily_visitors: {
-      type: 'integer_array',
-    },
-    created_at: {
-      type: 'datetime'
+    kind: 'document',
+    properties: {
+      body: {
+        type: 'node_array',
+        node_types: ['text', 'story', 'list'],
+        default_node_type: 'text',
+      },
+      keywords: {
+        type: 'string_array',
+      },
+      daily_visitors: {
+        type: 'integer_array',
+      },
+      created_at: {
+        type: 'datetime'
+      }
     }
   },
   button: {
-    label: { type: 'annotated_string' },
-    href: { type: 'string' },
+    kind: 'block',
+    properties: {
+      label: { type: 'annotated_text', allow_newlines: false },
+      href: { type: 'string' },
+    }
   },
   text: {
-    layout: { type: 'integer' },
-    content: { type: 'annotated_string' },
+    kind: 'text',
+    properties: {
+      layout: { type: 'integer' },
+      content: { type: 'annotated_text', allow_newlines: true },
+    }
   },
   story: {
-    layout: { type: 'integer' },
-    title: { type: 'annotated_string' },
-    description: { type: 'annotated_string' },
-    buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
-    image: { type: 'string' }, // a dedicated type asset would be better
+    kind: 'block',
+    properties: {
+      layout: { type: 'integer' },
+      title: { type: 'annotated_text', allow_newlines: false },
+      description: { type: 'annotated_text', allow_newlines: true },
+      buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
+      image: { type: 'string' },
+    }
   },
   list_item: {
-    content: { type: 'annotated_string' },
+    kind: 'text',
+    properties: {
+      content: { type: 'annotated_text', allow_newlines: true },
+    }
   },
   list: {
-    layout: { type: 'integer' },
-    list_items: {
-      type: 'node_array',
-      node_types: ['list_item'],
-      default_node_type: 'list_item',
-    },
+    kind: 'block',
+    properties: {
+      layout: { type: 'integer' },
+      list_items: {
+        type: 'node_array',
+        node_types: ['list_item'],
+        default_node_type: 'list_item',
+      },
+    }
   },
 });
 
@@ -69,7 +87,7 @@ const serialized_doc = [
   {
     id: button_1_id,
     type: 'button',
-    label: ['Get started', []],
+    label: {text: 'Get started', annotations: []},
     href: 'https://github.com/michael/svedit'
   },
   {
@@ -77,19 +95,19 @@ const serialized_doc = [
     type: 'story',
     layout: 1,
     image: 'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: ['First story', []],
+    title: {text: 'First story', annotations: []},
     buttons: [button_1_id],
-    description: ['First story description.', []]
+    description: {text: 'First story description.', annotations: []}
   },
   {
     id: list_item_1_id,
     type: 'list_item',
-    content: ['first list item', []],
+    content: {text: 'first list item', annotations: []},
   },
   {
     id: list_item_2_id,
     type: 'list_item',
-    content: ['second list item', []],
+    content: {text: 'second list item', annotations: []},
   },
   {
     id: list_1_id,
@@ -107,14 +125,12 @@ const serialized_doc = [
   },
 ];
 
-// App-specific config object, always available via doc.config for introspection
 const document_config = {
   generate_id: nanoid,
   system_components: {
     NodeCursorTrap,
     Overlays,
   },
-  // Registry of components for each node type
   node_components: {
     Page,
     Button,
@@ -129,17 +145,15 @@ const document_config = {
     list: 5,
     list_item: 1,
   },
-  // Custom functions to insert new "blank" nodes and setting the selection depening on the
-  // intended behavior.
   inserters: {
     button: function(tr) {
       const new_button = {
         id: nanoid(),
         type: 'button',
-        label: ['', []],
+        label: {text: '', annotations: []},
         href: 'https://editable.website'
       };
-  		tr.insert_nodes([new_button]);
+      tr.insert_nodes([new_button]);
       tr.set_selection({
         type: 'node',
         path: [...tr.doc.selection.path ],
@@ -147,15 +161,15 @@ const document_config = {
         focus_offset: tr.doc.selection.focus_offset
       });
     },
-    text: function(tr, content = ['', []], layout = 1) {
+    text: function(tr, content) {
+      const text_content = content || {text: '', annotations: []};
       const new_text = {
-   			id: nanoid(),
-   			type: 'text',
-        layout,
-   			content
-  		};
-  		tr.insert_nodes([new_text]);
-      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
+        id: nanoid(),
+        type: 'text',
+        layout: 1,
+        content: text_content
+      };
+      tr.insert_nodes([new_text]);
       tr.set_selection({
         type: 'text',
         path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
@@ -167,7 +181,7 @@ const document_config = {
       const new_button = {
         id: nanoid(),
         type: 'button',
-        label: ['', []],
+        label: {text: '', annotations: []},
         href: 'https://editable.website'
       };
       tr.create(new_button);
@@ -176,24 +190,17 @@ const document_config = {
         type: 'story',
         layout: 1,
         image: '',
-        title: ['', []],
-        description: ['', []],
+        title: {text: '', annotations: []},
+        description: {text: '', annotations: []},
         buttons: [new_button.id]
       };
-  		tr.insert_nodes([new_story]);
-      // NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-      // tr.set_selection({
-      //   type: 'text',
-      //   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
-      //   anchor_offset: 0,
-      //   focus_offset: 0
-      // });
+      tr.insert_nodes([new_story]);
     },
     list: function(tr) {
       const new_list_item = {
         id: nanoid(),
         type: 'list_item',
-        content: ['', []]
+        content: {text: '', annotations: []}
       };
       tr.create(new_list_item);
       const new_list = {
@@ -202,28 +209,23 @@ const document_config = {
         list_items: [new_list_item.id],
         layout: 3,
       };
-  		tr.insert_nodes([new_list]);
-      // tr.set_selection({
-      //   type: 'text',
-      //   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
-      //   anchor_offset: 0,
-      //   focus_offset: 0
-      // });
+      tr.insert_nodes([new_list]);
     },
-    list_item: function(tr, content = ['', []]) {
+    list_item: function(tr, content) {
+      const item_content = content || {text: '', annotations: []};
       const new_list_item = {
         id: nanoid(),
         type: 'list_item',
-        content
+        content: item_content
       };
-  		tr.insert_nodes([new_list_item]);
+      tr.insert_nodes([new_list_item]);
       tr.set_selection({
         type: 'text',
-        path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
+        path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'content'],
         anchor_offset: 0,
         focus_offset: 0
       });
-    },
+    }
   }
 };
 

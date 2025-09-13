@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { Node, AnnotatedStringProperty, CustomProperty } from 'svedit';
+	import { Node, AnnotatedTextProperty, CustomProperty } from 'svedit';
 	const svedit = getContext('svedit');
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
@@ -11,14 +11,14 @@
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<img
 				src={node.image || '/icons/image-placeholder.svg'}
-				alt={node.title[0]}
+				alt={node.title.text}
 				class:placeholder={!node.image}
 			/>
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedStringProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
-			<!-- <AnnotatedStringProperty class="body" path={[...path, 'description']} /> -->
+			<AnnotatedTextProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
+			<!-- <AnnotatedTextProperty class="body" path={[...path, 'description']} /> -->
 		</div>
 	</div>
 </Node>

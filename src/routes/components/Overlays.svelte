@@ -5,7 +5,8 @@
 	const svedit = getContext('svedit');
 
 	let node_array_selection_paths = $derived(get_node_array_selection_paths());
-	let text_selection_info = $derived(get_text_selection_info());
+	let selected_link_path = $derived(get_selected_link_path());
+	let selected_link = $derived(selected_link_path ? svedit.doc.get(selected_link_path) : null);
 
 	function get_node_array_selection_paths() {
 		const paths = [];
@@ -24,28 +25,27 @@
 		}
 	}
 
-	function get_text_selection_info() {
+	function get_selected_link_path() {
 		const sel = svedit.doc.selection;
 		if (!sel || sel.type !== 'text') return null;
 
-		const active_annotation = svedit.doc.active_annotation();
-		if (active_annotation && active_annotation[2] === 'link') {
-			const annotated_string = svedit.doc.get(sel.path);
-			const annotation_index = annotated_string[1].indexOf(active_annotation);
-			return {
-				path: sel.path,
-				annotation: active_annotation,
-				annotation_index: annotation_index
-			};
+		const active_annotation = svedit.doc.active_annotation('link');
+		if (active_annotation) {
+			const annotated_text = svedit.doc.get(sel.path);
+
+			const annotation_index = annotated_text.annotations.indexOf(active_annotation);
+			console.log(annotation_index, $state.snapshot(annotated_text.annotations));
+			return [...sel.path, 'annotations', annotation_index, 'node_id'];
 		}
 		return null;
 	}
 
-	function open_link() {
-		if (text_selection_info?.annotation?.[3]?.href) {
-			window.open(text_selection_info.annotation[3].href, '_blank');
-		}
-	}
+	// function open_link() {
+	//   const annotation_node = svedit.doc.get(selected_link_path);
+	// 	if (annotation_node?.href) {
+	// 		window.open(annotation_node?.href, '_blank');
+	// 	}
+	// }
 </script>
 
 {#if svedit.doc.selection?.type === 'property'}
@@ -63,14 +63,12 @@
 	{/each}
 {/if}
 
-{#if text_selection_info}
+{#if selected_link_path}
 	<div
 		class="text-selection-overlay"
-		style="position-anchor: --{text_selection_info.path.join('-') +
-			'-' +
-			text_selection_info.annotation_index};"
+		style="position-anchor: --{selected_link_path.join('-')};"
 	>
-		<button onclick={open_link} class="small"><Icon name="external-link" /></button>
+		<a href="{selected_link?.href}" target="_blank" class="small"><Icon name="external-link" /></a>
 	</div>
 {/if}
 
@@ -99,7 +97,11 @@
 		z-index: 10;
 	}
 
-	.text-selection-overlay button {
+	.text-selection-overlay a {
+    background-color: white;
+    display: block;
+    padding: var(--s-2);
+    border-radius: var(--s-2);
 		color: var(--primary-text-color);
 		--icon-color: var(--primary-text-color);
 		box-shadow: var(--shadow-2);

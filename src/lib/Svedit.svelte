@@ -10,6 +10,8 @@
     editable = $bindable(false),
     path,
     class: css_class,
+    autocapitalize = "on",
+    spellcheck = "true",
   } = $props();
 
   let canvas_ref;
@@ -27,13 +29,26 @@
   // Detect Chrome on desktop (not mobile) - only available in browser
   let is_chrome_desktop = $state(false);
 
+  /**
+   * Detect if the current browser is on a mobile device
+   * @returns {boolean} true if mobile browser, false otherwise
+   */
+  function is_mobile_browser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const user_agent = navigator.userAgent;
+    return /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
+           ('ontouchstart' in window) ||
+           (navigator.maxTouchPoints > 0);
+  }
+
   $effect(() => {
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
       const user_agent = navigator.userAgent;
       const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-      const is_mobile = /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-                       ('ontouchstart' in window) ||
-                       (navigator.maxTouchPoints > 0);
+      const is_mobile = is_mobile_browser();
       is_chrome_desktop = is_chrome && !is_mobile;
     }
   });
@@ -86,7 +101,7 @@
 
   function commit_input() {
     if (input_selection?.type !== 'text') return;
-    const model_text = doc.get(input_selection.path)[0];
+    const model_text = doc.get(input_selection.path).text;
     const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
     const dom_text = dom_text_element.textContent;
     const op = diff_text(model_text, dom_text);
@@ -160,6 +175,15 @@
       event.stopPropagation();
     }
 
+    // NOTE: underline doesn't make much sense as a semantic annotation,
+    // so we rewire `cmd + u` to toggle highlights
+    if (event.inputType === 'formatUnderline' && doc.selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('highlight'));
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+
     if (event.inputType === 'deleteContentBackward') {
       if (doc.selection?.type === 'property') {
         // For property selections, clear the property value only if it's not already falsy
@@ -185,7 +209,7 @@
     if (event.inputType === 'deleteContentForward') {
       // Forward delete: only handle collapsed text selections
       if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === doc.selection?.focus_offset) {
-        const text_content = doc.get(doc.selection.path)[0];
+        const text_content = doc.get(doc.selection.path).text;
         const text_length = get_char_length(text_content);
 
         if (doc.selection.focus_offset < text_length) {
@@ -366,9 +390,9 @@ ${fallback_html}`;
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
 
-      // Check if this is an annotated_string property (array with string as first element)
-      if (Array.isArray(prop_value) && typeof prop_value[0] === 'string') {
-        const text_content = prop_value[0];
+      // Check if this is an annotated_text property (object with text property)
+      if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
+        const text_content = prop_value.text;
         if (text_content.trim()) {
           html += `<p>${text_content}</p>\n`;
           has_content = true;
@@ -377,7 +401,7 @@ ${fallback_html}`;
     }
 
     if (!has_content) {
-      // Generic fallback for unknown node types with no annotated_string content
+      // Generic fallback for unknown node types with no annotated_text content
       html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
     }
 
@@ -453,7 +477,7 @@ ${fallback_html}`;
 
       console.log('Copy operation:', {
         selected_nodes,
-        main_nodes,
+        nodes,
         total_nodes: Object.keys(nodes).length,
         operation: delete_selection ? 'cut' : 'copy'
       });
@@ -517,8 +541,6 @@ ${fallback_html}`;
       pasted_json = undefined;
     }
 
-
-
     if (pasted_json) {
       const tr = doc.tr;
 
@@ -542,12 +564,18 @@ ${fallback_html}`;
           for (const [property, value] of Object.entries(new_node)) {
             if (property === 'id' || property === 'type') continue;
 
-            const prop_type = doc.schema[node.type]?.[property]?.type;
+            const prop_type = doc.schema[node.type]?.properties?.[property]?.type;
 
             if (prop_type === 'node_array' && Array.isArray(value)) {
               new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
             } else if (prop_type === 'node' && typeof value === 'string') {
               new_node[property] = id_mapping[value] || value;
+            } else if (prop_type === 'annotated_text') {
+              const annotations = value.annotations.map(annotation => {
+                const {start_offset, end_offset, node_id} = annotation;
+                return {start_offset, end_offset, node_id: id_mapping[node_id] || node_id};
+              });
+              new_node[property] = {text: value.text, annotations};
             }
           }
 
@@ -652,37 +680,38 @@ ${fallback_html}`;
     const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
 
     if (
-      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+
+      const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
 
       if (layout_count > 1 && node?.layout) {
         const next_layout = (node.layout % layout_count) + 1;
         console.log('layout / count / next_layout', node.layout, layout_count, next_layout);
         const tr = doc.tr;
-        tr.set([doc.selected_node?.id, 'layout'], next_layout);
+        tr.set([doc.layout_node?.id, 'layout'], next_layout);
         doc.apply(tr);
       }
     } else if (
-      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
       if (layout_count > 1 && node?.layout) {
         const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
         const tr = doc.tr;
-        tr.set([doc.selected_node?.id, 'layout'], prev_layout);
+        tr.set([doc.layout_node?.id, 'layout'], prev_layout);
         doc.apply(tr);
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
     } else if (
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node  )
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node  )
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
 
       if (doc.selection.type !== 'node') {
         doc.select_parent();
@@ -701,10 +730,10 @@ ${fallback_html}`;
       tr.set_selection(old_selection);
       doc.apply(tr);
     } else if (
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.selected_node) ||
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.selected_node)
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.layout_node) ||
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-      const node = doc.selected_node;
+      const node = doc.layout_node;
 
       if (doc.selection.type !== 'node') {
         doc.select_parent();
@@ -740,14 +769,35 @@ ${fallback_html}`;
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.shiftKey)) {
+    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile_browser() && selection?.type === 'text' && doc.inspect(selection.path).allow_newlines) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('strong'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('emphasis'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('highlight'));
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      doc.apply(doc.tr.annotate_text('link', {
-        href: window.prompt('Enter the URL', 'https://example.com')
-      }));
+      const has_link = doc.active_annotation('link');
+      if (has_link) {
+        // Delete link
+        doc.apply(doc.tr.annotate_text('link'));
+      } else {
+        // Create link
+        const href = window.prompt('Enter the URL', 'https://example.com');
+        if (href) {
+          doc.apply(doc.tr.annotate_text('link', { href }));
+        }
+      }
+
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'Enter' && selection?.type === 'property') {
@@ -1022,7 +1072,7 @@ ${fallback_html}`;
     // 2. Last child node is a <br> (the visual representation of that \n)
     // 3. Cursor is positioned at or near the end
     // And returns the correct text.length position instead.
-    const text_content = doc.get(path)[0];
+    const text_content = doc.get(path).text;
     const text_length = get_char_length(text_content);
     if (text_length > 0) {
       const last_char = get_char_at(text_content, text_length - 1);
@@ -1207,7 +1257,7 @@ ${fallback_html}`;
     const selection = /** @type {any} */ (doc.selection);
     // The element that holds the annotated string
     const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
-    const empty_text = doc.get(selection.path)[0].length === 0;
+    const empty_text = doc.get(selection.path).text.length === 0;
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
@@ -1384,8 +1434,8 @@ ${fallback_html}`;
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
-    autocapitalize="off"
-    spellcheck="true"
+    {autocapitalize}
+    {spellcheck}
     {...{
       // NOTE: Autocomplete and autocorrect make immense troubles
       // on Desktop Chrome, so we disable them only for Chrome desktop.

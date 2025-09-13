@@ -1,12 +1,12 @@
 <script>
 	import { getContext } from 'svelte';
-	import { char_slice, get_char_length } from './util.js';
+	import { char_slice, get_char_length, snake_to_pascal } from './util.js';
 
-  /** @import { AnnotatedStringPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
+  /** @import { AnnotatedTextPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
- /** @type {AnnotatedStringPropertyProps} */
+ /** @type {AnnotatedTextPropertyProps} */
 	let {
 		path,
 		class: css_class,
@@ -20,32 +20,36 @@
 	/**
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
+	 * @param {Array<Annotation>} annotations - Array of annotations where each is {start_offset, end_offset, node_id}
 	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
 	 */
-	function render_annotated_string(text, annotations) {
+	function get_fragments(text, annotations) {
 		let fragments = [];
 		let last_index = 0;
 
 		// Sort annotations by start_offset
-		const sorted_annotations = [...annotations].sort((a, b) => a[0] - b[0]);
+		const sorted_annotations = [...annotations].sort((a, b) => a.start_offset - b.start_offset);
 
-		for (let [index, annotation] of sorted_annotations.entries()) {
+		for (let [, annotation] of sorted_annotations.entries()) {
 			// Add text before the annotation using character-aware slicing
-			if (annotation[0] > last_index) {
-				fragments.push(char_slice(text, last_index, annotation[0]));
+			if (annotation.start_offset > last_index) {
+				fragments.push(char_slice(text, last_index, annotation.start_offset));
 			}
 
 			// Add the annotated string using character-aware slicing
-			const annotated_content = char_slice(text, annotation[0], annotation[1]);
+			const annotated_content = char_slice(text, annotation.start_offset, annotation.end_offset);
+			const node = svedit.doc.get(annotation.node_id);
+			if (!node) throw new Error(`Node not found for annotation ${annotation.node_id}`);
+
 			fragments.push({
-				type: annotation[2],
+			  node,
 				content: annotated_content,
-				annotation_index: index,
-				data: annotation[3]
+				// NOTE: We need to provide the original index here, because the source data
+				// is the address space.
+				annotation_index: annotations.indexOf(annotation),
 			});
 
-			last_index = annotation[1];
+			last_index = annotation.end_offset;
 		}
 
 		// Add any remaining text after the last annotation using character-aware slicing
@@ -56,15 +60,10 @@
 		return fragments;
 	}
 
-	let fragments = $derived(render_annotated_string(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
-	let plain_text = $derived(svedit.doc.get(path)[0]);
+	let fragments = $derived(get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations));
 
-	/**
-	 * @param {MouseEvent} e - The click event
-	 */
-	function handle_link_click(e) {
-		e.preventDefault();
-	}
+	let plain_text = $derived(svedit.doc.get(path).text);
+
 </script>
 
 {#key plain_text}
@@ -79,21 +78,10 @@
     placeholder={placeholder}
   >
     {#each fragments as fragment, index (index)}
-  		{#if typeof fragment === 'string'}<!--
-        -->{fragment}<!--
-      -->{:else if fragment.type === 'emphasis'}<!--
-        --><em>{fragment.content}</em><!--
-      -->{:else if fragment.type === 'strong'}<!--
-        --><strong>{fragment.content}</strong><!--
-      -->{:else if fragment.type === 'link'}<!--
-        --><a
-  				onclick={handle_link_click}
-  				style="anchor-name: --{path.join('-') + '-' + fragment.annotation_index};"
-  				href={fragment.data.href}
-  				target={fragment.data.target || '_self'}>{fragment.content}</a><!--
-      -->{:else}<!--
-        -->{fragment.content}<!--
-      -->{/if}
+  		{#if typeof fragment === 'string'}{fragment}{:else}
+        {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
+        <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
+      {/if}
   	{/each}<!--
     --><br>
   </div>

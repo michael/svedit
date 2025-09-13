@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice } from './util.js';
+import { char_slice, get_char_length } from './util.js';
 
 /**
  * @import {
@@ -11,6 +11,10 @@ import { char_slice } from './util.js';
  *   DocumentSchemaPrimitive,
  *   NodeProperty,
  *   NodeArrayProperty,
+ *   NodeKind,
+ *   NodeSchema,
+ *   TextNodeSchema,
+ *   NonTextNodeSchema,
  *   DocumentSchema,
  *   SerializedDocument
  * } from './types.d.ts';
@@ -20,7 +24,7 @@ import { char_slice } from './util.js';
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
  *
- * @template {Record<string, Record<string, {type: DocumentSchemaPrimitive}>>} S
+ * @template {Record<string, NodeSchema>} S
  * @param {S} schema - The document schema to validate
  * @returns {S} The same schema, but with type information preserved
  */
@@ -36,7 +40,7 @@ export function define_document_schema(schema) {
 export function is_primitive_type(type) {
   return [
     'string', 'number', 'boolean', 'integer', 'datetime',
-    'annotated_string', 'string_array', 'number_array',
+    'annotated_text', 'string_array', 'number_array',
     'boolean_array', 'integer_array'
   ].includes(type);
 }
@@ -63,7 +67,7 @@ export function get_default_node_type(property_definition) {
 export function validate_document_schema(document_schema) {
   // Check that all referenced node types exist
   for (const [node_type, node_schema] of Object.entries(document_schema)) {
-    for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+    for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
       if (prop_def.type === 'node' || prop_def.type === 'node_array') {
         const missing_types = prop_def.node_types.filter(ref_type => !(ref_type in document_schema));
         if (missing_types.length > 0) {
@@ -92,11 +96,11 @@ function validate_primitive_value(type, value) {
       return Number.isInteger(value);
     case 'datetime':
       return typeof value === 'string' && !isNaN(Date.parse(value));
-    case 'annotated_string':
-      return Array.isArray(value) &&
-             value.length === 2 &&
-             typeof value[0] === 'string' &&
-             Array.isArray(value[1]);
+    case 'annotated_text':
+      return typeof value === 'object' &&
+             value !== null &&
+             typeof value.text === 'string' &&
+             Array.isArray(value.annotations);
     case 'string_array':
       return Array.isArray(value) && value.every(v => typeof v === 'string');
     case 'number_array':
@@ -136,7 +140,7 @@ function validate_node(node, schema, all_nodes = {}) {
 
   const node_schema = schema[node.type];
 
-  for (const [prop_name, prop_def] of Object.entries(node_schema)) {
+  for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
     const value = node[prop_name];
 
     // Check primitive types
@@ -177,7 +181,7 @@ function validate_node(node, schema, all_nodes = {}) {
 
 export default class Document {
   /** @type {Selection | undefined} */
-  selection = $state();
+  #selection = $state();
   config = $state();
   document_id = $state();
   nodes = $state();
@@ -190,6 +194,86 @@ export default class Document {
 
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
+	layout_node = $derived(this.get_layout_node());
+	available_annotation_types = $derived(this.get_available_annotation_types());
+
+  /**
+   * Gets the current selection
+   * @returns {Selection | undefined}
+   */
+  get selection() {
+    return this.#selection;
+  }
+
+  /**
+   * Sets the selection with validation
+   * @param {Selection | undefined} value - The new selection
+   * @throws {Error} Throws if the selection is invalid
+   */
+  set selection(value) {
+    // if (value !== undefined) {
+    //   this._validate_selection(value);
+    // }
+    this.#selection = value;
+  }
+
+  /**
+   * Validates that a selection is within bounds and refers to valid paths.
+   *
+   * @param {Selection} selection - The selection to validate
+   * @throws {Error} Throws if the selection is invalid
+   * @private
+   */
+  _validate_selection(selection) {
+    if (!selection) return; // no selection is a valid selection
+    if (selection && !Array.isArray(selection.path)) {
+      throw new Error('Selection must have a valid path');
+    }
+
+    const selection_type = selection.type;
+    if (selection_type === 'node') {
+      // For node selections, path should point to a node_array
+      if (this.inspect(selection.path).type !== 'node_array') {
+        throw new Error(`Node selection path does not point to a node array: ${selection.path.join('.')}`);
+      }
+
+      const node_array = this.get(selection.path);
+
+      // Validate anchor_offset and focus_offset are within bounds
+      const max_offset = node_array.length;
+
+      if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
+        throw new Error(`Node selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${max_offset})`);
+      }
+
+      if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
+        throw new Error(`Node selection focus_offset ${selection.focus_offset} is out of bounds (0-${max_offset})`);
+      }
+
+    } else if (selection_type === 'text') {
+      // For text selections, path should point to an annotated_text property
+      const annotated_text = this.get(selection.path);
+
+      // Validate anchor_offset and focus_offset are within text bounds
+      const char_length = get_char_length(annotated_text.text);
+
+      if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
+        throw new Error(`Text selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${char_length})`);
+      }
+
+      if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
+        throw new Error(`Text selection focus_offset ${selection.focus_offset} is out of bounds (0-${char_length})`);
+      }
+    } else if (selection_type === 'property') {
+      // For property selections, just validate the path exists
+      if (!this.inspect(selection.path)) {
+        throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
+      }
+
+    } else {
+      throw new Error(`Unknown selection type: ${selection_type}`);
+    }
+  }
 
   /**
    * @param {DocumentSchema} schema - The document schema
@@ -203,7 +287,6 @@ export default class Document {
     validate_document_schema(schema);
 
     this.schema = schema;
-    this.selection = selection;
     this.config = config;
     this.nodes = {};
 
@@ -216,6 +299,9 @@ export default class Document {
 
     // The last element in the serialized_doc is the document itself (the root node)
     this.document_id = serialized_doc.at(-1)?.id;
+
+    // Set selection after nodes are initialized so validation can work properly
+    this.selection = selection;
   }
 
   generate_id() {
@@ -225,6 +311,13 @@ export default class Document {
       return crypto.randomUUID();
     }
   }
+
+ 	get_available_annotation_types() {
+    if (this.selection?.type !== 'text') return [];
+    const path = this.selection.path;
+    const property_schema = this.inspect(path);
+    return property_schema.node_types || [];
+	}
 
  	// Helper function to get the currently selected node
 	get_selected_node() {
@@ -240,11 +333,35 @@ export default class Document {
    		return node_id ? this.get(node_id) : null;
 		} else {
 		  // we are assuming we are either in a text or property (=custom) selection
-			const node_id = this.selection?.path?.slice(0, -1);
-			if (!node_id) return null;
-			const owner_node = this.get(node_id);
+			const owner_node_path = this.selection?.path?.slice(0, -1);
+			if (!owner_node_path) return null;
+			const owner_node = this.get(owner_node_path);
 			return owner_node;
 		}
+	}
+
+	// NOTE: This code is a bit whacky, but works for now.
+	// TODO: Refactor as we settle on a final API
+	get_layout_node() {
+    if (!this.selected_node) return null;
+
+    // The selected node already is a layout node
+    if (this.selected_node.layout) {
+      return this.selected_node;
+    }
+
+    // We resolve the parent node if available, and return it if it's a layout node.
+    // NOTE: We only support one level atm, we may want to implement this recursively
+    if (this.selection.type === 'node') {
+      const parent_node = this.get(this.selection.path.slice(0, -1));
+      return parent_node.layout ? parent_node : null;
+    } else {
+      // We are either in a text or property (=custom) selection
+      const parent_node_path = this.selection?.path?.slice(0, -3);
+			if (!parent_node_path) return null;
+			const parent_node = this.get(parent_node_path);
+      return parent_node.layout ? parent_node : null;
+    }
 	}
 
   // Internal unsafe function: Never call this directly
@@ -352,8 +469,8 @@ export default class Document {
    * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
    *
    * @example
-   * // Get an annotated string property
-   * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]
+   * // Get an annotated text property
+   * doc.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
    */
   get(path) {
     if (typeof path === 'string') {
@@ -372,6 +489,9 @@ export default class Document {
         if (this.property_type(val.type, path_segment) === 'node_array') {
           val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
           val_type = 'node_array';
+        } else if (this.property_type(val.type, path_segment) === 'annotated_text') {
+          val = val[path_segment];
+          val_type = 'annotated_text';
         } else if (this.property_type(val.type, path_segment) === 'node') {
           val = this.nodes[val[path_segment]];
           val_type = 'node';
@@ -379,7 +499,7 @@ export default class Document {
           val = val[path_segment];
           val_type = 'value_array';
         } else {
-          // Resolve value properties sucha as string, integer, datetime
+          // Resolve value properties such as string, integer, datetime
           val = val[path_segment];
           val_type = 'value';
         }
@@ -390,6 +510,32 @@ export default class Document {
       } else if (val_type === 'value_array') {
         val = val[path_segment];
         val_type = 'value';
+      } else if (val_type === 'annotated_text') {
+        if (path_segment === 'text') {
+          val = val.text;
+          val_type = 'value';
+        } else if (path_segment === 'annotations') {
+          val = val.annotations;
+          val_type = 'annotation_array';
+        } else {
+          throw new Error(`Invalid path segment "${path_segment}" for annotated_text. Use "text" or "annotations".`);
+        }
+      } else if (val_type === 'annotation_array') {
+        val = val[path_segment];
+        val_type = 'annotation';
+      } else if (val_type === 'annotation') {
+        if (path_segment === 'node_id') {
+          val = this.nodes[val.node_id];
+          val_type = 'node';
+        } else if (path_segment === 'start_offset') {
+          val = val.start_offset;
+          val_type = 'value';
+        } else if (path_segment === 'end_offset') {
+          val = val.end_offset;
+          val_type = 'value';
+        } else {
+          throw new Error(`Invalid path segment "${path_segment}" for annotation. Use "start_offset", "end_offset", or "node_id".`);
+        }
       }
     }
     return val;
@@ -430,7 +576,7 @@ export default class Document {
         kind: 'property',
         name: property_name,
         // Merge property spec from schema
-        ...this.schema[parent.type][property_name]
+        ...this.schema[parent.type].properties[property_name]
       };
     } else {
       // Parent is a property (or we are at the root), so we are dealing with a node.
@@ -445,17 +591,13 @@ export default class Document {
   }
 
   /**
-   * Determines the kind of a node ('text' for pure text nodes or 'node' for anything else)
-   * NOTE: currently we assume a 'content' property for pure text nodes
+   * Determines the kind of a node ('block' for structured blocks, 'text' for pure
+   * text nodes or 'annotation' for annotation nodes.
    * @param {any} node
-   * @returns {'text'|'node'}
+   * @returns {NodeKind}
    */
   kind(node) {
-    if (['annotated_string', 'string'].includes(this.schema[node.type]?.content?.type)) {
-      return 'text'
-    } else {
-      return 'node';
-    }
+    return this.schema[node.type].kind;
   }
 
   /**
@@ -469,17 +611,18 @@ export default class Document {
     if (this.selection?.type !== 'text') return null;
 
     const { start, end } = this.get_selection_range();
-    const annotated_string = this.get(this.selection.path);
-    const annotations = annotated_string[1];
+    const annotated_text = this.get(this.selection.path);
+    const annotations = annotated_text.annotations;
 
-    const active_annotation = annotations.find(([annotation_start, annotation_end]) =>
-      (annotation_start <= start && annotation_end > start) ||
-      (annotation_start < end && annotation_end >= end) ||
-      (annotation_start >= start && annotation_end <= end)
+    const active_annotation = annotations.find(({start_offset, end_offset}) =>
+      (start_offset <= start && end_offset > start) ||
+      (start_offset < end && end_offset >= end) ||
+      (start_offset >= start && end_offset <= end)
     ) || null;
 
-    if (annotation_type) {
-      return active_annotation?.[2] === annotation_type ? active_annotation : null;
+    if (annotation_type && active_annotation) {
+      const annotation_node = this.get(active_annotation?.node_id);
+      return annotation_node?.type === annotation_type ? active_annotation : null;
     } else {
       return active_annotation;
     }
@@ -491,8 +634,8 @@ export default class Document {
 
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-    const annotated_string = this.get(this.selection.path);
-    return char_slice(annotated_string[0], start, end);
+    const annotated_text = this.get(this.selection.path);
+    return char_slice(annotated_text.text, start, end);
   }
 
   get_selected_nodes() {
@@ -502,41 +645,6 @@ export default class Document {
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
     const node_array = this.get(this.selection.path);
     return $state.snapshot(node_array.slice(start, end));
-  }
-
-  move_node_cursor(direction) {
-    if (this.selection?.type !== 'node') return;
-    const node_array = this.get(this.selection.path);
-
-    const { start, end } = this.get_selection_range();
-
-    if (this.selection.anchor_offset !== this.selection.focus_offset) {
-      // If selection is not collapsed, collapse it to the right or the left
-      if (direction === 'forward') {
-        this.selection.focus_offset = end;
-        this.selection.anchor_offset = end;
-      } else if (direction === 'backward') {
-        this.selection.focus_offset = start;
-        this.selection.anchor_offset = start;
-      }
-    } else if (direction === 'forward' && end < node_array.length) {
-      this.selection.focus_offset = end + 1;
-      this.selection.anchor_offset = end + 1;
-    } else if (direction === 'backward' && start > 0) {
-      this.selection.focus_offset = start - 1;
-      this.selection.anchor_offset = start - 1;
-    }
-  }
-
-  expand_node_selection(direction) {
-    if (this.selection.type !== 'node') return;
-    const node_array = this.get(this.selection.path);
-
-    if (direction === 'forward') {
-      this.selection.focus_offset = Math.min(this.selection.focus_offset + 1, node_array.length);
-    } else if (direction === 'backward') {
-      this.selection.focus_offset = Math.max(this.selection.focus_offset - 1, 0);
-    }
   }
 
   select_parent() {
@@ -602,17 +710,21 @@ export default class Document {
         return;
       }
       visited[node.id] = true;
-      for (const [, value] of Object.entries(node)) {
-        // TODO: Use schema inspection and do this only for properties of type `node_array`
-        if (Array.isArray(value)) {
+      for (const [property_name, value] of Object.entries(node)) {
+        const property_schema = this.schema[node.type].properties[property_name];
+
+        if (property_schema?.type === 'node_array') {
           for (const v of value) {
             if (typeof v === 'string') {
               visit($state.snapshot(this.get(v)));
             }
           }
-        } else if (typeof value === 'string') {
-          // TODO: Use schema inspection and do this only for properties of type `ref`
+        } else if (property_schema?.type === 'node') {
           visit($state.snapshot(this.get(value)));
+        } else if (property_schema?.type === 'annotated_text') {
+          for (const annotation of value.annotations) {
+            visit($state.snapshot(this.get(annotation.node_id)));
+          }
         }
       }
       // Finally add the node to the result.
@@ -633,7 +745,7 @@ export default class Document {
   }
 
   // property_type('page', 'body') => 'node_array'
-  // property_type('paragraph', 'content') => 'annotated_string'
+  // property_type('paragraph', 'content') => 'annotated_text'
   property_type(type, property) {
     if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
     if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
@@ -642,9 +754,9 @@ export default class Document {
     if (property === 'id') return 'string';
 
     if (!this.schema[type]) throw new Error(`Type ${type} not found in schema`);
-    if (!this.schema[type][property]) throw new Error(`Property ${property} not found in type ${type}`);
+    if (!this.schema[type].properties[property]) throw new Error(`Property ${property} not found in type ${type}`);
 
-    return this.schema[type][property].type;
+    return this.schema[type].properties[property].type;
   }
 
   // Count how many times a node is referenced in the document
