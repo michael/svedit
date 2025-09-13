@@ -13,7 +13,7 @@
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<img
 				src={node.image || '/icons/image-placeholder.svg'}
-				alt={node.title[0]}
+				alt={node.title.text}
 				class:placeholder={!node.image}
 			/>
 		</CustomProperty>

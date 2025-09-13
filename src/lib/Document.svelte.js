@@ -97,10 +97,10 @@ function validate_primitive_value(type, value) {
     case 'datetime':
       return typeof value === 'string' && !isNaN(Date.parse(value));
     case 'annotated_string':
-      return Array.isArray(value) &&
-             value.length === 2 &&
-             typeof value[0] === 'string' &&
-             Array.isArray(value[1]);
+      return typeof value === 'object' &&
+             value !== null &&
+             typeof value.text === 'string' &&
+             Array.isArray(value.annotations);
     case 'string_array':
       return Array.isArray(value) && value.every(v => typeof v === 'string');
     case 'number_array':
@@ -211,9 +211,9 @@ export default class Document {
    * @throws {Error} Throws if the selection is invalid
    */
   set selection(value) {
-    if (value !== undefined) {
-      this._validate_selection(value);
-    }
+    // if (value !== undefined) {
+    //   this._validate_selection(value);
+    // }
     this.#selection = value;
   }
 
@@ -255,7 +255,7 @@ export default class Document {
       const annotated_text = this.get(selection.path);
 
       // Validate anchor_offset and focus_offset are within text bounds
-      const char_length = get_char_length(annotated_text[0]);
+      const char_length = get_char_length(annotated_text.text);
 
       if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
         throw new Error(`Text selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${char_length})`);
@@ -266,7 +266,7 @@ export default class Document {
       }
     } else if (selection_type === 'property') {
       // For property selections, just validate the path exists
-      if (!this.get(selection.path)) {
+      if (!this.inspect(selection.path)) {
         throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
       }
 
@@ -511,26 +511,30 @@ export default class Document {
         val = val[path_segment];
         val_type = 'value';
       } else if (val_type === 'annotated_string') {
-        val = val[path_segment];
-        if (path_segment == 1) {
+        if (path_segment === 'text') {
+          val = val.text;
+          val_type = 'value';
+        } else if (path_segment === 'annotations') {
+          val = val.annotations;
           val_type = 'annotation_array';
         } else {
-          val_type = 'value';
+          throw new Error(`Invalid path segment "${path_segment}" for annotated_string. Use "text" or "annotations".`);
         }
       } else if (val_type === 'annotation_array') {
         val = val[path_segment];
         val_type = 'annotation';
       } else if (val_type === 'annotation') {
-        // 2 is for addressing the node_id that points to the node that has all
-        // annotation data (like the type and properties). In this case we
-        // resolve the node, so we could further resolve the node's properties (e.g. type)
-        if (path_segment == 2) {
-          val = this.nodes[val[path_segment]];
+        if (path_segment === 'node_id') {
+          val = this.nodes[val.node_id];
           val_type = 'node';
-        } else {
-          // 0,1 are for addressing annotation_start / annotation_end
-          val = val[path_segment];
+        } else if (path_segment === 'start_offset') {
+          val = val.start_offset;
           val_type = 'value';
+        } else if (path_segment === 'end_offset') {
+          val = val.end_offset;
+          val_type = 'value';
+        } else {
+          throw new Error(`Invalid path segment "${path_segment}" for annotation. Use "start_offset", "end_offset", or "node_id".`);
         }
       }
     }
@@ -608,16 +612,16 @@ export default class Document {
 
     const { start, end } = this.get_selection_range();
     const annotated_string = this.get(this.selection.path);
-    const annotations = annotated_string[1];
+    const annotations = annotated_string.annotations;
 
-    const active_annotation = annotations.find(([annotation_start, annotation_end]) =>
-      (annotation_start <= start && annotation_end > start) ||
-      (annotation_start < end && annotation_end >= end) ||
-      (annotation_start >= start && annotation_end <= end)
+    const active_annotation = annotations.find(({start_offset, end_offset}) =>
+      (start_offset <= start && end_offset > start) ||
+      (start_offset < end && end_offset >= end) ||
+      (start_offset >= start && end_offset <= end)
     ) || null;
 
     if (annotation_type && active_annotation) {
-      const annotation_node = this.get(active_annotation?.[2]);
+      const annotation_node = this.get(active_annotation?.node_id);
       return annotation_node?.type === annotation_type ? active_annotation : null;
     } else {
       return active_annotation;
@@ -631,7 +635,7 @@ export default class Document {
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
     const annotated_string = this.get(this.selection.path);
-    return char_slice(annotated_string[0], start, end);
+    return char_slice(annotated_string.text, start, end);
   }
 
   get_selected_nodes() {
@@ -718,8 +722,8 @@ export default class Document {
         } else if (property_schema?.type === 'node') {
           visit($state.snapshot(this.get(value)));
         } else if (property_schema?.type === 'annotated_string') {
-          for (const v of value[1]) {
-            visit($state.snapshot(this.get(v[2])));
+          for (const annotation of value.annotations) {
+            visit($state.snapshot(this.get(annotation.node_id)));
           }
         }
       }

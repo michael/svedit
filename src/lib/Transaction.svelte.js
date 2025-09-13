@@ -67,7 +67,7 @@ export default class Transaction {
    * @example
    * ```js
    * tr.set(["list_1", "list_items"], [1, 2, 3]);
-   * tr.set(["page_1", "body", "0", "description"], ["Hello world", []]);
+   * tr.set(["page_1", "body", "0", "description"], {text: "Hello world", annotations: []});
    * ```
    */
   set (path, value) {
@@ -185,7 +185,7 @@ export default class Transaction {
 
     const { start, end } = this.doc.get_selection_range();
     const annotated_string = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
-    const annotations = annotated_string[1];
+    const annotations = annotated_string.annotations;
     const existing_annotation = this.doc.active_annotation();
     const existing_annotation_same_type = this.doc.active_annotation(annotation_type);
 
@@ -193,12 +193,12 @@ export default class Transaction {
       // If there's an existing annotation of the same type, remove it
       if (existing_annotation_same_type) {
         const index = annotations.findIndex(/** @param {any} anno */ (anno) =>
-          anno[0] === existing_annotation[0] &&
-          anno[1] === existing_annotation[1]
+          anno.start_offset === existing_annotation.start_offset &&
+          anno.end_offset === existing_annotation.end_offset
         );
         if (index !== -1) {
           // Remove the annotation node from the graph
-          this.delete(annotations[index][2]);
+          this.delete(annotations[index].node_id);
           annotations.splice(index, 1);
         }
       } else {
@@ -218,7 +218,7 @@ export default class Transaction {
       }
       this.create(new_annotation_node);
       // If there's no existing annotation, add the new one
-      annotations.push([start, end, new_annotation_node.id]);
+      annotations.push({start_offset: start, end_offset: end, node_id: new_annotation_node.id});
     }
 
     // Update the annotated string
@@ -279,15 +279,15 @@ export default class Transaction {
       let text = structuredClone($state.snapshot(this.doc.get(path)));
 
       // Update the text content using character-based operations
-      const original_text = text[0];
-      text[0] = char_slice(original_text, 0, start) + char_slice(original_text, end, get_char_length(original_text));
+      const original_text = text.text;
+      text.text = char_slice(original_text, 0, start) + char_slice(original_text, end, get_char_length(original_text));
 
       // To mark annotation nodes for deletion.
       const _deleted_nodes = [];
       // Update annotation offsets for deletion
       const deletion_length = end - start;
-      const new_annotations = text[1].map(/** @param {any} annotation */ (annotation) => {
-        const [annotation_start, annotation_end, node_id] = annotation;
+      const new_annotations = text.annotations.map(/** @param {any} annotation */ (annotation) => {
+        const {start_offset: annotation_start, end_offset: annotation_end, node_id} = annotation;
 
         // Adjust start offset
         let new_start = annotation_start;
@@ -318,10 +318,10 @@ export default class Transaction {
           return false;
         }
 
-        return [new_start, new_end, node_id];
+        return {start_offset: new_start, end_offset: new_end, node_id};
       }).filter(Boolean);
 
-      text[1] = new_annotations;
+      text.annotations = new_annotations;
 
       // Update the text in the entry (this implicitly records an op via this.set)
       this.set(path, text);
@@ -426,14 +426,14 @@ export default class Transaction {
     const { start, end } = this.doc.get_selection_range();
 
     // Transform the plain text string using character-based operations
-    const text = annotated_string[0];
-    annotated_string[0] = char_slice(text, 0, start) + replaced_text + char_slice(text, end, get_char_length(text));
+    const text = annotated_string.text;
+    annotated_string.text = char_slice(text, 0, start) + replaced_text + char_slice(text, end, get_char_length(text));
 
-    // Transform the annotations (annotated_string[1])
-    // NOTE: Annotations are stored as [start_offset, end_offset, type]
+    // Transform the annotations (annotated_string.annotations)
+    // NOTE: Annotations are stored as {start_offset, end_offset, node_id}
     const delta = get_char_length(replaced_text) - (end - start);
-    const new_annotations = annotated_string[1].map(/** @param {any} annotation */ (annotation) => {
-      const [annotation_start, annotation_end, type, annotation_data] = annotation;
+    const new_annotations = annotated_string.annotations.map(/** @param {any} annotation */ (annotation) => {
+      const {start_offset: annotation_start, end_offset: annotation_end, node_id} = annotation;
 
       // Case 1: annotation is wrapped in start and end (remove it)
       if (start <= annotation_start && end >= annotation_end) {
@@ -442,7 +442,7 @@ export default class Transaction {
 
       // Case 2: text inserted before the annotation
       if (end <= annotation_start) {
-        return [annotation_start + delta, annotation_end + delta, type, annotation_data];
+        return {start_offset: annotation_start + delta, end_offset: annotation_end + delta, node_id};
       }
 
       // Case 3: text inserted after the annotation
@@ -454,19 +454,19 @@ export default class Transaction {
       // NOTE: replaced_text will not be part of the annotation, we treat it the same as
       // a cursor right after the annotation
       if (start > annotation_start && start < annotation_end && end >= annotation_end) {
-        return [annotation_start, start, type, annotation_data];
+        return {start_offset: annotation_start, end_offset: start, node_id};
       }
 
       // Case 5: text inserted inside an annotation
       if (start >= annotation_start && start <= annotation_end && end < annotation_end && end >= annotation_start) {
-        return [annotation_start, annotation_end + delta, type, annotation_data];
+        return {start_offset: annotation_start, end_offset: annotation_end + delta, node_id};
       }
 
       // Case 6: annotation is partly selected towards left
       // NOTE: replaced_text will not be part of the annotation, we treat it the same as
       // a cursor right before the annotation
       if (start < annotation_start && end > annotation_start && end < annotation_end) {
-        return [start + get_char_length(replaced_text), annotation_end + delta, type, annotation_data];
+        return {start_offset: start + get_char_length(replaced_text), end_offset: annotation_end + delta, node_id};
       }
 
       // Unhandled edge case:
@@ -476,7 +476,8 @@ export default class Transaction {
       // return annotation;
     }).filter(Boolean);
 
-    this.set(this.doc.selection.path, [annotated_string[0], new_annotations]); // this will update the current state and create a history entry
+    annotated_string.annotations = new_annotations;
+    this.set(this.doc.selection.path, annotated_string); // this will update the current state and create a history entry
 
     // Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
     const new_selection = {

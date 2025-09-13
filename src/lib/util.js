@@ -1,5 +1,5 @@
 /**
- * @import { Annotation } from './types.d.ts';
+ * @import { Annotation, AnnotatedString } from './types.d.ts';
  */
 
 /**
@@ -125,20 +125,20 @@ export function char_to_utf16_offset(str, char_offset) {
  * Annotations that span the split point will be divided appropriately,
  * with offsets adjusted for each resulting part.
  *
- * @param {[string, Array<Annotation>]} text_with_annotations - Tuple of [text, annotations] where annotations follow the Annotation type: [start, end, type, data?]
+ * @param {AnnotatedString} text_with_annotations - Annotated string object
  * @param {number} at_position - Character position where to split (0-based)
- * @returns {[[string, Array<Annotation>], [string, Array<Annotation>]]} Tuple of [left_part, right_part] where each part is [text, annotations]
+ * @returns {[AnnotatedString, AnnotatedString]} Tuple of [left_part, right_part]
  *
  * @example
- * split_annotated_string(["Hello world", [[6,11, "strong"]]], 8)
+ * split_annotated_string({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
  * // Returns:
  * // [
- * //   ["Hello wo", [[6,8, "strong"]]]
- * //   ["rld", [[0,3, "strong"]]]
+ * //   {text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
+ * //   {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
  * // ]
  */
 export function split_annotated_string(text_with_annotations, at_position) {
-  const [text, annotations] = text_with_annotations;
+  const {text, annotations} = text_with_annotations;
 
   // Split the text using character-aware slicing
   const left_text = char_slice(text, 0, at_position);
@@ -150,23 +150,23 @@ export function split_annotated_string(text_with_annotations, at_position) {
   const right_annotations = [];
 
   // Process each annotation
-  for (const [start, end, type, data] of annotations) {
-    if (end <= at_position) {
+  for (const {start_offset, end_offset, node_id} of annotations) {
+    if (end_offset <= at_position) {
       // Annotation is entirely in the left part
-      left_annotations.push([start, end, type, data]);
-    } else if (start >= at_position) {
+      left_annotations.push({start_offset, end_offset, node_id});
+    } else if (start_offset >= at_position) {
       // Annotation is entirely in the right part - shift offsets
-      right_annotations.push([start - at_position, end - at_position, type, data]);
+      right_annotations.push({start_offset: start_offset - at_position, end_offset: end_offset - at_position, node_id});
     } else {
       // Annotation spans the split point - split it
-      left_annotations.push([start, at_position, type, data]);
-      right_annotations.push([0, end - at_position, type, data]);
+      left_annotations.push({start_offset, end_offset: at_position, node_id});
+      right_annotations.push({start_offset: 0, end_offset: end_offset - at_position, node_id});
     }
   }
 
   return [
-    [left_text, left_annotations],
-    [right_text, right_annotations]
+    {text: left_text, annotations: left_annotations},
+    {text: right_text, annotations: right_annotations}
   ];
 }
 
@@ -177,17 +177,17 @@ export function split_annotated_string(text_with_annotations, at_position) {
  * Annotations from the second text will have their offsets shifted by the length
  * of the first text. Adjacent annotations of the same type and data will be merged.
  *
- * @param {[string, Array<Annotation>]} first_text - First annotated string tuple where annotations follow the Annotation type: [start, end, type, data?]
- * @param {[string, Array<Annotation>]} second_text - Second annotated string tuple where annotations follow the Annotation type: [start, end, type, data?]
- * @returns {[string, Array<Annotation>]} Combined annotated string tuple [text, annotations]
+ * @param {AnnotatedString} first_text - First annotated string object
+ * @param {AnnotatedString} second_text - Second annotated string object
+ * @returns {AnnotatedString} Combined annotated string object
  *
  * @example
- * join_annotated_string(["Hello wo", [[6,8, "strong"]]], ["rld", [[0,3, "strong"]]])
- * // Returns: ["Hello world", [[6,11, "strong"]]]
+ * join_annotated_string({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
+ * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
  */
 export function join_annotated_string(first_text, second_text) {
-  const [first_text_content, first_annotations] = first_text;
-  const [second_text_content, second_annotations] = second_text;
+  const {text: first_text_content, annotations: first_annotations} = first_text;
+  const {text: second_text_content, annotations: second_annotations} = second_text;
 
   // Join the text content
   const joined_text = first_text_content + second_text_content;
@@ -198,25 +198,24 @@ export function join_annotated_string(first_text, second_text) {
 
   // Add annotations from the second text, shifting their offsets
   const offset = get_char_length(first_text_content);
-  for (const [start, end, type, data] of second_annotations) {
+  for (const {start_offset, end_offset, node_id} of second_annotations) {
     /** @type {Annotation} */
-    const shifted_annotation = [start + offset, end + offset, type, data];
+    const shifted_annotation = {start_offset: start_offset + offset, end_offset: end_offset + offset, node_id};
 
     // Check if this annotation can be merged with the last annotation from first text
     const last_annotation = joined_annotations[joined_annotations.length - 1];
     if (last_annotation &&
-        last_annotation[1] === shifted_annotation[0] && // annotations are adjacent
-        last_annotation[2] === shifted_annotation[2] && // same type
-        JSON.stringify(last_annotation[3]) === JSON.stringify(shifted_annotation[3])) { // same data
+        last_annotation.end_offset === shifted_annotation.start_offset && // annotations are adjacent
+        last_annotation.node_id === shifted_annotation.node_id) { // same node_id
       // Merge by extending the end position of the last annotation
-      last_annotation[1] = shifted_annotation[1];
+      last_annotation.end_offset = shifted_annotation.end_offset;
     } else {
       // Add as separate annotation
       joined_annotations.push(shifted_annotation);
     }
   }
 
-  return [joined_text, joined_annotations];
+  return {text: joined_text, annotations: joined_annotations};
 }
 
 /**

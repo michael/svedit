@@ -82,7 +82,7 @@ export function join_text_node(tr) {
   }
 
   // Special behavior: if we can't join and current node is empty, delete it
-  if (!can_join && node.content[0] === '') {
+  if (!can_join && node.content.text === '') {
     tr.set_selection({
       type: 'node',
       path: doc.selection.path.slice(0, -2),
@@ -113,8 +113,8 @@ export function join_text_node(tr) {
   tr.set_selection({
     type: 'text',
     path: [...previous_text_path, 'content'],
-    anchor_offset: get_char_length(predecessor_node.content[0]),
-    focus_offset: get_char_length(predecessor_node.content[0]),
+    anchor_offset: get_char_length(predecessor_node.content.text),
+    focus_offset: get_char_length(predecessor_node.content.text),
   });
   tr.set([predecessor_node.id, 'content'], joined_text);
   return true;
@@ -161,7 +161,7 @@ export function select_all(tr) {
 
   if (selection.type === 'text') {
     const text_content = doc.get(selection.path);
-    const text_length = get_char_length(text_content[0]);
+    const text_length = get_char_length(text_content.text);
 
     // Check if all text is already selected
     const is_all_text_selected =
