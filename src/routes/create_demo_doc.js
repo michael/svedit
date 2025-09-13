@@ -17,9 +17,10 @@ import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
 import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
+import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
 
-const ALL_ANNOTATIONS = ['strong', 'emphasis', 'link'];
+const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
 const TITLE_ANNOTATIONS = ['emphasis'];
 
 const document_schema = define_document_schema({
@@ -69,7 +70,7 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
       content: {
         type: 'annotated_text',
-        node_types: ALL_ANNOTATIONS,
+        node_types: ['strong', 'emphasis', 'highlight', 'link'],
         allow_newlines: true,
       },
     }
@@ -91,12 +92,12 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
       title: {
         type: 'annotated_text',
-        node_types: TITLE_ANNOTATIONS,
+        node_types: ['emphasis', 'highlight'],
         allow_newlines: false,
       },
       description: {
         type: 'annotated_text',
-        node_types: ALL_ANNOTATIONS,
+        node_types: ['strong', 'emphasis', 'highlight', 'link'],
         allow_newlines: true,
       },
       buttons: {
@@ -158,6 +159,10 @@ const document_schema = define_document_schema({
     properties: {}
   },
   emphasis: {
+    kind: 'annotation',
+    properties: {}
+  },
+  highlight: {
     kind: 'annotation',
     properties: {}
   },
@@ -410,7 +415,6 @@ const document_config = {
     NodeCursorTrap,
     Overlays,
   },
-
   // Registry of components for each node type
   node_components: {
     Page,
@@ -424,6 +428,7 @@ const document_config = {
     Hero,
     Strong,
     Emphasis,
+    Highlight,
     Link
   },
   // HTML exporters for different node types
