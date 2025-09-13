@@ -559,6 +559,8 @@ export default class Transaction {
           count += value.filter(id => id === target_node_id).length;
         } else if (prop_type === 'node' && value === target_node_id) {
           count += 1;
+        } else if (prop_type === 'annotated_string' && value && value.annotations) {
+          count += value.annotations.filter(annotation => annotation.node_id === target_node_id).length;
         }
       }
     }

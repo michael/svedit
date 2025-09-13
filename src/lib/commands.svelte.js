@@ -102,6 +102,13 @@ export function join_text_node(tr) {
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
   const joined_text = join_annotated_string(predecessor_node.content, node.content);
 
+  // Calculate cursor position based on original predecessor content length
+  const cursor_position = get_char_length(predecessor_node.content.text);
+
+  // First set the joined content on the predecessor node (preserves annotations)
+  tr.set([predecessor_node.id, 'content'], joined_text);
+
+  // Then delete the current node
   tr.set_selection({
     type: 'node',
     path: doc.selection.path.slice(0, -2),
@@ -110,13 +117,14 @@ export function join_text_node(tr) {
   });
 
   tr.delete_selection();
+  
+  // Finally set the cursor position at the join point using the pre-calculated position
   tr.set_selection({
     type: 'text',
     path: [...previous_text_path, 'content'],
-    anchor_offset: get_char_length(predecessor_node.content.text),
-    focus_offset: get_char_length(predecessor_node.content.text),
+    anchor_offset: cursor_position,
+    focus_offset: cursor_position,
   });
-  tr.set([predecessor_node.id, 'content'], joined_text);
   return true;
 }
 
