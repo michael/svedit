@@ -99,8 +99,12 @@ const document_schema = define_document_schema({
         node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
-      buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
-      image: { type: 'string' }, // a dedicated type asset would be better
+      buttons: {
+        type: 'node_array',
+        node_types: ['button'],
+        default_node_type: 'button',
+      },
+      image: { type: 'string' },
     }
   },
   image_grid: {
