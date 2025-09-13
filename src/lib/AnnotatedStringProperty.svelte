@@ -20,7 +20,7 @@
 	/**
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation>} annotations - Array of annotations where each is [start_offset, end_offset, type, options?] (minimum 3 elements)
+	 * @param {Array<Annotation>} annotations - Array of annotations where each is {start_offset, end_offset, node_id}
 	 * @returns {Array<string|AnnotationFragment>} Array of fragments - strings for plain text, AnnotationFragment objects for annotated content
 	 */
 	function get_fragments(text, annotations) {
@@ -28,18 +28,18 @@
 		let last_index = 0;
 
 		// Sort annotations by start_offset
-		const sorted_annotations = [...annotations].sort((a, b) => a[0] - b[0]);
+		const sorted_annotations = [...annotations].sort((a, b) => a.start_offset - b.start_offset);
 
 		for (let [, annotation] of sorted_annotations.entries()) {
 			// Add text before the annotation using character-aware slicing
-			if (annotation[0] > last_index) {
-				fragments.push(char_slice(text, last_index, annotation[0]));
+			if (annotation.start_offset > last_index) {
+				fragments.push(char_slice(text, last_index, annotation.start_offset));
 			}
 
 			// Add the annotated string using character-aware slicing
-			const annotated_content = char_slice(text, annotation[0], annotation[1]);
-			const node = svedit.doc.get(annotation[2]);
-			if (!node) throw new Error(`Node not found for annotation ${annotation[2]}`);
+			const annotated_content = char_slice(text, annotation.start_offset, annotation.end_offset);
+			const node = svedit.doc.get(annotation.node_id);
+			if (!node) throw new Error(`Node not found for annotation ${annotation.node_id}`);
 
 			fragments.push({
 			  node,
@@ -49,7 +49,7 @@
 				annotation_index: annotations.indexOf(annotation),
 			});
 
-			last_index = annotation[1];
+			last_index = annotation.end_offset;
 		}
 
 		// Add any remaining text after the last annotation using character-aware slicing
@@ -60,9 +60,9 @@
 		return fragments;
 	}
 
-	let fragments = $derived(get_fragments(svedit.doc.get(path)[0], svedit.doc.get(path)[1]));
+	let fragments = $derived(get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations));
 
-	let plain_text = $derived(svedit.doc.get(path)[0]);
+	let plain_text = $derived(svedit.doc.get(path).text);
 
 </script>
 
@@ -80,7 +80,7 @@
     {#each fragments as fragment, index (index)}
   		{#if typeof fragment === 'string'}{fragment}{:else}
         {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
-        <AnnotationComponent path={[...path, 1, fragment.annotation_index, 2]} content={fragment.content} />
+        <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
       {/if}
   	{/each}<!--
     --><br>

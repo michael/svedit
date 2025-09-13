@@ -67,9 +67,9 @@ describe('Svedit.svelte', () => {
     const original_story = doc.get(story_1_id);
     const original_button = doc.get(button_1_id);
 
-    expect(original_story.title).toEqual(['First story', []]);
+    expect(original_story.title).toEqual({text: 'First story', annotations: []});
     expect(original_story.buttons).toEqual([button_1_id]);
-    expect(original_button.label).toEqual(['Get started', []]);
+    expect(original_button.label).toEqual({text: 'Get started', annotations: []});
 
     // Initial body state: [story_1_id, story_1_id, list_1_id]
     const initial_body = doc.get([page_1_id, 'body']);
@@ -137,9 +137,9 @@ describe('Svedit.svelte', () => {
     const first_new_button = doc.get(first_new_button_id);
 
     // Content should be the same as original
-    expect(first_new_story.title).toEqual(['First story', []]);
-    expect(first_new_story.description).toEqual(['First story description.', []]);
-    expect(first_new_button.label).toEqual(['Get started', []]);
+    expect(first_new_story.title).toEqual({text: 'First story', annotations: []});
+    expect(first_new_story.description).toEqual({text: 'First story description.', annotations: []});
+    expect(first_new_button.label).toEqual({text: 'Get started', annotations: []});
     expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
     // But IDs should be different
@@ -173,9 +173,9 @@ describe('Svedit.svelte', () => {
     const second_new_button = doc.get(second_new_button_id);
 
     // Content should still be the same
-    expect(second_new_story.title).toEqual(['First story', []]);
-    expect(second_new_story.description).toEqual(['First story description.', []]);
-    expect(second_new_button.label).toEqual(['Get started', []]);
+    expect(second_new_story.title).toEqual({text: 'First story', annotations: []});
+    expect(second_new_story.description).toEqual({text: 'First story description.', annotations: []});
+    expect(second_new_button.label).toEqual({text: 'Get started', annotations: []});
     expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
     // But IDs should be different from both original and first paste
@@ -209,7 +209,7 @@ describe('Svedit.svelte', () => {
         id: empty_text_id,
         type: 'text',
         layout: 1,
-        content: ['', []] // Empty content
+        content: {text: '', annotations: []} // Empty content
       };
 
       const tr = doc.tr;
@@ -256,7 +256,7 @@ describe('Svedit.svelte', () => {
         id: text_id,
         type: 'text',
         layout: 1,
-        content: ['Some content', []]
+        content: {text: 'Some content', annotations: []}
       };
 
       const tr = doc.tr;
@@ -285,7 +285,7 @@ describe('Svedit.svelte', () => {
 
       // Text node should still exist
       expect(doc.get(text_id)).toBeDefined();
-      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      expect(doc.get(text_id).content).toEqual({text: 'Some content', annotations: []});
 
       // Body should remain unchanged
       const final_body = doc.get([page_1_id, 'body']);
@@ -301,7 +301,7 @@ describe('Svedit.svelte', () => {
         id: empty_text_id,
         type: 'text',
         layout: 1,
-        content: ['', []] // Empty content
+        content: {text: '', annotations: []} // Empty content
       };
 
       const tr = doc.tr;
@@ -348,7 +348,7 @@ describe('Svedit.svelte', () => {
         id: text_id,
         type: 'text',
         layout: 1,
-        content: ['Some content', []]
+        content: {text: 'Some content', annotations: []}
       };
 
       const tr = doc.tr;
@@ -377,7 +377,7 @@ describe('Svedit.svelte', () => {
 
       // Text node should still exist
       expect(doc.get(text_id)).toBeDefined();
-      expect(doc.get(text_id).content).toEqual(['Some content', []]);
+      expect(doc.get(text_id).content).toEqual({text: 'Some content', annotations: []});
 
       // Body should remain unchanged
       const final_body = doc.get([page_1_id, 'body']);
@@ -395,14 +395,14 @@ describe('Svedit.svelte', () => {
         id: first_text_id,
         type: 'text',
         layout: 1,
-        content: ['First text', []]
+        content: {text: 'First text', annotations: []}
       };
 
       const second_text_node = {
         id: second_text_id,
         type: 'text',
         layout: 1,
-        content: [' second text', []]
+        content: {text: ' second text', annotations: []}
       };
 
       const tr = doc.tr;
@@ -431,7 +431,7 @@ describe('Svedit.svelte', () => {
 
       // First text node should contain joined content
       const first_text = doc.get(first_text_id);
-      expect(first_text.content).toEqual(['First text second text', []]);
+      expect(first_text.content).toEqual({text: 'First text second text', annotations: []});
 
       // Body should only contain the first text node
       const final_body = doc.get([page_1_id, 'body']);
@@ -551,7 +551,7 @@ describe('Svedit.svelte', () => {
       id: unicode_text_id,
       type: 'text',
       layout: 1,
-      content: ['Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', []]
+      content: {text: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', annotations: []}
     };
 
     const tr = doc.tr;
@@ -622,11 +622,11 @@ describe('Svedit.svelte', () => {
     
     const decoded_data = extract_svedit_data_from_html(html_content);
     expect(decoded_data).not.toBeNull();
-    expect(decoded_data.nodes[unicode_text_id].content[0]).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
+    expect(decoded_data.nodes[unicode_text_id].content.text).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
 
     // Verify that the decoded data contains the correct Unicode content
     expect(decoded_data.nodes[unicode_text_id]).toBeDefined();
-    expect(decoded_data.nodes[unicode_text_id].content[0]).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
+    expect(decoded_data.nodes[unicode_text_id].content.text).toBe('Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!');
     
     // Verify that encoding/decoding preserves Unicode characters perfectly
     expect(decoded_data.main_nodes).toContain(unicode_text_id);

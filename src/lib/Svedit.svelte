@@ -381,9 +381,9 @@ ${fallback_html}`;
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
 
-      // Check if this is an annotated_string property (array with string as first element)
-      if (Array.isArray(prop_value) && typeof prop_value[0] === 'string') {
-        const text_content = prop_value[0];
+      // Check if this is an annotated_string property (object with text property)
+      if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
+        const text_content = prop_value.text;
         if (text_content.trim()) {
           html += `<p>${text_content}</p>\n`;
           has_content = true;
@@ -562,11 +562,11 @@ ${fallback_html}`;
             } else if (prop_type === 'node' && typeof value === 'string') {
               new_node[property] = id_mapping[value] || value;
             } else if (prop_type === 'annotated_string') {
-              const annotations = value[1].map(annotation => {
-                const [start_offset, end_offset, node_id] = annotation;
-                return [start_offset, end_offset, id_mapping[node_id] || node_id];
+              const annotations = value.annotations.map(annotation => {
+                const {start_offset, end_offset, node_id} = annotation;
+                return {start_offset, end_offset, node_id: id_mapping[node_id] || node_id};
               });
-              new_node[property] = [value[0], annotations];
+              new_node[property] = {text: value.text, annotations};
             }
           }
 
@@ -1236,7 +1236,7 @@ ${fallback_html}`;
     const selection = /** @type {any} */ (doc.selection);
     // The element that holds the annotated string
     const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
-    const empty_text = doc.get(selection.path)[0].length === 0;
+    const empty_text = doc.get(selection.path).text.length === 0;
 
     const range = window.document.createRange();
     const dom_selection = window.getSelection();

@@ -33,9 +33,9 @@
 		if (active_annotation) {
 			const annotated_string = svedit.doc.get(sel.path);
 
-			const annotation_index = annotated_string[1].indexOf(active_annotation);
-			console.log(annotation_index, $state.snapshot(annotated_string[1]));
-			return [...sel.path, 1, annotation_index, 2];
+			const annotation_index = annotated_string.annotations.indexOf(active_annotation);
+			console.log(annotation_index, $state.snapshot(annotated_string.annotations));
+			return [...sel.path, 'annotations', annotation_index, 'node_id'];
 		}
 		return null;
 	}

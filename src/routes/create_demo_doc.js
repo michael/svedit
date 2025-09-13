@@ -226,26 +226,26 @@ const serialized_doc = [
   {
     id: hero_1_id,
     type: 'hero',
-    title: ['Svedit', []],
-    description: ['A tiny library for building rich content editors with Svelte 5.', []],
+    title: {text: 'Svedit', annotations: []},
+    description: {text: 'A tiny library for building rich content editors with Svelte 5.', annotations: []},
     image: '',
   },
   {
     id: heading_1_id,
     type: 'text',
     layout: 2,
-    content: ['Text and structured content in symbiosis', []]
+    content: {text: 'Text and structured content in symbiosis', annotations: []}
   },
   {
     id: paragraph_1_id,
     type: 'text',
     layout: 1,
-    content: ['Unlike most rich text editors, Svedit isn’t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.', []]
+    content: {text: 'Unlike most rich text editors, Svedit isn\'t restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.', annotations: []}
   },
   {
     id: button_1_id,
     type: 'button',
-    label: ['Get started', []],
+    label: {text: 'Get started', annotations: []},
     href: 'https://github.com/michael/svedit'
   },
   {
@@ -253,8 +253,8 @@ const serialized_doc = [
     type: 'story',
     layout: 1,
     image: '/images/editable.svg',
-    title: ['Visual in‑place editing', []],
-    description: ['Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', []],
+    title: {text: 'Visual in‑place editing', annotations: []},
+    description: {text: 'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.', annotations: []},
     buttons: []
   },
   {
@@ -262,8 +262,8 @@ const serialized_doc = [
     type: 'story',
     layout: 2,
     image: '/images/lightweight.svg',
-    title: ['Minimal viable editor', []],
-    description: ["The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", [[100,118, link_1_id]]],
+    title: {text: 'Minimal viable editor', annotations: []},
+    description: {text: "The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.", annotations: [{start_offset: 100, end_offset: 118, node_id: link_1_id}]},
     buttons: []
   },
   {
@@ -271,8 +271,8 @@ const serialized_doc = [
     type: 'story',
     layout: 1,
     image: '/images/nested-blocks-illustration.svg',
-    title: ['Nested nodes', []],
-    description: ['A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', []],
+    title: {text: 'Nested nodes', annotations: []},
+    description: {text: 'A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.', annotations: []},
     buttons: []
   },
 
@@ -280,37 +280,37 @@ const serialized_doc = [
     id: image_grid_item_1_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['First thing', []],
+    title: {text: 'First thing', annotations: []},
   },
   {
     id: image_grid_item_2_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['Second thing', []],
+    title: {text: 'Second thing', annotations: []},
   },
   {
     id: image_grid_item_3_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['Third thing', []],
+    title: {text: 'Third thing', annotations: []},
   },
   {
     id: image_grid_item_4_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['Fourth thing', []],
+    title: {text: 'Fourth thing', annotations: []},
   },
   {
     id: image_grid_item_5_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['Fifth thing', []],
+    title: {text: 'Fifth thing', annotations: []},
   },
   {
     id: image_grid_item_6_id,
     type: 'image_grid_item',
     image: '/images/extendable.svg',
-    title: ['Sixth thing', []],
+    title: {text: 'Sixth thing', annotations: []},
   },
   {
     id: image_grid_1_id,
@@ -322,8 +322,8 @@ const serialized_doc = [
     type: 'story',
     layout: 2,
     image: '/images/node-cursors.svg',
-    title: ['Node cursors', []],
-    description: ['They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.', []],
+    title: {text: 'Node cursors', annotations: []},
+    description: {text: 'They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.', annotations: []},
     buttons: []
   },
   {
@@ -331,8 +331,8 @@ const serialized_doc = [
     type: 'story',
     layout: 1,
     image: '/images/svelte-logo.svg',
-    title: ['Made for Svelte 5', []],
-    description: ['Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', [ [20, 26, link_2_id], [80, 93, emphasis_1_id] ]],
+    title: {text: 'Made for Svelte 5', annotations: []},
+    description: {text: 'Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.', annotations: [{start_offset: 20, end_offset: 26, node_id: link_2_id}, {start_offset: 80, end_offset: 93, node_id: emphasis_1_id}]},
     buttons: []
   },
   {
@@ -340,29 +340,29 @@ const serialized_doc = [
     type: 'story',
     layout: 2,
     image: '/images/extendable.svg',
-    title: ['Alpha version', []],
-    description: ['Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we\'ll be working to get fixed next:', []],
+    title: {text: 'Alpha version', annotations: []},
+    description: {text: 'Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we\'ll be working to get fixed next:', annotations: []},
     buttons: [button_1_id]
   },
   {
     id: list_item_1_id,
     type: 'list_item',
-    content: ['It’s a bit hard to select whole lists or image grids with the mouse still. We\'re looking to improve this. However by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.', []]
+    content: {text: 'It\'s a bit hard to select whole lists or image grids with the mouse still. We\'re looking to improve this. However by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.', annotations: []}
   },
   {
     id: list_item_2_id,
     type: 'list_item',
-    content: ['Copy and pasting from and to external sources is not yet supported, but soon will be.', []]
+    content: {text: 'Copy and pasting from and to external sources is not yet supported, but soon will be.', annotations: []}
   },
   {
     id: list_item_3_id,
     type: 'list_item',
-    content: ['Works best in Chrome, as Svedit uses CSS Anchor Positioning for overlays.', []]
+    content: {text: 'Works best in Chrome, as Svedit uses CSS Anchor Positioning for overlays.', annotations: []}
   },
   {
     id: list_item_4_id,
     type: 'list_item',
-    content: ['Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn\'t optimized yet.', []]
+    content: {text: 'Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn\'t optimized yet.', annotations: []}
   },
   {
     id: list_1_id,
@@ -375,14 +375,13 @@ const serialized_doc = [
     type: 'story',
     layout: 1,
     image: '/images/github.svg',
-    title: ['Star us on GitHub', []],
-    description: ['Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
-      [
-        [0, 28, link_3_id],
-        [95, 112, link_4_id],
-        [117,132, link_5_id],
+    title: {text: 'Star us on GitHub', annotations: []},
+    description: {text: 'Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.', annotations: [
+        {start_offset: 0, end_offset: 28, node_id: link_3_id},
+        {start_offset: 95, end_offset: 112, node_id: link_4_id},
+        {start_offset: 117, end_offset: 132, node_id: link_5_id}
       ]
-    ],
+    },
     buttons: []
   },
   // IMPORTANT: The root node (entry point) must be the last one in the array
@@ -429,16 +428,17 @@ const document_config = {
       let html = '<ul>\n';
       for (const list_item_id of node.list_items) {
         const list_item = doc.get(list_item_id);
-        html += `<li>${list_item.content[0]}</li>\n`
+        const content_text = (typeof list_item.content === 'object' && list_item.content.text) ? list_item.content.text : list_item.content;
+        html += `<li>${content_text}</li>\n`
       }
       return html += '</ul>';
     },
     story: (node) => {
-      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || 'Untitled Story');
+      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || 'Untitled Story');
       let html = `<h1>${title_text}</h1>\n`;
 
       if (node.description) {
-        const description_text = Array.isArray(node.description) ? node.description[0] : node.description;
+        const description_text = (typeof node.description === 'object' && node.description.text) ? node.description.text : node.description;
         html += `<p>${description_text}</p>\n`;
       }
 
@@ -449,14 +449,14 @@ const document_config = {
       return html;
     },
     text: (node) => {
-      const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
+      const content = (typeof node.content === 'object' && node.content.text) ? node.content.text : (node.content || '');
       if (content.trim()) {
         return `<p style="white-space:pre-wrap;">${content}</p>\n`;
       }
       return '';
     },
     button: (node) => {
-      const label_text = Array.isArray(node.label) ? node.label[0] : (node.label || 'Button');
+      const label_text = (typeof node.label === 'object' && node.label.text) ? node.label.text : (node.label || 'Button');
       if (node.href) {
         return `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${label_text}</a>\n`;
       } else {
@@ -464,8 +464,8 @@ const document_config = {
       }
     },
     hero: (node) => {
-      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || '');
-      const description_text = Array.isArray(node.description) ? node.description[0] : (node.description || '');
+      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || '');
+      const description_text = (typeof node.description === 'object' && node.description.text) ? node.description.text : (node.description || '');
       let html = '';
 
       if (title_text.trim()) {
@@ -486,7 +486,7 @@ const document_config = {
       let html = '<div class="image-grid">\n';
       for (const image_grid_item_id of node.image_grid_items) {
         const image_grid_item = doc.get(image_grid_item_id);
-        const title_text = Array.isArray(image_grid_item.title) ? image_grid_item.title[0] : (image_grid_item.title || '');
+        const title_text = (typeof image_grid_item.title === 'object' && image_grid_item.title.text) ? image_grid_item.title.text : (image_grid_item.title || '');
         html += '<div class="image-grid-item">\n';
         if (image_grid_item.image) {
           html += `<img src="${image_grid_item.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
@@ -499,7 +499,7 @@ const document_config = {
       return html += '</div>';
     },
     image_grid_item: (node) => {
-      const title_text = Array.isArray(node.title) ? node.title[0] : (node.title || '');
+      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || '');
       let html = '<div class="image-grid-item">\n';
       if (node.image) {
         html += `<img src="${node.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
@@ -510,7 +510,7 @@ const document_config = {
       return html += '</div>';
     },
     list_item: (node) => {
-      const content = Array.isArray(node.content) ? node.content[0] : (node.content || '');
+      const content = (typeof node.content === 'object' && node.content.text) ? node.content.text : (node.content || '');
       return `<li>${content}</li>\n`;
     },
 
@@ -528,7 +528,7 @@ const document_config = {
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
   // intended behavior.
   inserters: {
-    text: function(tr, content = ['', []], layout = 1) {
+    text: function(tr, content = {text: '', annotations: []}, layout = 1) {
       const new_text = {
    			id: nanoid(),
    			type: 'text',
@@ -557,8 +557,8 @@ const document_config = {
         type: 'story',
         layout: 1,
         image: '',
-        title: ['', []],
-        description: ['', []],
+        title: {text: '', annotations: []},
+        description: {text: '', annotations: []},
         buttons: [new_button.id]
       };
   		tr.insert_nodes([new_story]);
@@ -574,7 +574,7 @@ const document_config = {
       const new_list_item = {
         id: nanoid(),
         type: 'list_item',
-        content: ['', []]
+        content: {text: '', annotations: []}
       };
       tr.create(new_list_item);
       const new_list = {
@@ -591,7 +591,7 @@ const document_config = {
       //   focus_offset: 0
       // });
     },
-    list_item: function(tr, content = ['', []]) {
+    list_item: function(tr, content = {text: '', annotations: []}) {
       const new_list_item = {
         id: nanoid(),
         type: 'list_item',

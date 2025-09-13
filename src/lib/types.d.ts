@@ -103,7 +103,7 @@ export type DocumentSchemaValueToJs<T> =
   T extends "number_array" ? Array<number> :
   T extends "boolean_array" ? Array<boolean> :
   T extends "integer_array" ? Array<number> :
-  T extends "annotated_string" ? [string, Array<any>] :
+  T extends "annotated_string" ? AnnotatedString :
   T extends "node" ? string :
   T extends "node_array" ? Array<string> :
   never;
@@ -281,9 +281,20 @@ export type SveditProps = {
 
 /**
  * Represents an annotation in an annotated string
- * Format: [start_offset, end_offset, type, options?]
  */
-export type Annotation = [number, number, NodeId];
+export type Annotation = {
+  start_offset: number;
+  end_offset: number;
+  node_id: NodeId;
+};
+
+/**
+ * Represents an annotated string with text and annotations
+ */
+export type AnnotatedString = {
+  text: string;
+  annotations: Array<Annotation>;
+};
 
 /**
  * Represents a fragment of annotated text content

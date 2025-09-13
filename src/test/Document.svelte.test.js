@@ -27,7 +27,7 @@ describe('Document.svelte.js', () => {
 
     // Resolve annotated_string property
     const fist_story_title = doc.get([page_1_id, 'body', 0, 'title']);
-    expect(fist_story_title).toEqual(['First story', []]);
+    expect(fist_story_title).toEqual({text: 'First story', annotations: []});
 
     // Resolve integer_array
     const daily_visitors = doc.get([page_1_id, 'daily_visitors']);
@@ -51,7 +51,7 @@ describe('Document.svelte.js', () => {
 
     // Resolve hierarchy using node_array and accessing an annotated_string property
     const first_list_item_content = doc.get([page_1_id, 'body', 2, 'list_items', 0, 'content']);
-    expect(first_list_item_content).toEqual(['first list item', []]);
+    expect(first_list_item_content).toEqual({text: 'first list item', annotations: []});
   });
 
   describe('Deletion scenarios', () => {
