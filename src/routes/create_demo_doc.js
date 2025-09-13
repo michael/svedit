@@ -21,7 +21,7 @@ import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
 
 const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
-const TITLE_ANNOTATIONS = ['emphasis'];
+const TITLE_ANNOTATIONS = ['emphasis', 'highlight'];
 
 const document_schema = define_document_schema({
   page: {
@@ -70,7 +70,7 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
       content: {
         type: 'annotated_text',
-        node_types: ['strong', 'emphasis', 'highlight', 'link'],
+        node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
     }
@@ -92,12 +92,12 @@ const document_schema = define_document_schema({
       layout: { type: 'integer' },
       title: {
         type: 'annotated_text',
-        node_types: ['emphasis', 'highlight'],
+        node_types: TITLE_ANNOTATIONS,
         allow_newlines: false,
       },
       description: {
         type: 'annotated_text',
-        node_types: ['strong', 'emphasis', 'highlight', 'link'],
+        node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
       buttons: {
