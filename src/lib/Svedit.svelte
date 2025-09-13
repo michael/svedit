@@ -773,6 +773,18 @@ ${fallback_html}`;
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('strong'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('emphasis'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('highlight'));
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
       const has_link = doc.active_annotation('link');
       if (has_link) {
