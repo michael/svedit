@@ -175,6 +175,15 @@
       event.stopPropagation();
     }
 
+    // NOTE: underline doesn't make much sense as a semantic annotation,
+    // so we rewire `cmd + u` to toggle highlights
+    if (event.inputType === 'formatUnderline' && doc.selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('highlight'));
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+
     if (event.inputType === 'deleteContentBackward') {
       if (doc.selection?.type === 'property') {
         // For property selections, clear the property value only if it's not already falsy

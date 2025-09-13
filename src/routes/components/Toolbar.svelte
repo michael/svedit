@@ -221,6 +221,21 @@
   			<Icon name="italic" />
   		</button>
 		{/if}
+		{#if doc.available_annotation_types.includes('highlight')}
+  		<button
+  			title="Highlight"
+  			class="highlight"
+  			onclick={() => {
+  				const tr = doc.tr;
+  				tr.annotate_text('highlight');
+  				doc.apply(tr);
+  			}}
+  			disabled={doc.active_annotation() && !doc.active_annotation('highlight')}
+  			class:active={doc.active_annotation('highlight')}
+  		>
+  			<Icon name="highlight" />
+  		</button>
+		{/if}
 		{#if doc.available_annotation_types.includes('link')}
   		<button
   			title="Link"
