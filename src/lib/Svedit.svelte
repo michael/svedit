@@ -101,7 +101,7 @@
 
   function commit_input() {
     if (input_selection?.type !== 'text') return;
-    const model_text = doc.get(input_selection.path)[0];
+    const model_text = doc.get(input_selection.path).text;
     const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
     const dom_text = dom_text_element.textContent;
     const op = diff_text(model_text, dom_text);
@@ -200,7 +200,7 @@
     if (event.inputType === 'deleteContentForward') {
       // Forward delete: only handle collapsed text selections
       if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === doc.selection?.focus_offset) {
-        const text_content = doc.get(doc.selection.path)[0];
+        const text_content = doc.get(doc.selection.path).text;
         const text_length = get_char_length(text_content);
 
         if (doc.selection.focus_offset < text_length) {
@@ -1051,7 +1051,7 @@ ${fallback_html}`;
     // 2. Last child node is a <br> (the visual representation of that \n)
     // 3. Cursor is positioned at or near the end
     // And returns the correct text.length position instead.
-    const text_content = doc.get(path)[0];
+    const text_content = doc.get(path).text;
     const text_length = get_char_length(text_content);
     if (text_length > 0) {
       const last_char = get_char_at(text_content, text_length - 1);

@@ -6,7 +6,7 @@
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
 	let layout = $derived(node.layout || 1);
-	let is_empty = $derived(!node.content?.[0]);
+	let is_empty = $derived(!node.content?.text);
 	let text_style = $derived(get_text_style_from_layout(layout));
 	let readable_text_type = $derived(get_readable_text_type_from_layout(layout));
 	let is_selected = $derived(is_text_node_selected());
