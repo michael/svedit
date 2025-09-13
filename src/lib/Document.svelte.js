@@ -40,7 +40,7 @@ export function define_document_schema(schema) {
 export function is_primitive_type(type) {
   return [
     'string', 'number', 'boolean', 'integer', 'datetime',
-    'annotated_string', 'string_array', 'number_array',
+    'annotated_text', 'string_array', 'number_array',
     'boolean_array', 'integer_array'
   ].includes(type);
 }
@@ -96,7 +96,7 @@ function validate_primitive_value(type, value) {
       return Number.isInteger(value);
     case 'datetime':
       return typeof value === 'string' && !isNaN(Date.parse(value));
-    case 'annotated_string':
+    case 'annotated_text':
       return typeof value === 'object' &&
              value !== null &&
              typeof value.text === 'string' &&
@@ -251,7 +251,7 @@ export default class Document {
       }
 
     } else if (selection_type === 'text') {
-      // For text selections, path should point to an annotated_string property
+      // For text selections, path should point to an annotated_text property
       const annotated_text = this.get(selection.path);
 
       // Validate anchor_offset and focus_offset are within text bounds
@@ -469,8 +469,8 @@ export default class Document {
    * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
    *
    * @example
-   * // Get an annotated string property
-   * doc.get(['page_1', 'cover', 'title']) // => ['Hello world', []]
+   * // Get an annotated text property
+   * doc.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
    */
   get(path) {
     if (typeof path === 'string') {
@@ -489,9 +489,9 @@ export default class Document {
         if (this.property_type(val.type, path_segment) === 'node_array') {
           val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
           val_type = 'node_array';
-        } else if (this.property_type(val.type, path_segment) === 'annotated_string') {
+        } else if (this.property_type(val.type, path_segment) === 'annotated_text') {
           val = val[path_segment];
-          val_type = 'annotated_string';
+          val_type = 'annotated_text';
         } else if (this.property_type(val.type, path_segment) === 'node') {
           val = this.nodes[val[path_segment]];
           val_type = 'node';
@@ -510,7 +510,7 @@ export default class Document {
       } else if (val_type === 'value_array') {
         val = val[path_segment];
         val_type = 'value';
-      } else if (val_type === 'annotated_string') {
+      } else if (val_type === 'annotated_text') {
         if (path_segment === 'text') {
           val = val.text;
           val_type = 'value';
@@ -518,7 +518,7 @@ export default class Document {
           val = val.annotations;
           val_type = 'annotation_array';
         } else {
-          throw new Error(`Invalid path segment "${path_segment}" for annotated_string. Use "text" or "annotations".`);
+          throw new Error(`Invalid path segment "${path_segment}" for annotated_text. Use "text" or "annotations".`);
         }
       } else if (val_type === 'annotation_array') {
         val = val[path_segment];
@@ -611,8 +611,8 @@ export default class Document {
     if (this.selection?.type !== 'text') return null;
 
     const { start, end } = this.get_selection_range();
-    const annotated_string = this.get(this.selection.path);
-    const annotations = annotated_string.annotations;
+    const annotated_text = this.get(this.selection.path);
+    const annotations = annotated_text.annotations;
 
     const active_annotation = annotations.find(({start_offset, end_offset}) =>
       (start_offset <= start && end_offset > start) ||
@@ -634,8 +634,8 @@ export default class Document {
 
     const start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
     const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-    const annotated_string = this.get(this.selection.path);
-    return char_slice(annotated_string.text, start, end);
+    const annotated_text = this.get(this.selection.path);
+    return char_slice(annotated_text.text, start, end);
   }
 
   get_selected_nodes() {
@@ -721,7 +721,7 @@ export default class Document {
           }
         } else if (property_schema?.type === 'node') {
           visit($state.snapshot(this.get(value)));
-        } else if (property_schema?.type === 'annotated_string') {
+        } else if (property_schema?.type === 'annotated_text') {
           for (const annotation of value.annotations) {
             visit($state.snapshot(this.get(annotation.node_id)));
           }
@@ -745,7 +745,7 @@ export default class Document {
   }
 
   // property_type('page', 'body') => 'node_array'
-  // property_type('paragraph', 'content') => 'annotated_string'
+  // property_type('paragraph', 'content') => 'annotated_text'
   property_type(type, property) {
     if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
     if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);

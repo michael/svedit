@@ -1,4 +1,4 @@
-import { split_annotated_string, join_annotated_string, get_char_length } from './util.js';
+import { split_annotated_text, join_annotated_text, get_char_length } from './util.js';
 import { get_default_node_type } from './Document.svelte.js';
 
 export function break_text_node(tr) {
@@ -30,7 +30,7 @@ export function break_text_node(tr) {
 
   const split_at_position = tr.doc.selection.anchor_offset;
   const content = tr.doc.get(selection.path);
-  const [left_text, right_text] = split_annotated_string(content, split_at_position);
+  const [left_text, right_text] = split_annotated_text(content, split_at_position);
 
   tr.set([node.id, 'content'], left_text);
 
@@ -100,7 +100,7 @@ export function join_text_node(tr) {
 
   // Normal joining logic - both nodes are text nodes
   const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
-  const joined_text = join_annotated_string(predecessor_node.content, node.content);
+  const joined_text = join_annotated_text(predecessor_node.content, node.content);
 
   // Calculate cursor position based on original predecessor content length
   const cursor_position = get_char_length(predecessor_node.content.text);

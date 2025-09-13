@@ -1,5 +1,5 @@
 /**
- * @import { Annotation, AnnotatedString } from './types.d.ts';
+ * @import { Annotation, AnnotatedText } from './types.d.ts';
  */
 
 /**
@@ -120,24 +120,24 @@ export function char_to_utf16_offset(str, char_offset) {
 }
 
 /**
- * Splits an annotated string at the specified character position.
+ * Splits an annotated text at the specified character position.
  *
  * Annotations that span the split point will be divided appropriately,
  * with offsets adjusted for each resulting part.
  *
- * @param {AnnotatedString} text_with_annotations - Annotated string object
+ * @param {AnnotatedText} text_with_annotations - Annotated text object
  * @param {number} at_position - Character position where to split (0-based)
- * @returns {[AnnotatedString, AnnotatedString]} Tuple of [left_part, right_part]
+ * @returns {[AnnotatedText, AnnotatedText]} Tuple of [left_part, right_part]
  *
  * @example
- * split_annotated_string({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
+ * split_annotated_text({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
  * // Returns:
  * // [
  * //   {text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
  * //   {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
  * // ]
  */
-export function split_annotated_string(text_with_annotations, at_position) {
+export function split_annotated_text(text_with_annotations, at_position) {
   const {text, annotations} = text_with_annotations;
 
   // Split the text using character-aware slicing
@@ -172,20 +172,20 @@ export function split_annotated_string(text_with_annotations, at_position) {
 
 
 /**
- * Joins two annotated strings into a single annotated string.
+ * Joins two annotated texts into a single annotated text.
  *
  * Annotations from the second text will have their offsets shifted by the length
  * of the first text. Adjacent annotations of the same type and data will be merged.
  *
- * @param {AnnotatedString} first_text - First annotated string object
- * @param {AnnotatedString} second_text - Second annotated string object
- * @returns {AnnotatedString} Combined annotated string object
+ * @param {AnnotatedText} first_text - First annotated text object
+ * @param {AnnotatedText} second_text - Second annotated text object
+ * @returns {AnnotatedText} Combined annotated text object
  *
  * @example
- * join_annotated_string({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
+ * join_annotated_text({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
  * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
  */
-export function join_annotated_string(first_text, second_text) {
+export function join_annotated_text(first_text, second_text) {
   const {text: first_text_content, annotations: first_annotations} = first_text;
   const {text: second_text_content, annotations: second_annotations} = second_text;
 
