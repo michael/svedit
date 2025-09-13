@@ -210,7 +210,7 @@ const document_config = {
   // Custom functions to insert new "blank" nodes and setting the selection
   // depending on the intended behavior.
   inserters: {
-    text: function(tr, content = ['', []], layout = 1) {
+    text: function(tr, content = {text: '', annotations: []}, layout = 1) {
       const new_text = {
    			id: nanoid(),
    			type: 'text',

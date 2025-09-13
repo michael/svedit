@@ -548,7 +548,7 @@ const document_config = {
       const new_button = {
         id: nanoid(),
         type: 'button',
-        label: ['', []],
+        label: {text: '', annotations: []},
         href: 'https://editable.website'
       };
       tr.create(new_button);
@@ -612,7 +612,7 @@ const document_config = {
         const image_grid_item = {
           id: nanoid(),
           type: 'image_grid_item',
-          title: ['', []],
+          title: {text: '', annotations: []},
           image: ''
         };
         tr.create(image_grid_item);
@@ -629,7 +629,7 @@ const document_config = {
       const new_image_grid_item = {
         id: nanoid(),
         type: 'image_grid_item',
-        title: ['', []],
+        title: {text: '', annotations: []},
         image: ''
       };
   		tr.insert_nodes([new_image_grid_item]);
@@ -644,7 +644,7 @@ const document_config = {
       const new_button = {
         id: nanoid(),
         type: 'button',
-        label: ['', []],
+        label: {text: '', annotations: []},
         href: 'https://editable.website'
       };
   		tr.insert_nodes([new_button]);
@@ -659,8 +659,8 @@ const document_config = {
       const new_hero = {
         id: nanoid(),
         type: 'hero',
-        title: ['', []],
-        description: ['', []],
+        title: {text: '', annotations: []},
+        description: {text: '', annotations: []},
         image: '',
       };
       tr.insert_nodes([new_hero]);
