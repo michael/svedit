@@ -2,11 +2,11 @@
 	import { getContext } from 'svelte';
 	import { char_slice, get_char_length, snake_to_pascal } from './util.js';
 
-  /** @import { AnnotatedStringPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
+  /** @import { AnnotatedTextPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
- /** @type {AnnotatedStringPropertyProps} */
+ /** @type {AnnotatedTextPropertyProps} */
 	let {
 		path,
 		class: css_class,

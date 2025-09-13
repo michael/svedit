@@ -1,6 +1,6 @@
 // Main exports for the svedit library
 export { default as Svedit } from './Svedit.svelte';
-export { default as AnnotatedStringProperty } from './AnnotatedStringProperty.svelte';
+export { default as AnnotatedTextProperty } from './AnnotatedTextProperty.svelte';
 export { default as CustomProperty } from './CustomProperty.svelte';
 export { default as Node } from './Node.svelte';
 export { default as NodeArrayProperty } from './NodeArrayProperty.svelte';

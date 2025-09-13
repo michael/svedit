@@ -51,12 +51,12 @@ const document_schema = define_document_schema({
     kind: 'block',
     properties: {
       title: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
         allow_newlines: false,
       },
       description: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
@@ -68,7 +68,7 @@ const document_schema = define_document_schema({
     properties: {
       layout: { type: 'integer' },
       content: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
@@ -78,7 +78,7 @@ const document_schema = define_document_schema({
     kind: 'block',
     properties: {
       label: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: [],
         allow_newlines: false,
       },
@@ -90,12 +90,12 @@ const document_schema = define_document_schema({
     properties: {
       layout: { type: 'integer' },
       title: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
         allow_newlines: false,
       },
       description: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: ALL_ANNOTATIONS,
         allow_newlines: true,
       },
@@ -117,7 +117,7 @@ const document_schema = define_document_schema({
     properties: {
       image: { type: 'string' }, // a dedicated type asset would be better
       title: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
         allow_newlines: false,
       },
@@ -127,7 +127,7 @@ const document_schema = define_document_schema({
     kind: 'text',
     properties: {
       content: {
-        type: 'annotated_string',
+        type: 'annotated_text',
         node_types: ALL_ANNOTATIONS,
         allow_newlines: false,
       },

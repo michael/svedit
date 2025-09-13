@@ -381,7 +381,7 @@ ${fallback_html}`;
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
 
-      // Check if this is an annotated_string property (object with text property)
+      // Check if this is an annotated_text property (object with text property)
       if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
         const text_content = prop_value.text;
         if (text_content.trim()) {
@@ -392,7 +392,7 @@ ${fallback_html}`;
     }
 
     if (!has_content) {
-      // Generic fallback for unknown node types with no annotated_string content
+      // Generic fallback for unknown node types with no annotated_text content
       html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
     }
 
@@ -561,7 +561,7 @@ ${fallback_html}`;
               new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
             } else if (prop_type === 'node' && typeof value === 'string') {
               new_node[property] = id_mapping[value] || value;
-            } else if (prop_type === 'annotated_string') {
+            } else if (prop_type === 'annotated_text') {
               const annotations = value.annotations.map(annotation => {
                 const {start_offset, end_offset, node_id} = annotation;
                 return {start_offset, end_offset, node_id: id_mapping[node_id] || node_id};

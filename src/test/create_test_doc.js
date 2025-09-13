@@ -43,7 +43,7 @@ const document_schema = define_document_schema({
   button: {
     kind: 'block',
     properties: {
-      label: { type: 'annotated_string', allow_newlines: false },
+      label: { type: 'annotated_text', allow_newlines: false },
       href: { type: 'string' },
     }
   },
@@ -51,15 +51,15 @@ const document_schema = define_document_schema({
     kind: 'text',
     properties: {
       layout: { type: 'integer' },
-      content: { type: 'annotated_string', allow_newlines: true },
+      content: { type: 'annotated_text', allow_newlines: true },
     }
   },
   story: {
     kind: 'block',
     properties: {
       layout: { type: 'integer' },
-      title: { type: 'annotated_string', allow_newlines: false },
-      description: { type: 'annotated_string', allow_newlines: true },
+      title: { type: 'annotated_text', allow_newlines: false },
+      description: { type: 'annotated_text', allow_newlines: true },
       buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
       image: { type: 'string' },
     }
@@ -67,7 +67,7 @@ const document_schema = define_document_schema({
   list_item: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_string', allow_newlines: true },
+      content: { type: 'annotated_text', allow_newlines: true },
     }
   },
   list: {

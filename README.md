@@ -39,7 +39,7 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 **Chromeless canvas:** We keep the canvas chromeless, meaning there's no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools are shown in separate overlays or in the fixed toolbar.
 
-**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `string` or `annotated_string` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
+**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `annotated_text` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
 
 **White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
 
@@ -63,7 +63,7 @@ Properties of nodes can hold values:
 - `string_array`: An array of good old JavaScript strings
 - `integer_array`: An array of integers
 - `number_array`: An array of numbers
-- `annotated_string`: a plain text string, but with annotations (bold, italic, link etc.)
+- `annotated_text`: a plain text string, but with annotations (bold, italic, link etc.)
 
 Or references:
 - `node`: References a single node (e.g. an image node can reference a global asset node)
@@ -85,13 +85,13 @@ const document_schema = {
   paragraph: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_string', allow_newlines: true }
+      content: { type: 'annotated_text', allow_newlines: true }
     }
   },
   list_item: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_string', allow_newlines: true },
+      content: { type: 'annotated_text', allow_newlines: true },
     }
   },
   list: {
@@ -338,7 +338,7 @@ a simplified version of the markup of `<NodeCursorTrap>` and why it is implement
 Further things to consider:
 
 - If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
-- `<AnnotatedString>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
+- `<AnnotatedTextProperty>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
 - Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode.
 

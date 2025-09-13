@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { Node, AnnotatedStringProperty } from 'svedit';
+	import { Node, AnnotatedTextProperty } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
@@ -13,7 +13,7 @@
     href={svedit.editable ? undefined : node.href}
     class="button"
   >
-    <AnnotatedStringProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
+    <AnnotatedTextProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
   </svelte:element>
 </Node>
 

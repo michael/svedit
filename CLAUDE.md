@@ -61,14 +61,14 @@ Svedit is a rich content editor template built with Svelte 5 that uses a graph-b
 **Key Components:**
 - `Svedit.svelte` - Main editor component with event handling and selection management
 - `NodeArrayProperty.svelte` - Renders containers that hold sequences of nodes
-- `AnnotatedStringProperty.svelte` - Handles annotated text rendering and editing
+- `AnnotatedTextProperty.svelte` - Handles annotated text rendering and editing
 - Node components (`Story`, `List`, etc.) - Render specific content types
 
 ### Schema System
 
 Content is defined through schemas that specify:
 - Node types and their properties
-- Property types: `string`, `integer`, `boolean`, `string_array`, `annotated_string`, `node`, `node_array`
+- Property types: `string`, `integer`, `boolean`, `string_array`, `annotated_text`, `node`, `node_array`
 - Reference relationships between nodes
 - Default types for node arrays
 

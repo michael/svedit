@@ -68,7 +68,7 @@ export type ArrayType = "string_array" | "number_array" | "boolean_array" | "int
 /**
  * Special types for rich content.
  */
-export type RichType = "annotated_string";
+export type RichType = "annotated_text";
 
 /**
  * Node reference types for linking to other nodes.
@@ -88,7 +88,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 /**
  * Document schema primitive types - all possible property types in document schemas.
  */
-export type DocumentSchemaPrimitive = "string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_string" | "node" | "node_array";
+export type DocumentSchemaPrimitive = "string" | "number" | "boolean" | "integer" | "datetime" | "string_array" | "number_array" | "boolean_array" | "integer_array" | "annotated_text" | "node" | "node_array";
 
 /**
  * Maps document schema types to their JavaScript runtime types.
@@ -103,7 +103,7 @@ export type DocumentSchemaValueToJs<T> =
   T extends "number_array" ? Array<number> :
   T extends "boolean_array" ? Array<boolean> :
   T extends "integer_array" ? Array<number> :
-  T extends "annotated_string" ? AnnotatedString :
+  T extends "annotated_text" ? AnnotatedText :
   T extends "node" ? string :
   T extends "node_array" ? Array<string> :
   never;
@@ -116,20 +116,20 @@ export type DocumentNodeToJs<S extends NodeSchema> =
   { id: string, type: string } & { [K in keyof S["properties"]]: DocumentSchemaValueToJs<S["properties"][K]["type"]> };
 
 /**
- * A property that stores an annotated string with required allow_newlines setting.
+ * A property that stores an annotated text with required allow_newlines setting.
  */
-export type AnnotatedStringProperty = {
-  type: 'annotated_string';
+export type AnnotatedTextProperty = {
+  type: 'annotated_text';
   node_types?: string[];
   allow_newlines: boolean;
 };
 
 /**
- * A property that stores a primitive value (excluding annotated_string).
+ * A property that stores a primitive value (excluding annotated_text).
  */
 export type PrimitiveProperty = {
-  [K in Exclude<PrimitiveType, 'annotated_string'>]: { type: K }
-}[Exclude<PrimitiveType, 'annotated_string'>];
+  [K in Exclude<PrimitiveType, 'annotated_text'>]: { type: K }
+}[Exclude<PrimitiveType, 'annotated_text'>];
 
 /**
  * A property that stores a reference to a single node.
@@ -152,7 +152,7 @@ export type NodeArrayProperty = {
 /**
  * Union type for all possible property definitions.
  */
-export type PropertyDefinition = PrimitiveProperty | AnnotatedStringProperty | NodeProperty | NodeArrayProperty;
+export type PropertyDefinition = PrimitiveProperty | AnnotatedTextProperty | NodeProperty | NodeArrayProperty;
 
 /**
  * Node kind values for different types of content nodes
@@ -160,12 +160,12 @@ export type PropertyDefinition = PrimitiveProperty | AnnotatedStringProperty | N
 export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
 
 /**
- * Schema for text nodes - must have a content property of type annotated_string
+ * Schema for text nodes - must have a content property of type annotated_text
  */
 export type TextNodeSchema = {
   kind: 'text';
   properties: {
-    content: AnnotatedStringProperty;
+    content: AnnotatedTextProperty;
   } & Record<string, PropertyDefinition>;
 };
 
@@ -206,9 +206,9 @@ export type SerializedNode = {
 export type SerializedDocument = SerializedNode[];
 
 /**
- * Props for the AnnotatedStringProperty component
+ * Props for the AnnotatedTextProperty component
  */
-export type AnnotatedStringPropertyProps = {
+export type AnnotatedTextPropertyProps = {
   /** The full path to the property */
   path: DocumentPath;
   /** The `class` attribute on the content element */
@@ -289,9 +289,9 @@ export type Annotation = {
 };
 
 /**
- * Represents an annotated string with text and annotations
+ * Represents an annotated text with text and annotations
  */
-export type AnnotatedString = {
+export type AnnotatedText = {
   text: string;
   annotations: Array<Annotation>;
 };
