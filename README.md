@@ -294,7 +294,7 @@ Selections are at the heart of Svedit. There are just three types of selections:
   }
   ```
 
-You can access the current selection through `doc.selection` anytime. And you can programmatically set the selection using `doc.set_selection(new_selection)`.
+You can access the current selection through `doc.selection` anytime. And you can programmatically set the selection using `doc.selection = new_selection`.
 
 ## Rendering
 
