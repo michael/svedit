@@ -97,7 +97,6 @@ i,
 	font-size: calc(var(--base-size) / var(--scale-ratio));
 	font-weight: 400;
 	line-height: 1.4;
-	opacity: 0.8;
 }
 
 .icon {
