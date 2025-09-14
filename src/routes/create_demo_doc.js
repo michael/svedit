@@ -51,6 +51,7 @@ const document_schema = define_document_schema({
   hero: {
     kind: 'block',
     properties: {
+      layout: { type: 'integer' },
       title: {
         type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
@@ -111,6 +112,7 @@ const document_schema = define_document_schema({
   image_grid: {
     kind: 'block',
     properties: {
+      layout: { type: 'integer' },
       image_grid_items: {
         type: 'node_array',
         node_types: ['image_grid_item'],
@@ -240,6 +242,7 @@ const serialized_doc = [
   {
     id: hero_1_id,
     type: 'hero',
+    layout: 1,
     title: {text: 'Svedit', annotations: []},
     description: {text: 'A tiny library for building rich content editors with Svelte 5.', annotations: []},
     image: '',
@@ -335,6 +338,7 @@ const serialized_doc = [
   {
     id: image_grid_1_id,
     type: 'image_grid',
+    layout: 1,
     image_grid_items: [image_grid_item_1_id, image_grid_item_2_id, image_grid_item_3_id, image_grid_item_4_id, image_grid_item_5_id, image_grid_item_6_id],
   },
   {
@@ -531,7 +535,6 @@ const document_config = {
     list: 5,
     list_item: 1,
     image_grid: 1,
-    image_grid_item: 1,
     hero: 1
   },
   // Custom functions to insert new "blank" nodes and setting the selection depening on the
@@ -631,6 +634,7 @@ const document_config = {
       const new_image_grid = {
         id: nanoid(),
         type: 'image_grid',
+        layout: 1,
         image_grid_items: new_image_grid_items,
       };
   		tr.insert_nodes([new_image_grid]);
@@ -670,6 +674,7 @@ const document_config = {
       const new_hero = {
         id: nanoid(),
         type: 'hero',
+        layout: 1,
         title: {text: '', annotations: []},
         description: {text: '', annotations: []},
         image: '',

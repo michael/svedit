@@ -6,16 +6,16 @@
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
 	let layout = $derived(node.layout || 1);
-	let is_empty = $derived(!node.content?.text);
 	let text_style = $derived(get_text_style_from_layout(layout));
 	let readable_text_type = $derived(get_readable_text_type_from_layout(layout));
-	let is_selected = $derived(is_text_node_selected());
+	// let is_empty = $derived(!node.content?.text);
+	// let is_selected = $derived(is_text_node_selected());
 
-	function is_text_node_selected() {
-		const sub_path_of_selection = svedit?.doc?.selection?.path?.slice(0, path.length).join('.');
-		const _path = path.join('.');
-		return (sub_path_of_selection === _path);
-	}
+	// function is_text_node_selected() {
+	// 	const sub_path_of_selection = svedit?.doc?.selection?.path?.slice(0, path.length).join('.');
+	// 	const _path = path.join('.');
+	// 	return (sub_path_of_selection === _path);
+	// }
 
 	function get_text_style_from_layout(layout) {
 		switch (layout) {
@@ -51,32 +51,15 @@
 <Node {path}>
 	<div class="text layout-{layout} max-w-screen-lg mx-auto w-full">
 	  <AnnotatedTextProperty class={text_style} path={[...path, 'content']} placeholder={readable_text_type} />
-		{#if is_empty && is_selected && !svedit.is_composing}
-		  <span contenteditable="false" class="shortcuts caption">⌃⌥↓ next type ⌃⌥→ next layout</span>
-		{/if}
 	</div>
 </Node>
 
 <style>
-  /* ATTENTION: We can not set this on .text because it makes contenteditable break the DOM.*/
-  /* See: https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s */
-  :global(.node) {
-    position: relative;
-  }
-
 	.text {
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
 		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
 		padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
 		padding: var(--s-6);
-	}
-
-	.shortcuts {
-	  position: absolute;
-		right: 28px;
-		top: 28px;
-		color: color-mix(in oklch, currentcolor 50%, transparent);
-		pointer-events: none;
 	}
 </style>

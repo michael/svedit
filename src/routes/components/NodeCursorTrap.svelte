@@ -39,7 +39,8 @@
 
 <style>
 	.cursor-trap {
-    outline: 1px dashed var(--stroke-color);
+    /*outline: 1px dashed var(--editing-stroke-color);*/
+    outline: 1px dashed color-mix(in srgb, var(--editing-stroke-color) 50%, transparent);
 		position: relative;
 		cursor: pointer;
 		z-index: 20;
@@ -121,9 +122,5 @@
   		right: auto;
   		left: -6px;
   	}
-	}
-
-	.cursor-trap:hover {
-		outline: 1px dashed var(--editing-stroke-color);
 	}
 </style>

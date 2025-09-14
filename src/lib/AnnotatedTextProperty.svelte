@@ -61,7 +61,6 @@
 	}
 
 	let fragments = $derived(get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations));
-
 	let plain_text = $derived(svedit.doc.get(path).text);
 
 </script>
@@ -106,12 +105,13 @@
 
   /* We can safely hide the <br> element when the placeholder is empty and focused. */
   /* No longer the cursor will be rendered after the placeholder when focused. */
+  /* ATTENTION: This hack has the side effect that in Safari Desktop the cursor sometimes disappears. */
   [placeholder].empty.focused br {
     display:none;
   }
 
-  .text.focused {
+  /*.text.focused {
     background: none;
-    outline: 1px dashed var(--editing-stroke-color);
-  }
+    outline: 1px solid var(--editing-stroke-color);
+  }*/
 </style>

@@ -683,7 +683,6 @@ ${fallback_html}`;
       (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.layout_node) ||
       (e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
-
       const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
 
@@ -694,6 +693,7 @@ ${fallback_html}`;
         tr.set([doc.layout_node?.id, 'layout'], next_layout);
         doc.apply(tr);
       }
+      e.preventDefault();
     } else if (
       (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.layout_node) ||
       (e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
@@ -707,6 +707,7 @@ ${fallback_html}`;
         doc.apply(tr);
         console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
       }
+      e.preventDefault();
     } else if (
       (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.layout_node) ||
       (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node  )
@@ -729,6 +730,7 @@ ${fallback_html}`;
       doc.config.inserters[next_type](tr);
       tr.set_selection(old_selection);
       doc.apply(tr);
+      e.preventDefault();
     } else if (
       (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.layout_node) ||
       (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
@@ -753,6 +755,7 @@ ${fallback_html}`;
       doc.config.inserters[prev_type](tr);
       tr.set_selection(old_selection);
       doc.apply(tr);
+      e.preventDefault();
 
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
