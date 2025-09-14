@@ -302,7 +302,7 @@ const serialized_doc = [
     type: 'image_grid_item',
     image: '/images/annotations.svg',
     title: { text: "Annotations are nodes, not marks", annotations: [] },
-    description: { text: "Addressable by path, schema‑defined, copy/paste safe.", annotations: [] },
+    description: { text: "Addressable by path, schema‑defined, copy&paste-safe.", annotations: [] },
   },
   {
     id: image_grid_item_3_id,
