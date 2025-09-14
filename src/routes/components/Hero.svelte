@@ -29,6 +29,7 @@
 
 <style>
 	.hero {
+    margin-bottom: var(--s-10);
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
 		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
