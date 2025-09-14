@@ -126,6 +126,11 @@ const document_schema = define_document_schema({
         node_types: TITLE_ANNOTATIONS,
         allow_newlines: false,
       },
+      description: {
+        type: 'annotated_text',
+        node_types: ALL_ANNOTATIONS,
+        allow_newlines: false
+      }
     }
   },
   list_item: {
@@ -288,38 +293,44 @@ const serialized_doc = [
   {
     id: image_grid_item_1_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'First thing', annotations: []},
+    image: '/images/svelte-framework.svg',
+    title: { text: "Svelte-native editing", annotations: [] },
+    description: { text: "No mingling with 3rd-party rendering API's.", annotations: [] },
   },
   {
     id: image_grid_item_2_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'Second thing', annotations: []},
+    image: '/images/annotations.svg',
+    title: { text: "Annotations are nodes, not marks", annotations: [] },
+    description: { text: "Addressable by path, schema‑defined, copy/paste safe.", annotations: [] },
   },
   {
     id: image_grid_item_3_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'Third thing', annotations: []},
+    image: '/images/graphmodel.svg',
+    title: { text: "Graph‑first content with nested nodes", annotations: [] },
+    description: { text: "From simple paragraphs to complex nodes with nested arrays and multiple properties.", annotations: [] },
   },
   {
     id: image_grid_item_4_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'Fourth thing', annotations: []},
+    image: '/images/dom-synced.svg',
+    title: { text: "DOM ↔ model selections match", annotations: [] },
+    description: { text: "Avoids flaky mapping layers found in other editors.", annotations: [] },
   },
   {
     id: image_grid_item_5_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'Fifth thing', annotations: []},
+    image: '/images/cjk.svg',
+    title: { text: "Unicode‑safe, composition‑safe input", annotations: [] },
+    description: { text: "Works correctly with emoji, diacritics, and CJK.", annotations: [] },
   },
   {
     id: image_grid_item_6_id,
     type: 'image_grid_item',
-    image: '/images/extendable.svg',
-    title: {text: 'Sixth thing', annotations: []},
+    image: '/images/timetravel.svg',
+    title: { text: "Transactional editing with time travel", annotations: [] },
+    description: { text: "Every change is safe and undoable.", annotations: [] },
   },
   {
     id: image_grid_1_id,
@@ -437,56 +448,42 @@ const document_config = {
       let html = '<ul>\n';
       for (const list_item_id of node.list_items) {
         const list_item = doc.get(list_item_id);
-        const content_text = (typeof list_item.content === 'object' && list_item.content.text) ? list_item.content.text : list_item.content;
-        html += `<li>${content_text}</li>\n`
+        html += `<li>${list_item.content.text}</li>\n`
       }
       return html += '</ul>';
     },
     story: (node) => {
-      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || 'Untitled Story');
-      let html = `<h1>${title_text}</h1>\n`;
+      let html = `<h1>${node.title.text}</h1>\n`;
 
       if (node.description) {
-        const description_text = (typeof node.description === 'object' && node.description.text) ? node.description.text : node.description;
-        html += `<p>${description_text}</p>\n`;
+        html += `<p>${node.description.text}</p>\n`;
       }
 
       if (node.image) {
-        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto; display: block;" />\n`;
+        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 400px; height: auto; display: block;" />\n`;
       }
 
       return html;
     },
     text: (node) => {
-      const content = (typeof node.content === 'object' && node.content.text) ? node.content.text : (node.content || '');
-      if (content.trim()) {
-        return `<p style="white-space:pre-wrap;">${content}</p>\n`;
-      }
-      return '';
+      return `<p style="white-space:pre-wrap;">${node.content.text}</p>\n`;
     },
     button: (node) => {
-      const label_text = (typeof node.label === 'object' && node.label.text) ? node.label.text : (node.label || 'Button');
-      if (node.href) {
-        return `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${label_text}</a>\n`;
-      } else {
-        return `<button style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px;">${label_text}</button>\n`;
-      }
+      return `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${node.label.text}</a>\n`;
     },
     hero: (node) => {
-      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || '');
-      const description_text = (typeof node.description === 'object' && node.description.text) ? node.description.text : (node.description || '');
       let html = '';
 
-      if (title_text.trim()) {
-        html += `<h1>${title_text}</h1>\n`;
+      if (node.title.text.trim()) {
+        html += `<h1>${node.title.text}</h1>\n`;
       }
 
-      if (description_text.trim()) {
-        html += `<p>${description_text}</p>\n`;
+      if (node.description.text.trim()) {
+        html += `<p>${node.description.text}</p>\n`;
       }
 
       if (node.image) {
-        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 400px; height: auto;" />\n`;
+        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 400px; height: auto;" />\n`;
       }
 
       return html;
@@ -495,26 +492,30 @@ const document_config = {
       let html = '<div class="image-grid">\n';
       for (const image_grid_item_id of node.image_grid_items) {
         const image_grid_item = doc.get(image_grid_item_id);
-        const title_text = (typeof image_grid_item.title === 'object' && image_grid_item.title.text) ? image_grid_item.title.text : (image_grid_item.title || '');
         html += '<div class="image-grid-item">\n';
         if (image_grid_item.image) {
-          html += `<img src="${image_grid_item.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
+          html += `<img src="${image_grid_item.image}" alt="${image_grid_item.title.text}" style="max-width: 200px; height: auto;" />\n`;
         }
-        if (title_text.trim()) {
-          html += `<p>${title_text}</p>\n`;
+        if (image_grid_item.title.text.trim()) {
+          html += `<p>${image_grid_item.title.text}</p>\n`;
+        }
+        if (image_grid_item.description.text.trim()) {
+          html += `<p>${image_grid_item.description.text}</p>\n`;
         }
         html += '</div>\n';
       }
       return html += '</div>';
     },
     image_grid_item: (node) => {
-      const title_text = (typeof node.title === 'object' && node.title.text) ? node.title.text : (node.title || '');
       let html = '<div class="image-grid-item">\n';
       if (node.image) {
-        html += `<img src="${node.image}" alt="${title_text}" style="max-width: 200px; height: auto;" />\n`;
+        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 200px; height: auto;" />\n`;
       }
-      if (title_text.trim()) {
-        html += `<p>${title_text}</p>\n`;
+      if (node.title.text.trim()) {
+        html += `<p>${node.title.text}</p>\n`;
+      }
+      if (node.description.text.trim()) {
+        html += `<p>${node.description.text}</p>\n`;
       }
       return html += '</div>';
     },
@@ -522,7 +523,6 @@ const document_config = {
       const content = (typeof node.content === 'object' && node.content.text) ? node.content.text : (node.content || '');
       return `<li>${content}</li>\n`;
     },
-
   },
   node_layouts: {
     button: 1,
@@ -622,6 +622,7 @@ const document_config = {
           id: nanoid(),
           type: 'image_grid_item',
           title: {text: '', annotations: []},
+          description: {text: '', annotations: []},
           image: ''
         };
         tr.create(image_grid_item);
@@ -639,6 +640,7 @@ const document_config = {
         id: nanoid(),
         type: 'image_grid_item',
         title: {text: '', annotations: []},
+        description: {text: '', annotations: []},
         image: ''
       };
   		tr.insert_nodes([new_image_grid_item]);

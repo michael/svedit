@@ -7,7 +7,7 @@
 </script>
 
 <Node {path}>
-	<div class="image-grid-item">
+	<div class="image-grid-item flex-column gap-y-3">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<img
 				src={node.image || '/icons/image-placeholder.svg'}
@@ -15,19 +15,25 @@
 				class:placeholder={!node.image}
 			/>
 		</CustomProperty>
-		<div class="caption">
+		<div class="caption flex-column gap-y-3">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
 			<AnnotatedTextProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
-			<!-- <AnnotatedTextProperty class="body" path={[...path, 'description']} /> -->
+			<AnnotatedTextProperty class="body" path={[...path, 'description']} placeholder="Details" />
 		</div>
 	</div>
 </Node>
 
 <style>
+  .image-grid-item {
+    padding: var(--s-2);
+    /*background: #efefef;*/
+    height: 100%;
+  }
   .image-grid-item img {
 		width: 100%;
 		/* height: auto; */
 	}
+
 	/* Don't crop SVGs */
 	.image-grid-item img[src*='.svg'] {
 		object-fit: contain;
