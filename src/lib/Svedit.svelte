@@ -542,7 +542,7 @@ ${fallback_html}`;
     }
 
     if (pasted_json) {
-      const tr = doc.tr;
+
 
       // Handle new format: { nodes: {id -> node}, main_nodes: [id1, id2, ...] }
       if (pasted_json.nodes && pasted_json.main_nodes) {
@@ -582,18 +582,29 @@ ${fallback_html}`;
           updated_nodes[new_node.id] = new_node;
         }
 
-        // Create all nodes first
-        for (const node of Object.values(updated_nodes)) {
-          tr.create(node);
+
+        if (doc.selection?.type === 'node') {
+          // We can safely assume we're dealing with a node_array property
+          const property_schema = doc.inspect(doc.selection.path);
+          const new_main_nodes = main_nodes.map(id => id_mapping[id]);
+          const main_node_objects = new_main_nodes.map(id => updated_nodes[id]);
+          const incompatible_nodes = main_node_objects.filter(node => !property_schema.node_types.includes(node.type));
+          console.log('incompatible_nodes:', incompatible_nodes);
+          // TODO: Try to map incompatible nodes to compatible ones
+          if (incompatible_nodes.length > 0) return;
+
+          const tr = doc.tr;
+
+          // Create all nodes first
+          for (const node of Object.values(updated_nodes)) {
+            tr.create(node);
+          }
+
+          // Then insert the main nodes at the current selection
+          tr.insert_nodes(main_node_objects);
+          doc.apply(tr);
         }
-
-        // Then insert the main nodes at the current selection
-        const new_main_nodes = main_nodes.map(id => id_mapping[id]);
-        const main_node_objects = new_main_nodes.map(id => updated_nodes[id]);
-        tr.insert_nodes(main_node_objects);
       }
-
-      doc.apply(tr);
     } else {
       // Fallback to plain text when no svedit data is found
       try {
