@@ -153,7 +153,8 @@ const document_config = {
         label: {text: '', annotations: []},
         href: 'https://editable.website'
       };
-      tr.insert_nodes([new_button]);
+      tr.create(new_button);
+      tr.insert_nodes([new_button.id]);
       tr.set_selection({
         type: 'node',
         path: [...tr.doc.selection.path ],
@@ -169,7 +170,8 @@ const document_config = {
         layout: 1,
         content: text_content
       };
-      tr.insert_nodes([new_text]);
+      tr.create(new_text);
+      tr.insert_nodes([new_text.id]);
       tr.set_selection({
         type: 'text',
         path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1 , 'content'],
@@ -194,7 +196,8 @@ const document_config = {
         description: {text: '', annotations: []},
         buttons: [new_button.id]
       };
-      tr.insert_nodes([new_story]);
+      tr.create(new_story);
+      tr.insert_nodes([new_story.id]);
     },
     list: function(tr) {
       const new_list_item = {
@@ -209,7 +212,8 @@ const document_config = {
         list_items: [new_list_item.id],
         layout: 3,
       };
-      tr.insert_nodes([new_list]);
+      tr.create(new_list);
+      tr.insert_nodes([new_list.id]);
     },
     list_item: function(tr, content) {
       const item_content = content || {text: '', annotations: []};
@@ -218,7 +222,8 @@ const document_config = {
         type: 'list_item',
         content: item_content
       };
-      tr.insert_nodes([new_list_item]);
+      tr.create(new_list_item);
+      tr.insert_nodes([new_list_item.id]);
       tr.set_selection({
         type: 'text',
         path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'content'],

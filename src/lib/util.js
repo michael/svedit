@@ -233,3 +233,37 @@ export function snake_to_pascal(str) {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join('');
 }
+
+export function traverse(node_id, schema, nodes) {
+  const json = [];
+  const visited = {};
+  const visit = (node) => {
+    if (!node || visited[node.id]) {
+      return;
+    }
+    visited[node.id] = true;
+    for (const [property_name, value] of Object.entries(node)) {
+      const property_schema = schema[node.type].properties[property_name];
+
+      if (property_schema?.type === 'node_array') {
+        for (const v of value) {
+          if (typeof v === 'string') {
+            visit(nodes[v]);
+          }
+        }
+      } else if (property_schema?.type === 'node') {
+        visit(nodes[value]);
+      } else if (property_schema?.type === 'annotated_text') {
+        for (const annotation of value.annotations) {
+          visit(nodes[annotation.node_id]);
+        }
+      }
+    }
+    // Finally add the node to the result.
+    // Deep clone, to make sure nothing of the original document is referenced.
+    json.push(structuredClone(node));
+  }
+  // Start with the root node (document_id)
+  visit(nodes[node_id]);
+  return json;
+}

@@ -217,7 +217,8 @@ const document_config = {
         layout,
    			content
   		};
-  		tr.insert_nodes([new_text]);
+      tr.create(new_text);
+  		tr.insert_nodes([new_text.id]);
     },
   }
 };
