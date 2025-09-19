@@ -541,69 +541,44 @@ ${fallback_html}`;
       pasted_json = undefined;
     }
 
-    if (pasted_json) {
-
+    if (pasted_json && doc.selection?.type === 'node') {
 
       // Handle new format: { nodes: {id -> node}, main_nodes: [id1, id2, ...] }
       if (pasted_json.nodes && pasted_json.main_nodes) {
         const { nodes, main_nodes } = pasted_json;
 
-        // Generate new IDs for all nodes during paste
-        const id_mapping = {};
-        for (const node_id in nodes) {
-          id_mapping[node_id] = doc.generate_id();
-        }
+        console.log('pasted_json', pasted_json);
 
-        // Create nodes with new IDs and updated references
-        const updated_nodes = {};
-        for (const [old_id, node] of Object.entries(nodes)) {
-          const new_node = { ...node };
-          new_node.id = id_mapping[old_id];
+        // We can safely assume we're dealing with a node_array property
+        const property_schema = doc.inspect(doc.selection.path);
+        const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
 
-          // Update all property references to use new IDs
-          for (const [property, value] of Object.entries(new_node)) {
-            if (property === 'id' || property === 'type') continue;
-
-            const prop_type = doc.schema[node.type]?.properties?.[property]?.type;
-
-            if (prop_type === 'node_array' && Array.isArray(value)) {
-              new_node[property] = value.map(ref_id => id_mapping[ref_id] || ref_id);
-            } else if (prop_type === 'node' && typeof value === 'string') {
-              new_node[property] = id_mapping[value] || value;
-            } else if (prop_type === 'annotated_text') {
-              const annotations = value.annotations.map(annotation => {
-                const {start_offset, end_offset, node_id} = annotation;
-                return {start_offset, end_offset, node_id: id_mapping[node_id] || node_id};
+        // NOTE: At this point, nodes contains a subgraph from the copy
+        // with original ids
+        const tr = doc.tr;
+        const nodes_to_insert = [];
+        for (const node_id of main_nodes) {
+          const node = nodes[node_id];
+          if (!property_schema.node_types.includes(node.type)) {
+            // incompatible node type detected
+            if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
+              const new_node_id = tr.build('the_node', {
+                the_node: {
+                  id: 'the_node',
+                  type: first_compatible_text_node_type,
+                  content: node.content,
+                },
               });
-              new_node[property] = {text: value.text, annotations};
+              nodes_to_insert.push(new_node_id);
             }
+          } else {
+            const new_node_id = tr.build(node_id, nodes);
+            nodes_to_insert.push(new_node_id);
           }
-
-          updated_nodes[new_node.id] = new_node;
         }
 
-
-        if (doc.selection?.type === 'node') {
-          // We can safely assume we're dealing with a node_array property
-          const property_schema = doc.inspect(doc.selection.path);
-          const new_main_nodes = main_nodes.map(id => id_mapping[id]);
-          const main_node_objects = new_main_nodes.map(id => updated_nodes[id]);
-          const incompatible_nodes = main_node_objects.filter(node => !property_schema.node_types.includes(node.type));
-          console.log('incompatible_nodes:', incompatible_nodes);
-          // TODO: Try to map incompatible nodes to compatible ones
-          if (incompatible_nodes.length > 0) return;
-
-          const tr = doc.tr;
-
-          // Create all nodes first
-          for (const node of Object.values(updated_nodes)) {
-            tr.create(node);
-          }
-
-          // Then insert the main nodes at the current selection
-          tr.insert_nodes(main_node_objects);
-          doc.apply(tr);
-        }
+        tr.insert_nodes(nodes_to_insert);
+        doc.apply(tr);
       }
     } else {
       // Fallback to plain text when no svedit data is found

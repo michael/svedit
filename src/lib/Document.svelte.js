@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, get_char_length } from './util.js';
+import { char_slice, get_char_length, traverse } from './util.js';
 
 /**
  * @import {
@@ -703,37 +703,7 @@ export default class Document {
   // IMPORTANT: Leaf nodes must go first, branches second and the root node (entry point) last (depth-first traversal)
   // NOTE: Nodes that are not reachable from the entry point node will not be included in the serialization
   traverse(node_id) {
-    const json = [];
-    const visited = {};
-    const visit = (node) => {
-      if (!node || visited[node.id]) {
-        return;
-      }
-      visited[node.id] = true;
-      for (const [property_name, value] of Object.entries(node)) {
-        const property_schema = this.schema[node.type].properties[property_name];
-
-        if (property_schema?.type === 'node_array') {
-          for (const v of value) {
-            if (typeof v === 'string') {
-              visit($state.snapshot(this.get(v)));
-            }
-          }
-        } else if (property_schema?.type === 'node') {
-          visit($state.snapshot(this.get(value)));
-        } else if (property_schema?.type === 'annotated_text') {
-          for (const annotation of value.annotations) {
-            visit($state.snapshot(this.get(annotation.node_id)));
-          }
-        }
-      }
-      // Finally add the node to the result.
-      // We use a deep clone, so we make sure nothing of the original document is referenced.
-      json.push(structuredClone(node));
-    }
-    // Start with the root node (document_id)
-    visit($state.snapshot(this.get(node_id)));
-    return json;
+    return traverse(node_id, this.schema, $state.snapshot(this.nodes));
   }
 
   /**
