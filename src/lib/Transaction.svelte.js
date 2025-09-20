@@ -92,6 +92,8 @@ export default class Transaction {
   }
 
   // Takes a subgraph and constructs new nodes from it
+  // NOTE: all ids will be mapped to new unique ids.
+  // NOTE: Omitted properties will be populated with default values.
   build(node_id, nodes) {
     const depth_first_nodes = traverse(node_id, this.doc.schema, nodes);
     // This maps original ids to newly generated ids
@@ -101,22 +103,43 @@ export default class Transaction {
       const new_id = this.doc.generate_id();
       id_map[node.id] = new_id;
       const new_node = { ...node, id: new_id };
+      const node_schema = this.doc.schema[node.type];
 
       // Update all property references to use new IDs
-      for (const [property, value] of Object.entries(new_node)) {
-        if (property === 'id' || property === 'type') continue;
-        const prop_type = this.doc.schema[node.type]?.properties?.[property]?.type;
+      for (const [property_name, property_schema] of Object.entries(node_schema.properties)) {
+        // if (property_name === 'id' || property_name === 'type') continue;
+        const property_type = property_schema.type;
+        const value = node[property_name];
 
-        if (prop_type === 'node_array' && Array.isArray(value)) {
-          new_node[property] = value.map(ref_id => id_map[ref_id] || ref_id);
-        } else if (prop_type === 'node' && typeof value === 'string') {
-          new_node[property] = id_map[value] || value;
-        } else if (prop_type === 'annotated_text') {
-          const annotations = value.annotations.map(annotation => {
-            const {start_offset, end_offset, node_id} = annotation;
-            return {start_offset, end_offset, node_id: id_map[node_id] || node_id};
-          });
-          new_node[property] = {text: value.text, annotations};
+        // Apply default values
+        if (property_type === 'node_array') {
+          // [] is the default value for node arrays
+          new_node[property_name] = Array.isArray(value) ? value.map(ref_id => id_map[ref_id]) : [];
+        } else if (property_type === 'node') {
+          // null is the default value for node references
+          new_node[property_name] = typeof value === 'string' ? id_map[value] : null;
+        } else if (property_type === 'annotated_text') {
+          if (value) {
+            const annotations = value.annotations.map(annotation => {
+              const {start_offset, end_offset, node_id} = annotation;
+              return {start_offset, end_offset, node_id: id_map[node_id] || node_id};
+            });
+            new_node[property_name] = {text: value.text, annotations};
+          } else {
+            new_node[property_name] = {text: '', annotations: []};
+          }
+        } else if (property_type === 'string') {
+          new_node[property_name] = value ?? property_schema.default ?? '';
+        } else if (property_type === 'integer') {
+          new_node[property_name] = value ?? property_schema.default ?? 0;
+        } else if (property_type === 'number') {
+          new_node[property_name] = value ?? property_schema.default ?? 0;
+        } else if (property_type === 'boolean') {
+          new_node[property_name] = value ?? property_schema.default ?? false;
+        } else if (['integer_array', 'number_array'].includes(property_type)) {
+          new_node[property_name] = value ?? property_schema.default ?? [];
+        } else if (property_type === 'string_array') {
+          new_node[property_name] = value ?? property_schema.default ?? [];
         }
       }
 

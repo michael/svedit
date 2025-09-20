@@ -51,7 +51,7 @@ const document_schema = define_document_schema({
   hero: {
     kind: 'block',
     properties: {
-      layout: { type: 'integer' },
+      layout: { type: 'integer', default: 1 },
       title: {
         type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
@@ -68,7 +68,7 @@ const document_schema = define_document_schema({
   text: {
     kind: 'text',
     properties: {
-      layout: { type: 'integer' },
+      layout: { type: 'integer', default: 1 },
       content: {
         type: 'annotated_text',
         node_types: ALL_ANNOTATIONS,
@@ -90,7 +90,7 @@ const document_schema = define_document_schema({
   story: {
     kind: 'block',
     properties: {
-      layout: { type: 'integer' },
+      layout: { type: 'integer', default: 1 },
       title: {
         type: 'annotated_text',
         node_types: TITLE_ANNOTATIONS,
@@ -112,7 +112,7 @@ const document_schema = define_document_schema({
   image_grid: {
     kind: 'block',
     properties: {
-      layout: { type: 'integer' },
+      layout: { type: 'integer', default: 1 },
       image_grid_items: {
         type: 'node_array',
         node_types: ['image_grid_item'],
@@ -152,7 +152,7 @@ const document_schema = define_document_schema({
         type: 'node_array',
         node_types: ['list_item'],
       },
-      layout: { type: 'integer' },
+      layout: { type: 'integer', default: 1 },
     }
   },
   link: {
