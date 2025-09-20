@@ -591,7 +591,8 @@ ${fallback_html}`;
       doc.apply(tr);
       // }
     } else if (pasted_json?.text && doc.selection?.type === 'text') {
-      console.log('TODO: Pasting annotated_text');
+
+      doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
     } else {
       // Fallback to plain text when no svedit data is found
       try {

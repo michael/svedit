@@ -465,7 +465,7 @@ export default class Transaction {
    * tr.insert_text('Hello, world!');
    * ```
    */
-  insert_text(replaced_text) {
+  insert_text(replaced_text, annotations = [], nodes = {}) {
     if (this.doc.selection.type !== 'text') return this;
 
     const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
@@ -533,6 +533,24 @@ export default class Transaction {
       focus_offset: start + get_char_length(replaced_text),
     };
     this.doc.selection = new_selection;
+
+    // Now we apply annotations if there are any, but only if there's no active annotation
+    // at the current collapsed cursor
+    if (!this.doc.active_annotation() && annotations.length > 0) {
+
+      const new_annotations = annotations.map(annotation => {
+        const new_annotation_node_id = this.build(annotation.node_id, nodes);
+        return {
+          start_offset: start + annotation.start_offset,
+          end_offset: start + annotation.end_offset,
+          node_id: new_annotation_node_id
+        };
+      });
+      const next_annotated_text = structuredClone(annotated_text);
+      next_annotated_text.annotations = next_annotated_text.annotations.concat(new_annotations);
+      this.set(this.doc.selection.path, next_annotated_text); // this will update the current state and create a history entry
+    }
+
     return this;
   }
 
