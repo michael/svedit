@@ -464,18 +464,29 @@ ${fallback_html}`;
     event.preventDefault();
     event.stopPropagation();
 
-    let plain_text, html;
+    let plain_text, annotated_text, html;
 
     if (doc.selection?.type === 'text') {
-      plain_text = doc.get_selected_plain_text();
-      html = `<span style="white-space:pre-wrap;">${plain_text}</span>`;
+      // plain_text = doc.get_selected_plain_text();
+      annotated_text = doc.get_selected_annotated_text();
+      const fallback_html = `<span style="white-space:pre-wrap;">${annotated_text.text}</span>`;
+
+      console.log('Text copy:', {
+        annotated_text,
+        // plain_text,
+        html,
+      });
+
+      html = create_svedit_html_format(annotated_text, fallback_html);
+      console.log('LE HTML', html);
+
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
 
       const json_data = { nodes, main_nodes };
 
-      console.log('Copy operation:', {
+      console.log('Node copy:', {
         selected_nodes,
         nodes,
         total_nodes: Object.keys(nodes).length,
@@ -541,45 +552,46 @@ ${fallback_html}`;
       pasted_json = undefined;
     }
 
-    if (pasted_json && doc.selection?.type === 'node') {
-
+    if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
       // Handle new format: { nodes: {id -> node}, main_nodes: [id1, id2, ...] }
-      if (pasted_json.nodes && pasted_json.main_nodes) {
-        const { nodes, main_nodes } = pasted_json;
+      // if (pasted_json.nodes && pasted_json.main_nodes) {
+      const { nodes, main_nodes } = pasted_json;
 
-        console.log('pasted_json', pasted_json);
+      console.log('pasted_json', pasted_json);
 
-        // We can safely assume we're dealing with a node_array property
-        const property_schema = doc.inspect(doc.selection.path);
-        const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
+      // We can safely assume we're dealing with a node_array property
+      const property_schema = doc.inspect(doc.selection.path);
+      const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
 
-        // NOTE: At this point, nodes contains a subgraph from the copy
-        // with original ids
-        const tr = doc.tr;
-        const nodes_to_insert = [];
-        for (const node_id of main_nodes) {
-          const node = nodes[node_id];
-          if (!property_schema.node_types.includes(node.type)) {
-            // incompatible node type detected
-            if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
-              const new_node_id = tr.build('the_node', {
-                the_node: {
-                  id: 'the_node',
-                  type: first_compatible_text_node_type,
-                  content: node.content,
-                },
-              });
-              nodes_to_insert.push(new_node_id);
-            }
-          } else {
-            const new_node_id = tr.build(node_id, nodes);
+      // NOTE: At this point, nodes contains a subgraph from the copy
+      // with original ids
+      const tr = doc.tr;
+      const nodes_to_insert = [];
+      for (const node_id of main_nodes) {
+        const node = nodes[node_id];
+        if (!property_schema.node_types.includes(node.type)) {
+          // incompatible node type detected
+          if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
+            const new_node_id = tr.build('the_node', {
+              the_node: {
+                id: 'the_node',
+                type: first_compatible_text_node_type,
+                content: node.content,
+              },
+            });
             nodes_to_insert.push(new_node_id);
           }
+        } else {
+          const new_node_id = tr.build(node_id, nodes);
+          nodes_to_insert.push(new_node_id);
         }
-
-        tr.insert_nodes(nodes_to_insert);
-        doc.apply(tr);
       }
+
+      tr.insert_nodes(nodes_to_insert);
+      doc.apply(tr);
+      // }
+    } else if (pasted_json?.text && doc.selection?.type === 'text') {
+      console.log('TODO: Pasting annotated_text');
     } else {
       // Fallback to plain text when no svedit data is found
       try {
