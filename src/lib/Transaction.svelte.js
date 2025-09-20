@@ -2,7 +2,7 @@
  * @import { NodeId, SerializedNode, Selection, DocumentPath } from './types.js'
  */
 
-import { get_char_length, char_slice } from './util.js';
+import { get_char_length, char_slice, traverse } from './util.js';
 
 /**
  * Transaction class for managing atomic document operations with undo/redo support.
@@ -89,6 +89,65 @@ export default class Transaction {
     this.ops.push(op);
     this.inverse_ops.push(['set', path, previous_value]);
     this.doc._apply_op(op);
+  }
+
+  // Takes a subgraph and constructs new nodes from it
+  // NOTE: all ids will be mapped to new unique ids.
+  // NOTE: Omitted properties will be populated with default values.
+  build(node_id, nodes) {
+    const depth_first_nodes = traverse(node_id, this.doc.schema, nodes);
+    // This maps original ids to newly generated ids
+    const id_map = {};
+
+    for (const node of depth_first_nodes) {
+      const new_id = this.doc.generate_id();
+      id_map[node.id] = new_id;
+      const new_node = { ...node, id: new_id };
+      const node_schema = this.doc.schema[node.type];
+
+      // Update all property references to use new IDs
+      for (const [property_name, property_schema] of Object.entries(node_schema.properties)) {
+        // if (property_name === 'id' || property_name === 'type') continue;
+        const property_type = property_schema.type;
+        const value = node[property_name];
+
+        // Apply default values
+        if (property_type === 'node_array') {
+          // [] is the default value for node arrays
+          new_node[property_name] = Array.isArray(value) ? value.map(ref_id => id_map[ref_id]) : [];
+        } else if (property_type === 'node') {
+          // null is the default value for node references
+          new_node[property_name] = typeof value === 'string' ? id_map[value] : null;
+        } else if (property_type === 'annotated_text') {
+          if (value) {
+            const annotations = value.annotations.map(annotation => {
+              const {start_offset, end_offset, node_id} = annotation;
+              return {start_offset, end_offset, node_id: id_map[node_id] || node_id};
+            });
+            new_node[property_name] = {text: value.text, annotations};
+          } else {
+            new_node[property_name] = {text: '', annotations: []};
+          }
+        } else if (property_type === 'string') {
+          new_node[property_name] = value ?? property_schema.default ?? '';
+        } else if (property_type === 'integer') {
+          new_node[property_name] = value ?? property_schema.default ?? 0;
+        } else if (property_type === 'number') {
+          new_node[property_name] = value ?? property_schema.default ?? 0;
+        } else if (property_type === 'boolean') {
+          new_node[property_name] = value ?? property_schema.default ?? false;
+        } else if (['integer_array', 'number_array'].includes(property_type)) {
+          new_node[property_name] = value ?? property_schema.default ?? [];
+        } else if (property_type === 'string_array') {
+          new_node[property_name] = value ?? property_schema.default ?? [];
+        }
+      }
+
+      console.log('created', new_node);
+      this.create(new_node);
+    }
+
+    return id_map[depth_first_nodes.at(-1).id];
   }
 
   /**
@@ -344,23 +403,17 @@ export default class Transaction {
   /**
    * Inserts an array of nodes at the current node selection.
    *
-   * If there's a current selection, it will be deleted first. New nodes are
-   * created if they don't already exist (e.g., for cut+paste scenarios).
+   * If there's a current selection, it will be deleted first.
    *
-   * @param {SerializedNode[]} nodes - Array of node objects to insert
+   * @param {NodeId[]} node_ids - Array of node IDs to insert
    * @returns {Transaction} This transaction instance for method chaining
-   *
-   * @note Assumes we only insert new nodes, not reference existing ones
    *
    * @example
    * ```js
-   * tr.insert_nodes([
-   *   {id: 'para_1', type: 'paragraph', content: ['Hello', []]},
-   *   {id: 'para_2', type: 'paragraph', content: ['World', []]}
-   * ]);
+   * tr.insert_nodes_new(['para_1', 'para_2']);
    * ```
    */
-  insert_nodes(nodes) {
+  insert_nodes(node_ids) {
     if (this.doc.selection.type !== 'node') return this;
 
     // Unless cursor is collapsed, delete the selected nodes as a first step
@@ -382,13 +435,6 @@ export default class Transaction {
       node_array.splice(start, end - start);
     }
 
-    // First create the new nodes (unless they already exists e.g. in case of cut+paste)
-    nodes.forEach(node => {
-      if (!this.doc.get(node.id)) {
-        this.create(node);
-      }
-    });
-    const node_ids = nodes.map(node => node.id);
     node_array.splice(start, 0, ...node_ids);
 
     // Update the node_array in the entry
@@ -398,7 +444,7 @@ export default class Transaction {
       type: 'node',
       path: [...this.doc.selection.path],
       anchor_offset: start,
-      focus_offset: start + nodes.length
+      focus_offset: start + node_ids.length
     };
     return this;
   }
