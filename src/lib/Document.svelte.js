@@ -628,6 +628,35 @@ export default class Document {
     }
   }
 
+  get_selected_annotated_text() {
+    if (this.selection?.type !== 'text') return null;
+
+    const selection_start =   Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+    const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+    const annotated_text = this.get(this.selection.path);
+    const text = char_slice(annotated_text.text, selection_start, selection_end);
+    const nodes = {};
+    const annotations = annotated_text.annotations.map(a => {
+      if (selection_start < a.end_offset && selection_end > a.start_offset) {
+        const sub_graph = this.traverse(a.node_id);
+        for (const node of sub_graph) {
+          if (!nodes[node.id]) {
+            nodes[node.id] = node;
+          }
+        }
+        return {
+          start_offset: Math.max(a.start_offset - selection_start, 0),
+          end_offset: Math.min(a.end_offset - selection_start, selection_end - selection_start),
+          node_id: a.node_id
+        };
+      } else {
+        return null;
+      }
+    }).filter(Boolean);
+
+    return { text, annotations, nodes };
+  }
+
   // TODO: think about ways how we can also turn a node selection into plain text.
   get_selected_plain_text() {
     if (this.selection?.type !== 'text') return null;
