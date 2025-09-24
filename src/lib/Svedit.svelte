@@ -682,7 +682,7 @@ ${fallback_html}`;
       // Paste a single text node, at a text cursor
       const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
       doc.apply(doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes));
-    } else if (['text', 'property'].includes('text') && pasted_json?.nodes) {
+    } else if (['text', 'property'].includes(doc.selection?.type) && pasted_json?.nodes) {
       // Paste nodes at a text or property selection by finding the next valid insert cursor
       const next_node_insert_cursor = get_next_node_insert_cursor(doc.selection);
       try_node_paste(pasted_json, next_node_insert_cursor);
