@@ -828,7 +828,7 @@ ${fallback_html}`;
       const old_selection = { ...doc.selection };
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
-      if (node_array_schema.type !== 'node_array') return
+      if (node_array_schema.type !== 'node_array') return;
       const current_type_index = node_array_schema.node_types.indexOf(node.type);
       const prev_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
       const prev_type = node_array_schema.node_types[prev_type_index];
