@@ -1493,6 +1493,7 @@ ${fallback_html}`;
     class="svedit-canvas {css_class}"
     class:hide-selection={doc.selection?.type === 'node'}
     class:node-cursor={doc.selection?.type === 'node' && doc.selection.anchor_offset === doc.selection.focus_offset}
+    class:property-selection={doc.selection?.type === 'property'}
     bind:this={canvas_ref}
     {oninput}
     {onbeforeinput}
@@ -1537,7 +1538,7 @@ ${fallback_html}`;
   }
 
   /* When the cursor is in a cursor-trap we never want to see the caret */
-  .svedit-canvas.node-cursor {
+  .svedit-canvas.node-cursor, .svedit-canvas.property-selection {
     caret-color: transparent;
   }
 
