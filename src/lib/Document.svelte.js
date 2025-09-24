@@ -8,13 +8,10 @@ import { char_slice, get_char_length, traverse } from './util.js';
  *   Selection,
  *   Annotation,
  *   PrimitiveType,
- *   DocumentSchemaPrimitive,
  *   NodeProperty,
  *   NodeArrayProperty,
  *   NodeKind,
  *   NodeSchema,
- *   TextNodeSchema,
- *   NonTextNodeSchema,
  *   DocumentSchema,
  *   SerializedDocument
  * } from './types.d.ts';

@@ -1,5 +1,5 @@
 /**
- * @import { NodeId, SerializedNode, Selection, DocumentPath } from './types.js'
+ * @import { NodeId, Selection, DocumentPath } from './types.js'
  */
 
 import { get_char_length, char_slice, traverse } from './util.js';

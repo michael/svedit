@@ -3,7 +3,17 @@
   import { snake_to_pascal, get_char_length, utf16_to_char_offset, char_to_utf16_offset, get_char_at, char_slice } from './util.js';
   import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
-  /** @import { SveditProps, DocumentPath, Selection, TextSelection, NodeSelection, PropertySelection, NodeId } from './types.d.ts'; */
+  /** @import {
+   *   SveditProps,
+   *   DocumentPath,
+   *   Selection,
+   *   TextSelection,
+   *   NodeSelection,
+   *   PropertySelection,
+   *   NodeId
+   * } from './types.d.ts';
+   */
+
   /** @type {SveditProps} */
   let {
     doc,
@@ -21,9 +31,7 @@
 
   // Track temporary disabled onkeydown events (e.g. during character composition)
   let skip_onkeydown = false;
-
   let is_composing = $state(false);
-
   let input_selection = undefined;
 
   // Detect Chrome on desktop (not mobile) - only available in browser
@@ -533,13 +541,19 @@ ${fallback_html}`;
     oncopy(event, true);
   }
 
+  /**
+   * Compute next possible insert position from a given selection
+   *
+   * @param {Selection} selection - Current selection
+   * @returns {Selection} True if the paste operation was successful, false otherwise
+   */
   function get_next_node_insert_cursor(selection) {
     // There's no parent path to insert into
     if (!selection || selection.path.length <= 2) {
       return null;
     }
 
-    const node_offset = parseInt(selection.path.at(-2), 10) + 1;
+    const node_offset = parseInt(String(selection.path.at(-2)), 10) + 1;
     return {
       type: 'node',
       path: selection.path.slice(0, -2),
@@ -548,6 +562,13 @@ ${fallback_html}`;
     };
   }
 
+  /**
+   * Attempts to paste JSON data as a node at the current selection.
+   *
+   * @param {string|object} pasted_json - The JSON data to paste, either as a string or parsed object
+   * @param {Selection} [selection] - Optional selection (node cursor) where the payload should be pasted
+   * @returns {boolean} True if the paste operation was successful, false otherwise
+   */
   function try_node_paste(pasted_json, selection) {
     const { nodes, main_nodes } = pasted_json;
 
@@ -591,6 +612,7 @@ ${fallback_html}`;
     if (!rejected) {
       tr.insert_nodes(nodes_to_insert);
       doc.apply(tr);
+      return true;
     } else {
       if (tr.selection.path.length >= 2) {
         const next_node_insert_cursor = get_next_node_insert_cursor(tr.selection);
@@ -599,6 +621,7 @@ ${fallback_html}`;
         }
       }
     }
+    return false;
   }
 
   async function onpaste(event) {
@@ -607,7 +630,6 @@ ${fallback_html}`;
 
     event.preventDefault();
     const clipboardItems = await navigator.clipboard.read();
-
     let pasted_json;
 
     // First try to extract svedit data from HTML format
@@ -621,25 +643,21 @@ ${fallback_html}`;
     }
 
     if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
-      // Paste nodes at a node cursor
+      // Paste nodes at a node selection
       try_node_paste(pasted_json);
-    } else if (doc.selection?.type === 'text') {
-      if (pasted_json.text) {
-        // Paste text at a text cursor
-        doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
-      } else if (pasted_json?.nodes) {
-        // Paste a single text node, at a text cursor
-        if (pasted_json.main_nodes.length === 1 && doc.kind(pasted_json.nodes[pasted_json.main_nodes[0]]) === 'text') {
-          const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
-          doc.apply(doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes));
-        } else {
-          // Paste nodes at a text cursor
-          const next_node_insert_cursor = get_next_node_insert_cursor(doc.selection);
-          try_node_paste(pasted_json, next_node_insert_cursor);
-        }
-      }
+    } else if (doc.selection?.type === 'text' && pasted_json.text) {
+      // Paste text at a text selection
+      doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
+    } else if (doc.selection?.type === 'text' && pasted_json.main_nodes?.length === 1 && doc.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text') {
+      // Paste a single text node, at a text cursor
+      const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
+      doc.apply(doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes));
+    } else if (['text', 'property'].includes('text') && pasted_json?.nodes) {
+      // Paste nodes at a text or property selection by finding the next valid insert cursor
+      const next_node_insert_cursor = get_next_node_insert_cursor(doc.selection);
+      try_node_paste(pasted_json, next_node_insert_cursor);
     } else {
-      // Fallback to plain text when no svedit data is found
+      // External paste: Fallback to plain text when no svedit data is found
       try {
         const plain_text_blob = await clipboardItems[0].getType('text/plain');
         const plain_text = await plain_text_blob.text();
@@ -744,6 +762,7 @@ ${fallback_html}`;
     ) {
       const node = doc.layout_node;
       const layout_count = doc.config.node_layouts[node.type];
+
       if (layout_count > 1 && node?.layout) {
         const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
         const tr = doc.tr;
@@ -757,16 +776,13 @@ ${fallback_html}`;
       (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node  )
     ) {
       const node = doc.layout_node;
-
       if (doc.selection.type !== 'node') {
         doc.select_parent();
       }
       const old_selection = { ...doc.selection };
-
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
-
       const current_type_index = node_array_schema.node_types.indexOf(node.type);
       const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
       const next_type = node_array_schema.node_types[next_type_index];
@@ -780,19 +796,14 @@ ${fallback_html}`;
       (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
     ) {
       const node = doc.layout_node;
-
       if (doc.selection.type !== 'node') {
         doc.select_parent();
       }
-
-      // if (selection.type !== 'node') return;
       const old_selection = { ...doc.selection };
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
-      if (node_array_schema.type !== 'node_array') return;
-
+      if (node_array_schema.type !== 'node_array') return
       const current_type_index = node_array_schema.node_types.indexOf(node.type);
-      // return (current_layout_number - 1 + layout_count) % layout_count;
       const prev_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
       const prev_type = node_array_schema.node_types[prev_type_index];
       const tr = doc.tr;
@@ -800,7 +811,6 @@ ${fallback_html}`;
       tr.set_selection(old_selection);
       doc.apply(tr);
       e.preventDefault();
-
     } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       const tr = doc.tr;
       if (select_all(tr)) {
@@ -856,16 +866,10 @@ ${fallback_html}`;
       const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
 
       if (is_collapsed) {
-        // Try to insert default node if there's only one allowed ref_type
+        // Always insert default node on ENTER
         const tr = doc.tr;
         insert_default_node(tr);
         doc.apply(tr);
-        // if (insert_default_node(tr)) {
-        //   doc.apply(tr);
-        // } else {
-        //   // Fall back to focusing toolbar when multiple types are available
-        //   focus_toolbar();
-        // }
       } else if (span_length === 1) {
         focus_toolbar();
       }
@@ -1280,7 +1284,7 @@ ${fallback_html}`;
         (is_backward ? focus_node : anchor_node).scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, 0);
     } else {
-      console.log('no container element found!!');
+      console.log('No container element found!');
     }
   }
 
@@ -1289,7 +1293,6 @@ ${fallback_html}`;
     // The element that holds the property
     const el = canvas_ref.querySelector(`[data-path="${selection.path.join('.')}"][data-type="property"]`);
     const cursor_trap_selectable = el.querySelector('.svedit-selectable');
-
     const range = window.document.createRange();
     const dom_selection = window.getSelection();
 
@@ -1357,7 +1360,6 @@ ${fallback_html}`;
             return true; // Stop iteration
           }
         }
-
         current_offset += node_char_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         for (const child_node of node.childNodes) {
@@ -1379,16 +1381,6 @@ ${fallback_html}`;
       // DEFAULT CASE
       for (const child_node of el.childNodes) {
         if (process_node(child_node)) break;
-      }
-
-      // EDGE CASE: cursor at the end of an annotation
-      // TODO: It seems this edge case is handled elsewhere. We keep around the checker for a
-      // while and delete this branch, if we don't see any problems.
-      if (anchor_node && !focus_node && current_offset === end_offset) {
-        alert('EDGE CASE: cursor at the end of an annotation.');
-        // console.log('EDGE CASE: cursor at the end of an annotation');
-        // focus_node = /** @type {HTMLElement | Text} */ (anchor_node.nextSibling || anchor_node);
-        // focus_node_offset = focus_node === anchor_node ? anchor_node.length : 0;
       }
     }
 
