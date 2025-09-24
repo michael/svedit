@@ -377,4 +377,4 @@ It's early. Expect bugs. Expect missing features. Expect the need for more work 
 
 ## Credits
 
-Svedit led by [Michael Aufreiter](https://michaelaufreiter.com) with guidance and support from [Johannes Mutter](https://mutter.co).
+Svedit is led by [Michael Aufreiter](https://michaelaufreiter.com) with guidance and support from [Johannes Mutter](https://mutter.co).
