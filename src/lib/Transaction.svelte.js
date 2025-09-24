@@ -143,7 +143,6 @@ export default class Transaction {
         }
       }
 
-      console.log('created', new_node);
       this.create(new_node);
     }
 
