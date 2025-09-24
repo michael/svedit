@@ -533,6 +533,74 @@ ${fallback_html}`;
     oncopy(event, true);
   }
 
+  function get_next_node_insert_cursor(selection) {
+    // There's no parent path to insert into
+    if (!selection || selection.path.length <= 2) {
+      return null;
+    }
+
+    const node_offset = parseInt(selection.path.at(-2), 10) + 1;
+    return {
+      type: 'node',
+      path: selection.path.slice(0, -2),
+      anchor_offset: node_offset,
+      focus_offset: node_offset,
+    };
+  }
+
+  function try_node_paste(pasted_json, selection) {
+    const { nodes, main_nodes } = pasted_json;
+
+    // NOTE: At this point, nodes contains a subgraph from the copy
+    // with original ids.
+    let tr = doc.tr;
+    if (selection) {
+     tr.set_selection(selection);
+    }
+
+    // We can safely assume we're dealing with a node_array property
+    const property_schema = doc.inspect(tr.selection.path);
+    const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
+
+    const nodes_to_insert = [];
+    let rejected = false;
+    for (const node_id of main_nodes) {
+      const node = nodes[node_id];
+      if (!property_schema.node_types.includes(node.type)) {
+        // Incompatible node type detected
+        if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
+          const new_node_id = tr.build('the_node', {
+            the_node: {
+              id: 'the_node',
+              type: first_compatible_text_node_type,
+              content: node.content,
+            },
+          });
+          nodes_to_insert.push(new_node_id);
+        } else {
+          console.log(`rejected ${node.type}. Only ${property_schema.node_types.join(', ')} allowed.`);
+          rejected = true;
+          break;
+        }
+      } else {
+        const new_node_id = tr.build(node_id, nodes);
+        nodes_to_insert.push(new_node_id);
+      }
+    }
+
+    if (!rejected) {
+      tr.insert_nodes(nodes_to_insert);
+      doc.apply(tr);
+    } else {
+      if (tr.selection.path.length >= 2) {
+        const next_node_insert_cursor = get_next_node_insert_cursor(tr.selection);
+        if (next_node_insert_cursor) {
+          try_node_paste(pasted_json, next_node_insert_cursor);
+        }
+      }
+    }
+  }
+
   async function onpaste(event) {
     // Only handle paste events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
@@ -553,46 +621,23 @@ ${fallback_html}`;
     }
 
     if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
-      // Handle new format: { nodes: {id -> node}, main_nodes: [id1, id2, ...] }
-      // if (pasted_json.nodes && pasted_json.main_nodes) {
-      const { nodes, main_nodes } = pasted_json;
-
-      console.log('pasted_json', pasted_json);
-
-      // We can safely assume we're dealing with a node_array property
-      const property_schema = doc.inspect(doc.selection.path);
-      const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
-
-      // NOTE: At this point, nodes contains a subgraph from the copy
-      // with original ids
-      const tr = doc.tr;
-      const nodes_to_insert = [];
-      for (const node_id of main_nodes) {
-        const node = nodes[node_id];
-        if (!property_schema.node_types.includes(node.type)) {
-          // incompatible node type detected
-          if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
-            const new_node_id = tr.build('the_node', {
-              the_node: {
-                id: 'the_node',
-                type: first_compatible_text_node_type,
-                content: node.content,
-              },
-            });
-            nodes_to_insert.push(new_node_id);
-          }
+      // Paste nodes at a node cursor
+      try_node_paste(pasted_json);
+    } else if (doc.selection?.type === 'text') {
+      if (pasted_json.text) {
+        // Paste text at a text cursor
+        doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
+      } else if (pasted_json?.nodes) {
+        // Paste a single text node, at a text cursor
+        if (pasted_json.main_nodes.length === 1 && doc.kind(pasted_json.nodes[pasted_json.main_nodes[0]]) === 'text') {
+          const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
+          doc.apply(doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes));
         } else {
-          const new_node_id = tr.build(node_id, nodes);
-          nodes_to_insert.push(new_node_id);
+          // Paste nodes at a text cursor
+          const next_node_insert_cursor = get_next_node_insert_cursor(doc.selection);
+          try_node_paste(pasted_json, next_node_insert_cursor);
         }
       }
-
-      tr.insert_nodes(nodes_to_insert);
-      doc.apply(tr);
-      // }
-    } else if (pasted_json?.text && doc.selection?.type === 'text') {
-
-      doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
     } else {
       // Fallback to plain text when no svedit data is found
       try {
