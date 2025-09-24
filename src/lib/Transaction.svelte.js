@@ -107,7 +107,6 @@ export default class Transaction {
 
       // Update all property references to use new IDs
       for (const [property_name, property_schema] of Object.entries(node_schema.properties)) {
-        // if (property_name === 'id' || property_name === 'type') continue;
         const property_type = property_schema.type;
         const value = node[property_name];
 
