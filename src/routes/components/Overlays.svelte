@@ -34,18 +34,10 @@
 			const annotated_text = svedit.doc.get(sel.path);
 
 			const annotation_index = annotated_text.annotations.indexOf(active_annotation);
-			console.log(annotation_index, $state.snapshot(annotated_text.annotations));
 			return [...sel.path, 'annotations', annotation_index, 'node_id'];
 		}
 		return null;
 	}
-
-	// function open_link() {
-	//   const annotation_node = svedit.doc.get(selected_link_path);
-	// 	if (annotation_node?.href) {
-	// 		window.open(annotation_node?.href, '_blank');
-	// 	}
-	// }
 </script>
 
 {#if svedit.doc.selection?.type === 'property'}
