@@ -598,6 +598,47 @@ export default class Document {
   }
 
   /**
+   * Determines whether a node type can be inserted at a given selection.
+   * @param {string} node_type - The type of node to insert.
+   * @param {Selection} [selection] - The selection at which to insert the node.
+   * @returns {boolean} True if the node type can be inserted, false otherwise.
+   */
+  can_insert(node_type, selection = this.selection) {
+    if (selection?.type === 'node') {
+      const property_schema = this.inspect(selection.path);
+      if (property_schema.node_types.includes(node_type)) {
+        return true;
+      }
+    }
+
+    // No insert position found yet, and root not reached, try one level up if possible
+    let next_node_insert_cursor = this.get_next_node_insert_cursor(selection);
+    if (!next_node_insert_cursor) return false;
+    return this.can_insert(node_type, next_node_insert_cursor);
+  }
+
+  /**
+   * Compute next possible insert position from a given selection
+   *
+   * @param {Selection} [selection] - Reference selection
+   * @returns {Selection} True if the paste operation was successful, false otherwise
+   */
+  get_next_node_insert_cursor(selection = this.selection) {
+    // There's no parent path to insert into
+    if (!selection || selection.path.length <= 2) {
+      return null;
+    }
+
+    const node_offset = parseInt(String(selection.path.at(-2)), 10) + 1;
+    return {
+      type: 'node',
+      path: selection.path.slice(0, -2),
+      anchor_offset: node_offset,
+      focus_offset: node_offset,
+    };
+  }
+
+  /**
    * Returns the annotation object that is currently "under the cursor".
    * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
    *

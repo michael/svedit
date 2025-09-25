@@ -191,23 +191,13 @@
       event.stopPropagation();
     }
 
-
     if (event.inputType === 'deleteContentBackward') {
-      if (doc.selection?.type === 'property') {
-        // For property selections, clear the property value only if it's not already falsy
-        if (doc.get(doc.selection.path)) {
-          const tr = doc.tr;
-          tr.set(doc.selection.path, '');
-          doc.apply(tr);
-        }
+      if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
+        const tr = doc.tr;
+        join_text_node(tr);
+        doc.apply(tr);
       } else {
-        if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
-          const tr = doc.tr;
-          join_text_node(tr);
-          doc.apply(tr);
-        } else {
-          doc.apply(doc.tr.delete_selection());
-        }
+        doc.apply(doc.tr.delete_selection());
       }
 
       event.preventDefault();
@@ -486,8 +476,6 @@ ${fallback_html}`;
       });
 
       html = create_svedit_html_format(annotated_text, fallback_html);
-      console.log('LE HTML', html);
-
     } else if (doc.selection?.type === 'node') {
       const selected_nodes = doc.get_selected_nodes();
       const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
@@ -515,6 +503,18 @@ ${fallback_html}`;
         }
         return `Content from ${node.type}`;
       }).join('\n\n');
+    } else if (doc.selection?.type === 'property') {
+      const property_schema = doc.inspect(doc.selection.path);
+      const value = doc.get(doc.selection.path);
+      const json_data = {
+        kind: 'property',
+        name: property_schema.name,
+        type: property_schema.type,
+        value,
+      };
+      console.log('Property copy:', json_data);
+      html = create_svedit_html_format(json_data, `<span>${value}</span>`);
+      plain_text = String(value);
     }
 
     // Create a ClipboardItem with multiple formats
@@ -541,26 +541,6 @@ ${fallback_html}`;
     oncopy(event, true);
   }
 
-  /**
-   * Compute next possible insert position from a given selection
-   *
-   * @param {Selection} selection - Current selection
-   * @returns {Selection} True if the paste operation was successful, false otherwise
-   */
-  function get_next_node_insert_cursor(selection) {
-    // There's no parent path to insert into
-    if (!selection || selection.path.length <= 2) {
-      return null;
-    }
-
-    const node_offset = parseInt(String(selection.path.at(-2)), 10) + 1;
-    return {
-      type: 'node',
-      path: selection.path.slice(0, -2),
-      anchor_offset: node_offset,
-      focus_offset: node_offset,
-    };
-  }
 
   /**
    * Attempts to paste JSON data as a node at the current selection.
@@ -615,7 +595,7 @@ ${fallback_html}`;
       return true;
     } else {
       if (tr.selection.path.length >= 2) {
-        const next_node_insert_cursor = get_next_node_insert_cursor(tr.selection);
+        const next_node_insert_cursor = doc.get_next_node_insert_cursor(tr.selection);
         if (next_node_insert_cursor) {
           try_node_paste(pasted_json, next_node_insert_cursor);
         }
@@ -627,47 +607,69 @@ ${fallback_html}`;
   async function onpaste(event) {
     // Only handle paste events if focus is within the canvas
     if (!canvas_ref?.contains(document.activeElement)) return;
-
     event.preventDefault();
-    const clipboardItems = await navigator.clipboard.read();
-    let plain_text, pasted_json;
 
-    // First try to extract svedit data from HTML format
-    try {
-      const html_blob = await clipboardItems[0].getType('text/html');
-      const html_content = await html_blob.text();
-      pasted_json = extract_svedit_data_from_html(html_content);
-    } catch (e) {
-      console.log('No HTML format available or failed to extract svedit data:', e);
-      pasted_json = undefined;
+    let plain_text, pasted_json, pasted_images = [];
+
+    for (const item of event.clipboardData.items) {
+      if (item.type.startsWith("image/")) {
+        const blob = item.getAsFile();
+        const data_url = URL.createObjectURL(blob);
+        pasted_images.push({
+          blob,
+          data_url,
+          type: item.type,
+          size: blob.size
+        });
+      }
     }
 
-    try {
-      const plain_text_blob = await clipboardItems[0].getType('text/plain');
-      plain_text = await plain_text_blob.text();
-    } catch (e) {
-      console.error('Failed to paste any content:', e);
-    }
+    if (pasted_images.length > 0) {
+      pasted_json = await doc.config.handle_image_paste(doc, pasted_images);
+      console.log('pasted_json_after_image_paste', pasted_json);
+      // NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
+      // handled inside handle_image_paste already.
+      if (!pasted_json) return;
+    } else {
+      const clipboardItems = await navigator.clipboard.read();
 
-    // Try to contruct a node payload from plain text when applicable
-    if (!pasted_json && typeof plain_text === 'string') {
-      const plain_text_fragments = plain_text.split('\n\n').map(fragment => fragment.trim()).filter(Boolean);
-      if (plain_text_fragments.length > 1) {
-        pasted_json = {
-          main_nodes: [],
-          nodes: [],
-        };
-        for (let i = 0; i < plain_text_fragments.length; i++) {
-          const fragment = plain_text_fragments[i];
-          pasted_json.nodes["fragment_" + i] = {
-            id: "fragment_" + i,
-            type: 'text',
-            content: {
-              text: fragment,
-              annotations: []
-            }
+      // First try to extract svedit data from HTML format
+      try {
+        const html_blob = await clipboardItems[0].getType('text/html');
+        const html_content = await html_blob.text();
+        pasted_json = extract_svedit_data_from_html(html_content);
+      } catch (e) {
+        console.log('No HTML format available or failed to extract svedit data:', e);
+        pasted_json = undefined;
+      }
+
+      try {
+        const plain_text_blob = await clipboardItems[0].getType('text/plain');
+        plain_text = await plain_text_blob.text();
+      } catch (e) {
+        console.error('Failed to paste any content:', e);
+      }
+
+      // Try to contruct a node payload from plain text when applicable
+      if (!pasted_json && typeof plain_text === 'string') {
+        const plain_text_fragments = plain_text.split('\n\n').map(fragment => fragment.trim()).filter(Boolean);
+        if (plain_text_fragments.length > 1) {
+          pasted_json = {
+            main_nodes: [],
+            nodes: [],
           };
-          pasted_json.main_nodes.push("fragment_" + i);
+          for (let i = 0; i < plain_text_fragments.length; i++) {
+            const fragment = plain_text_fragments[i];
+            pasted_json.nodes["fragment_" + i] = {
+              id: "fragment_" + i,
+              type: 'text',
+              content: {
+                text: fragment,
+                annotations: []
+              }
+            };
+            pasted_json.main_nodes.push("fragment_" + i);
+          }
         }
       }
     }
@@ -675,6 +677,11 @@ ${fallback_html}`;
     if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
       // Paste nodes at a node selection
       try_node_paste(pasted_json);
+    } else if (pasted_json?.kind === 'property' && doc.selection?.type === 'property') {
+      const property_schema = doc.inspect(doc.selection.path);
+      if (property_schema.type === pasted_json.type) {
+        doc.apply(doc.tr.set(doc.selection.path, pasted_json.value));
+      }
     } else if (doc.selection?.type === 'text' && pasted_json?.text) {
       // Paste text at a text selection
       doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
@@ -684,7 +691,7 @@ ${fallback_html}`;
       doc.apply(doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes));
     } else if (['text', 'property'].includes(doc.selection?.type) && pasted_json?.nodes) {
       // Paste nodes at a text or property selection by finding the next valid insert cursor
-      const next_node_insert_cursor = get_next_node_insert_cursor(doc.selection);
+      const next_node_insert_cursor = doc.get_next_node_insert_cursor(doc.selection);
       try_node_paste(pasted_json, next_node_insert_cursor);
     } else if (typeof plain_text === 'string') {
       // External paste: Fallback to plain text when no svedit data is found
@@ -1327,6 +1334,14 @@ ${fallback_html}`;
     range.collapse(true); // Collapse to start position
     dom_selection.removeAllRanges();
     dom_selection.addRange(range);
+
+    // Scroll the selection into view
+    setTimeout(() => {
+      const selectedElement = dom_selection.focusNode.parentElement;
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }, 0);
   }
 
   function __render_text_selection() {
