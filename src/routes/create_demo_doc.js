@@ -446,6 +446,42 @@ const document_config = {
     Highlight,
     Link
   },
+  handle_image_paste: async (doc, pasted_images) => {
+    // ATTENTION: In a real-world-app, you may want to upload `pasted_images` here,
+    // before referencing them from the document.
+
+    if (doc.selection.type === 'property') {
+      const property_schema = doc.inspect(doc.selection.path);
+      if (property_schema.name === 'image') {
+        const tr = doc.tr;
+        tr.set(doc.selection.path, pasted_images[0].data_url);
+        doc.apply(tr);
+      }
+      return null;
+    } else {
+      const pasted_json = { main_nodes: [], nodes: {} };
+      // When cursor inside an image grid we want to insert an image_grid_item
+      // otherwise we want to insert a story, as that is the only body node,
+      // that can carry an image.
+      let target_node_type;
+      if (doc.can_insert('image_grid_item')) {
+        target_node_type = 'image_grid_item';
+      } else {
+        target_node_type = 'story';
+      }
+      for (let i = 0; i < pasted_images.length; i++) {
+        const pasted_image = pasted_images[i];
+        pasted_json.nodes["node_" + i] = {
+          id: "node_" + i,
+          type: target_node_type,
+          image: pasted_image.data_url
+        };
+        pasted_json.main_nodes.push("node_" + i);
+      }
+      return pasted_json;
+    }
+  },
+
   // HTML exporters for different node types
   html_exporters: {
     list: (node, doc) => {

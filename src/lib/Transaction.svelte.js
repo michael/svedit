@@ -63,6 +63,7 @@ export default class Transaction {
    *
    * @param {DocumentPath} path - Array path to the property (e.g., ["node_1", "title"])
    * @param {any} value - The new value to set
+   * @returns {Transaction} This transaction instance for method chaining
    *
    * @example
    * ```js
@@ -89,6 +90,7 @@ export default class Transaction {
     this.ops.push(op);
     this.inverse_ops.push(['set', path, previous_value]);
     this.doc._apply_op(op);
+    return this;
   }
 
   // Takes a subgraph and constructs new nodes from it
@@ -296,6 +298,12 @@ export default class Transaction {
   delete_selection() {
     if (!this.doc.selection) return this;
     const path = this.doc.selection.path;
+
+    if (this.doc.selection.type === 'property') {
+      this.set(path, '');
+      return this;
+    }
+
     // Get the start and end indices for the selection
     let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
     let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
