@@ -381,17 +381,24 @@ ${fallback_html}`;
    * @param {Object} node - Node object
    * @returns {string} HTML representation
    */
-  function default_node_html_exporter(node) {
+  function default_node_html_exporter(node, doc, html_exporters) {
     let html = '';
+    const node_schema = doc.schema[node.type];
 
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
-
+      const property_schema = node_schema.properties[prop_name];
       // Check if this is an annotated_text property (object with text property)
-      if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
+      if (property_schema.type === 'annotated_text') {
         const text_content = prop_value.text;
         if (text_content.trim()) {
           html += `<p>${text_content.trim()}</p>\n`;
+        }
+      } else if (property_schema.type === 'node_array') {
+        for (const child_id of prop_value) {
+          const child = doc.get(child_id);
+          const child_exporter = html_exporters[child.type] || default_node_html_exporter;
+          html += child_exporter(child, doc, html_exporters);
         }
       }
     }
@@ -430,10 +437,10 @@ ${fallback_html}`;
 
       if (html_exporters[node.type]) {
         // Use custom exporter for this node type
-        html += html_exporters[node.type](node, doc);
+        html += html_exporters[node.type](node, doc, html_exporters);
       } else {
         // Use default exporter
-        html += default_node_html_exporter(node);
+        html += default_node_html_exporter(node, doc, html_exporters);
       }
     }
     return html;
