@@ -85,30 +85,48 @@ describe('Svedit.svelte', () => {
 
     await tick();
 
-    // Simulate copy event
-    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    // Simulate copy event with mock clipboardData
+    let copied_html = '';
+    let copied_text = '';
+    
+    const mock_clipboard_data = {
+      setData: (format, data) => {
+        if (format === 'text/html') {
+          copied_html = data;
+        } else if (format === 'text/plain') {
+          copied_text = data;
+        }
+      },
+      getData: (format) => {
+        if (format === 'text/html') {
+          return copied_html;
+        } else if (format === 'text/plain') {
+          return copied_text;
+        }
+        return '';
+      }
+    };
+
+    const copy_event = new ClipboardEvent('copy', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(copy_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
+    
     const svedit_element = container.querySelector('.svedit-canvas');
     // @ts-ignore
     svedit_element?.focus();
-
-    // Mock clipboard API
-    let clipboard_data = /** @type {ClipboardItem | null} */ (null);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        write: async (items) => {
-          clipboard_data = items[0];
-        },
-        read: async () => {
-          return [clipboard_data];
-        }
-      }
-    });
 
     document.dispatchEvent(copy_event);
     await tick();
 
     // Verify something was copied
-    expect(clipboard_data).not.toBeNull();
+    expect(copied_html).not.toBe('');
 
     // Keep same selection for paste (to replace, not insert)
     doc.selection = {
@@ -121,7 +139,16 @@ describe('Svedit.svelte', () => {
     await tick();
 
     // First paste - should replace the selected story
-    const first_paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    const first_paste_event = new ClipboardEvent('paste', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(first_paste_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
     document.dispatchEvent(first_paste_event);
     await tick();
     await new Promise(resolve => setTimeout(resolve, 10)); // Give time for transaction
@@ -157,7 +184,16 @@ describe('Svedit.svelte', () => {
 
     await tick();
 
-    const second_paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    const second_paste_event = new ClipboardEvent('paste', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(second_paste_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
     document.dispatchEvent(second_paste_event);
     await tick();
     await new Promise(resolve => setTimeout(resolve, 10)); // Give time for transaction
@@ -459,35 +495,51 @@ describe('Svedit.svelte', () => {
 
     await tick();
 
-    // Simulate copy event
-    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    // Simulate copy event with mock clipboardData
+    let copied_html = '';
+    let copied_text = '';
+    
+    const mock_clipboard_data = {
+      setData: (format, data) => {
+        if (format === 'text/html') {
+          copied_html = data;
+        } else if (format === 'text/plain') {
+          copied_text = data;
+        }
+      },
+      getData: (format) => {
+        if (format === 'text/html') {
+          return copied_html;
+        } else if (format === 'text/plain') {
+          return copied_text;
+        }
+        return '';
+      }
+    };
+
+    const copy_event = new ClipboardEvent('copy', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(copy_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
+    
     const svedit_element = container.querySelector('.svedit-canvas');
     // @ts-ignore
     svedit_element?.focus();
-
-    // Mock clipboard API to capture HTML format
-    let clipboard_data = /** @type {ClipboardItem | null} */ (null);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        write: async (items) => {
-          clipboard_data = items[0];
-        },
-        read: async () => {
-          return [clipboard_data];
-        }
-      }
-    });
 
     document.dispatchEvent(copy_event);
     await tick();
 
     // Verify clipboard data was captured
-    expect(clipboard_data).not.toBeNull();
+    expect(copied_html).not.toBe('');
 
     // Get the HTML content from clipboard
-    if (!clipboard_data) throw new Error('clipboard_data is null');
-    const html_blob = await (/** @type {ClipboardItem} */ (clipboard_data)).getType('text/html');
-    const html_content = await html_blob.text();
+    const html_content = copied_html;
 
     // Verify HTML contains svedit data marker
     expect(html_content).toContain('data-svedit=');
@@ -531,7 +583,16 @@ describe('Svedit.svelte', () => {
       focus_offset: 3
     };
 
-    const paste_event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    const paste_event = new ClipboardEvent('paste', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(paste_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
     document.dispatchEvent(paste_event);
     await tick();
     await new Promise(resolve => setTimeout(resolve, 20)); // Give time for async paste operation
@@ -586,8 +647,39 @@ describe('Svedit.svelte', () => {
       }
     });
 
-    // Copy the Unicode content
-    const copy_event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+    // Copy the Unicode content with mock clipboardData
+    let copied_html = '';
+    let copied_text = '';
+    
+    const mock_clipboard_data = {
+      setData: (format, data) => {
+        if (format === 'text/html') {
+          copied_html = data;
+        } else if (format === 'text/plain') {
+          copied_text = data;
+        }
+      },
+      getData: (format) => {
+        if (format === 'text/html') {
+          return copied_html;
+        } else if (format === 'text/plain') {
+          return copied_text;
+        }
+        return '';
+      }
+    };
+
+    const copy_event = new ClipboardEvent('copy', { 
+      bubbles: true, 
+      cancelable: true
+    });
+    
+    // Mock the clipboardData property
+    Object.defineProperty(copy_event, 'clipboardData', {
+      value: mock_clipboard_data,
+      writable: false
+    });
+    
     const svedit_element = container.querySelector('.svedit-canvas');
     // @ts-ignore
     svedit_element?.focus();
@@ -595,12 +687,10 @@ describe('Svedit.svelte', () => {
     await tick();
 
     // Verify clipboard data was captured
-    expect(clipboard_data).not.toBeNull();
+    expect(copied_html).not.toBe('');
 
-    // Get HTML content and verify Unicode data survives encoding/decoding
-    if (!clipboard_data) throw new Error('clipboard_data is null');
-    const html_blob = await (/** @type {ClipboardItem} */ (clipboard_data)).getType('text/html');
-    const html_content = await html_blob.text();
+    // Get HTML content and verify Unicode data survived
+    const html_content = copied_html;
 
     // Extract and decode the data using our extraction function
     const extract_svedit_data_from_html = (html) => {
