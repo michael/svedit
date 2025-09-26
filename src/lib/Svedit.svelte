@@ -381,9 +381,8 @@ ${fallback_html}`;
    * @param {Object} node - Node object
    * @returns {string} HTML representation
    */
-  function default_node_exporter(node) {
+  function default_node_html_exporter(node) {
     let html = '';
-    let has_content = false;
 
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
@@ -392,18 +391,30 @@ ${fallback_html}`;
       if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
         const text_content = prop_value.text;
         if (text_content.trim()) {
-          html += `<p>${text_content}</p>\n`;
-          has_content = true;
+          html += `<p>${text_content.trim()}</p>\n`;
         }
       }
     }
 
-    if (!has_content) {
-      // Generic fallback for unknown node types with no annotated_text content
-      html += `<div data-node-type="${node.type}">Content from ${node.type}</div>\n`;
+    return html;
+  }
+
+  function default_node_plain_text_exporter(node) {
+    let plain_text = '';
+
+    for (const [prop_name, prop_value] of Object.entries(node)) {
+      if (prop_name === 'id' || prop_name === 'type') continue;
+
+      // Check if this is an annotated_text property (object with text property)
+      if (typeof prop_value === 'object' && prop_value !== null && typeof prop_value.text === 'string') {
+        const text_content = prop_value.text;
+        if (text_content.trim()) {
+          plain_text += `${text_content.trim()}\n\n`;
+        }
+      }
     }
 
-    return html;
+    return plain_text;
   }
 
   /**
@@ -422,11 +433,19 @@ ${fallback_html}`;
         html += html_exporters[node.type](node, doc);
       } else {
         // Use default exporter
-        html += default_node_exporter(node);
+        html += default_node_html_exporter(node);
       }
     }
+    return html;
+  }
 
-    return html || '<p>Copied content</p>';
+  function export_plain_text(nodes) {
+    let plain_text = '';
+
+    for (const node of nodes) {
+      plain_text += default_node_plain_text_exporter(node);
+    }
+    return plain_text.trim();
   }
 
   /**
@@ -465,13 +484,13 @@ ${fallback_html}`;
     let plain_text, annotated_text, html;
 
     if (doc.selection?.type === 'text') {
-      // plain_text = doc.get_selected_plain_text();
+      plain_text = doc.get_selected_plain_text();
       annotated_text = doc.get_selected_annotated_text();
-      const fallback_html = `<span style="white-space:pre-wrap;">${annotated_text.text}</span>`;
+      const fallback_html = `<span>${annotated_text.text}</span>`;
 
       console.log('Text copy:', {
         annotated_text,
-        // plain_text,
+        plain_text,
         html,
       });
 
@@ -495,14 +514,8 @@ ${fallback_html}`;
 
       // Create HTML with embedded svedit data
       html = create_svedit_html_format(json_data, fallback_html);
-
-      // Create plain text representation
-      plain_text = selected_node_objects.map(node => {
-        if (node.type === 'story') {
-          return (node.title || 'Untitled Story') + (node.content ? '\n' + node.content : '');
-        }
-        return `Content from ${node.type}`;
-      }).join('\n\n');
+      // Generate plain text representation
+      plain_text = export_plain_text(selected_node_objects);
     } else if (doc.selection?.type === 'property') {
       const property_schema = doc.inspect(doc.selection.path);
       const value = doc.get(doc.selection.path);
