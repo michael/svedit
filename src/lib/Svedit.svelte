@@ -517,20 +517,14 @@ ${fallback_html}`;
       plain_text = String(value);
     }
 
-    // Create a ClipboardItem with multiple formats
-    const data = {
-      'text/plain': new Blob([plain_text || ''], {type: 'text/plain'}),
-      'text/html': new Blob([html || ''], {type: 'text/html'}),
-    };
-
-    const clipboard_item_raw = new ClipboardItem(data);
-
-    // Write to clipboard
-    navigator.clipboard.write([clipboard_item_raw]).then(() => {
+    // Write to clipboard using event.clipboardData
+    try {
+      event.clipboardData?.setData('text/plain', plain_text || '');
+      event.clipboardData?.setData('text/html', html || '');
       console.log('Data copied to clipboard successfully');
-    }).catch(err => {
+    } catch (err) {
       console.error('Failed to copy data: ', err);
-    });
+    }
 
     if (delete_selection) {
       doc.apply(doc.tr.delete_selection());
@@ -611,7 +605,9 @@ ${fallback_html}`;
 
     let plain_text, pasted_json, pasted_images = [];
 
-    for (const item of event.clipboardData.items) {
+    // NOTE: For some reason, await navigator.clipboard.read()
+    const clipboard_items =  event.clipboardData?.items || [];
+    for (const item of clipboard_items || []) {
       if (item.type.startsWith("image/")) {
         const blob = item.getAsFile();
         const data_url = URL.createObjectURL(blob);
@@ -631,21 +627,19 @@ ${fallback_html}`;
       // handled inside handle_image_paste already.
       if (!pasted_json) return;
     } else {
-      const clipboardItems = await navigator.clipboard.read();
-
       // First try to extract svedit data from HTML format
       try {
-        const html_blob = await clipboardItems[0].getType('text/html');
-        const html_content = await html_blob.text();
-        pasted_json = extract_svedit_data_from_html(html_content);
+        const html_content = event.clipboardData?.getData('text/html');
+        if (html_content) {
+          pasted_json = extract_svedit_data_from_html(html_content);
+        }
       } catch (e) {
         console.log('No HTML format available or failed to extract svedit data:', e);
         pasted_json = undefined;
       }
 
       try {
-        const plain_text_blob = await clipboardItems[0].getType('text/plain');
-        plain_text = await plain_text_blob.text();
+        plain_text = event.clipboardData?.getData('text/plain');
       } catch (e) {
         console.error('Failed to paste any content:', e);
       }
