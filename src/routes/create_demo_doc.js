@@ -484,67 +484,52 @@ const document_config = {
 
   // HTML exporters for different node types
   html_exporters: {
-    list: (node, doc) => {
-      let html = '<ul>\n';
-      for (const list_item_id of node.list_items) {
-        const list_item = doc.get(list_item_id);
-        html += `<li>${list_item.content.text}</li>\n`
-      }
-      return html += '</ul>';
-    },
-    story: (node) => {
-      let html = `<h1>${node.title.text}</h1>\n`;
 
-      if (node.description) {
-        html += `<p>${node.description.text}</p>\n`;
-      }
-
-      if (node.image) {
-        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 400px; height: auto; display: block;" />\n`;
-      }
-
-      return html;
-    },
-    text: (node) => {
-      return `<p style="white-space:pre-wrap;">${node.content.text}</p>\n`;
-    },
-    button: (node) => {
-      return `<a href="${node.href}" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">${node.label.text}</a>\n`;
-    },
     hero: (node) => {
       let html = '';
-
       if (node.title.text.trim()) {
         html += `<h1>${node.title.text}</h1>\n`;
       }
-
       if (node.description.text.trim()) {
         html += `<p>${node.description.text}</p>\n`;
       }
-
-      if (node.image) {
-        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 400px; height: auto;" />\n`;
-      }
-
       return html;
     },
-    image_grid: (node, doc) => {
-      let html = '<div class="image-grid">\n';
-      for (const image_grid_item_id of node.image_grid_items) {
-        const image_grid_item = doc.get(image_grid_item_id);
-        html += '<div class="image-grid-item">\n';
-        if (image_grid_item.image) {
-          html += `<img src="${image_grid_item.image}" alt="${image_grid_item.title.text}" style="max-width: 200px; height: auto;" />\n`;
-        }
-        if (image_grid_item.title.text.trim()) {
-          html += `<p>${image_grid_item.title.text}</p>\n`;
-        }
-        if (image_grid_item.description.text.trim()) {
-          html += `<p>${image_grid_item.description.text}</p>\n`;
-        }
-        html += '</div>\n';
+
+    list: (node, doc, html_exporters) => {
+      const { list_item } = html_exporters;
+      let html = '<ul>\n';
+      for (const list_item_id of node.list_items) {
+        html += list_item(doc.get(list_item_id), doc, html_exporters);
       }
-      return html += '</div>';
+      return html += '</ul>';
+    },
+    story: (node, doc, html_exporters) => {
+      const { button } = html_exporters;
+      let html = '';
+      if (node.image) {
+        html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 200px; height: auto;" />\n`;
+      }
+      html += `<h2>${node.title.text}</h2>\n`;
+      if (node.description) {
+        html += `<p>${node.description.text}</p>\n`;
+      }
+      for (const button_id of node.buttons) {
+        html += button(doc.get(button_id), doc, html_exporters);
+      }
+      return html;
+    },
+    text: (node) => {
+      const tag_name = {
+        1: 'p',
+        2: 'h2',
+        3: 'h3',
+        4: 'h4',
+      }[node.layout] ?? 'p';
+      return `<${tag_name}>${node.content.text}</${tag_name}>\n`;
+    },
+    button: (node) => {
+      return `<a href="${node.href}">${node.label.text}</a>\n`;
     },
     image_grid_item: (node) => {
       let html = '<div class="image-grid-item">\n';
@@ -552,7 +537,7 @@ const document_config = {
         html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 200px; height: auto;" />\n`;
       }
       if (node.title.text.trim()) {
-        html += `<p>${node.title.text}</p>\n`;
+        html += `<h3>${node.title.text}</h3>\n`;
       }
       if (node.description.text.trim()) {
         html += `<p>${node.description.text}</p>\n`;
