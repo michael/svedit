@@ -81,7 +81,7 @@
 	}
 
 	.hero :global(.hero-subtitle) {
-		font-size: 1.25rem;
+		font-size: 1.7rem;
 		line-height: 1.6;
 		opacity: 0.8;
 		color: white;
