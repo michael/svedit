@@ -244,7 +244,7 @@ const serialized_doc = [
     type: 'hero',
     layout: 1,
     title: {text: 'Svedit', annotations: []},
-    description: {text: 'A tiny library for building rich content editors with Svelte 5.', annotations: []},
+    description: {text: 'A tiny library for building editable websites in Svelte.', annotations: []},
     image: '',
   },
   {
