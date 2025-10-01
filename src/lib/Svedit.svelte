@@ -1,7 +1,7 @@
 <script>
   import { setContext } from 'svelte';
   import { snake_to_pascal, get_char_length, utf16_to_char_offset, char_to_utf16_offset, get_char_at, char_slice } from './util.js';
-  import { break_text_node, join_text_node, insert_default_node, select_all } from './commands.svelte.js';
+  import { break_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
   /** @import {
    *   SveditProps,
@@ -192,61 +192,16 @@
     }
 
     if (event.inputType === 'deleteContentBackward') {
-      if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === 0 && doc.selection?.focus_offset === 0) {
-        const tr = doc.tr;
-        join_text_node(tr);
-        doc.apply(tr);
-      } else {
-        doc.apply(doc.tr.delete_selection());
-      }
-
+      doc.apply(doc.tr.delete_selection('backward'));
       event.preventDefault();
       event.stopPropagation();
     }
 
     if (event.inputType === 'deleteContentForward') {
-      // Forward delete: only handle collapsed text selections
-      if (doc.selection?.type === 'text' && doc.selection?.anchor_offset === doc.selection?.focus_offset) {
-        const text_content = doc.get(doc.selection.path).text;
-        const text_length = get_char_length(text_content);
-
-        if (doc.selection.focus_offset < text_length) {
-          // There's a character after the cursor - select and delete it
-          const tr = doc.tr;
-          tr.set_selection({
-            type: 'text',
-            path: [...doc.selection.path],
-            anchor_offset: doc.selection.focus_offset,
-            focus_offset: doc.selection.focus_offset + 1
-          });
-          tr.delete_selection();
-          doc.apply(tr);
-        } else {
-          // At end of text - try to join with next text node
-          const tr = doc.tr;
-          const node_index = parseInt(String(doc.selection.path.at(-2)), 10);
-          const successor_node = doc.get([...doc.selection.path.slice(0, -2), node_index + 1]);
-
-          // Check if next node is a text node
-          if (successor_node && doc.kind(successor_node) === 'text') {
-            // Set selection to beginning of next text node
-            tr.set_selection({
-              type: 'text',
-              path: [...doc.selection.path.slice(0, -2), node_index + 1, 'content'],
-              anchor_offset: 0,
-              focus_offset: 0
-            });
-            // Use join_text_node to merge with previous
-            join_text_node(tr);
-            doc.apply(tr);
-          }
-        }
-      }
-
+      doc.apply(doc.tr.delete_selection('forward'));
       event.preventDefault();
       event.stopPropagation();
     }
-
 
     // We remember the "input selection", because in some mobile browsers (Samsung Android) the onbeforeinput event
     // is fired on a different selection than the input event.

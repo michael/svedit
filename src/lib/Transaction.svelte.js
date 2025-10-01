@@ -3,6 +3,7 @@
  */
 
 import { get_char_length, char_slice, traverse } from './util.js';
+import { join_text_node } from './commands.svelte.js';
 
 /**
  * Transaction class for managing atomic document operations with undo/redo support.
@@ -291,11 +292,11 @@ export default class Transaction {
    * Behavior depends on selection type:
    * - For node selections: Removes selected nodes and cascades deletion of unreferenced nodes
    * - For text selections: Removes selected text and adjusts annotations accordingly
-   * - For collapsed selections: Deletes the previous character/node
+   * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
    *
    * @returns {Transaction} This transaction instance for method chaining
    */
-  delete_selection() {
+  delete_selection(direction = 'backward') {
     if (!this.doc.selection) return this;
     const path = this.doc.selection.path;
 
@@ -307,13 +308,43 @@ export default class Transaction {
     // Get the start and end indices for the selection
     let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
     let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
+    let length;
 
-    // If selection is collapsed we delete the previous node
+    if (this.doc.selection?.type === 'text') {
+      const text_content = this.doc.get(this.doc.selection.path).text;
+      length = get_char_length(text_content);
+    } else if (this.doc.selection?.type === 'node') {
+      const node_array = this.doc.get(this.doc.selection.path);
+      length = node_array.length;
+    }
+
+    // If selection is collapsed we delete the previous char/node (backward)
+    // or the next char/node (forward)
     if (start === end) {
-      if (start > 0) {
+      if (direction === 'backward' && start > 0) {
         start = start - 1;
-      } else {
-        return this; // cursor is at the very beginning, do nothing.
+      } else if (direction === 'forward' && end < length) {
+        end = end + 1;
+      } else if (direction === 'backward' && start === 0) {
+        join_text_node(this);
+        return this;
+      } else if (direction === 'forward' && end === length) {
+        // At end of text - try to join with next text node
+        const node_index = parseInt(String(this.doc.selection.path.at(-2)), 10);
+        const successor_node = this.doc.get([...this.doc.selection.path.slice(0, -2), node_index + 1]);
+        // Check if next node is a text node
+        if (successor_node && this.doc.kind(successor_node) === 'text') {
+          // Set selection to beginning of next text node
+          this.set_selection({
+            type: 'text',
+            path: [...this.doc.selection.path.slice(0, -2), node_index + 1, 'content'],
+            anchor_offset: 0,
+            focus_offset: 0
+          });
+          // Use join_text_node to merge with previous node
+          join_text_node(this);
+        }
+        return this;
       }
     }
 
