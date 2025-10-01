@@ -267,19 +267,3 @@ export function traverse(node_id, schema, nodes) {
   visit(nodes[node_id]);
   return json;
 }
-
-// export function get_default_value_for_type(type) {
-//   if (type === 'string') {
-//     return '';
-//   } else if (type === 'integer') {
-//     return 0;
-//   } else if (type === 'number') {
-//     return 0;
-//   } else if (type === 'boolean') {
-//     return false;
-//   } else if (['number_array', 'string_array', 'node_array', 'integer_array'].includes(type)) {
-//     return [];
-//   } else if (type === 'annotated_text') {
-//     return { text: '', annotations: [] };
-//   }
-// }
