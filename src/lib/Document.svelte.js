@@ -312,8 +312,8 @@ export default class Document {
  	get_available_annotation_types() {
     if (this.selection?.type !== 'text') return [];
     const path = this.selection.path;
-    const property_schema = this.inspect(path);
-    return property_schema.node_types || [];
+    const property_definition = this.inspect(path);
+    return property_definition.node_types || [];
 	}
 
  	// Helper function to get the currently selected node
@@ -605,8 +605,8 @@ export default class Document {
    */
   can_insert(node_type, selection = this.selection) {
     if (selection?.type === 'node') {
-      const property_schema = this.inspect(selection.path);
-      if (property_schema.node_types.includes(node_type)) {
+      const property_definition = this.inspect(selection.path);
+      if (property_definition.node_types.includes(node_type)) {
         return true;
       }
     }

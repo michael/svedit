@@ -117,7 +117,7 @@ export function join_text_node(tr) {
   });
 
   tr.delete_selection();
-  
+
   // Finally set the cursor position at the join point using the pre-calculated position
   tr.set_selection({
     type: 'text',
@@ -144,11 +144,6 @@ export function insert_default_node(tr) {
   // Get the definition for this property
   const property_definition = doc.schema[node_array_node.type].properties[property_name];
   const default_type = get_default_node_type(property_definition);
-
-  // Only proceed if there's exactly one allowed node_type
-  // if (!default_type || property_schema.node_types.length !== 1) {
-  //   return false;
-  // }
 
   // Use the inserter function if available
   if (doc.config?.inserters?.[default_type]) {

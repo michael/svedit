@@ -102,10 +102,10 @@
 		if (!node_schema) return [];
 
 		// Get property schema
-		const property_schema = node_schema.properties[node_array_property];
-		if (property_schema?.type !== 'node_array') return [];
+		const property_definition = node_schema.properties[node_array_property];
+		if (property_definition?.type !== 'node_array') return [];
 
-		return property_schema.node_types || [];
+		return property_definition.node_types || [];
 	});
 
 	// Function to insert node (always inserts paragraph for now, ignoring node_type)

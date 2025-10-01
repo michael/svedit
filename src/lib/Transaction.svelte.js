@@ -109,8 +109,8 @@ export default class Transaction {
       const node_schema = this.doc.schema[node.type];
 
       // Update all property references to use new IDs
-      for (const [property_name, property_schema] of Object.entries(node_schema.properties)) {
-        const property_type = property_schema.type;
+      for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
+        const property_type = property_definition.type;
         const value = node[property_name];
 
         // Apply default values
@@ -131,17 +131,17 @@ export default class Transaction {
             new_node[property_name] = {text: '', annotations: []};
           }
         } else if (property_type === 'string') {
-          new_node[property_name] = value ?? property_schema.default ?? '';
+          new_node[property_name] = value ?? property_definition.default ?? '';
         } else if (property_type === 'integer') {
-          new_node[property_name] = value ?? property_schema.default ?? 0;
+          new_node[property_name] = value ?? property_definition.default ?? 0;
         } else if (property_type === 'number') {
-          new_node[property_name] = value ?? property_schema.default ?? 0;
+          new_node[property_name] = value ?? property_definition.default ?? 0;
         } else if (property_type === 'boolean') {
-          new_node[property_name] = value ?? property_schema.default ?? false;
+          new_node[property_name] = value ?? property_definition.default ?? false;
         } else if (['integer_array', 'number_array'].includes(property_type)) {
-          new_node[property_name] = value ?? property_schema.default ?? [];
+          new_node[property_name] = value ?? property_definition.default ?? [];
         } else if (property_type === 'string_array') {
-          new_node[property_name] = value ?? property_schema.default ?? [];
+          new_node[property_name] = value ?? property_definition.default ?? [];
         }
       }
 
@@ -576,10 +576,10 @@ export default class Transaction {
     if (!this.doc.active_annotation() && annotations.length > 0) {
       const new_annotations = annotations.map(annotation => {
         const original_annotation_node = nodes[annotation.node_id];
-        const text_property_schema = this.doc.inspect(this.doc.selection.path);
+        const text_property_definition = this.doc.inspect(this.doc.selection.path);
         // console.log('original_annotation_node.type', original_annotation_node.type);
-        // console.log('text_property_schema', text_property_schema);
-        if (text_property_schema.node_types.includes(original_annotation_node.type)) {
+        // console.log('text_property_definition', text_property_definition);
+        if (text_property_definition.node_types.includes(original_annotation_node.type)) {
           const new_annotation_node_id = this.build(annotation.node_id, nodes);
           return {
             start_offset: start + annotation.start_offset,

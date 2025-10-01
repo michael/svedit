@@ -243,17 +243,17 @@ export function traverse(node_id, schema, nodes) {
     }
     visited[node.id] = true;
     for (const [property_name, value] of Object.entries(node)) {
-      const property_schema = schema[node.type].properties[property_name];
+      const property_definition = schema[node.type].properties[property_name];
 
-      if (property_schema?.type === 'node_array') {
+      if (property_definition?.type === 'node_array') {
         for (const v of value) {
           if (typeof v === 'string') {
             visit(nodes[v]);
           }
         }
-      } else if (property_schema?.type === 'node') {
+      } else if (property_definition?.type === 'node') {
         visit(nodes[value]);
-      } else if (property_schema?.type === 'annotated_text') {
+      } else if (property_definition?.type === 'annotated_text') {
         for (const annotation of value.annotations) {
           visit(nodes[annotation.node_id]);
         }

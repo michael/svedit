@@ -342,14 +342,14 @@ ${fallback_html}`;
 
     for (const [prop_name, prop_value] of Object.entries(node)) {
       if (prop_name === 'id' || prop_name === 'type') continue;
-      const property_schema = node_schema.properties[prop_name];
+      const property_definition = node_schema.properties[prop_name];
       // Check if this is an annotated_text property (object with text property)
-      if (property_schema.type === 'annotated_text') {
+      if (property_definition.type === 'annotated_text') {
         const text_content = prop_value.text;
         if (text_content.trim()) {
           html += `<p>${text_content.trim()}</p>\n`;
         }
-      } else if (property_schema.type === 'node_array') {
+      } else if (property_definition.type === 'node_array') {
         for (const child_id of prop_value) {
           const child = doc.get(child_id);
           const child_exporter = html_exporters[child.type] || default_node_html_exporter;
@@ -479,12 +479,12 @@ ${fallback_html}`;
       // Generate plain text representation
       plain_text = export_plain_text(selected_node_objects);
     } else if (doc.selection?.type === 'property') {
-      const property_schema = doc.inspect(doc.selection.path);
+      const property_definition = doc.inspect(doc.selection.path);
       const value = doc.get(doc.selection.path);
       const json_data = {
         kind: 'property',
-        name: property_schema.name,
-        type: property_schema.type,
+        name: property_definition.name,
+        type: property_definition.type,
         value,
       };
       console.log('Property copy:', json_data);
@@ -529,14 +529,14 @@ ${fallback_html}`;
     }
 
     // We can safely assume we're dealing with a node_array property
-    const property_schema = doc.inspect(tr.selection.path);
-    const first_compatible_text_node_type = property_schema.node_types.find(type => doc.kind({ type }) === 'text');
+    const property_definition = doc.inspect(tr.selection.path);
+    const first_compatible_text_node_type = property_definition.node_types.find(type => doc.kind({ type }) === 'text');
 
     const nodes_to_insert = [];
     let rejected = false;
     for (const node_id of main_nodes) {
       const node = nodes[node_id];
-      if (!property_schema.node_types.includes(node.type)) {
+      if (!property_definition.node_types.includes(node.type)) {
         // Incompatible node type detected
         if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
           const new_node_id = tr.build('the_node', {
@@ -548,7 +548,7 @@ ${fallback_html}`;
           });
           nodes_to_insert.push(new_node_id);
         } else {
-          console.log(`rejected ${node.type}. Only ${property_schema.node_types.join(', ')} allowed.`);
+          console.log(`rejected ${node.type}. Only ${property_definition.node_types.join(', ')} allowed.`);
           rejected = true;
           break;
         }
@@ -647,8 +647,8 @@ ${fallback_html}`;
       // Paste nodes at a node selection
       try_node_paste(pasted_json);
     } else if (pasted_json?.kind === 'property' && doc.selection?.type === 'property') {
-      const property_schema = doc.inspect(doc.selection.path);
-      if (property_schema.type === pasted_json.type) {
+      const property_definition = doc.inspect(doc.selection.path);
+      if (property_definition.type === pasted_json.type) {
         doc.apply(doc.tr.set(doc.selection.path, pasted_json.value));
       }
     } else if (doc.selection?.type === 'text' && pasted_json?.text) {

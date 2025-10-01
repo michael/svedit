@@ -451,8 +451,8 @@ const document_config = {
     // before referencing them from the document.
 
     if (doc.selection.type === 'property') {
-      const property_schema = doc.inspect(doc.selection.path);
-      if (property_schema.name === 'image') {
+      const property_definition = doc.inspect(doc.selection.path);
+      if (property_definition.name === 'image') {
         const tr = doc.tr;
         tr.set(doc.selection.path, pasted_images[0].data_url);
         doc.apply(tr);
