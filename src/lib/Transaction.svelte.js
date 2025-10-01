@@ -294,6 +294,7 @@ export default class Transaction {
    * - For text selections: Removes selected text and adjusts annotations accordingly
    * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
    *
+   * @param {'backward' | 'forward'} [direction] - Direction of deletion for collapsed selections
    * @returns {Transaction} This transaction instance for method chaining
    */
   delete_selection(direction = 'backward') {
