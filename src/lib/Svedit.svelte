@@ -643,6 +643,9 @@ ${fallback_html}`;
       }
     }
 
+    console.log('plain_text', plain_text);
+    console.log('pasted_json', pasted_json);
+
     if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
       // Paste nodes at a node selection
       try_node_paste(pasted_json);
