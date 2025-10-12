@@ -44,7 +44,6 @@
 		position: relative;
 		cursor: pointer;
 		z-index: 20;
-		overflow:hidden;
 	}
 
 	.node-cursor {
@@ -74,6 +73,10 @@
   		right: 0;
   		height: 12px;
   	}
+
+   .cursor-trap .svedit-selectable {
+			height: 12px;
+		}
 
    .node-cursor {
   		height: 4px;
