@@ -674,13 +674,13 @@ ${fallback_html}`;
       }
       e.preventDefault();
     } else if (
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && doc.layout_node) ||
-      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node  )
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey) ||
+      (e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey  )
     ) {
-      const node = doc.layout_node;
       if (doc.selection.type !== 'node') {
         doc.select_parent();
       }
+      const node = doc.selected_node;
       const old_selection = { ...doc.selection };
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
@@ -694,13 +694,13 @@ ${fallback_html}`;
       doc.apply(tr);
       e.preventDefault();
     } else if (
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && doc.layout_node) ||
-      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey) ||
+      (e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey)
     ) {
-      const node = doc.layout_node;
       if (doc.selection.type !== 'node') {
         doc.select_parent();
       }
+      const node = doc.selected_node;
       const old_selection = { ...doc.selection };
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
