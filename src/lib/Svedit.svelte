@@ -1175,8 +1175,13 @@ ${fallback_html}`;
         }
         current_offset += nodeCharLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const childNode of node.childNodes) {
-          processNode(childNode);
+       	if (node.dataset.annotationType === 'inline') {
+        	console.log('YOYO');
+       		current_offset += 1;
+        } else {
+	       	for (const childNode of node.childNodes) {
+		        processNode(childNode);
+		      }
         }
       }
       return (focus_offset !== 0);
