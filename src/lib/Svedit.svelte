@@ -1417,43 +1417,55 @@ ${fallback_html}`;
           
           if (is_backward) {
             // For backward selection, check focus_node first (start_offset)
-            if (!focus_node && current_offset === start_offset) {
-              // Selection starts before the inline node
-              focus_node = parent;
-              focus_node_offset = indexInParent;
-            }
-            if (!anchor_node && current_offset + 1 >= end_offset) {
-              // Selection ends at or after the inline node
-              if (current_offset === end_offset) {
-                // Ends before the inline node
-                anchor_node = parent;
-                anchor_node_offset = indexInParent;
-              } else {
-                // Ends after the inline node
-                anchor_node = parent;
-                anchor_node_offset = indexInParent + 1;
-              }
-              return true; // Stop iteration
-            }
-          } else {
-            // For forward selection, check anchor_node first (start_offset)
-            if (!anchor_node && current_offset === start_offset) {
-              // Selection starts before the inline node
-              anchor_node = parent;
-              anchor_node_offset = indexInParent;
-            }
-            if (!focus_node && current_offset + 1 >= end_offset) {
-              // Selection ends at or after the inline node
-              if (current_offset === end_offset) {
-                // Ends before the inline node
+            if (!focus_node) {
+              if (current_offset === start_offset) {
+                // Selection starts before the inline node
                 focus_node = parent;
                 focus_node_offset = indexInParent;
-              } else {
-                // Ends after the inline node
+              } else if (current_offset + 1 === start_offset) {
+                // Selection starts after the inline node
                 focus_node = parent;
                 focus_node_offset = indexInParent + 1;
               }
-              return true; // Stop iteration
+            }
+            if (!anchor_node) {
+              if (current_offset === end_offset) {
+                // Selection ends before the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent;
+                return true; // Stop iteration
+              } else if (current_offset + 1 === end_offset) {
+                // Selection ends after the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent + 1;
+                return true; // Stop iteration
+              }
+            }
+          } else {
+            // For forward selection, check anchor_node first (start_offset)
+            if (!anchor_node) {
+              if (current_offset === start_offset) {
+                // Selection starts before the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent;
+              } else if (current_offset + 1 === start_offset) {
+                // Selection starts after the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent + 1;
+              }
+            }
+            if (!focus_node) {
+              if (current_offset === end_offset) {
+                // Selection ends before the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent;
+                return true; // Stop iteration
+              } else if (current_offset + 1 === end_offset) {
+                // Selection ends after the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent + 1;
+                return true; // Stop iteration
+              }
             }
           }
           
