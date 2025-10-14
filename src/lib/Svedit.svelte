@@ -1374,7 +1374,7 @@ ${fallback_html}`;
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
 
     // Helper function to process each node
-    function process_node(node) {
+    function process_node(node, parent = null, indexInParent = -1) {
       if (node.nodeType === Node.TEXT_NODE) {
         const node_text = node.textContent;
         const node_char_length = get_char_length(node_text);
@@ -1411,8 +1411,57 @@ ${fallback_html}`;
         }
         current_offset += node_char_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const child_node of node.childNodes) {
-          if (process_node(child_node)) return true; // Stop iteration if end found
+        if (node.dataset.annotationType === 'inline') {
+          // Inline node is treated as a single character
+          // Check if selection boundaries fall on this inline node
+          
+          if (is_backward) {
+            // For backward selection, check focus_node first (start_offset)
+            if (!focus_node && current_offset === start_offset) {
+              // Selection starts before the inline node
+              focus_node = parent;
+              focus_node_offset = indexInParent;
+            }
+            if (!anchor_node && current_offset + 1 >= end_offset) {
+              // Selection ends at or after the inline node
+              if (current_offset === end_offset) {
+                // Ends before the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent;
+              } else {
+                // Ends after the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent + 1;
+              }
+              return true; // Stop iteration
+            }
+          } else {
+            // For forward selection, check anchor_node first (start_offset)
+            if (!anchor_node && current_offset === start_offset) {
+              // Selection starts before the inline node
+              anchor_node = parent;
+              anchor_node_offset = indexInParent;
+            }
+            if (!focus_node && current_offset + 1 >= end_offset) {
+              // Selection ends at or after the inline node
+              if (current_offset === end_offset) {
+                // Ends before the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent;
+              } else {
+                // Ends after the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent + 1;
+              }
+              return true; // Stop iteration
+            }
+          }
+          
+          current_offset += 1;
+        } else {
+          for (let i = 0; i < node.childNodes.length; i++) {
+            if (process_node(node.childNodes[i], node, i)) return true; // Stop iteration if end found
+          }
         }
       }
       return false; // Continue iteration
@@ -1428,8 +1477,8 @@ ${fallback_html}`;
       focus_node_offset = 1;
     } else {
       // DEFAULT CASE
-      for (const child_node of el.childNodes) {
-        if (process_node(child_node)) break;
+      for (let i = 0; i < el.childNodes.length; i++) {
+        if (process_node(el.childNodes[i], el, i)) break;
       }
     }
 
