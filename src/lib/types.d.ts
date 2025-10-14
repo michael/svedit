@@ -173,7 +173,7 @@ export type TextNodeSchema = {
  * Schema for non-text nodes
  */
 export type NonTextNodeSchema = {
-  kind: 'document' | 'block' | 'annotation';
+  kind: 'document' | 'block' | 'annotation' | 'inline';
   properties: Record<string, PropertyDefinition>;
 };
 

@@ -15,6 +15,7 @@ import ListItem from './components/ListItem.svelte';
 import ImageGrid from './components/ImageGrid.svelte';
 import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
+import Dino from './components/Dino.svelte';
 import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
 import Highlight from './components/Highlight.svelte';
@@ -155,6 +156,12 @@ const document_schema = define_document_schema({
       layout: { type: 'integer', default: 1 },
     }
   },
+  dino: {
+    kind: 'inline',
+    properties: {
+      kind: { type: 'string' }
+    }
+  },
   link: {
     kind: 'annotation',
     properties: {
@@ -193,6 +200,7 @@ const list_item_1_id = 'list_item_1';
 const list_item_2_id = 'list_item_2';
 const list_item_3_id = 'list_item_3';
 const list_item_4_id = 'list_item_4';
+const dino_1_id = 'dino_1';
 const emphasis_1_id = 'emphasis_1';
 const link_1_id = 'link_1';
 const link_2_id = 'link_2';
@@ -210,6 +218,11 @@ const image_grid_item_5_id = 'image_grid_item_5';
 const image_grid_item_6_id = 'image_grid_item_6';
 
 const serialized_doc = [
+	{
+    id: dino_1_id,
+    type: 'dino',
+    kind: 'tyrannosaurus'
+  },
   {
     id: emphasis_1_id,
     type: 'emphasis',
@@ -251,7 +264,16 @@ const serialized_doc = [
     id: heading_1_id,
     type: 'text',
     layout: 2,
-    content: {text: 'Text and structured content in symbiosis', annotations: []}
+    content: {
+	    text: 'Text and structured content in symbiosis',
+	    annotations: [
+		    {
+		      "start_offset": 3,
+		      "end_offset": 4,
+		      "node_id": dino_1_id
+		    }
+	    ]
+    }
   },
   {
     id: paragraph_1_id,
@@ -441,6 +463,7 @@ const document_config = {
     ImageGrid,
     ImageGridItem,
     Hero,
+    Dino,
     Strong,
     Emphasis,
     Highlight,
