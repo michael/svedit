@@ -1159,7 +1159,7 @@ ${fallback_html}`;
     let focus_offset = 0;
     let current_offset = 0;
 
-    function processNode(node) {
+    function processNode(node, parent = null, indexInParent = -1) {
       if (node.nodeType === Node.TEXT_NODE) {
         const nodeText = node.textContent;
         const nodeCharLength = get_char_length(nodeText);
@@ -1176,11 +1176,42 @@ ${fallback_html}`;
         current_offset += nodeCharLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
        	if (node.dataset.annotationType === 'inline') {
-        	console.log('YOYO');
+       		// Inline node is treated as a single character
+       		// Check if selection boundaries are related to this inline node
+       		
+       		// Case 1: startContainer is the parent and startOffset points to this node
+       		if (range.startContainer === parent && range.startOffset === indexInParent) {
+       			anchor_offset = current_offset;
+       		}
+       		// Case 2: endContainer is the parent and endOffset points to this node
+       		if (range.endContainer === parent && range.endOffset === indexInParent) {
+       			focus_offset = current_offset;
+       		}
+       		// Case 3: startContainer is the parent and startOffset points after this node
+       		if (range.startContainer === parent && range.startOffset === indexInParent + 1) {
+       			anchor_offset = current_offset + 1;
+       		}
+       		// Case 4: endContainer is the parent and endOffset points after this node
+       		if (range.endContainer === parent && range.endOffset === indexInParent + 1) {
+       			focus_offset = current_offset + 1;
+       		}
+       		// Case 5: startContainer is the inline node itself or a child
+       		if (range.startContainer === node || node.contains(range.startContainer)) {
+       			// If offset is 0 or at the start, position before the inline node
+       			// Otherwise position after it
+       			anchor_offset = range.startOffset === 0 ? current_offset : current_offset + 1;
+       		}
+       		// Case 6: endContainer is the inline node itself or a child
+       		if (range.endContainer === node || node.contains(range.endContainer)) {
+       			// If offset is 0 or at the start, position before the inline node
+       			// Otherwise position after it
+       			focus_offset = range.endOffset === 0 ? current_offset : current_offset + 1;
+       		}
+       		
        		current_offset += 1;
         } else {
-	       	for (const childNode of node.childNodes) {
-		        processNode(childNode);
+	       	for (let i = 0; i < node.childNodes.length; i++) {
+		        processNode(node.childNodes[i], node, i);
 		      }
         }
       }
@@ -1188,8 +1219,8 @@ ${fallback_html}`;
     }
 
     // Process nodes to find offsets
-    for (const childNode of focus_root.childNodes) {
-      if (processNode(childNode)) break;
+    for (let i = 0; i < focus_root.childNodes.length; i++) {
+      if (processNode(focus_root.childNodes[i], focus_root, i)) break;
     }
 
     // Check if it's a backward selection
