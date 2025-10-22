@@ -17,6 +17,9 @@ import { char_slice, get_char_length, traverse } from './util.js';
  * } from './types.d.ts';
  */
 
+
+const BATCH_WINDOW_MS = 1000; // 1 second
+
 /**
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
@@ -184,6 +187,7 @@ export default class Document {
   nodes = $state();
   history = $state([]);
   history_index = $state(-1);
+  last_batch_started = undefined; // Timestamp for debounced batching
 
   // Reactive helpers for UI state
   can_undo = $derived(this.history_index >= 0);
@@ -400,11 +404,13 @@ export default class Document {
 
   /**
    * Applies a transaction to the document.
-   * Auto-batches history entries within a 3-second window, if batch param is true
+   * Auto-batches history entries with debounced behavior (max one entry per 2 seconds) when batch is true.
    *
    * @param {Transaction} transaction - The transaction to apply
+   * @param {object} [options] - Optional configuration
+   * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
    */
-  apply(transaction, { batch } = { batch: false }) {
+  apply(transaction, { batch = false } = {}) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
     // Make sure selection gets a new reference (is rerendered)
     this.selection = { ...transaction.doc.selection };
@@ -413,30 +419,32 @@ export default class Document {
     }
 
     const now = Date.now();
-    const BATCH_WINDOW_MS = 2000; // 3 seconds
-    const last_entry = this.history[this.history_index];
-    const should_batch = batch && last_entry &&
-                        last_entry.timestamp &&
-                        (now - last_entry.timestamp) < BATCH_WINDOW_MS;
+
+    const should_batch = batch &&
+                        this.last_batch_started !== undefined &&
+                        (now - this.last_batch_started) < BATCH_WINDOW_MS;
 
     if (should_batch) {
-			console.log('batching...');
-      // Append to existing history entry
+      // Append to existing history entry (within 2s of batch start)
+      const last_entry = this.history[this.history_index];
       last_entry.ops.push(...transaction.ops);
       last_entry.inverse_ops.push(...transaction.inverse_ops);
       last_entry.selection_after = this.selection;
-      last_entry.timestamp = now;
     } else {
-    	console.log('new history entry...');
-      // Create new history entry
+      // Create new history entry (more than 2s since batch started, or first edit, or batch not requested)
       this.history.push({
         ops: transaction.ops,
         inverse_ops: transaction.inverse_ops,
         selection_before: transaction.selection_before,
-        selection_after: this.selection,
-        timestamp: now
+        selection_after: this.selection
       });
       this.history_index++;
+      // Only set last_batch_started if batching was requested
+      if (batch) {
+        this.last_batch_started = now;
+      } else {
+        this.last_batch_started = undefined;
+      }
     }
 
     return this;
