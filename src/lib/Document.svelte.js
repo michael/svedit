@@ -400,23 +400,44 @@ export default class Document {
 
   /**
    * Applies a transaction to the document.
+   * Auto-batches history entries within a 3-second window, if batch param is true
    *
    * @param {Transaction} transaction - The transaction to apply
    */
-  apply(transaction) {
+  apply(transaction, { batch } = { batch: false }) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
     // Make sure selection gets a new reference (is rerendered)
     this.selection = { ...transaction.doc.selection };
     if (this.history_index < this.history.length - 1) {
       this.history = this.history.slice(0, this.history_index + 1);
     }
-    this.history.push({
-      ops: transaction.ops,
-      inverse_ops: transaction.inverse_ops,
-      selection_before: transaction.selection_before,
-      selection_after: this.selection
-    });
-    this.history_index++;
+
+    const now = Date.now();
+    const BATCH_WINDOW_MS = 2000; // 3 seconds
+    const last_entry = this.history[this.history_index];
+    const should_batch = batch && last_entry &&
+                        last_entry.timestamp &&
+                        (now - last_entry.timestamp) < BATCH_WINDOW_MS;
+
+    if (should_batch) {
+			console.log('batching...');
+      // Append to existing history entry
+      last_entry.ops.push(...transaction.ops);
+      last_entry.inverse_ops.push(...transaction.inverse_ops);
+      last_entry.selection_after = this.selection;
+      last_entry.timestamp = now;
+    } else {
+    	console.log('new history entry...');
+      // Create new history entry
+      this.history.push({
+        ops: transaction.ops,
+        inverse_ops: transaction.inverse_ops,
+        selection_before: transaction.selection_before,
+        selection_after: this.selection,
+        timestamp: now
+      });
+      this.history_index++;
+    }
 
     return this;
   }

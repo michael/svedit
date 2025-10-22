@@ -269,7 +269,7 @@
 
     const tr = doc.tr;
     tr.insert_text(inserted_text);
-    doc.apply(tr);
+    doc.apply(tr, { batch: true });
     input_selection = undefined;
     event.preventDefault();
   }
