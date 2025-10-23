@@ -652,7 +652,21 @@ ${fallback_html}`;
     } else if (pasted_json?.kind === 'property' && doc.selection?.type === 'property') {
       const property_definition = doc.inspect(doc.selection.path);
       if (property_definition.type === pasted_json.type) {
-        doc.apply(doc.tr.set(doc.selection.path, pasted_json.value));
+
+        if (property_definition.type === 'node') {
+          const tr = doc.tr;
+          const new_id = tr.build('some_new_node_id', {
+            some_new_node_id: {
+            	...pasted_json.value,
+             id: 'some_new_node_id'
+            }
+          });
+          tr.set(doc.selection.path, new_id);
+          doc.apply(tr);
+        } else {
+        	// we assume that we have a value type for the property (string, number)
+        	doc.apply(doc.tr.set(doc.selection.path, pasted_json.value));
+        }
       }
     } else if (doc.selection?.type === 'text' && pasted_json?.text) {
       // Paste text at a text selection
