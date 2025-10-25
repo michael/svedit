@@ -11,13 +11,14 @@
   /** @type {NodeArrayPropertyProps} */
   let {
     path,
+    tag = 'div',
     class: css_class,
   } = $props();
 
   let nodes = $derived(svedit.doc.get(path).map(/** @param {string} node_id */ (node_id) => svedit.doc.get(node_id)));
 </script>
 
-<div class={css_class} data-type="node_array" data-path={path.join('.')}>
+<svelte:element this={tag} class={css_class} data-type="node_array" data-path={path.join('.')}>
   {#if nodes.length === 0 && svedit.editable}
     <!--
     Experimental: We'll let .empty-node-array act like a node, so the existing
@@ -42,4 +43,4 @@
       <UnknownNode path={[...path, index]} />
     {/if}
   {/each}
-</div>
+</svelte:element>

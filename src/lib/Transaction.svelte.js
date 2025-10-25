@@ -87,10 +87,28 @@ export default class Transaction {
     }
     const previous_value = structuredClone($state.snapshot(node[property_key]));
 
+    // Collect node IDs that might need to be deleted after the set operation
+    const prop_type = this.doc.property_type(node.type, property_key);
+    /** @type {NodeId[]} */
+    let removed_node_ids = [];
+
+    if (prop_type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
+      removed_node_ids = [previous_value];
+    } else if (prop_type === 'node_array' && Array.isArray(previous_value) && Array.isArray(value)) {
+      // Only include node IDs that were in previous_value but are not in the new value
+      removed_node_ids = previous_value.filter(id => !value.includes(id));
+    }
+
     const op = ['set', normalized_path, value];
     this.ops.push(op);
     this.inverse_ops.push(['set', path, previous_value]);
     this.doc._apply_op(op);
+
+    // Cascade delete any nodes that are no longer referenced
+    if (removed_node_ids.length > 0) {
+      this._cascade_delete_unreferenced_nodes(removed_node_ids);
+    }
+
     return this;
   }
 
@@ -200,10 +218,16 @@ export default class Transaction {
    */
   delete(id) {
     const previous_value = $state.snapshot(this.doc.get(id));
+    // Get nodes referenced by this node BEFORE deleting it
+    // const referenced_nodes = this.doc.get_referenced_nodes(id);
     const op = ['delete', id];
     this.ops.push(op);
     this.inverse_ops.push(['create', previous_value]);
     this.doc._apply_op(op);
+    // Check if the nodes that were referenced by the deleted node are now orphaned
+    // NOTE: We don't do this yet, because we still have some manual child node removal code
+    // that causes errors. But we should soon implement this only here.
+    // this._cascade_delete_unreferenced_nodes(referenced_nodes);
     return this;
   }
 
@@ -302,7 +326,10 @@ export default class Transaction {
     const path = this.doc.selection.path;
 
     if (this.doc.selection.type === 'property') {
-      this.set(path, '');
+			const node = this.doc.get(path);
+			if (node.type === 'image') {
+				this.set([...path, 'src'], '');
+			}
       return this;
     }
 
@@ -352,17 +379,12 @@ export default class Transaction {
     if (this.doc.selection.type === 'node') {
       const node_array = [...this.doc.get(path)];
 
-      // Get the node IDs that will be removed
-      const removed_node_ids = node_array.slice(start, end);
-
       // Remove the selected nodes from the node_array
       node_array.splice(start, end - start);
 
       // Update the node_array in the entry (this implicitly records an op via this.set)
+      // Note: this.set() will automatically cascade delete unreferenced nodes
       this.set(path, node_array);
-
-      // Now check which nodes should be deleted based on reference counting
-      this._cascade_delete_unreferenced_nodes(removed_node_ids);
 
       // Update the selection to point to the start of the deleted range
       this.doc.selection = {

@@ -11,6 +11,7 @@
 		path,
 		class: css_class,
 		placeholder = '',
+		tag = 'div'
 	} = $props();
 
 	let is_focused = $derived.by(() => {
@@ -67,7 +68,8 @@
 
 {#key plain_text}
   <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
-  <div
+  <svelte:element
+  	this={tag}
    	data-type="text"
    	data-path={path.join('.')}
    	style="anchor-name: --{path.join('-')};"
@@ -83,7 +85,7 @@
       {/if}
   	{/each}<!--
     --><br>
-  </div>
+  </svelte:element>
 {/key}
 
 <style>
