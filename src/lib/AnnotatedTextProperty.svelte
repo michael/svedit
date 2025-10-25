@@ -11,6 +11,7 @@
 		path,
 		class: css_class,
 		placeholder = '',
+		tag = 'div'
 	} = $props();
 
 	let is_focused = $derived.by(() => {
@@ -68,7 +69,8 @@
 
 {#key plain_text}
   <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
-  <div
+  <svelte:element
+  	this={tag}
    	data-type="text"
    	data-path={path.join('.')}
    	style="anchor-name: --{path.join('-')};"
@@ -84,7 +86,7 @@
       {/if}
   	{/each}<!--
     -->{#if !is_focused || !is_empty}<br>{/if}
-  </div>
+  </svelte:element>
 {/key}
 <!-- We need to use <br> so the element is reachable by Arrow Up/Down navigation. -->
 <!-- But as soon as the element is focused, we get rid of the <br> as it causes issues with caret positioning. -->
