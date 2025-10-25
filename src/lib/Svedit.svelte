@@ -892,7 +892,64 @@ ${fallback_html}`;
       doc.select_parent();
       e.preventDefault();
       e.stopPropagation();
+    } else if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey) {
+      console.log('DEBUG: Tab / Shift+Tab');
+      // Tab / Shift+Tab: Navigate between editable fields (text, custom properties, empty node arrays, but not cursor traps)
+      const fields = Array.from(canvas_ref.querySelectorAll('[data-type="text"], [data-type="property"], [data-type="node"].empty-node-array'))
+        .filter(el => {
+          if (el.getAttribute('data-type') === 'text') {
+            const editable = el.getAttribute('contenteditable');
+            // Include text fields unless explicitly marked contenteditable="false"
+            return editable !== 'false';
+          }
+          return true;
+        })
+        .map(el => {
+          const type_attr = el.getAttribute('data-type');
+          let type = type_attr;
+          let path = el.getAttribute('data-path')?.split('.') || [];
+          // Normalize empty node-array placeholders to a dedicated type and path
+          if (type_attr === 'node' && el.classList.contains('empty-node-array')) {
+            type = 'node_array';
+            // Element carries path including trailing 0; selection path is the array path
+            if (path.length > 0) path = path.slice(0, -1);
+          }
+          return { type, path };
+        });
+      if (fields.length === 0) return;
+      // Find current field
+      const current_path = doc.selection?.path?.join('.');
+      let current_index = current_path ? fields.findIndex(f => f.path.join('.') === current_path) : -1;
+      // Allow Tab to escape at boundaries
+      if (e.shiftKey && current_index <= 0) {
+        // At first field, Shift+Tab should escape to previous element
+        return;
+      }
+      if (!e.shiftKey && current_index === fields.length - 1) {
+        // At last field, Tab should escape to next element
+        return;
+      }      
+      // Prevent default Tab behavior (only when navigating within)
+      e.preventDefault();
+      const next_index = current_index === -1
+        ? (e.shiftKey ? fields.length - 1 : 0)
+        : current_index + (e.shiftKey ? -1 : 1);
+      const next = fields[next_index];
+      if (next.type === 'text') { // set text selection
+        const text_length = doc.get(next.path)?.text?.length || 0;
+        doc.selection = {
+          type: 'text',
+          path: next.path,
+          anchor_offset: e.shiftKey ? text_length : 0,
+          focus_offset: e.shiftKey ? text_length : 0
+        };
+      } else if (next.type === 'node_array') { // set node-array position-zero selection
+        doc.selection = { type: 'node', path: next.path, anchor_offset: 0, focus_offset: 0 };
+      } else { // set custom property selection
+        doc.selection = { type: 'property', path: next.path };
+      }
     }
+
   }
 
   /**
