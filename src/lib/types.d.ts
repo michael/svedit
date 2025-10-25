@@ -211,6 +211,8 @@ export type SerializedDocument = SerializedNode[];
 export type AnnotatedTextPropertyProps = {
   /** The full path to the property */
   path: DocumentPath;
+  /** Optional custom HTML tag */
+	tag?: string;
   /** The `class` attribute on the content element */
   class?: string;
   /** A placeholder to be rendered for empty content */
@@ -223,6 +225,8 @@ export type AnnotatedTextPropertyProps = {
 export type CustomPropertyProps = {
   /** The full path to the property */
   path: DocumentPath;
+  /** Optional custom HTML tag */
+	tag?: string;
   /** The `class` attribute on the content element */
   class?: string;
   /** The content of the custom property (e.g. an image) */
@@ -235,6 +239,8 @@ export type CustomPropertyProps = {
 export type NodeArrayPropertyProps = {
   /** The full path to the property */
   path: DocumentPath;
+  /** Optional custom HTML tag */
+	tag?: string;
   /** The `class` attribute on the container element */
   class?: string;
 };
@@ -243,8 +249,12 @@ export type NodeArrayPropertyProps = {
  * Props for the Node component
  */
 export type NodeProps = {
-  /** The full path to the node */
+	/** The full path to the node */
   path: DocumentPath;
+	/** Optional custom HTML tag */
+	tag?: string;
+	/** Optional string of CSS classes */
+	class?: string;
   /** The type-specific content of the node */
   children: Snippet;
 };
