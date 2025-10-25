@@ -241,6 +241,8 @@ export type NodeArrayPropertyProps = {
   path: DocumentPath;
   /** Optional custom HTML tag */
 	tag?: string;
+  /** Optional custom HTML tag */
+	tag?: string;
   /** The `class` attribute on the container element */
   class?: string;
 };
