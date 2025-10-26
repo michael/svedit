@@ -277,6 +277,8 @@ export type SveditProps = {
   autocapitalize?: 'on' | 'off';
   /** The `spellcheck` attribute on the canvas element */
   spellcheck?: 'true' | 'false';
+  /** A ref to the canvas element */
+  canvas_ref?: HTMLElement;
 };
 
 /**

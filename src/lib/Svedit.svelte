@@ -22,9 +22,9 @@
     class: css_class,
     autocapitalize = "on",
     spellcheck = "true",
+    canvas_ref = $bindable()
   } = $props();
 
-  let canvas_ref;
   let root_node = $derived(doc.get(path));
   let Overlays = $derived(doc.config.system_components.Overlays);
   let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
