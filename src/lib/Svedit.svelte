@@ -31,6 +31,7 @@
 
   // Track temporary disabled onkeydown events (e.g. during character composition)
   let skip_onkeydown = false;
+  let memoized_el = undefined;
   let is_composing = $state(false);
   let input_selection = undefined;
 
@@ -107,61 +108,91 @@
     };
   }
 
-  function commit_input() {
-    if (input_selection?.type !== 'text') return;
-    const model_text = doc.get(input_selection.path).text;
-    const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
-    const dom_text = dom_text_element.textContent;
-    const op = diff_text(model_text, dom_text);
-    // console.log('======== COMMIT INPUT ========')
-    // console.log('mdl_text:', model_text);
-    // console.log('dom_text:', dom_text);
-    // console.log('op', op);
+  // function commit_input() {
+  //   if (input_selection?.type !== 'text') return;
+  //   const model_text = doc.get(input_selection.path).text;
+  //   const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
+  //   const dom_text = dom_text_element.textContent;
+  //   const op = diff_text(model_text, dom_text);
+  //   // console.log('======== COMMIT INPUT ========')
+  //   // console.log('mdl_text:', model_text);
+  //   // console.log('dom_text:', dom_text);
+  //   // console.log('op', op);
 
-    // NOTE: We are currently in an out-of-sync DOM state, right after
-    // contenteditable applied the input. But we can use this state
-    // to determine the ideal intended selection after the operation.
-    // Because our diffing may miss some context. E.g. when you replace "mchael"
-    // to "Michael" it will replace "m" with "Mi" and put the cursor after the "i",
-    // but we actually want it after "Michael".
-    const before_selection = __get_text_selection_from_dom();
+  //   // NOTE: We are currently in an out-of-sync DOM state, right after
+  //   // contenteditable applied the input. But we can use this state
+  //   // to determine the ideal intended selection after the operation.
+  //   // Because our diffing may miss some context. E.g. when you replace "mchael"
+  //   // to "Michael" it will replace "m" with "Mi" and put the cursor after the "i",
+  //   // but we actually want it after "Michael".
+  //   const before_selection = __get_text_selection_from_dom();
 
-    // Now we are applying the change to the document
-    const tr = doc.tr;
-    tr.set_selection({
-      type: 'text',
-      path: [...input_selection.path],
-      anchor_offset: op.start_offset,
-      focus_offset: op.end_offset,
-    });
-    tr.insert_text(op.replacement_text);
-    tr.set_selection(before_selection);
-    doc.apply(tr);
-    // console.log('applied op', op);
+  //   // Now we are applying the change to the document
+  //   const tr = doc.tr;
+  //   tr.set_selection({
+  //     type: 'text',
+  //     path: [...input_selection.path],
+  //     anchor_offset: op.start_offset,
+  //     focus_offset: op.end_offset,
+  //   });
+  //   tr.insert_text(op.replacement_text);
+  //   tr.set_selection(before_selection);
+  //   doc.apply(tr);
+  //   // console.log('applied op', op);
 
-    // After each commited replacement, we start accepting custom key handlers again.
-    skip_onkeydown = false;
-    is_composing = false;
-    input_selection = null;
-  }
+  //   // After each commited replacement, we start accepting custom key handlers again.
+  //   skip_onkeydown = false;
+  //   is_composing = false;
+  //   input_selection = null;
+  // }
 
   function oninput(event) {
     // console.log(`oninput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
-    if (
-      // canvas_ref?.contains(document.activeElement) &&
-      // doc.selection?.type === 'text' &&
-      input_selection.type === 'text' &&
-      !event.isComposing
-    ) {
-      commit_input();
-    }
+    // if (
+    //   // canvas_ref?.contains(document.activeElement) &&
+    //   // doc.selection?.type === 'text' &&
+    //   input_selection.type === 'text' &&
+    //   !event.isComposing
+    // ) {
+    //   commit_input();
+    // }
   }
+
+  // function getAsStringAsync(item) {
+  //   return new Promise(resolve => item.getAsString(resolve));
+  // }
 
   /**
    * @param {InputEvent} event
    */
-  function onbeforeinput(event) {
-    // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+  async function onbeforeinput(event) {
+    console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+    // if (event.inputType === 'insertReplacementText') {
+    //   console.log('target_ranges', event.getTargetRanges());
+
+    //   // IMPORTANT: We need to preventDefault before we make any await call.
+    //   event.preventDefault();
+
+    //   if (event.dataTransfer) {
+    //     for (const item of event.dataTransfer.items) {
+    //       console.log(`dataTransfer item: kind=${item.kind}, type=${item.type}`);
+    //       if (item.kind === 'string') {
+    //         const str = await getAsStringAsync(item);
+    //         console.log(`dataTransfer content (${item.type}):`, str);
+    //       }
+    //     }
+    //   } else {
+    //     console.log('No dataTransfer found on event');
+    //   }
+
+
+    //   // event.stopPropagation();
+    //   return;
+    // }
+
+
+    // event.stopPropagation();
+    // return;
 
     // Only take input when in a valid text selection inside the canvas
     if (
@@ -205,13 +236,13 @@
 
     // We remember the "input selection", because in some mobile browsers (Samsung Android) the onbeforeinput event
     // is fired on a different selection than the input event.
-    input_selection = { ...doc.selection };
+    // input_selection = { ...doc.selection };
 
     // If replacement is detected, I let contenteditable do the thing and wait for
     // the oninput event to do the diffing and update the model.
-    if (event.inputType === 'insertReplacementText') {
-      return;
-    }
+    // if (event.inputType === 'insertReplacementText') {
+    //   return;
+    // }
 
     // For now I reject drag+drop text movements.
     // TODO: If I want to support those, I need to handle them in such a way that
@@ -224,6 +255,8 @@
     // While composing, I do nothing and let the oncompositionend
     // event handle the final replacement by recovering it from the DOM.
     if (event.isComposing) {
+      // console.log('is_composing, cancel and return;');
+      // event.preventDefault();
       return;
     }
 
@@ -234,6 +267,8 @@
     // event.dataTransfer, not event.data
     if (!inserted_text && event.dataTransfer) {
       inserted_text = event.dataTransfer?.getData('text/plain');
+      console.log('replacement_text_from_dataTransfer', inserted_text);
+      console.log('target_range for replacement text', event.getTargetRanges());
     }
 
     // If there's no inserted_text, I'm not handling this.
@@ -244,10 +279,10 @@
 
     // For now I don't accept structural replacements for savety reasons.
     // E.g. this will catch Apple's writing tools that will attempt to mess with our DOM.
-    if (inserted_text.includes('\n') || inserted_text.includes('\t')) {
-      event.preventDefault();
-      return;
-    }
+    // if (inserted_text.includes('\n') || inserted_text.includes('\t')) {
+    //   event.preventDefault();
+    //   return;
+    // }
 
     function get_base_char(char) {
       if (!char) return undefined;
@@ -259,12 +294,16 @@
       return undefined;
     }
 
+
     if (
       (get_char_length(inserted_text) > 1) ||
       (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
     ) {
-      skip_onkeydown = true;
-      return; // we are dealing with a replacement
+    	console.log('REPLACMENT DETECTED');
+    	console.log($state.snapshot(doc.selection));
+     	// event.preventDefault(); return;
+      // skip_onkeydown = true;
+      // return; // we are dealing with a replacement
     }
 
     const tr = doc.tr;
@@ -835,18 +874,18 @@ ${fallback_html}`;
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-      doc.apply(doc.tr.annotate_text('strong'));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-      doc.apply(doc.tr.annotate_text('emphasis'));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-      doc.apply(doc.tr.annotate_text('highlight'));
-      e.preventDefault();
-      e.stopPropagation();
+    // } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+    //   doc.apply(doc.tr.annotate_text('strong'));
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+    //   doc.apply(doc.tr.annotate_text('emphasis'));
+    //   e.preventDefault();
+    //   e.stopPropagation();
+    // } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+    //   doc.apply(doc.tr.annotate_text('highlight'));
+    //   e.preventDefault();
+    //   e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
       const has_link = doc.active_annotation('link');
       if (has_link) {
@@ -901,7 +940,39 @@ ${fallback_html}`;
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
-    if (doc.selection.type !== 'text') return;
+
+    if (doc.selection.type !== 'text') {
+    	console.log('BAD: composition started on non-text selection');
+     const dom_selection = window.getSelection();
+	    // Remove all ranges - completely clears the selection
+	    dom_selection.removeAllRanges();
+	    // const selection = window.getSelection();
+
+	    // // Collapse to the start of the selection
+	    // selection.collapseToStart();
+      return;
+    }
+
+    input_selection = { ...doc.selection };
+
+    console.log('input_selection', input_selection);
+
+    // console.log('selection', selection);
+    const el = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
+    memoized_el = el;
+
+
+    const cloned_el = /** @type {Element} */ (el.cloneNode(true));
+    cloned_el.classList.remove('empty');
+    el.replaceWith(cloned_el);
+    // console.log('xxxx', el);
+    // el.classList.remove('empty');
+    render_selection();
+
+    // console.log(memoized_el);
+
+
+
     console.log('DEBUG: oncompositionstart', event.data);
     // Disable keydown event handling during composition. This way, you can confirm
     // a diacritic (a->ä) with ENTER without causing a line break.
@@ -910,15 +981,54 @@ ${fallback_html}`;
     return;
   }
 
+
+  // function oncompositionstart() {
+  // 	window.getSelection().removeAllRanges();
+  // }
+
+
   /**
    * Handles composition end events for input methods like dead keys
    * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
    */
-  function oncompositionend(/*event*/) {
-    // console.log('DEBUG: oncompositionend, insert:', event.data);
+  function oncompositionend(event) {
+    console.log('DEBUG: oncompositionend, insert:', event.data);
     if (!canvas_ref?.contains(document.activeElement)) return;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
-      commit_input();
+      // commit_input();
+      skip_onkeydown = false;
+      is_composing = false;
+
+      const modified_el = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
+      modified_el.replaceWith(memoized_el);
+
+      console.log('setting doc.selection', input_selection);
+      doc.selection = input_selection;
+      // render_selection();
+      //
+
+
+			// setTimeout(() => {
+			// 	document.execCommand('undo');
+			// }, 500)
+
+      // window.getSelection().collapseToStart();
+
+      // setTimeout(() => {
+     	console.log($state.snapshot(doc.selection));
+     	const tr = doc.tr;
+      tr.insert_text(event.data);
+      doc.apply(tr);
+      // }, 0);
+
+      // setTimeout(() => {
+      // 	console.log('event.data', event.data);
+      // 	const tr = doc.tr;
+	    //  tr.set_selection(input_selection);
+	    //  tr.insert_text('xxx');
+	    //  doc.apply(tr);
+      // }, 0);
+
     }
     return;
   }
@@ -1495,8 +1605,10 @@ ${fallback_html}`;
       // Additionally, OSX-native auto-complete also breaks, because
       // I'm using a keyed block that always wipes the DOM of a text node
       // on every change.
-      autocomplete: is_chrome_desktop ? "off" : "on",
-      autocorrect: is_chrome_desktop ? "off" : "on"
+      autocomplete: 'on',
+      autocorrect: 'on',
+      // autocomplete: is_chrome_desktop ? "off" : "on",
+      // autocorrect: is_chrome_desktop ? "off" : "on"
     }}
   >
     <RootComponent {path} />
@@ -1518,22 +1630,22 @@ ${fallback_html}`;
 		background: var(--editing-fill-color);
 	}
 
-	@media not (pointer: coarse) {
+	/*@media not (pointer: coarse) {
 	  .svedit-canvas.hide-selection {
       caret-color: transparent;
     }
-  }
+  }*/
 
   /* When the cursor is in a cursor-trap we never want to see the caret */
   .svedit-canvas.node-cursor, .svedit-canvas.property-selection {
     caret-color: transparent;
   }
 
-  @media not (pointer: coarse) {
+  /*@media not (pointer: coarse) {
 	  @supports (anchor-name: --test) {
       .svedit-canvas.hide-selection :global(::selection) {
          background: transparent;
       }
 		}
-  }
+  }*/
 </style>

@@ -65,7 +65,7 @@
 
 </script>
 
-{#key plain_text}
+<!-- {#key plain_text} -->
   <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
   <div
    	data-type="text"
@@ -84,7 +84,7 @@
   	{/each}<!--
     --><br>
   </div>
-{/key}
+<!-- {/key} -->
 
 <style>
   .text {
