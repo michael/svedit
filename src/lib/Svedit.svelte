@@ -185,15 +185,6 @@
     //     console.log('No dataTransfer found on event');
     //   }
 
-
-    //   // event.stopPropagation();
-    //   return;
-    // }
-
-
-    // event.stopPropagation();
-    // return;
-
     // Only take input when in a valid text selection inside the canvas
     if (
       !(canvas_ref?.contains(document.activeElement))
@@ -253,10 +244,8 @@
     }
 
     // While composing, I do nothing and let the oncompositionend
-    // event handle the final replacement by recovering it from the DOM.
+    // event handle the final replacement.
     if (event.isComposing) {
-      // console.log('is_composing, cancel and return;');
-      // event.preventDefault();
       return;
     }
 
@@ -267,6 +256,7 @@
     // event.dataTransfer, not event.data
     if (!inserted_text && event.dataTransfer) {
       inserted_text = event.dataTransfer?.getData('text/plain');
+
       console.log('replacement_text_from_dataTransfer', inserted_text);
       console.log('target_range for replacement text', event.getTargetRanges());
     }
@@ -284,27 +274,26 @@
     //   return;
     // }
 
-    function get_base_char(char) {
-      if (!char) return undefined;
-      const normalized = char.normalize('NFD');
-      // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-      if (normalized.length <= 2 && normalized !== char) {
-        return normalized[0];
-      }
-      return undefined;
-    }
+    // function get_base_char(char) {
+    //   if (!char) return undefined;
+    //   const normalized = char.normalize('NFD');
+    //   // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+    //   if (normalized.length <= 2 && normalized !== char) {
+    //     return normalized[0];
+    //   }
+    //   return undefined;
+    // }
 
-
-    if (
-      (get_char_length(inserted_text) > 1) ||
-      (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
-    ) {
-    	console.log('REPLACMENT DETECTED');
-    	console.log($state.snapshot(doc.selection));
-     	// event.preventDefault(); return;
-      // skip_onkeydown = true;
-      // return; // we are dealing with a replacement
-    }
+    // if (
+    //   (get_char_length(inserted_text) > 1) ||
+    //   (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
+    // ) {
+    // 	console.log('REPLACMENT DETECTED');
+    // 	console.log($state.snapshot(doc.selection));
+    //  	// event.preventDefault(); return;
+    //   // skip_onkeydown = true;
+    //   // return; // we are dealing with a replacement
+    // }
 
     const tr = doc.tr;
     tr.insert_text(inserted_text);
@@ -874,18 +863,18 @@ ${fallback_html}`;
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
-    // } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-    //   doc.apply(doc.tr.annotate_text('strong'));
-    //   e.preventDefault();
-    //   e.stopPropagation();
-    // } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-    //   doc.apply(doc.tr.annotate_text('emphasis'));
-    //   e.preventDefault();
-    //   e.stopPropagation();
-    // } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-    //   doc.apply(doc.tr.annotate_text('highlight'));
-    //   e.preventDefault();
-    //   e.stopPropagation();
+    } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('strong'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('emphasis'));
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
+      doc.apply(doc.tr.annotate_text('highlight'));
+      e.preventDefault();
+      e.stopPropagation();
     } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
       const has_link = doc.active_annotation('link');
       if (has_link) {
@@ -946,16 +935,10 @@ ${fallback_html}`;
      const dom_selection = window.getSelection();
 	    // Remove all ranges - completely clears the selection
 	    dom_selection.removeAllRanges();
-	    // const selection = window.getSelection();
-
-	    // // Collapse to the start of the selection
-	    // selection.collapseToStart();
       return;
     }
 
     input_selection = { ...doc.selection };
-
-    console.log('input_selection', input_selection);
 
     // console.log('selection', selection);
     const el = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
@@ -981,12 +964,6 @@ ${fallback_html}`;
     return;
   }
 
-
-  // function oncompositionstart() {
-  // 	window.getSelection().removeAllRanges();
-  // }
-
-
   /**
    * Handles composition end events for input methods like dead keys
    * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
@@ -995,7 +972,6 @@ ${fallback_html}`;
     console.log('DEBUG: oncompositionend, insert:', event.data);
     if (!canvas_ref?.contains(document.activeElement)) return;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
-      // commit_input();
       skip_onkeydown = false;
       is_composing = false;
 
@@ -1004,31 +980,10 @@ ${fallback_html}`;
 
       console.log('setting doc.selection', input_selection);
       doc.selection = input_selection;
-      // render_selection();
-      //
 
-
-			// setTimeout(() => {
-			// 	document.execCommand('undo');
-			// }, 500)
-
-      // window.getSelection().collapseToStart();
-
-      // setTimeout(() => {
-     	console.log($state.snapshot(doc.selection));
      	const tr = doc.tr;
       tr.insert_text(event.data);
       doc.apply(tr);
-      // }, 0);
-
-      // setTimeout(() => {
-      // 	console.log('event.data', event.data);
-      // 	const tr = doc.tr;
-	    //  tr.set_selection(input_selection);
-	    //  tr.insert_text('xxx');
-	    //  doc.apply(tr);
-      // }, 0);
-
     }
     return;
   }
@@ -1630,22 +1585,22 @@ ${fallback_html}`;
 		background: var(--editing-fill-color);
 	}
 
-	/*@media not (pointer: coarse) {
+	@media not (pointer: coarse) {
 	  .svedit-canvas.hide-selection {
       caret-color: transparent;
     }
-  }*/
+  }
 
   /* When the cursor is in a cursor-trap we never want to see the caret */
   .svedit-canvas.node-cursor, .svedit-canvas.property-selection {
     caret-color: transparent;
   }
 
-  /*@media not (pointer: coarse) {
+  @media not (pointer: coarse) {
 	  @supports (anchor-name: --test) {
       .svedit-canvas.hide-selection :global(::selection) {
          background: transparent;
       }
 		}
-  }*/
+  }
 </style>
