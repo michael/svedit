@@ -504,7 +504,7 @@ export default class Transaction {
    * ```
    */
   insert_text(replaced_text, annotations = [], nodes = {}) {
-    if (this.doc.selection.type !== 'text') return this;
+    if (this.doc.selection?.type !== 'text') return this;
 
     const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const { start, end } = this.doc.get_selection_range();
