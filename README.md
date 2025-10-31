@@ -319,6 +319,9 @@ a simplified version of the markup of `<NodeCursorTrap>` and why it is implement
       Adding a &ZeroWidthSpace; (or any character) here will lead to 2 cursor
       positions (one before, and one after the character)
 
+      Using <wbr> will make it only addressable for ArrowLeft and ArrowRight, but not ArrowUp and ArrowDown.
+      And using <span></span> will not make it addressable at all.
+
       Svedit uses this behavior for node-cursor-traps, and when an
       <AnnotatedTextProperty> is empty.
     -->

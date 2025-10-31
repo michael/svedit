@@ -62,6 +62,7 @@
 
 	let fragments = $derived(get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations));
 	let plain_text = $derived(svedit.doc.get(path).text);
+	let is_empty = $derived(get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused));
 
 </script>
 
@@ -72,7 +73,7 @@
    	data-path={path.join('.')}
    	style="anchor-name: --{path.join('-')};"
    	class="text svedit-selectable {css_class}"
-   	class:empty={get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)}
+   	class:empty={is_empty}
     class:focused={is_focused}
     placeholder={placeholder}
   >
@@ -82,9 +83,13 @@
         <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
       {/if}
   	{/each}<!--
-    --><br>
+    -->{#if !is_focused || !is_empty}<br>{/if}
   </div>
 {/key}
+<!-- We need to use <br> so the element is reachable by Arrow Up/Down navigation. -->
+<!-- But as soon as the element is focused, we get rid of the <br> as it causes issues with caret positioning. -->
+<!-- Before, we were just hiding it on focus, but that caused the cursor to disappear on Safari Desktop (tested with v26). -->
+<!-- Edge Case: Shift Enter stops working if <br> is not present on a non-empty text property. -->
 
 <style>
   .text {
@@ -96,19 +101,19 @@
       text-wrap: var(--text-wrap);
     }
   }
-
-  [placeholder].empty::before {
+	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
+  [placeholder].empty:not(.focused)::before,
+	[placeholder].empty.focused::after {
     content: attr(placeholder);
     pointer-events: none;
     color: color-mix(in oklch, currentcolor 50%, transparent);
   }
 
-  /* We can safely hide the <br> element when the placeholder is empty and focused. */
-  /* No longer the cursor will be rendered after the placeholder when focused. */
-  /* ATTENTION: This hack has the side effect that in Safari Desktop the cursor sometimes disappears. */
-  [placeholder].empty.focused br {
-    display:none;
-  }
+
+	/* Hide flickering: in Chrome, the caret jumps from end of placeholder string to start of text property when we focus */
+	.text:not(.focused) {
+		caret-color: transparent;
+	}
 
   /*.text.focused {
     background: none;
