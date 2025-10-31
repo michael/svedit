@@ -36,7 +36,10 @@
   let input_selection = undefined;
 
   // Detect Chrome on desktop (not mobile) - only available in browser
-  let is_chrome_desktop = $state(false);
+  // let is_chrome_desktop = $state(false);
+  //
+  let is_mobile = $derived(is_mobile_browser);
+  let is_chrome_desktop = $derived(is_chrome_desktop_browser);
 
   /**
    * Detect if the current browser is on a mobile device
@@ -53,14 +56,24 @@
            (navigator.maxTouchPoints > 0);
   }
 
-  $effect(() => {
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-      const user_agent = navigator.userAgent;
-      const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-      const is_mobile = is_mobile_browser();
-      is_chrome_desktop = is_chrome && !is_mobile;
+  function is_chrome_desktop_browser() {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
     }
-  });
+
+    const user_agent = navigator.userAgent;
+    const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+    return is_chrome && !is_mobile;
+  }
+
+  // $effect(() => {
+  //   if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+  //     const user_agent = navigator.userAgent;
+  //     const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+  //     const is_mobile = is_mobile_browser();
+  //     is_chrome_desktop = is_chrome && !is_mobile;
+  //   }
+  // });
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -77,113 +90,23 @@
     },
   });
 
-  function diff_text(old_text, new_text) {
-    const old_length = get_char_length(old_text);
-    const new_length = get_char_length(new_text);
-
-    let start = 0;
-    while (
-      start < old_length &&
-      start < new_length &&
-      get_char_at(old_text, start) === get_char_at(new_text, start)
-    ) {
-      start++;
-    }
-
-    let old_end = old_length;
-    let new_end = new_length;
-    while (
-      old_end > start &&
-      new_end > start &&
-      get_char_at(old_text, old_end - 1) === get_char_at(new_text, new_end - 1)
-    ) {
-      old_end--;
-      new_end--;
-    }
-
-    return {
-      start_offset: start,
-      end_offset: old_end,
-      replacement_text: char_slice(new_text, start, new_end)
-    };
-  }
-
-  // function commit_input() {
-  //   if (input_selection?.type !== 'text') return;
-  //   const model_text = doc.get(input_selection.path).text;
-  //   const dom_text_element = document.querySelector(`[data-path="${input_selection.path.join('.')}"]`);
-  //   const dom_text = dom_text_element.textContent;
-  //   const op = diff_text(model_text, dom_text);
-  //   // console.log('======== COMMIT INPUT ========')
-  //   // console.log('mdl_text:', model_text);
-  //   // console.log('dom_text:', dom_text);
-  //   // console.log('op', op);
-
-  //   // NOTE: We are currently in an out-of-sync DOM state, right after
-  //   // contenteditable applied the input. But we can use this state
-  //   // to determine the ideal intended selection after the operation.
-  //   // Because our diffing may miss some context. E.g. when you replace "mchael"
-  //   // to "Michael" it will replace "m" with "Mi" and put the cursor after the "i",
-  //   // but we actually want it after "Michael".
-  //   const before_selection = __get_text_selection_from_dom();
-
-  //   // Now we are applying the change to the document
-  //   const tr = doc.tr;
-  //   tr.set_selection({
-  //     type: 'text',
-  //     path: [...input_selection.path],
-  //     anchor_offset: op.start_offset,
-  //     focus_offset: op.end_offset,
-  //   });
-  //   tr.insert_text(op.replacement_text);
-  //   tr.set_selection(before_selection);
-  //   doc.apply(tr);
-  //   // console.log('applied op', op);
-
-  //   // After each commited replacement, we start accepting custom key handlers again.
-  //   skip_onkeydown = false;
-  //   is_composing = false;
-  //   input_selection = null;
-  // }
-
-  function oninput(event) {
-    // console.log(`oninput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
-    // if (
-    //   // canvas_ref?.contains(document.activeElement) &&
-    //   // doc.selection?.type === 'text' &&
-    //   input_selection.type === 'text' &&
-    //   !event.isComposing
-    // ) {
-    //   commit_input();
-    // }
-  }
-
-  // function getAsStringAsync(item) {
-  //   return new Promise(resolve => item.getAsString(resolve));
-  // }
-
   /**
    * @param {InputEvent} event
    */
   async function onbeforeinput(event) {
     console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
-    // if (event.inputType === 'insertReplacementText') {
-    //   console.log('target_ranges', event.getTargetRanges());
 
-    //   // IMPORTANT: We need to preventDefault before we make any await call.
-    //   event.preventDefault();
-
-    //   if (event.dataTransfer) {
-    //     for (const item of event.dataTransfer.items) {
-    //       console.log(`dataTransfer item: kind=${item.kind}, type=${item.type}`);
-    //       if (item.kind === 'string') {
-    //         const str = await getAsStringAsync(item);
-    //         console.log(`dataTransfer content (${item.type}):`, str);
-    //       }
-    //     }
-    //   } else {
-    //     console.log('No dataTransfer found on event');
-    //   }
+    // Sometimes the part that should be replaced is not the same as the current DOM selection
+    // that's why we look into event.getTargetRanges()[0] if it exists and adjust the selection
+    // if necessary.
+    if (event.getTargetRanges?.()?.[0]) {
+    	const target_sel = __get_text_selection_from_dom(event.getTargetRanges()[0]);
+     	if (target_sel) {
+      	doc.selection = target_sel;
+      } else {
+      	console.log('Selection could not be determined from event.getTargetRanges()[0]', event.getTargetRanges()[0]);
+      }
+    }
 
     // Only take input when in a valid text selection inside the canvas
     if (
@@ -225,16 +148,6 @@
       event.stopPropagation();
     }
 
-    // We remember the "input selection", because in some mobile browsers (Samsung Android) the onbeforeinput event
-    // is fired on a different selection than the input event.
-    // input_selection = { ...doc.selection };
-
-    // If replacement is detected, I let contenteditable do the thing and wait for
-    // the oninput event to do the diffing and update the model.
-    // if (event.inputType === 'insertReplacementText') {
-    //   return;
-    // }
-
     // For now I reject drag+drop text movements.
     // TODO: If I want to support those, I need to handle them in such a way that
     // you can drag from one text property to another too.
@@ -252,13 +165,11 @@
     // Insert the character, unless there is none.
     let inserted_text = event.data;
 
+
     // Sometimes (e.g. for replacements) the inserted_text is available via
     // event.dataTransfer, not event.data
     if (!inserted_text && event.dataTransfer) {
       inserted_text = event.dataTransfer?.getData('text/plain');
-
-      console.log('replacement_text_from_dataTransfer', inserted_text);
-      console.log('target_range for replacement text', event.getTargetRanges());
     }
 
     // If there's no inserted_text, I'm not handling this.
@@ -267,33 +178,29 @@
       return;
     }
 
-    // For now I don't accept structural replacements for savety reasons.
-    // E.g. this will catch Apple's writing tools that will attempt to mess with our DOM.
-    // if (inserted_text.includes('\n') || inserted_text.includes('\t')) {
-    //   event.preventDefault();
-    //   return;
-    // }
+    function get_base_char(char) {
+      if (!char) return undefined;
+      const normalized = char.normalize('NFD');
+      // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+      if (normalized.length <= 2 && normalized !== char) {
+        return normalized[0];
+      }
+      return undefined;
+    }
 
-    // function get_base_char(char) {
-    //   if (!char) return undefined;
-    //   const normalized = char.normalize('NFD');
-    //   // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-    //   if (normalized.length <= 2 && normalized !== char) {
-    //     return normalized[0];
-    //   }
-    //   return undefined;
-    // }
+    if (
+      // (get_char_length(inserted_text) > 1) ||
+      (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
+    ) {
+    	console.log('REPLACMENT DETECTED');
+    	console.log($state.snapshot(doc.selection));
 
-    // if (
-    //   (get_char_length(inserted_text) > 1) ||
-    //   (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
-    // ) {
-    // 	console.log('REPLACMENT DETECTED');
-    // 	console.log($state.snapshot(doc.selection));
-    //  	// event.preventDefault(); return;
-    //   // skip_onkeydown = true;
-    //   // return; // we are dealing with a replacement
-    // }
+     skip_onkeydown = true;
+     return; // we are dealing with a replacement
+     	// event.preventDefault(); return;
+      // skip_onkeydown = true;
+      // return; // we are dealing with a replacement
+    }
 
     const tr = doc.tr;
     tr.insert_text(inserted_text);
@@ -929,12 +836,10 @@ ${fallback_html}`;
    * @param {CompositionEvent} event
    */
   function oncompositionstart(event) {
-
+  	console.log('DEBUG: oncompositionstart', event.data);
     if (doc.selection.type !== 'text') {
-    	console.log('BAD: composition started on non-text selection');
-     const dom_selection = window.getSelection();
 	    // Remove all ranges - completely clears the selection
-	    dom_selection.removeAllRanges();
+	    window.getSelection()?.removeAllRanges();
       return;
     }
 
@@ -948,15 +853,8 @@ ${fallback_html}`;
     const cloned_el = /** @type {Element} */ (el.cloneNode(true));
     cloned_el.classList.remove('empty');
     el.replaceWith(cloned_el);
-    // console.log('xxxx', el);
-    // el.classList.remove('empty');
     render_selection();
 
-    // console.log(memoized_el);
-
-
-
-    console.log('DEBUG: oncompositionstart', event.data);
     // Disable keydown event handling during composition. This way, you can confirm
     // a diacritic (a->ä) with ENTER without causing a line break.
     skip_onkeydown = true;
@@ -1144,21 +1042,39 @@ ${fallback_html}`;
    * @returns {TextSelection | null} A TextSelection object if the DOM selection
    *   represents a valid text selection, null otherwise
    */
-  function __get_text_selection_from_dom() {
-    const dom_selection = window.getSelection();
-    if (dom_selection.rangeCount === 0) return null;
+  function __get_text_selection_from_dom(range = null) {
+    let dom_selection;
+    let focus_node, anchor_node;
+    let focus_offset_in_node;  // anchor_offset_in_node;
 
-    const focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
+    if (range) {
+      // When range is provided, use it directly
+      focus_node = range.endContainer;
+      anchor_node = range.startContainer;
+      focus_offset_in_node = range.endOffset;
+      // anchor_offset_in_node = range.startOffset;
+    } else {
+      // Otherwise get from window selection
+      dom_selection = window.getSelection();
+      if (dom_selection.rangeCount === 0) return null;
+
+      focus_node = dom_selection.focusNode;
+      anchor_node = dom_selection.anchorNode;
+      focus_offset_in_node = dom_selection.focusOffset;
+      // anchor_offset_in_node = dom_selection.anchorOffset;
+
+      range = dom_selection.getRangeAt(0);
+    }
+
     let focus_root, anchor_root;
 
-
-    if (dom_selection.focusNode === dom_selection.anchorNode && focus_node.dataset?.type === 'text') {
+    if (focus_node === anchor_node && focus_node.dataset?.type === 'text') {
       // EDGE CASE 1: Either text node is empty (only a <br> is present), or cursor is after a <br> at the very end of the text node
       focus_root = anchor_root = focus_node;
     } else {
-      focus_root = /** @type {HTMLElement} */ (dom_selection.focusNode.parentElement?.closest('[data-path][data-type="text"]'));
+      focus_root = /** @type {HTMLElement} */ (focus_node.parentElement?.closest('[data-path][data-type="text"]'));
       if (!focus_root) return null;
-      anchor_root = /** @type {HTMLElement} */ (dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="text"]'));
+      anchor_root = /** @type {HTMLElement} */ (anchor_node.parentElement?.closest('[data-path][data-type="text"]'));
       if (!anchor_root) return null;
     }
 
@@ -1166,55 +1082,31 @@ ${fallback_html}`;
       return null;
     }
 
-    const range = dom_selection.getRangeAt(0);
     const path = focus_root.dataset.path.split('.');
 
     if (!path) return null;
 
     // EDGE CASE 1B: Cursor after trailing <br> at end of text
-    //
-    // When text ends with a newline (\n), the browser renders it as a <br> element.
-    // If the user places their cursor after this <br>, the selection detection
-    // incorrectly reports position 0 instead of the actual text length.
-    //
-    // Example DOM structure when text is "Hello\n":
-    // <div data-type="text">
-    //   #text "Hello"    ← index 0
-    //   <br>             ← index 1 (represents the \n)
-    // </div>
-    //
-    // When cursor is after the <br>, we get:
-    // - focusNode: the div element
-    // - focusOffset: 2 (after the 2nd child)
-    // - But normal processing returns position 0 instead of text.length
-    //
-    // This edge case detects when:
-    // 1. Text content ends with \n
-    // 2. Last child node is a <br> (the visual representation of that \n)
-    // 3. Cursor is positioned at or near the end
-    // And returns the correct text.length position instead.
     const text_content = doc.get(path).text;
     const text_length = get_char_length(text_content);
     if (text_length > 0) {
       const last_char = get_char_at(text_content, text_length - 1);
-      if (dom_selection.focusNode === dom_selection.anchorNode &&
-          dom_selection.focusNode === focus_node &&
-          focus_node.dataset?.type === 'text' &&
-          !focus_node.classList.contains('empty') &&
+      if (focus_node === anchor_node &&
+          focus_node === focus_root &&
+          focus_root.dataset?.type === 'text' &&
+          !focus_root.classList.contains('empty') &&
           last_char === '\n') {
 
-        const child_nodes = focus_node.childNodes;
+        const child_nodes = focus_root.childNodes;
 
-        // Check if the last child is a BR (indicating text ends with newline)
-        // and cursor is positioned near the end (after any of the last few elements)
         if (child_nodes.length > 0 &&
             child_nodes[child_nodes.length - 1].nodeName === 'BR' &&
-            dom_selection.focusOffset >= child_nodes.length - 2) {
-          return {
-            type: 'text',
-            path,
-            anchor_offset: text_length,
-            focus_offset: text_length
+            focus_offset_in_node >= child_nodes.length - 2) {
+           return {
+             type: 'text',
+             path,
+             anchor_offset: text_length,
+             focus_offset: text_length
           };
         }
       }
@@ -1253,19 +1145,23 @@ ${fallback_html}`;
     }
 
     // Check if it's a backward selection
-    const is_backward = dom_selection.anchorNode === range.endContainer &&
-                      dom_selection.anchorOffset === range.endOffset;
+    // When range is provided, we can't detect backward selection from the range alone
+    // since ranges are always normalized (start before end)
+    const is_backward = dom_selection
+      ? (dom_selection.anchorNode === range.endContainer &&
+        dom_selection.anchorOffset === range.endOffset)
+      : false;
 
     // Swap offsets if it's a backward selection
     if (is_backward) {
-      [anchor_offset, focus_offset] = [focus_offset, anchor_offset];
+     	[anchor_offset, focus_offset] = [focus_offset, anchor_offset];
     }
 
-    return {
-      type: 'text',
-      path,
-      anchor_offset: anchor_offset,
-      focus_offset: focus_offset
+     return {
+       type: 'text',
+       path,
+       anchor_offset: anchor_offset,
+       focus_offset: focus_offset
     };
   }
 
@@ -1547,24 +1443,12 @@ ${fallback_html}`;
     class:node-cursor={doc.selection?.type === 'node' && doc.selection.anchor_offset === doc.selection.focus_offset}
     class:property-selection={doc.selection?.type === 'property'}
     bind:this={canvas_ref}
-    {oninput}
     {onbeforeinput}
     {oncompositionstart}
     {oncompositionend}
     contenteditable={editable ? 'true' : 'false'}
     {autocapitalize}
     {spellcheck}
-    {...{
-      // NOTE: Autocomplete and autocorrect make immense troubles
-      // on Desktop Chrome, so we disable them only for Chrome desktop.
-      // Additionally, OSX-native auto-complete also breaks, because
-      // I'm using a keyed block that always wipes the DOM of a text node
-      // on every change.
-      autocomplete: 'on',
-      autocorrect: 'on',
-      // autocomplete: is_chrome_desktop ? "off" : "on",
-      // autocorrect: is_chrome_desktop ? "off" : "on"
-    }}
   >
     <RootComponent {path} />
   </div>
