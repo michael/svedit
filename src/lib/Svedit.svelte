@@ -35,11 +35,8 @@
   let is_composing = $state(false);
   let input_selection = undefined;
 
-  // Detect Chrome on desktop (not mobile) - only available in browser
-  // let is_chrome_desktop = $state(false);
-  //
   let is_mobile = $derived(is_mobile_browser);
-  let is_chrome_desktop = $derived(is_chrome_desktop_browser);
+    // let is_chrome_desktop = $derived(is_chrome_desktop_browser);
 
   /**
    * Detect if the current browser is on a mobile device
@@ -56,15 +53,15 @@
            (navigator.maxTouchPoints > 0);
   }
 
-  function is_chrome_desktop_browser() {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      return false;
-    }
+  // function is_chrome_desktop_browser() {
+  //   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+  //     return false;
+  //   }
 
-    const user_agent = navigator.userAgent;
-    const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-    return is_chrome && !is_mobile;
-  }
+  //   const user_agent = navigator.userAgent;
+  //   const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+  //   return is_chrome && !is_mobile;
+  // }
 
   // $effect(() => {
   //   if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
@@ -156,9 +153,20 @@
       return;
     }
 
+    // function get_base_char(char) {
+    //   if (!char) return undefined;
+    //   const normalized = char.normalize('NFD');
+    //   // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+    //   if (normalized.length <= 2 && normalized !== char) {
+    //     return normalized[0];
+    //   }
+    //   return undefined;
+    // }
+
     // While composing, I do nothing and let the oncompositionend
     // event handle the final replacement.
     if (event.isComposing) {
+    	console.log('is_composing', event.data);
       return;
     }
 
@@ -178,29 +186,29 @@
       return;
     }
 
-    function get_base_char(char) {
-      if (!char) return undefined;
-      const normalized = char.normalize('NFD');
-      // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
-      if (normalized.length <= 2 && normalized !== char) {
-        return normalized[0];
-      }
-      return undefined;
-    }
+    // function get_base_char(char) {
+    //   if (!char) return undefined;
+    //   const normalized = char.normalize('NFD');
+    //   // If normalization doesn't change it OR it's longer than 2 chars, it's probably not a simple diacritic
+    //   if (normalized.length <= 2 && normalized !== char) {
+    //     return normalized[0];
+    //   }
+    //   return undefined;
+    // }
 
-    if (
-      // (get_char_length(inserted_text) > 1) ||
-      (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
-    ) {
-    	console.log('REPLACMENT DETECTED');
-    	console.log($state.snapshot(doc.selection));
+    // if (
+    //   // (get_char_length(inserted_text) > 1) ||
+    //   (get_char_length(inserted_text) === 1 && get_base_char(inserted_text))
+    // ) {
+    // 	console.log('REPLACMENT DETECTED');
+    // 	console.log($state.snapshot(doc.selection));
 
-     skip_onkeydown = true;
-     return; // we are dealing with a replacement
-     	// event.preventDefault(); return;
-      // skip_onkeydown = true;
-      // return; // we are dealing with a replacement
-    }
+    //  skip_onkeydown = true;
+    //  return; // we are dealing with a replacement
+    //  	// event.preventDefault(); return;
+    //   // skip_onkeydown = true;
+    //   // return; // we are dealing with a replacement
+    // }
 
     const tr = doc.tr;
     tr.insert_text(inserted_text);
@@ -766,7 +774,7 @@ ${fallback_html}`;
       doc.redo();
       e.preventDefault();
       e.stopPropagation();
-    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile_browser() && selection?.type === 'text' && doc.inspect(selection.path).allow_newlines) {
+    } else if (e.key === 'Enter' && (e.shiftKey) && !is_mobile && selection?.type === 'text' && doc.inspect(selection.path).allow_newlines) {
       doc.apply(doc.tr.insert_text('\n'));
       e.preventDefault();
       e.stopPropagation();
@@ -845,7 +853,6 @@ ${fallback_html}`;
 
     input_selection = { ...doc.selection };
 
-    // console.log('selection', selection);
     const el = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
     memoized_el = el;
 
@@ -872,13 +879,10 @@ ${fallback_html}`;
     if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
       skip_onkeydown = false;
       is_composing = false;
-
       const modified_el = document.querySelector(`[data-path="${doc.selection.path.join('.')}"]`);
       modified_el.replaceWith(memoized_el);
-
-      console.log('setting doc.selection', input_selection);
+      // Set doc selection to previously memoized selection
       doc.selection = input_selection;
-
      	const tr = doc.tr;
       tr.insert_text(event.data);
       doc.apply(tr);
