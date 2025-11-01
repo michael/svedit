@@ -9,11 +9,13 @@
 <Node {path}>
 	<div class="image-grid-item flex-column gap-y-3">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
-			<img
-				src={node.image || '/icons/image-placeholder.svg'}
-				alt={node.title.text}
-				class:placeholder={!node.image}
-			/>
+			<div contenteditable="false" style="aspect-ratio: 1/1; width: 100%;">
+				<img
+					src={node.image || '/icons/image-placeholder.svg'}
+					alt={node.title.text}
+					class:placeholder={!node.image}
+				/>
+			</div>
 		</CustomProperty>
 		<div class="caption flex-column gap-y-3">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
@@ -31,7 +33,8 @@
   }
   .image-grid-item img {
 		width: 100%;
-		/* height: auto; */
+		object-fit: cover;
+		height: 100%;
 	}
 
 	/* Don't crop SVGs */
