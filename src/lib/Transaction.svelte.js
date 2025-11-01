@@ -326,9 +326,16 @@ export default class Transaction {
     const path = this.doc.selection.path;
 
     if (this.doc.selection.type === 'property') {
-			const node = this.doc.get(path);
-			if (node.type === 'image') {
-				this.set([...path, 'src'], '');
+			const property_definition = this.doc.inspect(path);
+
+     	// TODO: These need to be application-specific handlers
+			if (property_definition.type === 'node') {
+				const node = this.doc.get(path);
+				if (node.type === 'image') {
+					this.set([...path, 'src'], '');
+				}
+			} else if (property_definition.type === 'string') {
+				this.set(path, '');
 			}
       return this;
     }

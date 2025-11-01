@@ -6,16 +6,9 @@
 	let { path } = $props();
 	let node = $derived(svedit.doc.get(path));
 	let layout = $derived(node.layout || 1);
+	let tag = $derived(get_tag(layout));
 	let text_style = $derived(get_text_style_from_layout(layout));
 	let readable_text_type = $derived(get_readable_text_type_from_layout(layout));
-	// let is_empty = $derived(!node.content?.text);
-	// let is_selected = $derived(is_text_node_selected());
-
-	// function is_text_node_selected() {
-	// 	const sub_path_of_selection = svedit?.doc?.selection?.path?.slice(0, path.length).join('.');
-	// 	const _path = path.join('.');
-	// 	return (sub_path_of_selection === _path);
-	// }
 
 	function get_text_style_from_layout(layout) {
 		switch (layout) {
@@ -29,6 +22,21 @@
 				return 'heading3';
 			default:
 				return 'body';
+		}
+	}
+
+	function get_tag(layout) {
+		switch (layout) {
+			case 1:
+				return 'p';
+			case 2:
+				return 'h1';
+			case 3:
+				return 'h2';
+			case 4:
+				return 'h3';
+			default:
+				return 'div';
 		}
 	}
 
@@ -50,7 +58,7 @@
 
 <Node {path}>
 	<div class="text layout-{layout} max-w-screen-lg mx-auto w-full">
-	  <AnnotatedTextProperty class={text_style} path={[...path, 'content']} placeholder={readable_text_type} />
+	  <AnnotatedTextProperty {tag} class={text_style} path={[...path, 'content']} placeholder={readable_text_type} />
 	</div>
 </Node>
 

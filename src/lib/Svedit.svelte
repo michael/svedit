@@ -127,12 +127,14 @@
       doc.apply(doc.tr.delete_selection('backward'));
       event.preventDefault();
       event.stopPropagation();
+      return;
     }
 
     if (event.inputType === 'deleteContentForward') {
       doc.apply(doc.tr.delete_selection('forward'));
       event.preventDefault();
       event.stopPropagation();
+      return;
     }
 
     // For now I reject drag+drop text movements.
