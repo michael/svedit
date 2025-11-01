@@ -11,11 +11,13 @@
 <Node {path}>
 	<div class="story layout-{node.layout} max-w-screen-lg mx-auto w-full">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
-			<img
-				src={node.image || '/icons/image-placeholder.svg'}
-				alt={node.title.text}
-				class:placeholder={!node.image}
-			/>
+			<div style="width: 100%; height: 100%;" contenteditable="false">
+				<img
+					src={node.image || '/icons/image-placeholder.svg'}
+					alt={node.title.text}
+					class:placeholder={!node.image}
+				/>
+			</div>
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
@@ -61,6 +63,7 @@
 	}
 
 	.story img {
+		display: block;
 		width: 100%;
 		height: auto;
 	}
