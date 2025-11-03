@@ -32,11 +32,6 @@ const document_schema = define_document_schema({
         node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
         default_node_type: 'text',
       },
-      hero: {
-        type: 'node',
-        node_types: ['hero'],
-        default_node_type: 'hero',
-      },
       keywords: {
         type: 'string_array',
       },
@@ -413,7 +408,6 @@ const serialized_doc = [
     id: page_1_id,
     type: 'page',
     body: [hero_1_id, heading_1_id, paragraph_1_id, story_1_id, story_2_id, image_grid_1_id, story_3_id, story_4_id, story_5_id, story_6_id, list_1_id, story_7_id],
-    hero: hero_1_id,
     keywords: ['svelte', 'editor', 'rich content'],
     daily_visitors: [10, 20, 30, 100],
     created_at: '2025-05-30T10:39:59.987Z'
