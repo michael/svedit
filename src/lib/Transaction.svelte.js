@@ -72,7 +72,7 @@ export default class Transaction {
    * tr.set(["page_1", "body", "0", "description"], {text: "Hello world", annotations: []});
    * ```
    */
-  set (path, value) {
+  set(path, value) {
     const node = this.doc.get(path.slice(0, -1));
 
     // Turns ["page_1", "body", "0", "description"]
@@ -101,7 +101,7 @@ export default class Transaction {
 
     const op = ['set', normalized_path, value];
     this.ops.push(op);
-    this.inverse_ops.push(['set', path, previous_value]);
+    this.inverse_ops.push(['set', normalized_path, previous_value]);
     this.doc._apply_op(op);
 
     // Cascade delete any nodes that are no longer referenced
