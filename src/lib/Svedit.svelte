@@ -1087,7 +1087,7 @@ ${fallback_html}`;
     let focus_offset = 0;
     let current_offset = 0;
 
-    function processNode(node) {
+    function processNode(node, parent = null, indexInParent = -1) {
       if (node.nodeType === Node.TEXT_NODE) {
         const nodeText = node.textContent;
         const nodeCharLength = get_char_length(nodeText);
@@ -1103,16 +1103,52 @@ ${fallback_html}`;
         }
         current_offset += nodeCharLength;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const childNode of node.childNodes) {
-          processNode(childNode);
+       	if (node.dataset.annotationType === 'inline') {
+       		// Inline node is treated as a single character
+       		// Check if selection boundaries are related to this inline node
+       		
+       		// Case 1: startContainer is the parent and startOffset points to this node
+       		if (range.startContainer === parent && range.startOffset === indexInParent) {
+       			anchor_offset = current_offset;
+       		}
+       		// Case 2: endContainer is the parent and endOffset points to this node
+       		if (range.endContainer === parent && range.endOffset === indexInParent) {
+       			focus_offset = current_offset;
+       		}
+       		// Case 3: startContainer is the parent and startOffset points after this node
+       		if (range.startContainer === parent && range.startOffset === indexInParent + 1) {
+       			anchor_offset = current_offset + 1;
+       		}
+       		// Case 4: endContainer is the parent and endOffset points after this node
+       		if (range.endContainer === parent && range.endOffset === indexInParent + 1) {
+       			focus_offset = current_offset + 1;
+       		}
+       		// Case 5: startContainer is the inline node itself or a child
+       		if (range.startContainer === node || node.contains(range.startContainer)) {
+       			// If offset is 0 or at the start, position before the inline node
+       			// Otherwise position after it
+       			anchor_offset = range.startOffset === 0 ? current_offset : current_offset + 1;
+       		}
+       		// Case 6: endContainer is the inline node itself or a child
+       		if (range.endContainer === node || node.contains(range.endContainer)) {
+       			// If offset is 0 or at the start, position before the inline node
+       			// Otherwise position after it
+       			focus_offset = range.endOffset === 0 ? current_offset : current_offset + 1;
+       		}
+       		
+       		current_offset += 1;
+        } else {
+	       	for (let i = 0; i < node.childNodes.length; i++) {
+		        processNode(node.childNodes[i], node, i);
+		      }
         }
       }
       return (focus_offset !== 0);
     }
 
     // Process nodes to find offsets
-    for (const childNode of focus_root.childNodes) {
-      if (processNode(childNode)) break;
+    for (let i = 0; i < focus_root.childNodes.length; i++) {
+      if (processNode(focus_root.childNodes[i], focus_root, i)) break;
     }
 
     // Check if it's a backward selection
@@ -1270,7 +1306,7 @@ ${fallback_html}`;
     const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
 
     // Helper function to process each node
-    function process_node(node) {
+    function process_node(node, parent = null, indexInParent = -1) {
       if (node.nodeType === Node.TEXT_NODE) {
         const node_text = node.textContent;
         const node_char_length = get_char_length(node_text);
@@ -1307,8 +1343,69 @@ ${fallback_html}`;
         }
         current_offset += node_char_length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const child_node of node.childNodes) {
-          if (process_node(child_node)) return true; // Stop iteration if end found
+        if (node.dataset.annotationType === 'inline') {
+          // Inline node is treated as a single character
+          // Check if selection boundaries fall on this inline node
+          
+          if (is_backward) {
+            // For backward selection, check focus_node first (start_offset)
+            if (!focus_node) {
+              if (current_offset === start_offset) {
+                // Selection starts before the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent;
+              } else if (current_offset + 1 === start_offset) {
+                // Selection starts after the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent + 1;
+              }
+            }
+            if (!anchor_node) {
+              if (current_offset === end_offset) {
+                // Selection ends before the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent;
+                return true; // Stop iteration
+              } else if (current_offset + 1 === end_offset) {
+                // Selection ends after the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent + 1;
+                return true; // Stop iteration
+              }
+            }
+          } else {
+            // For forward selection, check anchor_node first (start_offset)
+            if (!anchor_node) {
+              if (current_offset === start_offset) {
+                // Selection starts before the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent;
+              } else if (current_offset + 1 === start_offset) {
+                // Selection starts after the inline node
+                anchor_node = parent;
+                anchor_node_offset = indexInParent + 1;
+              }
+            }
+            if (!focus_node) {
+              if (current_offset === end_offset) {
+                // Selection ends before the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent;
+                return true; // Stop iteration
+              } else if (current_offset + 1 === end_offset) {
+                // Selection ends after the inline node
+                focus_node = parent;
+                focus_node_offset = indexInParent + 1;
+                return true; // Stop iteration
+              }
+            }
+          }
+          
+          current_offset += 1;
+        } else {
+          for (let i = 0; i < node.childNodes.length; i++) {
+            if (process_node(node.childNodes[i], node, i)) return true; // Stop iteration if end found
+          }
         }
       }
       return false; // Continue iteration
@@ -1324,8 +1421,8 @@ ${fallback_html}`;
       focus_node_offset = 1;
     } else {
       // DEFAULT CASE
-      for (const child_node of el.childNodes) {
-        if (process_node(child_node)) break;
+      for (let i = 0; i < el.childNodes.length; i++) {
+        if (process_node(el.childNodes[i], el, i)) break;
       }
     }
 
