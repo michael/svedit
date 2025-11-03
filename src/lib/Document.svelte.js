@@ -181,12 +181,12 @@ function validate_node(node, schema, all_nodes = {}) {
 
 export default class Document {
   /** @type {Selection | undefined} */
-  #selection = $state();
-  config = $state();
-  document_id = $state();
-  nodes = $state();
-  history = $state([]);
-  history_index = $state(-1);
+  #selection = $state.raw();
+  config = $state.raw();
+  document_id = $state.raw();
+  nodes = $state.raw();
+  history = $state.raw([]);
+  history_index = $state.raw(-1);
   last_batch_started = undefined; // Timestamp for debounced batching
 
   // Reactive helpers for UI state
@@ -194,9 +194,9 @@ export default class Document {
   can_redo = $derived(this.history_index < this.history.length - 1);
 
 	// Reactive variable for selected node
-	selected_node = $derived(this.get_selected_node());
-	layout_node = $derived(this.get_layout_node());
-	available_annotation_types = $derived(this.get_available_annotation_types());
+  selected_node = $derived(this.get_selected_node());
+  layout_node = $derived(this.get_layout_node());
+  available_annotation_types = $derived(this.get_available_annotation_types());
 
   /**
    * Gets the current selection
@@ -366,16 +366,30 @@ export default class Document {
 	}
 
   // Internal unsafe function: Never call this directly
+  // NOTE: We are using a copy-on-write approach here, to avoid mutating the original object
   _apply_op(op) {
     const [type, ...args] = op;
     if (type === 'set') {
-      const node = this.get(args[0].slice(0, -1));
-      node[args[0].at(-1)] = args[1];
+      // NOTE: We can assume normalized paths
+      const [node_id, property] = args[0];
+      // We make sure to use a deep copy of the value.
+      const value = structuredClone(args[1]);
+			this.nodes = {
+				...this.nodes,
+				[node_id]: {
+					...this.nodes[node_id],
+					[property]: value
+				}
+			};
     } else if (type === 'create') {
-
-      this.nodes[args[0].id] = args[0];
+      this.nodes = {
+        ...this.nodes,
+        [args[0].id]: structuredClone(args[0])  // Deep copy the node
+      };
     } else if (type === 'delete') {
-      delete this.nodes[args[0]];
+      // eslint-disable-next-line
+      const { [args[0]]: _removed, ...remainingNodes } = this.nodes;
+      this.nodes = remainingNodes;
     }
   }
 
@@ -419,7 +433,6 @@ export default class Document {
     }
 
     const now = Date.now();
-
     const should_batch = batch &&
                         this.last_batch_started !== undefined &&
                         (now - this.last_batch_started) < BATCH_WINDOW_MS;
@@ -430,15 +443,17 @@ export default class Document {
       last_entry.ops.push(...transaction.ops);
       last_entry.inverse_ops.push(...transaction.inverse_ops);
       last_entry.selection_after = this.selection;
+      // Trigger update
+			this.history = [...this.history];
     } else {
       // Create new history entry (more than 2s since batch started, or first edit, or batch not requested)
-      this.history.push({
+      this.history = [...this.history, {
         ops: transaction.ops,
         inverse_ops: transaction.inverse_ops,
         selection_before: transaction.selection_before,
         selection_after: this.selection
-      });
-      this.history_index++;
+      }];
+      this.history_index = this.history_index + 1;
       // Only set last_batch_started if batching was requested
       if (batch) {
         this.last_batch_started = now;
@@ -459,7 +474,7 @@ export default class Document {
     change.inverse_ops.slice().reverse().forEach(op => tr.doc._apply_op(op));
     this.nodes = tr.doc.nodes;
     this.selection = change.selection_before;
-    this.history_index--;
+    this.history_index = this.history_index - 1;
     return this;
   }
 
@@ -467,7 +482,7 @@ export default class Document {
     if (this.history_index >= this.history.length - 1) {
       return;
     }
-    this.history_index++;
+    this.history_index = this.history_index + 1;
     const change = this.history[this.history_index];
     const tr = this.tr;
     change.ops.forEach(op => tr.doc._apply_op(op));
