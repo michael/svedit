@@ -289,17 +289,17 @@ export default class Document {
 
     this.schema = schema;
     this.config = config;
-    this.nodes = {};
+    this.nodes = serialized_doc.nodes;
 
     // Initialize and validate nodes one by one
     // This ensures references only point to already-loaded nodes
-    for (const node of serialized_doc) {
-      this.validate_node(node);
-      this.nodes[node.id] = node;
-    }
+    // for (const node of serialized_doc) {
+    //   this.validate_node(node);
+    //   this.nodes[node.id] = node;
+    // }
 
     // The last element in the serialized_doc is the document itself (the root node)
-    this.document_id = serialized_doc.at(-1)?.id;
+		this.document_id = serialized_doc.document_id; // serialized_doc.at(-1)?.id;
 
     // Set selection after nodes are initialized so validation can work properly
     this.selection = selection;
@@ -409,7 +409,7 @@ export default class Document {
    */
   get tr() {
     // We create a copy of the current document to avoid modifying the original
-    const transaction_doc = new Document(this.schema, this.to_json(), {
+    const transaction_doc = new Document(this.schema, { document_id: this.document_id, nodes: this.nodes }, {
       config: this.config,
       selection: this.selection
     });
