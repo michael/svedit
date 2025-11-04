@@ -1,5 +1,6 @@
 <script>
 	import Icon from './Icon.svelte';
+	import { is_selection_collapsed } from 'svedit';
 
 	let {
   	doc,
@@ -190,7 +191,7 @@
   				tr.annotate_text('strong');
   				doc.apply(tr);
   			}}
-  			disabled={doc.active_annotation() && !doc.active_annotation('strong')}
+  			disabled={(doc.active_annotation() && !doc.active_annotation('strong') || (!doc.active_annotation() && is_selection_collapsed(doc.selection)))}
   			class:active={doc.active_annotation('strong')}
   		>
   			<Icon name="bold" />
@@ -205,7 +206,7 @@
   				tr.annotate_text('emphasis');
   				doc.apply(tr);
   			}}
-  			disabled={doc.active_annotation() && !doc.active_annotation('emphasis')}
+  			disabled={(doc.active_annotation() && !doc.active_annotation('emphasis') || (!doc.active_annotation() && is_selection_collapsed(doc.selection)))}
   			class:active={doc.active_annotation('emphasis')}
   		>
   			<Icon name="italic" />
@@ -220,7 +221,7 @@
   				tr.annotate_text('highlight');
   				doc.apply(tr);
   			}}
-  			disabled={doc.active_annotation() && !doc.active_annotation('highlight')}
+  			disabled={(doc.active_annotation() && !doc.active_annotation('highlight') || (!doc.active_annotation() && is_selection_collapsed(doc.selection)))}
   			class:active={doc.active_annotation('highlight')}
   		>
   			<Icon name="highlight" />
@@ -230,7 +231,7 @@
   		<button
   			title="Link"
   			onclick={toggle_link}
-  			disabled={doc.active_annotation() && !doc.active_annotation('link')}
+  			disabled={(doc.active_annotation() && !doc.active_annotation('link') || (!doc.active_annotation() && is_selection_collapsed(doc.selection)))}
   			class:active={doc.active_annotation('link')}
   		>
   			<Icon name="link" />
