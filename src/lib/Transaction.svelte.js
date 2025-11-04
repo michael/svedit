@@ -104,9 +104,9 @@ export default class Transaction {
     this.inverse_ops.push(['set', normalized_path, previous_value]);
     this.doc._apply_op(op);
 
-    // Cascade delete any nodes that are no longer referenced
-    if (removed_node_ids.length > 0) {
-      this._cascade_delete_unreferenced_nodes(removed_node_ids);
+    for (const removed_node_id of removed_node_ids) {
+    	// NOTE: This implicitly deletes childnodes as well, given that they are no longer referenced.
+      this.delete(removed_node_id);
     }
 
     return this;
@@ -217,9 +217,12 @@ export default class Transaction {
    * ```
    */
   delete(id) {
-    const previous_value = $state.snapshot(this.doc.get(id));
-    // Get nodes referenced by this node BEFORE deleting it
-    // const referenced_nodes = this.doc.get_referenced_nodes(id);
+    const previous_value = this.doc.get(id);
+    if (!previous_value) {
+			console.warn(`Deletion of node ${id} skipped, as it does not exist.`);
+    }
+    // Get nodes referenced by this node BEFORE deleting it.
+    const referenced_nodes = this.doc.get_referenced_nodes(id);
     const op = ['delete', id];
     this.ops.push(op);
     this.inverse_ops.push(['create', previous_value]);
@@ -227,7 +230,7 @@ export default class Transaction {
     // Check if the nodes that were referenced by the deleted node are now orphaned
     // NOTE: We don't do this yet, because we still have some manual child node removal code
     // that causes errors. But we should soon implement this only here.
-    // this._cascade_delete_unreferenced_nodes(referenced_nodes);
+    this._cascade_delete_unreferenced_nodes(referenced_nodes);
     return this;
   }
 
