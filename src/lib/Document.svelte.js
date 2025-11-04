@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, get_char_length, traverse } from './util.js';
+import { char_slice, get_char_length, traverse, get_selection_range } from './util.js';
 
 /**
  * @import {
@@ -694,7 +694,7 @@ export default class Document {
   active_annotation(annotation_type) {
     if (this.selection?.type !== 'text') return null;
 
-    const { start, end } = this.get_selection_range();
+    const { start, end } = get_selection_range(this.selection);
     const annotated_text = this.get(this.selection.path);
     const annotations = annotated_text.annotations;
 
@@ -796,22 +796,6 @@ export default class Document {
       this.selection = undefined;
     }
   }
-
-  get_selection_range() {
-    if (this.selection && this.selection.type !== 'property') {
-      const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-      const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-      return {
-        start,
-        end,
-        length: end - start
-      };
-    } else {
-      return null;
-    }
-  }
-
 
   /**
    * Traverses the document and returns a list of nodes in depth-first order.

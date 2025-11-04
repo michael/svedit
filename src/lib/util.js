@@ -267,3 +267,25 @@ export function traverse(node_id, schema, nodes) {
   visit(nodes[node_id]);
   return json;
 }
+
+export function get_selection_range(selection) {
+	if (selection && selection.type !== 'property') {
+		const start = Math.min(selection.anchor_offset, selection.focus_offset);
+		const end = Math.max(selection.anchor_offset, selection.focus_offset);
+		return {
+			start,
+			end,
+			length: end - start
+		};
+	} else {
+		return null;
+	}
+}
+
+export function is_selection_collapsed(selection) {
+	if (selection && selection.type !== 'property') {
+		return selection.anchor_offset === selection.focus_offset;
+	} else {
+		return false;
+	}
+}

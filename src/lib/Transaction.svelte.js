@@ -2,7 +2,7 @@
  * @import { NodeId, Selection, DocumentPath } from './types.js'
  */
 
-import { get_char_length, char_slice, traverse } from './util.js';
+import { get_char_length, char_slice, traverse, get_selection_range, is_selection_collapsed } from './util.js';
 import { join_text_node } from './commands.svelte.js';
 
 /**
@@ -267,7 +267,7 @@ export default class Transaction {
   annotate_text(annotation_type, annotation_properties) {
     if (this.doc.selection.type !== 'text') return this;
 
-    const { start, end } = this.doc.get_selection_range();
+    const { start, end } = get_selection_range(this.doc.selection);
     const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
     const annotations = annotated_text.annotations;
     const existing_annotation = this.doc.active_annotation();
@@ -439,7 +439,6 @@ export default class Transaction {
 
         // Remove annotation if it becomes invalid (start >= end)
         if (new_start >= new_end) {
-          console.log('deleting annotation');
           _deleted_nodes.push(node_id);
           return false;
         }
@@ -535,8 +534,14 @@ export default class Transaction {
   insert_text(replaced_text, annotations = [], nodes = {}) {
     if (this.doc.selection?.type !== 'text') return this;
 
+    // Unless selection is collapsed, delete the selected content
+    // NOTE: This makes sure wrapped annotations are disposed correctly
+    if (!is_selection_collapsed(this.doc.selection)) {
+			this.delete_selection();
+    }
+
     const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
-    const { start, end } = this.doc.get_selection_range();
+		const { start, end } = get_selection_range(this.doc.selection);
 
     // Transform the plain text string using character-based operations
     const text = annotated_text.text;
