@@ -370,7 +370,6 @@ const serialized_doc = {
 	    },
 	    buttons: []
 	  },
-	  // IMPORTANT: The root node (entry point) must be the last one in the array
 	  page_1: {
 	    id: 'page_1',
 	    type: 'page',
