@@ -293,18 +293,18 @@ export default class Document {
     this.config = config;
     this.nodes = serialized_doc.nodes;
 
-    // Initialize and validate nodes one by one
-    // This ensures references only point to already-loaded nodes
-    // for (const node of serialized_doc) {
-    //   this.validate_node(node);
-    //   this.nodes[node.id] = node;
-    // }
-
     // The last element in the serialized_doc is the document itself (the root node)
 		this.document_id = serialized_doc.document_id; // serialized_doc.at(-1)?.id;
 
     // Set selection after nodes are initialized so validation can work properly
     this.selection = selection;
+  }
+
+  validate() {
+		for (const node of Object.values(this.nodes)) {
+			this.validate_node(node);
+			this.nodes[node.id] = node;
+		}
   }
 
   generate_id() {
