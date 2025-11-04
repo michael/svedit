@@ -200,10 +200,15 @@ export type SerializedNode = {
 };
 
 /**
- * The document serialization format - an array of serialized nodes.
- * Nodes must be ordered so that referenced nodes come before nodes that reference them.
+ * The document serialization format - an object with document_id and nodes.
+ * The nodes object maps node IDs to their serialized node data.
  */
-export type SerializedDocument = SerializedNode[];
+export type SerializedDocument = {
+  document_id: string;
+  nodes: {
+    [key: string]: SerializedNode;
+  };
+};
 
 /**
  * Props for the AnnotatedTextProperty component

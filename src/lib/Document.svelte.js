@@ -13,6 +13,7 @@ import { char_slice, get_char_length, traverse } from './util.js';
  *   NodeKind,
  *   NodeSchema,
  *   DocumentSchema,
+ *   SerializedNode,
  *   SerializedDocument
  * } from './types.d.ts';
  */
@@ -183,11 +184,12 @@ export default class Document {
   /** @type {Selection | undefined} */
   #selection = $state.raw();
   config = $state.raw();
+  schema = $state.raw();
   document_id = $state.raw();
   nodes = $state.raw();
   history = $state.raw([]);
   history_index = $state.raw(-1);
-  last_batch_started = undefined; // Timestamp for debounced batching
+  last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
 
   // Reactive helpers for UI state
   can_undo = $derived(this.history_index >= 0);
@@ -810,20 +812,41 @@ export default class Document {
     }
   }
 
-  // Traverses the document and returns a JSON representation.
-  // IMPORTANT: Leaf nodes must go first, branches second and the root node (entry point) last (depth-first traversal)
-  // NOTE: Nodes that are not reachable from the entry point node will not be included in the serialization
+
+  /**
+   * Traverses the document and returns a list of nodes in depth-first order.
+   *
+   * The traversal order is:
+   * 1. Leaf nodes first
+   * 2. Branch nodes second
+   * 3. Root node (entry point) last
+   *
+   * @param {string} node_id - The ID of the node to start traversing from
+   * @returns {Array<SerializedNode>} Array of nodes in depth-first order
+   * @note Nodes that are not reachable from the entry point node will not be included in the serialization
+   */
   traverse(node_id) {
     return traverse(node_id, this.schema, $state.snapshot(this.nodes));
   }
 
   /**
    * Convert the document to serialized format.
+   *
+   * We make a traversal to ensure that orphaned nodes are not included in the serialization,
+   * and that leaf nodes go first, followed by branches and the root node at last.
+   *
    * @returns {SerializedDocument} The serialized document array
    */
-  to_json() {
-    return this.traverse(this.document_id);
-  }
+   to_json() {
+     // this will order the nodes (depth-first traversal)
+     const nodes_array = this.traverse(this.document_id);
+     // convert nodes array to object with node IDs as keys
+     const nodes = Object.fromEntries(nodes_array.map(node => [node.id, node]));
+     return {
+       document_id: this.document_id,
+       nodes
+     };
+   }
 
   // property_type('page', 'body') => 'node_array'
   // property_type('paragraph', 'content') => 'annotated_text'
