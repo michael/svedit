@@ -32,7 +32,7 @@
   // Track temporary disabled onkeydown events (e.g. during character composition)
   let skip_onkeydown = false;
   let is_composing = $state(false);
-  let input_selection = undefined;
+  let before_composition_selection = undefined;
 
   let is_mobile = $derived(is_mobile_browser());
   let is_chrome_desktop = $derived(is_chrome_desktop_browser());
@@ -84,15 +84,27 @@
     // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
     // Sometimes the part that should be replaced is not the same as the current DOM selection
-    // that's why we look into event.getTargetRanges()[0] if it exists and adjust the selection
-    // if necessary.
+    // that's why we look into event.getTargetRanges()[0] if it exists.
+    let target_selection;
     if (event.getTargetRanges?.()?.[0]) {
-    	const target_sel = __get_text_selection_from_dom(event.getTargetRanges()[0]);
-     	if (target_sel) {
-      	doc.selection = target_sel;
-      } else {
-      	console.log('Selection could not be determined from event.getTargetRanges()[0]', event.getTargetRanges()[0]);
+      target_selection = __get_text_selection_from_dom(event.getTargetRanges()[0]);
+    }
+
+    // While composing, Svedit does nothing and lets the oncompositionend
+    // event handle the final replacement.
+    if (event.isComposing) {
+      // NOTE: We only capture the initial selection right after the composition started
+      // We're not interested in the target selections during the composition.
+    	if (!before_composition_selection) {
+        before_composition_selection = target_selection;
       }
+      return;
+    }
+
+    // NOTE: in cases we can't reliably map event.getTargetRanges()[0] to a doc selection,
+    // the original doc.selection is used.
+    if (target_selection) {
+    	doc.selection = target_selection;
     }
 
     // Only take input when in a valid text selection inside the canvas
@@ -145,16 +157,12 @@
       return;
     }
 
-    // While composing, I do nothing and let the oncompositionend
-    // event handle the final replacement.
-    if (event.isComposing) {
-    	// console.log('is_composing', event.data);
-      return;
-    }
+    // Since we return on event.isComposing we can definitely be sure that we're not
+    // in a composition anymore.
+    before_composition_selection = undefined;
 
     // Insert the character, unless there is none.
     let inserted_text = event.data;
-
 
     // Sometimes (e.g. for replacements) the inserted_text is available via
     // event.dataTransfer, not event.data
@@ -171,8 +179,73 @@
     const tr = doc.tr;
     tr.insert_text(inserted_text);
     doc.apply(tr, { batch: true });
-    input_selection = undefined;
     event.preventDefault();
+  }
+
+  /**
+   * Handles composition start events for input methods like dead keys
+   * This occurs when user starts typing a composed character (e.g., backtick for accents)
+   * @param {CompositionEvent} event
+   */
+  function oncompositionstart(event) {
+  	console.log('DEBUG: oncompositionstart', event.data);
+    if (doc.selection.type !== 'text') {
+	    // Remove all ranges - completely clears the selection
+	    window.getSelection()?.removeAllRanges();
+
+			// Restore
+			setTimeout(() => {
+				render_selection();
+			}, 0);
+      return;
+    }
+
+    // Disable keydown event handling during composition. This way, you can confirm
+    // a diacritic (a->ä) with ENTER without causing a line break.
+    skip_onkeydown = true;
+    is_composing = true;
+    return;
+  }
+
+  /**
+   * Handles composition end events for input methods like dead keys
+   * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
+   */
+  function oncompositionend(event) {
+    console.log('DEBUG: oncompositionend, insert:', event.data, event);
+    if (!canvas_ref?.contains(document.activeElement)) return;
+    if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
+      // We need to remember the user's selection, as it might have changed in the process
+      // of finishing a composition. For instance, the user might have selected a different
+      // part of the text while composing.
+      const user_selection = __get_selection_from_dom();
+
+      // NOTE: We only insert new text, when before_composition_selection could be determined.
+      // Otherwise, we assume a no-op. E.g. when a user enables dictation on Samsung-Android
+      // and disables it right after. See: https://github.com/michael/web-editing/issues/11
+      if (before_composition_selection) {
+	      doc.selection = before_composition_selection;
+	      console.log('event.data', event.data);
+	     	const tr = doc.tr;
+	      tr.insert_text(event.data);
+	      doc.apply(tr);
+				// Recover user selection after composition. This assumes that document positions of natively
+				// modified DOM (before transaction applied) are equal to the positions after the transaction.
+				doc.selection = user_selection;
+      }
+
+      // NOTE: We need a little timeout to nudge Safari to not handle the
+      // ENTER press when confirming a diacritic
+      setTimeout(() => {
+	      skip_onkeydown = false;
+	      is_composing = false;
+      }, 100);
+    }
+
+    // Reset before_composition_selection, so we are ready for capturing the starting selection
+    // of the next composition.
+    before_composition_selection = undefined;
+    return;
   }
 
   // Map DOM selection to internal model
@@ -184,7 +257,7 @@
     // Only handle selection changes if selection is within the canvas
     const range = dom_selection.getRangeAt(0);
     if (!canvas_ref?.contains(range.commonAncestorContainer)) return;
-    let selection = __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
+    let selection = __get_selection_from_dom();
     if (selection) {
       doc.selection = selection;
     }
@@ -697,7 +770,7 @@ ${fallback_html}`;
         doc.select_parent();
       }
       const node = doc.selected_node;
-      const old_selection = { ...doc.selection };
+      const old_selection = structuredClone(doc.selection);
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
@@ -717,7 +790,7 @@ ${fallback_html}`;
         doc.select_parent();
       }
       const node = doc.selected_node;
-      const old_selection = { ...doc.selection };
+      const old_selection = structuredClone(doc.selection);
       const node_array_schema = doc.inspect(doc.selection.path);
       // If we are not dealing with a node selection in a container, return
       if (node_array_schema.type !== 'node_array') return;
@@ -806,57 +879,6 @@ ${fallback_html}`;
       e.preventDefault();
       e.stopPropagation();
     }
-  }
-
-  /**
-   * Handles composition start events for input methods like dead keys
-   * This occurs when user starts typing a composed character (e.g., backtick for accents)
-   * @param {CompositionEvent} event
-   */
-  function oncompositionstart(event) {
-  	console.log('DEBUG: oncompositionstart', event.data);
-    if (doc.selection.type !== 'text') {
-	    // Remove all ranges - completely clears the selection
-	    window.getSelection()?.removeAllRanges();
-      return;
-    }
-
-    // EDGE CASE long-press composition: Chrome needs a little bit time until the selection wraps the
-    // character being modified. We need to capture this, so at oncompositionend stage we can
-    // replace the modified character with the composed one, instead of adding an additional one.
-    setTimeout(() => {
-    	input_selection = { ...doc.selection };
-      // console.log('input selection:', input_selection);
-    }, 0);
-
-    // Disable keydown event handling during composition. This way, you can confirm
-    // a diacritic (a->ä) with ENTER without causing a line break.
-    skip_onkeydown = true;
-    is_composing = true;
-    return;
-  }
-
-  /**
-   * Handles composition end events for input methods like dead keys
-   * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
-   */
-  function oncompositionend(event) {
-    // console.log('DEBUG: oncompositionend, insert:', event.data, event);
-    if (!canvas_ref?.contains(document.activeElement)) return;
-    if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
-      // Set doc selection to previously memoized selection
-      doc.selection = input_selection;
-     	const tr = doc.tr;
-      tr.insert_text(event.data);
-      doc.apply(tr);
-      // NOTE: We need a little timeout to nudge Safari to not handle the
-      // ENTER press when confirming a diacritic
-      setTimeout(() => {
-	      skip_onkeydown = false;
-	      is_composing = false;
-      }, 100);
-    }
-    return;
   }
 
   /**
@@ -1007,6 +1029,11 @@ ${fallback_html}`;
     }
     return null;
   }
+
+  function __get_selection_from_dom() {
+  	return __get_property_selection_from_dom() || __get_text_selection_from_dom() || __get_node_selection_from_dom();
+  }
+
 
   /**
    * Extracts a TextSelection from the current DOM selection.

@@ -429,7 +429,7 @@ export default class Document {
   apply(transaction, { batch = false } = {}) {
     this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
     // Make sure selection gets a new reference (is rerendered)
-    this.selection = { ...transaction.doc.selection };
+    this.selection = structuredClone(transaction.doc.selection);
     if (this.history_index < this.history.length - 1) {
       this.history = this.history.slice(0, this.history_index + 1);
     }
