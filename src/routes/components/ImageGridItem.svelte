@@ -19,19 +19,23 @@
 		</CustomProperty>
 		<div class="caption flex-column gap-y-3">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedTextProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
+			<AnnotatedTextProperty
+				class="heading3"
+				path={[...path, 'title']}
+				placeholder="Gallery item title"
+			/>
 			<AnnotatedTextProperty class="body" path={[...path, 'description']} placeholder="Details" />
 		</div>
 	</div>
 </Node>
 
 <style>
-  .image-grid-item {
-    padding: var(--s-2);
-    /*background: #efefef;*/
-    height: 100%;
-  }
-  .image-grid-item img {
+	.image-grid-item {
+		padding: var(--s-2);
+		/*background: #efefef;*/
+		height: 100%;
+	}
+	.image-grid-item img {
 		width: 100%;
 		object-fit: cover;
 		height: 100%;

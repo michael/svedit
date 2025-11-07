@@ -17,8 +17,8 @@
  * get_char_length('👋🏽') // Returns: 1 (not 4 - skin tone modifier treated as single char)
  */
 export function get_char_length(str) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  return [...segmenter.segment(str)].length;
+	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	return [...segmenter.segment(str)].length;
 }
 
 /**
@@ -37,9 +37,9 @@ export function get_char_length(str) {
  * get_char_at('👋🏽', 0) // Returns: '👋🏽' (skin tone modifier included)
  */
 export function get_char_at(str, index) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(str)];
-  return segments[index].segment;
+	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	const segments = [...segmenter.segment(str)];
+	return segments[index].segment;
 }
 
 /**
@@ -58,9 +58,12 @@ export function get_char_at(str, index) {
  * char_slice('a👋🏽b', 1, 2) // Returns: '👋🏽' (skin tone modifier included)
  */
 export function char_slice(str, start, end = undefined) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(str)];
-  return segments.slice(start, end).map(s => s.segment).join('');
+	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	const segments = [...segmenter.segment(str)];
+	return segments
+		.slice(start, end)
+		.map((s) => s.segment)
+		.join('');
 }
 
 /**
@@ -78,19 +81,19 @@ export function char_slice(str, start, end = undefined) {
  * utf16_to_char_offset("a😀b", 3) // Returns: 2 (position after emoji)
  */
 export function utf16_to_char_offset(str, utf16_offset) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(str)];
-  let char_offset = 0;
-  let utf16_count = 0;
+	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	const segments = [...segmenter.segment(str)];
+	let char_offset = 0;
+	let utf16_count = 0;
 
-  for (const segment of segments) {
-    if (utf16_count >= utf16_offset) break;
-    utf16_count += segment.segment.length;
-    if (utf16_count > utf16_offset) break;
-    char_offset++;
-  }
+	for (const segment of segments) {
+		if (utf16_count >= utf16_offset) break;
+		utf16_count += segment.segment.length;
+		if (utf16_count > utf16_offset) break;
+		char_offset++;
+	}
 
-  return char_offset;
+	return char_offset;
 }
 
 /**
@@ -108,15 +111,15 @@ export function utf16_to_char_offset(str, utf16_offset) {
  * char_to_utf16_offset("a😀b", 2) // Returns: 3 (UTF-16 position after emoji)
  */
 export function char_to_utf16_offset(str, char_offset) {
-  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(str)];
-  let utf16_offset = 0;
+	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+	const segments = [...segmenter.segment(str)];
+	let utf16_offset = 0;
 
-  for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
-    utf16_offset += segments[i].segment.length;
-  }
+	for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
+		utf16_offset += segments[i].segment.length;
+	}
 
-  return utf16_offset;
+	return utf16_offset;
 }
 
 /**
@@ -138,38 +141,41 @@ export function char_to_utf16_offset(str, char_offset) {
  * // ]
  */
 export function split_annotated_text(text_with_annotations, at_position) {
-  const {text, annotations} = text_with_annotations;
+	const { text, annotations } = text_with_annotations;
 
-  // Split the text using character-aware slicing
-  const left_text = char_slice(text, 0, at_position);
-  const right_text = char_slice(text, at_position);
+	// Split the text using character-aware slicing
+	const left_text = char_slice(text, 0, at_position);
+	const right_text = char_slice(text, at_position);
 
-  /** @type {Array<Annotation>} */
-  const left_annotations = [];
-  /** @type {Array<Annotation>} */
-  const right_annotations = [];
+	/** @type {Array<Annotation>} */
+	const left_annotations = [];
+	/** @type {Array<Annotation>} */
+	const right_annotations = [];
 
-  // Process each annotation
-  for (const {start_offset, end_offset, node_id} of annotations) {
-    if (end_offset <= at_position) {
-      // Annotation is entirely in the left part
-      left_annotations.push({start_offset, end_offset, node_id});
-    } else if (start_offset >= at_position) {
-      // Annotation is entirely in the right part - shift offsets
-      right_annotations.push({start_offset: start_offset - at_position, end_offset: end_offset - at_position, node_id});
-    } else {
-      // Annotation spans the split point - split it
-      left_annotations.push({start_offset, end_offset: at_position, node_id});
-      right_annotations.push({start_offset: 0, end_offset: end_offset - at_position, node_id});
-    }
-  }
+	// Process each annotation
+	for (const { start_offset, end_offset, node_id } of annotations) {
+		if (end_offset <= at_position) {
+			// Annotation is entirely in the left part
+			left_annotations.push({ start_offset, end_offset, node_id });
+		} else if (start_offset >= at_position) {
+			// Annotation is entirely in the right part - shift offsets
+			right_annotations.push({
+				start_offset: start_offset - at_position,
+				end_offset: end_offset - at_position,
+				node_id
+			});
+		} else {
+			// Annotation spans the split point - split it
+			left_annotations.push({ start_offset, end_offset: at_position, node_id });
+			right_annotations.push({ start_offset: 0, end_offset: end_offset - at_position, node_id });
+		}
+	}
 
-  return [
-    {text: left_text, annotations: left_annotations},
-    {text: right_text, annotations: right_annotations}
-  ];
+	return [
+		{ text: left_text, annotations: left_annotations },
+		{ text: right_text, annotations: right_annotations }
+	];
 }
-
 
 /**
  * Joins two annotated texts into a single annotated text.
@@ -186,36 +192,43 @@ export function split_annotated_text(text_with_annotations, at_position) {
  * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
  */
 export function join_annotated_text(first_text, second_text) {
-  const {text: first_text_content, annotations: first_annotations} = first_text;
-  const {text: second_text_content, annotations: second_annotations} = second_text;
+	const { text: first_text_content, annotations: first_annotations } = first_text;
+	const { text: second_text_content, annotations: second_annotations } = second_text;
 
-  // Join the text content
-  const joined_text = first_text_content + second_text_content;
+	// Join the text content
+	const joined_text = first_text_content + second_text_content;
 
-  // Start with all annotations from the first text (unchanged)
-  /** @type {Array<Annotation>} */
-  const joined_annotations = [...first_annotations];
+	// Start with all annotations from the first text (unchanged)
+	/** @type {Array<Annotation>} */
+	const joined_annotations = [...first_annotations];
 
-  // Add annotations from the second text, shifting their offsets
-  const offset = get_char_length(first_text_content);
-  for (const {start_offset, end_offset, node_id} of second_annotations) {
-    /** @type {Annotation} */
-    const shifted_annotation = {start_offset: start_offset + offset, end_offset: end_offset + offset, node_id};
+	// Add annotations from the second text, shifting their offsets
+	const offset = get_char_length(first_text_content);
+	for (const { start_offset, end_offset, node_id } of second_annotations) {
+		/** @type {Annotation} */
+		const shifted_annotation = {
+			start_offset: start_offset + offset,
+			end_offset: end_offset + offset,
+			node_id
+		};
 
-    // Check if this annotation can be merged with the last annotation from first text
-    const last_annotation = joined_annotations[joined_annotations.length - 1];
-    if (last_annotation &&
-        last_annotation.end_offset === shifted_annotation.start_offset && // annotations are adjacent
-        last_annotation.node_id === shifted_annotation.node_id) { // same node_id
-      // Merge by extending the end position of the last annotation
-      last_annotation.end_offset = shifted_annotation.end_offset;
-    } else {
-      // Add as separate annotation
-      joined_annotations.push(shifted_annotation);
-    }
-  }
+		// Check if this annotation can be merged with the last annotation from first text
+		const last_annotation = joined_annotations[joined_annotations.length - 1];
+		if (
+			last_annotation &&
+			last_annotation.end_offset === shifted_annotation.start_offset && // annotations are adjacent
+			last_annotation.node_id === shifted_annotation.node_id
+		) {
+			// same node_id
+			// Merge by extending the end position of the last annotation
+			last_annotation.end_offset = shifted_annotation.end_offset;
+		} else {
+			// Add as separate annotation
+			joined_annotations.push(shifted_annotation);
+		}
+	}
 
-  return {text: joined_text, annotations: joined_annotations};
+	return { text: joined_text, annotations: joined_annotations };
 }
 
 /**
@@ -228,44 +241,44 @@ export function join_annotated_text(first_text, second_text) {
  * snake_to_pascal('list_item') // Returns: 'ListItem'
  */
 export function snake_to_pascal(str) {
-  return str
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('');
+	return str
+		.split('_')
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join('');
 }
 
 export function traverse(node_id, schema, nodes) {
-  const json = [];
-  const visited = {};
-  const visit = (node) => {
-    if (!node || visited[node.id]) {
-      return;
-    }
-    visited[node.id] = true;
-    for (const [property_name, value] of Object.entries(node)) {
-      const property_definition = schema[node.type].properties[property_name];
+	const json = [];
+	const visited = {};
+	const visit = (node) => {
+		if (!node || visited[node.id]) {
+			return;
+		}
+		visited[node.id] = true;
+		for (const [property_name, value] of Object.entries(node)) {
+			const property_definition = schema[node.type].properties[property_name];
 
-      if (property_definition?.type === 'node_array') {
-        for (const v of value) {
-          if (typeof v === 'string') {
-            visit(nodes[v]);
-          }
-        }
-      } else if (property_definition?.type === 'node') {
-        visit(nodes[value]);
-      } else if (property_definition?.type === 'annotated_text') {
-        for (const annotation of value.annotations) {
-          visit(nodes[annotation.node_id]);
-        }
-      }
-    }
-    // Finally add the node to the result.
-    // Deep clone, to make sure nothing of the original document is referenced.
-    json.push(structuredClone(node));
-  }
-  // Start with the root node (document_id)
-  visit(nodes[node_id]);
-  return json;
+			if (property_definition?.type === 'node_array') {
+				for (const v of value) {
+					if (typeof v === 'string') {
+						visit(nodes[v]);
+					}
+				}
+			} else if (property_definition?.type === 'node') {
+				visit(nodes[value]);
+			} else if (property_definition?.type === 'annotated_text') {
+				for (const annotation of value.annotations) {
+					visit(nodes[annotation.node_id]);
+				}
+			}
+		}
+		// Finally add the node to the result.
+		// Deep clone, to make sure nothing of the original document is referenced.
+		json.push(structuredClone(node));
+	};
+	// Start with the root node (document_id)
+	visit(nodes[node_id]);
+	return json;
 }
 
 export function get_selection_range(selection) {

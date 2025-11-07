@@ -8,21 +8,21 @@
 </script>
 
 <Node {path}>
-  <svelte:element
-    this={svedit.editable ? 'div' : 'a'}
-    href={svedit.editable ? undefined : node.href}
-    class="button"
-  >
-    <AnnotatedTextProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
-  </svelte:element>
+	<svelte:element
+		this={svedit.editable ? 'div' : 'a'}
+		href={svedit.editable ? undefined : node.href}
+		class="button"
+	>
+		<AnnotatedTextProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
+	</svelte:element>
 </Node>
 
 <style>
 	.button {
-    display: block;
-    text-decoration: none;
-    border-radius: var(--s-2);
-	  background: var(--primary-fill-color);
+		display: block;
+		text-decoration: none;
+		border-radius: var(--s-2);
+		background: var(--primary-fill-color);
 		color: var(--canvas-fill-color);
 		padding: var(--s-2) var(--s-4);
 	}
@@ -30,6 +30,6 @@
 	.button:hover {
 		background: var(--primary-fill-color);
 		color: var(--canvas-fill-color);
-	  opacity: 0.8;
+		opacity: 0.8;
 	}
 </style>

@@ -21,9 +21,20 @@
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedTextProperty class="heading2" path={[...path, 'title']} placeholder="The CTA headline should be clear and benefit-driven." />
-			<AnnotatedTextProperty class="body" path={[...path, 'description']} placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional." />
-			<NodeArrayProperty class="buttons{!has_buttons ? ' empty' : ''}" path={[...path, 'buttons']} />
+			<AnnotatedTextProperty
+				class="heading2"
+				path={[...path, 'title']}
+				placeholder="The CTA headline should be clear and benefit-driven."
+			/>
+			<AnnotatedTextProperty
+				class="body"
+				path={[...path, 'description']}
+				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."
+			/>
+			<NodeArrayProperty
+				class="buttons{!has_buttons ? ' empty' : ''}"
+				path={[...path, 'buttons']}
+			/>
 		</div>
 	</div>
 </Node>
@@ -47,7 +58,7 @@
 	}
 
 	.story :global(.buttons:not(.empty)) {
-	  padding-top: 24px;
+		padding-top: 24px;
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
@@ -55,11 +66,11 @@
 	}
 
 	.story :global(.buttons) {
-  	--layout-orientation: horizontal;
+		--layout-orientation: horizontal;
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {
-	  position: absolute !important;
+		position: absolute !important;
 	}
 
 	.story img {
@@ -83,7 +94,7 @@
 	}
 
 	.story :global(.heading2) {
-	  margin-bottom: var(--s-2);
+		margin-bottom: var(--s-2);
 	}
 
 	.story :global(.image-wrapper) {

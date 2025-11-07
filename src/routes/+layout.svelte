@@ -1,9 +1,9 @@
 <script>
-  import Layout from './components/Layout.svelte';
+	import Layout from './components/Layout.svelte';
 
-  let { children } = $props();
+	let { children } = $props();
 </script>
 
 <Layout>
-  {@render children()}
+	{@render children()}
 </Layout>

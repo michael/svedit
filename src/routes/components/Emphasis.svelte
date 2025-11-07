@@ -1,5 +1,5 @@
 <script>
-  import { getContext } from 'svelte';
+	import { getContext } from 'svelte';
 	const svedit = getContext('svedit');
 	let { path, content } = $props();
 	let node = $derived(svedit.doc.get(path));

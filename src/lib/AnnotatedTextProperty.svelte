@@ -2,20 +2,18 @@
 	import { getContext } from 'svelte';
 	import { char_slice, get_char_length, snake_to_pascal } from './util.js';
 
-  /** @import { AnnotatedTextPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
+	/** @import { AnnotatedTextPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
- /** @type {AnnotatedTextPropertyProps} */
-	let {
-		path,
-		class: css_class,
-		placeholder = '',
-		tag = 'div'
-	} = $props();
+	/** @type {AnnotatedTextPropertyProps} */
+	let { path, class: css_class, placeholder = '', tag = 'div' } = $props();
 
 	let is_focused = $derived.by(() => {
-		return svedit.doc.selection?.type === 'text' && path.join('.') === svedit.doc.selection?.path.join('.');
+		return (
+			svedit.doc.selection?.type === 'text' &&
+			path.join('.') === svedit.doc.selection?.path.join('.')
+		);
 	});
 
 	/**
@@ -43,11 +41,11 @@
 			if (!node) throw new Error(`Node not found for annotation ${annotation.node_id}`);
 
 			fragments.push({
-			  node,
+				node,
 				content: annotated_content,
 				// NOTE: We need to provide the original index here, because the source data
 				// is the address space.
-				annotation_index: annotations.indexOf(annotation),
+				annotation_index: annotations.indexOf(annotation)
 			});
 
 			last_index = annotation.end_offset;
@@ -61,10 +59,13 @@
 		return fragments;
 	}
 
-	let fragments = $derived(get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations));
+	let fragments = $derived(
+		get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations)
+	);
 	let plain_text = $derived(svedit.doc.get(path).text);
-	let is_empty = $derived(get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused));
-
+	let is_empty = $derived(
+		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
+	);
 </script>
 
 <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
@@ -73,49 +74,52 @@
 <!-- Before, we were just hiding it on focus, but that caused the cursor to disappear on Safari Desktop (tested with v26). -->
 <!-- Edge Case: Shift Enter stops working if <br> is not present on a non-empty text property. -->
 <svelte:element
- 	this={tag}
- 	data-type="text"
- 	data-path={path.join('.')}
- 	style="anchor-name: --{path.join('-')};"
- 	class="text svedit-selectable {css_class}"
- 	class:empty={is_empty}
-  class:focused={is_focused}
-  placeholder={placeholder}
+	this={tag}
+	data-type="text"
+	data-path={path.join('.')}
+	style="anchor-name: --{path.join('-')};"
+	class="text svedit-selectable {css_class}"
+	class:empty={is_empty}
+	class:focused={is_focused}
+	{placeholder}
 >
-  {#each fragments as fragment, index (index)}
+	{#each fragments as fragment, index (index)}
 		{#if typeof fragment === 'string'}{fragment}{:else}
-      {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
-      <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
-    {/if}
- 	{/each}<!--
-  -->{#if !is_focused || !is_empty}<br>{/if}
+			{@const AnnotationComponent =
+				svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
+			<AnnotationComponent
+				path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
+				content={fragment.content}
+			/>
+		{/if}
+	{/each}<!--
+  -->{#if !is_focused || !is_empty}<br />{/if}
 </svelte:element>
 
 <style>
-  .text {
-    white-space: pre-wrap;
+	.text {
+		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 		box-sizing: content-box;
 
 		&.heading1 {
-      text-wrap: var(--text-wrap);
-    }
-  }
+			text-wrap: var(--text-wrap);
+		}
+	}
 	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
-  [placeholder].empty:not(.focused)::before,
+	[placeholder].empty:not(.focused)::before,
 	[placeholder].empty.focused::after {
-    content: attr(placeholder);
-    pointer-events: none;
-    color: color-mix(in oklch, currentcolor 50%, transparent);
-  }
-
+		content: attr(placeholder);
+		pointer-events: none;
+		color: color-mix(in oklch, currentcolor 50%, transparent);
+	}
 
 	/* Hide flickering: in Chrome, the caret jumps from end of placeholder string to start of text property when we focus */
 	.text:not(.focused) {
 		caret-color: transparent;
 	}
 
-  /*.text.focused {
+	/*.text.focused {
     background: none;
     outline: 1px solid var(--editing-stroke-color);
   }*/

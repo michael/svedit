@@ -56,11 +56,8 @@
 {/if}
 
 {#if selected_link_path}
-	<div
-		class="text-selection-overlay"
-		style="position-anchor: --{selected_link_path.join('-')};"
-	>
-		<a href="{selected_link?.href}" target="_blank" class="small"><Icon name="external-link" /></a>
+	<div class="text-selection-overlay" style="position-anchor: --{selected_link_path.join('-')};">
+		<a href={selected_link?.href} target="_blank" class="small"><Icon name="external-link" /></a>
 	</div>
 {/if}
 
@@ -90,10 +87,10 @@
 	}
 
 	.text-selection-overlay a {
-    background-color: white;
-    display: block;
-    padding: var(--s-2);
-    border-radius: var(--s-2);
+		background-color: white;
+		display: block;
+		padding: var(--s-2);
+		border-radius: var(--s-2);
 		color: var(--primary-text-color);
 		--icon-color: var(--primary-text-color);
 		box-shadow: var(--shadow-2);

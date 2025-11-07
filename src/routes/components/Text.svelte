@@ -58,7 +58,12 @@
 
 <Node {path}>
 	<div class="text layout-{layout} max-w-screen-lg mx-auto w-full">
-	  <AnnotatedTextProperty {tag} class={text_style} path={[...path, 'content']} placeholder={readable_text_type} />
+		<AnnotatedTextProperty
+			{tag}
+			class={text_style}
+			path={[...path, 'content']}
+			placeholder={readable_text_type}
+		/>
 	</div>
 </Node>
 
