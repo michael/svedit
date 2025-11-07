@@ -67,31 +67,29 @@
 
 </script>
 
-{#key plain_text}
-  <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
-  <svelte:element
-  	this={tag}
-   	data-type="text"
-   	data-path={path.join('.')}
-   	style="anchor-name: --{path.join('-')};"
-   	class="text svedit-selectable {css_class}"
-   	class:empty={is_empty}
-    class:focused={is_focused}
-    placeholder={placeholder}
-  >
-    {#each fragments as fragment, index (index)}
-  		{#if typeof fragment === 'string'}{fragment}{:else}
-        {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
-        <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
-      {/if}
-  	{/each}<!--
-    -->{#if !is_focused || !is_empty}<br>{/if}
-  </svelte:element>
-{/key}
+<!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
 <!-- We need to use <br> so the element is reachable by Arrow Up/Down navigation. -->
 <!-- But as soon as the element is focused, we get rid of the <br> as it causes issues with caret positioning. -->
 <!-- Before, we were just hiding it on focus, but that caused the cursor to disappear on Safari Desktop (tested with v26). -->
 <!-- Edge Case: Shift Enter stops working if <br> is not present on a non-empty text property. -->
+<svelte:element
+ 	this={tag}
+ 	data-type="text"
+ 	data-path={path.join('.')}
+ 	style="anchor-name: --{path.join('-')};"
+ 	class="text svedit-selectable {css_class}"
+ 	class:empty={is_empty}
+  class:focused={is_focused}
+  placeholder={placeholder}
+>
+  {#each fragments as fragment, index (index)}
+		{#if typeof fragment === 'string'}{fragment}{:else}
+      {@const AnnotationComponent = svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
+      <AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']} content={fragment.content} />
+    {/if}
+ 	{/each}<!--
+  -->{#if !is_focused || !is_empty}<br>{/if}
+</svelte:element>
 
 <style>
   .text {

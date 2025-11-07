@@ -35,7 +35,7 @@
   let before_composition_selection = undefined;
 
   let is_mobile = $derived(is_mobile_browser());
-  let is_chrome_desktop = $derived(is_chrome_desktop_browser());
+  // let is_chrome_desktop = $derived(is_chrome_desktop_browser());
 
   /**
    * Detect if the current browser is on a mobile device
@@ -52,15 +52,14 @@
            (navigator.maxTouchPoints > 0);
   }
 
-  function is_chrome_desktop_browser() {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      return false;
-    }
-
-    const user_agent = navigator.userAgent;
-    const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-    return is_chrome && !is_mobile;
-  }
+  // function is_chrome_desktop_browser() {
+  //   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+  //     return false;
+  //   }
+  //   const user_agent = navigator.userAgent;
+  //   const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+  //   return is_chrome && !is_mobile;
+  // }
 
   /** Expose function so parent can call it */
   export { focus_canvas };
@@ -82,6 +81,11 @@
    */
   async function onbeforeinput(event) {
     // console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+
+    if (event.inputType === 'historyUndo' && is_composing) {
+      // Let the historyundo event pass through (when triggered from within oncompositionend)
+    	return;
+    }
 
     // Sometimes the part that should be replaced is not the same as the current DOM selection
     // that's why we look into event.getTargetRanges()[0] if it exists.
@@ -219,6 +223,10 @@
       // of finishing a composition. For instance, the user might have selected a different
       // part of the text while composing.
       const user_selection = __get_selection_from_dom();
+
+      // HACK: In order to restore the DOM state from before composition, we just run contenteditable's
+      // native undo command. Then the DOM will be in sync again with the editor's internal state.
+			document.execCommand('undo');
 
       // NOTE: We only insert new text, when before_composition_selection could be determined.
       // Otherwise, we assume a no-op. E.g. when a user enables dictation on Samsung-Android
@@ -1453,8 +1461,8 @@ ${fallback_html}`;
       // Additionally, OSX-native auto-complete also breaks, because
       // I'm using a keyed block that always wipes the DOM of a text node
       // on every change.
-      autocomplete: is_chrome_desktop ? "off" : "on",
-      autocorrect: is_chrome_desktop ? "off" : "on"
+      // autocomplete: is_chrome_desktop ? "off" : "on",
+      // autocorrect: is_chrome_desktop ? "off" : "on"
     }}
   >
     <RootComponent {path} />
