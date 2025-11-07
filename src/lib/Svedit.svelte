@@ -135,14 +135,14 @@
       event.stopPropagation();
     }
 
-    if (event.inputType === 'deleteContentBackward') {
+    if (['deleteContentBackward', 'deleteWordBackward', 'deleteContent'].includes(event.inputType)) {
       doc.apply(doc.tr.delete_selection('backward'));
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
-    if (event.inputType === 'deleteContentForward') {
+    if (['deleteContentForward', 'deleteWordForward'].includes(event.inputType)) {
       doc.apply(doc.tr.delete_selection('forward'));
       event.preventDefault();
       event.stopPropagation();
