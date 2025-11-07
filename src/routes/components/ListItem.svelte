@@ -2,8 +2,8 @@
 	import { Node, AnnotatedTextProperty } from 'svedit';
 	import { getContext } from 'svelte';
 
-  const svedit = getContext('svedit');
-  let { path } = $props();
+	const svedit = getContext('svedit');
+	let { path } = $props();
 
 	// We expect the list_node to be the parent in the path
 	let list_node = $derived(svedit.doc.get(path.slice(0, -2)));

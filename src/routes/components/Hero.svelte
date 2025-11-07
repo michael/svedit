@@ -18,10 +18,25 @@
 			<div class="hero-overlay"></div>
 		{/if}
 		<div class="hero-content">
-			<AnnotatedTextProperty class="hero-title" path={[...path, 'title']} placeholder="A hero is the prominent, top-most section of a webpage"/>
-			<AnnotatedTextProperty class="hero-subtitle" path={[...path, 'description']} placeholder="It should be accompanied by a short description." />
+			<AnnotatedTextProperty
+				class="hero-title"
+				path={[...path, 'title']}
+				placeholder="A hero is the prominent, top-most section of a webpage"
+			/>
+			<AnnotatedTextProperty
+				class="hero-subtitle"
+				path={[...path, 'description']}
+				placeholder="It should be accompanied by a short description."
+			/>
 			<div class="github-button-wrapper" contenteditable="false">
-			  <a class="github-button" href="https://github.com/michael/svedit" data-color-scheme="no-preference: light; light: light; dark: dark;" data-size="large" data-show-count="true" aria-label="Star michael/svedit on GitHub">Star</a>
+				<a
+					class="github-button"
+					href="https://github.com/michael/svedit"
+					data-color-scheme="no-preference: light; light: light; dark: dark;"
+					data-size="large"
+					data-show-count="true"
+					aria-label="Star michael/svedit on GitHub">Star</a
+				>
 			</div>
 		</div>
 	</div>
@@ -29,7 +44,7 @@
 
 <style>
 	.hero {
-    margin-bottom: var(--s-10);
+		margin-bottom: var(--s-10);
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
 		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
@@ -40,7 +55,11 @@
 		justify-content: center;
 		min-height: 50vh;
 		position: relative;
-		background: linear-gradient(135deg, var(--primary-fill-color), color-mix(in srgb, var(--primary-fill-color) 80%, white));
+		background: linear-gradient(
+			135deg,
+			var(--primary-fill-color),
+			color-mix(in srgb, var(--primary-fill-color) 80%, white)
+		);
 	}
 
 	.github-button-wrapper {
