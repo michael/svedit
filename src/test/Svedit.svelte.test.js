@@ -2,12 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
-import create_test_doc, {
-	story_1_id,
-	button_1_id,
-	page_1_id,
-	list_1_id
-} from './create_test_doc.js';
+import create_test_doc from './create_test_doc.js';
 import { join_text_node } from '../lib/commands.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
@@ -69,21 +64,21 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { doc });
 
 		// Get the original story and button content
-		const original_story = doc.get(story_1_id);
-		const original_button = doc.get(button_1_id);
+		const original_story = doc.get('story_1');
+		const original_button = doc.get('button_1');
 
 		expect(original_story.title).toEqual({ text: 'First story', annotations: [] });
-		expect(original_story.buttons).toEqual([button_1_id]);
+		expect(original_story.buttons).toEqual(['button_1']);
 		expect(original_button.label).toEqual({ text: 'Get started', annotations: [] });
 
-		// Initial body state: [story_1_id, story_1_id, list_1_id]
-		const initial_body = doc.get([page_1_id, 'body']);
-		expect(initial_body).toEqual([story_1_id, story_1_id, list_1_id]);
+		// Initial body state: ['story_1, 'story_1, 'list_1]
+		const initial_body = doc.get(['page_1', 'body']);
+		expect(initial_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 		// Set selection to the first story node
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 0,
 			focus_offset: 1
 		};
@@ -136,7 +131,7 @@ describe('Svedit.svelte', () => {
 		// Keep same selection for paste (to replace, not insert)
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 0,
 			focus_offset: 1
 		};
@@ -159,7 +154,7 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 10)); // Give time for transaction
 
 		// Verify first paste - should still have 3 items (replaced, not inserted)
-		const body_after_first_paste = doc.get([page_1_id, 'body']);
+		const body_after_first_paste = doc.get(['page_1', 'body']);
 		expect(body_after_first_paste.length).toBe(3);
 
 		// Get the new story ID (first element should be the replaced one)
@@ -178,14 +173,14 @@ describe('Svedit.svelte', () => {
 		expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different
-		expect(first_new_story_id).not.toBe(story_1_id);
-		expect(first_new_button_id).not.toBe(button_1_id);
+		expect(first_new_story_id).not.toBe('story_1');
+		expect(first_new_button_id).not.toBe('button_1');
 		expect(first_new_story.buttons).toEqual([first_new_button_id]);
 
 		// Keep same selection for second paste (to replace again)
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 0,
 			focus_offset: 1
 		};
@@ -207,7 +202,7 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 10)); // Give time for transaction
 
 		// Verify second paste - should still have 3 total items (replaced again)
-		const body_after_second_paste = doc.get([page_1_id, 'body']);
+		const body_after_second_paste = doc.get(['page_1', 'body']);
 		expect(body_after_second_paste.length).toBe(3);
 
 		// Get the second new story ID (first element should be the second replacement)
@@ -226,9 +221,9 @@ describe('Svedit.svelte', () => {
 		expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different from both original and first paste
-		expect(second_new_story_id).not.toBe(story_1_id);
+		expect(second_new_story_id).not.toBe('story_1');
 		expect(second_new_story_id).not.toBe(first_new_story_id);
-		expect(second_new_button_id).not.toBe(button_1_id);
+		expect(second_new_button_id).not.toBe('button_1');
 		expect(second_new_button_id).not.toBe(first_new_button_id);
 		expect(second_new_story.buttons).toEqual([second_new_button_id]);
 
@@ -241,9 +236,9 @@ describe('Svedit.svelte', () => {
 		expect(doc.get(second_new_button_id)).toBeDefined();
 
 		// Original nodes should still exist (at position 1)
-		expect(doc.get(story_1_id)).toBeDefined();
-		expect(doc.get(button_1_id)).toBeDefined();
-		expect(body_after_second_paste[1]).toBe(story_1_id);
+		expect(doc.get('story_1')).toBeDefined();
+		expect(doc.get('button_1')).toBeDefined();
+		expect(body_after_second_paste[1]).toBe('story_1');
 	});
 
 	describe('join_text_node command', () => {
@@ -263,15 +258,15 @@ describe('Svedit.svelte', () => {
 			tr.create(empty_text_node);
 
 			// Insert the empty text node after the first story
-			const body = doc.get([page_1_id, 'body']);
+			const body = doc.get(['page_1', 'body']);
 			const new_body = [body[0], empty_text_id, ...body.slice(1)];
-			tr.set([page_1_id, 'body'], new_body);
+			tr.set(['page_1', 'body'], new_body);
 			doc.apply(tr);
 
 			// Set text selection in the empty text node (position 1 in body)
 			doc.selection = {
 				type: 'text',
-				path: [page_1_id, 'body', 1, 'content'],
+				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			};
@@ -285,8 +280,8 @@ describe('Svedit.svelte', () => {
 			expect(doc.get(empty_text_id)).toBeUndefined();
 
 			// Body should be back to original state
-			const final_body = doc.get([page_1_id, 'body']);
-			expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+			const final_body = doc.get(['page_1', 'body']);
+			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 1 (where the deleted node was)
 			expect(doc.selection.type).toBe('node');
@@ -310,15 +305,15 @@ describe('Svedit.svelte', () => {
 			tr.create(text_node);
 
 			// Insert the text node after the first story
-			const body = doc.get([page_1_id, 'body']);
+			const body = doc.get(['page_1', 'body']);
 			const new_body = [body[0], text_id, ...body.slice(1)];
-			tr.set([page_1_id, 'body'], new_body);
+			tr.set(['page_1', 'body'], new_body);
 			doc.apply(tr);
 
 			// Set text selection in the text node (position 1 in body)
 			doc.selection = {
 				type: 'text',
-				path: [page_1_id, 'body', 1, 'content'],
+				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			};
@@ -335,8 +330,8 @@ describe('Svedit.svelte', () => {
 			expect(doc.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
 
 			// Body should remain unchanged
-			const final_body = doc.get([page_1_id, 'body']);
-			expect(final_body).toEqual([story_1_id, text_id, story_1_id, list_1_id]);
+			const final_body = doc.get(['page_1', 'body']);
+			expect(final_body).toEqual(['story_1', text_id, 'story_1', 'list_1']);
 		});
 
 		it('should delete empty text node at position 0', () => {
@@ -355,15 +350,15 @@ describe('Svedit.svelte', () => {
 			tr.create(empty_text_node);
 
 			// Insert the empty text node at the beginning
-			const body = doc.get([page_1_id, 'body']);
+			const body = doc.get(['page_1', 'body']);
 			const new_body = [empty_text_id, ...body];
-			tr.set([page_1_id, 'body'], new_body);
+			tr.set(['page_1', 'body'], new_body);
 			doc.apply(tr);
 
 			// Set text selection in the empty text node (position 0 in body)
 			doc.selection = {
 				type: 'text',
-				path: [page_1_id, 'body', 0, 'content'],
+				path: ['page_1', 'body', 0, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			};
@@ -377,8 +372,8 @@ describe('Svedit.svelte', () => {
 			expect(doc.get(empty_text_id)).toBeUndefined();
 
 			// Body should be back to original state
-			const final_body = doc.get([page_1_id, 'body']);
-			expect(final_body).toEqual([story_1_id, story_1_id, list_1_id]);
+			const final_body = doc.get(['page_1', 'body']);
+			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 0
 			expect(doc.selection.type).toBe('node');
@@ -402,15 +397,15 @@ describe('Svedit.svelte', () => {
 			tr.create(text_node);
 
 			// Insert the text node at the beginning
-			const body = doc.get([page_1_id, 'body']);
+			const body = doc.get(['page_1', 'body']);
 			const new_body = [text_id, ...body];
-			tr.set([page_1_id, 'body'], new_body);
+			tr.set(['page_1', 'body'], new_body);
 			doc.apply(tr);
 
 			// Set text selection in the text node (position 0 in body)
 			doc.selection = {
 				type: 'text',
-				path: [page_1_id, 'body', 0, 'content'],
+				path: ['page_1', 'body', 0, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			};
@@ -427,8 +422,8 @@ describe('Svedit.svelte', () => {
 			expect(doc.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
 
 			// Body should remain unchanged
-			const final_body = doc.get([page_1_id, 'body']);
-			expect(final_body).toEqual([text_id, story_1_id, story_1_id, list_1_id]);
+			const final_body = doc.get(['page_1', 'body']);
+			expect(final_body).toEqual([text_id, 'story_1', 'story_1', 'list_1']);
 		});
 
 		it('should join two text nodes and position cursor at end of joined text', () => {
@@ -457,13 +452,13 @@ describe('Svedit.svelte', () => {
 			tr.create(second_text_node);
 
 			// Replace body with our two text nodes
-			tr.set([page_1_id, 'body'], [first_text_id, second_text_id]);
+			tr.set(['page_1', 'body'], [first_text_id, second_text_id]);
 			doc.apply(tr);
 
 			// Set text selection in the second text node
 			doc.selection = {
 				type: 'text',
-				path: [page_1_id, 'body', 1, 'content'],
+				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			};
@@ -481,12 +476,12 @@ describe('Svedit.svelte', () => {
 			expect(first_text.content).toEqual({ text: 'First text second text', annotations: [] });
 
 			// Body should only contain the first text node
-			const final_body = doc.get([page_1_id, 'body']);
+			const final_body = doc.get(['page_1', 'body']);
 			expect(final_body).toEqual([first_text_id]);
 
 			// Selection should be positioned at the end of the original first text
 			expect(doc.selection.type).toBe('text');
-			expect(doc.selection.path).toEqual([page_1_id, 'body', 0, 'content']);
+			expect(doc.selection.path).toEqual(['page_1', 'body', 0, 'content']);
 			expect(doc.selection.anchor_offset).toBe(10); // Length of "First text"
 			expect(doc.selection.focus_offset).toBe(10);
 		});
@@ -499,7 +494,7 @@ describe('Svedit.svelte', () => {
 		// Select a story node to copy
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 0,
 			focus_offset: 1
 		};
@@ -584,12 +579,12 @@ describe('Svedit.svelte', () => {
 		const decoded_data = extract_svedit_data_from_html(html_content);
 		expect(decoded_data).toHaveProperty('nodes');
 		expect(decoded_data).toHaveProperty('main_nodes');
-		expect(decoded_data.main_nodes).toContain(story_1_id);
+		expect(decoded_data.main_nodes).toContain('story_1');
 
 		// Test paste functionality with HTML format - insert at end
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 3,
 			focus_offset: 3
 		};
@@ -609,7 +604,7 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 20)); // Give time for async paste operation
 
 		// Verify paste worked - should have 4 items now (original 3 + 1 pasted)
-		const body_after_paste = doc.get([page_1_id, 'body']);
+		const body_after_paste = doc.get(['page_1', 'body']);
 		expect(body_after_paste).toHaveLength(4);
 	});
 
@@ -630,15 +625,15 @@ describe('Svedit.svelte', () => {
 		tr.create(unicode_text_node);
 
 		// Insert the text node at the beginning
-		const body = doc.get([page_1_id, 'body']);
+		const body = doc.get(['page_1', 'body']);
 		const new_body = [unicode_text_id, ...body];
-		tr.set([page_1_id, 'body'], new_body);
+		tr.set(['page_1', 'body'], new_body);
 		doc.apply(tr);
 
 		// Select the Unicode text node
 		doc.selection = {
 			type: 'node',
-			path: [page_1_id, 'body'],
+			path: ['page_1', 'body'],
 			anchor_offset: 0,
 			focus_offset: 1
 		};
