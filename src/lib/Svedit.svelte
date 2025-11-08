@@ -250,7 +250,7 @@
 				doc.selection = user_selection;
 			}
 
-			// NOTE: We need a little timeout to nudge Safari to not handle the
+			// NOTE: We need a little timeout to nudge Safari into not handling the
 			// ENTER press when confirming a diacritic
 			setTimeout(() => {
 				skip_onkeydown = false;
