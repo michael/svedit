@@ -13,12 +13,6 @@ import Text from '../routes/components/Text.svelte';
 import List from '../routes/components/List.svelte';
 import ListItem from '../routes/components/ListItem.svelte';
 
-export const button_1_id = 'button_1';
-export const story_1_id = 'story_1';
-export const page_1_id = 'page_1';
-export const list_1_id = 'list_1';
-export const list_item_1_id = 'list_item_1';
-export const list_item_2_id = 'list_item_2';
 
 const document_schema = define_document_schema({
 	page: {
@@ -83,48 +77,53 @@ const document_schema = define_document_schema({
 	}
 });
 
-const serialized_doc = [
-	{
-		id: button_1_id,
-		type: 'button',
-		label: { text: 'Get started', annotations: [] },
-		href: 'https://github.com/michael/svedit'
-	},
-	{
-		id: story_1_id,
-		type: 'story',
-		layout: 1,
-		image:
-			'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-		title: { text: 'First story', annotations: [] },
-		buttons: [button_1_id],
-		description: { text: 'First story description.', annotations: [] }
-	},
-	{
-		id: list_item_1_id,
-		type: 'list_item',
-		content: { text: 'first list item', annotations: [] }
-	},
-	{
-		id: list_item_2_id,
-		type: 'list_item',
-		content: { text: 'second list item', annotations: [] }
-	},
-	{
-		id: list_1_id,
-		type: 'list',
-		layout: 1,
-		list_items: [list_item_1_id, list_item_2_id]
-	},
-	{
-		id: page_1_id,
-		type: 'page',
-		body: [story_1_id, story_1_id, list_1_id],
-		keywords: ['svelte', 'editor', 'rich content'],
-		daily_visitors: [10, 20, 30, 100],
-		created_at: '2025-05-30T10:39:59.987Z'
+const serialized_doc = {
+	document_id: 'page_1',
+	nodes: {
+		button_1: {
+			id: 'button_1',
+			type: 'button',
+			label: { text: 'Get started', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
+		story_1: {
+			id: 'story_1',
+			type: 'story',
+			layout: 1,
+			image:
+				'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+			title: { text: 'First story', annotations: [] },
+			buttons: ['button_1'],
+			description: { text: 'First story description.', annotations: [] }
+		},
+		list_item_1:{
+			id: 'list_item_1',
+			type: 'list_item',
+			content: { text: 'first list item', annotations: [] }
+		},
+		list_item_2:{
+			id: 'list_item_2',
+			type: 'list_item',
+			content: { text: 'second list item', annotations: [] }
+		},
+		list_1: {
+			id: 'list_1',
+			type: 'list',
+			layout: 1,
+			list_items: ['list_item_1', 'list_item_2']
+		},
+		page_1: {
+			id: 'page_1',
+			type: 'page',
+			body: ['story_1', 'story_1', 'list_1'],
+			keywords: ['svelte', 'editor', 'rich content'],
+			daily_visitors: [10, 20, 30, 100],
+			created_at: '2025-05-30T10:39:59.987Z'
+		}
 	}
-];
+
+}
+
 
 const document_config = {
 	generate_id: nanoid,
