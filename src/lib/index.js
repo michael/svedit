@@ -9,6 +9,9 @@ export { default as NodeArrayProperty } from './NodeArrayProperty.svelte';
 export { default as Document, define_document_schema } from './Document.svelte.js';
 export { default as Transaction } from './Transaction.svelte.js';
 
+// Keyboard handling
+export { KeyMapper, define_keymap } from './KeyMapper.svelte.js';
+
 // Commands and utilities
 export * from './commands.svelte.js';
 export * from './util.js';
