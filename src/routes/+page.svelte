@@ -1,6 +1,6 @@
 <script>
 	import { setContext } from 'svelte';
-	import { Svedit, KeyMapper, define_keymap } from 'svedit';
+	import { Svedit, Command, KeyMapper, define_keymap } from 'svedit';
 	import Toolbar from './components/Toolbar.svelte';
 	import create_demo_doc from './create_demo_doc.js';
 
@@ -18,22 +18,7 @@
 
 	export { focus_canvas };
 
-	class AppCommand {
-		disabled = $derived(!this.is_enabled());
-		constructor(context) {
-			this.context = context;
-		}
-
-		is_enabled() {
-			return true;
-		}
-
-		execute() {
-			throw new Error('Not implemented');
-		}
-	}
-
-	class EditCommand extends AppCommand {
+	class EditCommand extends Command {
 		is_enabled() {
 			// disabled if edit mode is already on
 			return !this.context.editable;
@@ -44,7 +29,7 @@
 		}
 	}
 
-	class SaveCommand extends AppCommand {
+	class SaveCommand extends Command {
 
 		is_enabled() {
 			// Saving is only possible while edit mode is on.
