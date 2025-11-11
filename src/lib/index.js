@@ -11,6 +11,7 @@ export { default as Transaction } from './Transaction.svelte.js';
 
 // Command system
 export { default as Command } from './Command.svelte.js';
+export * from './commands.svelte.js';
 
 // Keyboard handling
 export { KeyMapper, define_keymap } from './KeyMapper.svelte.js';
