@@ -10,6 +10,8 @@ import {
 	UndoCommand,
 	RedoCommand,
 	SelectParentCommand,
+	CycleLayoutCommand,
+	CycleNodeTypeCommand,
 	define_keymap 
 } from 'svedit';
 import nanoid from './nanoid.js';
@@ -782,7 +784,11 @@ const document_config = {
 			toggle_link: new ToggleLinkCommand(context),
 			undo: new UndoCommand(context),
 			redo: new RedoCommand(context),
-			select_parent: new SelectParentCommand(context)
+			select_parent: new SelectParentCommand(context),
+			next_layout: new CycleLayoutCommand('next', context),
+			previous_layout: new CycleLayoutCommand('previous', context),
+			next_type: new CycleNodeTypeCommand('next', context),
+			previous_type: new CycleNodeTypeCommand('previous', context)
 		};
 
 		// Define keymap binding keys to commands
@@ -797,7 +803,11 @@ const document_config = {
 			'meta+k,ctrl+k': [commands.toggle_link],
 			'meta+z,ctrl+z': [commands.undo],
 			'meta+shift+z,ctrl+shift+z': [commands.redo],
-			'escape': [commands.select_parent]
+			'escape': [commands.select_parent],
+			'ctrl+alt+arrowright': [commands.next_layout],
+			'ctrl+alt+arrowleft': [commands.previous_layout],
+			'ctrl+alt+arrowdown': [commands.next_type],
+			'ctrl+alt+arrowup': [commands.previous_type]
 		});
 
 		return { commands, keymap };

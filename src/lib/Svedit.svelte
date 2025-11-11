@@ -7,7 +7,6 @@
 		char_to_utf16_offset,
 		get_char_at
 	} from './util.js';
-	import { break_text_node, select_all, insert_default_node } from './transforms.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -40,25 +39,25 @@
 	let is_composing = $state(false);
 	let before_composition_selection = undefined;
 
-	let is_mobile = $derived(is_mobile_browser());
+	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
 
 	/**
 	 * Detect if the current browser is on a mobile device
 	 * @returns {boolean} true if mobile browser, false otherwise
 	 */
-	function is_mobile_browser() {
-		if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-			return false;
-		}
+	// function is_mobile_browser() {
+	// 	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+	// 		return false;
+	// 	}
 
-		const user_agent = navigator.userAgent;
-		return (
-			/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-			'ontouchstart' in window ||
-			navigator.maxTouchPoints > 0
-		);
-	}
+	// 	const user_agent = navigator.userAgent;
+	// 	return (
+	// 		/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
+	// 		'ontouchstart' in window ||
+	// 		navigator.maxTouchPoints > 0
+	// 	);
+	// }
 
 	// function is_chrome_desktop_browser() {
 	//   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -752,192 +751,22 @@ ${fallback_html}`;
 		}
 	}
 
-	function focus_toolbar() {
-		// Find the first interactive element in the toolbar and focus it
-		const toolbar = document.querySelector('.editor-toolbar');
-		if (toolbar) {
-			const firstInteractive = /** @type {HTMLElement} */ (
-				toolbar.querySelector('input, button, select, textarea')
-			);
-			if (firstInteractive) {
-				firstInteractive.focus();
-			}
-		}
-	}
+	// function focus_toolbar() {
+	// 	// Find the first interactive element in the toolbar and focus it
+	// 	const toolbar = document.querySelector('.editor-toolbar');
+	// 	if (toolbar) {
+	// 		const firstInteractive = /** @type {HTMLElement} */ (
+	// 			toolbar.querySelector('input, button, select, textarea')
+	// 		);
+	// 		if (firstInteractive) {
+	// 			firstInteractive.focus();
+	// 		}
+	// 	}
+	// }
 
 	function focus_canvas() {
 		// We just render the selection (which will return focus to the canvas) implicitly
 		render_selection();
-	}
-
-	function onkeydown(e) {
-		// Only handle keyboard events if focus is within the canvas
-		if (!canvas?.contains(document.activeElement)) return;
-
-		// Key handling temporarily disabled (e.g. while character composition takes place)
-		if (skip_onkeydown) {
-			// Currently we do nothing, but we could handle keydown during character composition here.
-			return;
-		}
-
-		const selection = /** @type {any} */ (doc.selection);
-		const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
-
-		if (
-			(e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.layout_node) ||
-			(e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
-		) {
-			const node = doc.layout_node;
-			const layout_count = doc.config.node_layouts[node.type];
-
-			if (layout_count > 1 && node?.layout) {
-				const next_layout = (node.layout % layout_count) + 1;
-				console.log('layout / count / next_layout', node.layout, layout_count, next_layout);
-				const tr = doc.tr;
-				tr.set([doc.layout_node?.id, 'layout'], next_layout);
-				doc.apply(tr);
-			}
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.layout_node) ||
-			(e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
-		) {
-			const node = doc.layout_node;
-			const layout_count = doc.config.node_layouts[node.type];
-
-			if (layout_count > 1 && node?.layout) {
-				const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
-				const tr = doc.tr;
-				tr.set([doc.layout_node?.id, 'layout'], prev_layout);
-				doc.apply(tr);
-				console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
-			}
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowDown' && e.altKey && e.ctrlKey) ||
-			(e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey)
-		) {
-			if (doc.selection.type !== 'node') {
-				doc.select_parent();
-			}
-			const node = doc.selected_node;
-			const old_selection = structuredClone(doc.selection);
-			const node_array_schema = doc.inspect(doc.selection.path);
-			// If we are not dealing with a node selection in a container, return
-			if (node_array_schema.type !== 'node_array') return;
-			const current_type_index = node_array_schema.node_types.indexOf(node.type);
-			const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
-			const next_type = node_array_schema.node_types[next_type_index];
-			const tr = doc.tr;
-			doc.config.inserters[next_type](tr);
-			tr.set_selection(old_selection);
-			doc.apply(tr);
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowUp' && e.altKey && e.ctrlKey) ||
-			(e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey)
-		) {
-			if (doc.selection.type !== 'node') {
-				doc.select_parent();
-			}
-			const node = doc.selected_node;
-			const old_selection = structuredClone(doc.selection);
-			const node_array_schema = doc.inspect(doc.selection.path);
-			// If we are not dealing with a node selection in a container, return
-			if (node_array_schema.type !== 'node_array') return;
-			const current_type_index = node_array_schema.node_types.indexOf(node.type);
-			const prev_type_index =
-				(current_type_index - 1 + node_array_schema.node_types.length) %
-				node_array_schema.node_types.length;
-			const prev_type = node_array_schema.node_types[prev_type_index];
-			const tr = doc.tr;
-			doc.config.inserters[prev_type](tr);
-			tr.set_selection(old_selection);
-			doc.apply(tr);
-			e.preventDefault();
-		// } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
-		// 	const tr = doc.tr;
-		// 	if (select_all(tr)) {
-		// 		doc.apply(tr);
-		// 	}
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-		// 	doc.undo();
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-		// 	doc.redo();
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (
-		// 	e.key === 'Enter' &&
-		// 	e.shiftKey &&
-		// 	!is_mobile &&
-		// 	selection?.type === 'text' &&
-		// 	doc.inspect(selection.path).allow_newlines
-		// ) {
-		// 	doc.apply(doc.tr.insert_text('\n'));
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-		// 	doc.apply(doc.tr.annotate_text('strong'));
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-		// 	doc.apply(doc.tr.annotate_text('emphasis'));
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-		// 	doc.apply(doc.tr.annotate_text('highlight'));
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-		// 	const has_link = doc.active_annotation('link');
-		// 	if (has_link) {
-		// 		// Delete link
-		// 		doc.apply(doc.tr.annotate_text('link'));
-		// 	} else {
-		// 		// Create link
-		// 		const href = window.prompt('Enter the URL', 'https://example.com');
-		// 		if (href) {
-		// 			doc.apply(doc.tr.annotate_text('link', { href }));
-		// 		}
-		// 	}
-
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'Enter' && selection?.type === 'property') {
-		// 	// Focus toolbar for property selections
-		// 	focus_toolbar();
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'Enter' && selection?.type === 'node') {
-		// 	const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
-
-		// 	if (is_collapsed) {
-		// 		// Always insert default node on ENTER
-		// 		const tr = doc.tr;
-		// 		insert_default_node(tr);
-		// 		doc.apply(tr);
-		// 	} else if (span_length === 1) {
-		// 		focus_toolbar();
-		// 	}
-		// 	// Node selections with multiple nodes do nothing on Enter
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'Enter' && selection?.type === 'text') {
-		// 	const tr = doc.tr;
-		// 	if (break_text_node(tr)) {
-		// 		doc.apply(tr);
-		// 	}
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		// } else if (e.key === 'Escape' && selection) {
-		// 	doc.select_parent();
-		// 	e.preventDefault();
-		// 	e.stopPropagation();
-		}
 	}
 
 	/**
