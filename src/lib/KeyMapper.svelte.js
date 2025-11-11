@@ -127,7 +127,7 @@ export class KeyMapper {
 	 * Handle keyboard event by trying scopes from top to bottom
 	 */
 	handle_keydown(event) {
-		console.log('KeyMapper.handle_keydown', event);
+		// console.log('KeyMapper.handle_keydown', event);
 		// Try from most specific (top of stack) to most general (bottom)
 		for (let i = this.scope_stack.length - 1; i >= 0; i--) {
 			if (handle_key_map(this.scope_stack[i], event)) {
