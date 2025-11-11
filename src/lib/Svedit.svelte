@@ -7,7 +7,7 @@
 		char_to_utf16_offset,
 		get_char_at
 	} from './util.js';
-	import { break_text_node, insert_default_node, select_all } from './commands.svelte.js';
+	import { break_text_node, insert_default_node, select_all } from './transforms.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
