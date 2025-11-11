@@ -1,4 +1,10 @@
-import { Document, define_document_schema } from 'svedit';
+import {
+	Document,
+	define_document_schema,
+	SelectAllCommand,
+	InsertDefaultNodeCommand,
+	define_keymap
+} from 'svedit';
 import nanoid from './nanoid.js';
 
 // System components
@@ -747,6 +753,29 @@ const document_config = {
 			//   focus_offset: 0
 			// });
 		}
+	},
+
+	/**
+	 * Factory function to create Svedit commands and keymap.
+	 * Called by Svedit component with the svedit_context.
+	 *
+	 * @param {object} context - The svedit context with doc, editable, etc.
+	 * @returns {{ commands: object, keymap: object }}
+	 */
+	create_commands_and_keymap: (context) => {
+		// Create command instances with the provided context
+		const commands = {
+			select_all: new SelectAllCommand(context),
+			insert_default_node: new InsertDefaultNodeCommand(context)
+		};
+
+		// Define keymap binding keys to commands
+		const keymap = define_keymap({
+			'meta+a,ctrl+a': [commands.select_all],
+			'enter': [commands.insert_default_node]
+		});
+
+		return { commands, keymap };
 	}
 };
 

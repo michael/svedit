@@ -8,8 +8,6 @@
 		get_char_at
 	} from './util.js';
 	import { break_text_node, select_all, insert_default_node } from './transforms.svelte.js';
-	import { SelectAllCommand, InsertDefaultNodeCommand } from './commands.svelte.js';
-	import { define_keymap } from './KeyMapper.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -94,17 +92,10 @@
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
 
-	// Create command instances
-	const svedit_commands = {
-		select_all: new SelectAllCommand(svedit_context),
-		insert_default_node: new InsertDefaultNodeCommand(svedit_context)
-	};
-
-	// Define keymap for Svedit
-	const svedit_keymap = define_keymap({
-		'meta+A,ctrl+a': [svedit_commands.select_all],
-		'enter': [svedit_commands.insert_default_node]
-	});
+	// Create commands and keymap from config factory (if provided)
+	// eslint-disable-next-line no-unused-vars
+	const { commands: svedit_commands, keymap: svedit_keymap } = 
+		doc.config?.create_commands_and_keymap?.(svedit_context) ?? { commands: {}, keymap: {} };
 
 	// Handle focus - push Svedit keymap onto stack
 	function handle_canvas_focus() {
