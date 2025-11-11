@@ -223,9 +223,8 @@
 			<button
 				title="Link"
 				onclick={toggle_link}
-				disabled={(doc.active_annotation() && !doc.active_annotation('link')) ||
-					(!doc.active_annotation() && is_selection_collapsed(doc.selection))}
-				class:active={doc.active_annotation('link')}
+				disabled={doc.commands.toggle_link?.disabled}
+				class:active={doc.commands.toggle_link?.active}
 			>
 				<Icon name="link" />
 			</button>
