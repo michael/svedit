@@ -1,5 +1,5 @@
 import Command from './Command.svelte.js';
-import { select_all, insert_default_node } from './transforms.svelte.js';
+import { select_all, insert_default_node, break_text_node } from './transforms.svelte.js';
 
 /**
  * Command that adds a new line character at the current cursor position.
@@ -19,6 +19,24 @@ export class AddNewLineCommand extends Command {
 
 	execute() {
 		this.context.doc.apply(this.context.doc.tr.insert_text('\n'));
+	}
+}
+
+/**
+ * Command that breaks a text node at the cursor position.
+ * Creates a new node and splits the content between the current and new node.
+ * Only works in text selections.
+ */
+export class BreakTextNodeCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection?.type === 'text';
+	}
+
+	execute() {
+		const tr = this.context.doc.tr;
+		if (break_text_node(tr)) {
+			this.context.doc.apply(tr);
+		}
 	}
 }
 
