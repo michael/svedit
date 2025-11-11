@@ -43,6 +43,39 @@ export class SelectParentCommand extends Command {
 }
 
 /**
+ * Generic command that toggles an annotation on the current text selection.
+ * Used for simple annotations like bold, italic, highlight, etc.
+ */
+export class ToggleAnnotationCommand extends Command {
+	constructor(node_type, context) {
+		super(context);
+		this.node_type = node_type;
+	}
+
+	active = $derived(this.is_active());
+
+	is_active() {
+		return this.context.doc.active_annotation(this.node_type);
+	}
+
+	is_enabled() {
+		const { doc, editable } = this.context;
+		const has_annotation = doc.active_annotation(this.node_type);
+		const no_annotation_and_cursor_not_collapsed = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+		
+		return (
+			editable &&
+			doc.selection?.type === 'text' &&
+			(has_annotation || no_annotation_and_cursor_not_collapsed)
+		);
+	}
+
+	execute() {
+		this.context.doc.apply(this.context.doc.tr.annotate_text(this.node_type));
+	}
+}
+
+/**
  * Command that toggles a link annotation on the current text selection.
  * If a link exists, removes it. If no link exists, prompts for URL and creates one.
  */
