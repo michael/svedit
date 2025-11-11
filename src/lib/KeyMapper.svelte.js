@@ -66,6 +66,9 @@ function matches_key_combo(key_combo, event) {
 /**
  * Handles a key map by matching keyboard event against registered key combos
  * and executing the first enabled command.
+ * 
+ * Supports both sync and async commands. For async commands, errors are logged
+ * but don't crash the application.
  */
 function handle_key_map(key_map, event) {
 	for (const [key_combo, commands] of Object.entries(key_map)) {
@@ -74,7 +77,17 @@ function handle_key_map(key_map, event) {
 			const enabled_command = commands.find(cmd => cmd.is_enabled());
 			if (enabled_command) {
 				event.preventDefault();
-				enabled_command.execute();
+				
+				// Execute command (may be sync or async)
+				const result = enabled_command.execute();
+				
+				// If it's a promise, handle errors (fire-and-forget)
+				if (result instanceof Promise) {
+					result.catch(err => {
+						console.error('Command execution failed:', err);
+					});
+				}
+				
 				return true;
 			}
 		}

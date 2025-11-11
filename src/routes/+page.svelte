@@ -51,7 +51,9 @@
 			return this.context.editable;
 		}
 
-		execute() {
+		async execute() {
+			// Example: async commands are supported
+			// await update_document(this.context.doc);
 			this.context.editable = false;
 		}
 	}
@@ -83,7 +85,8 @@
 
 	// Push app-level scope (base layer)
 	const app_key_map = define_keymap({
-		'meta+e,ctrl+e': [app_commands.edit_document, app_commands.save_document]
+		'meta+e,ctrl+e': [app_commands.edit_document],
+		'meta+s,ctrl+s': [app_commands.save_document]
 	});
 	key_mapper.push_scope(app_key_map);
 </script>
