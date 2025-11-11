@@ -26,11 +26,11 @@ export function define_keymap(keymap) {
 				);
 			}
 
-			if (non_modifiers[0].length !== 1) {
-				throw new Error(
-					`Invalid key combo: "${alternative}". Non-modifier key must be a single character. Got: "${non_modifiers[0]}"`
-				);
-			}
+			// if (non_modifiers[0].length !== 1) {
+			// 	throw new Error(
+			// 		`Invalid key combo: "${alternative}". Non-modifier key must be a single character. Got: "${non_modifiers[0]}"`
+			// 	);
+			// }
 		}
 	}
 	return keymap;
@@ -66,7 +66,7 @@ function matches_key_combo(key_combo, event) {
 /**
  * Handles a key map by matching keyboard event against registered key combos
  * and executing the first enabled command.
- * 
+ *
  * Supports both sync and async commands. For async commands, errors are logged
  * but don't crash the application.
  */
@@ -77,17 +77,17 @@ function handle_key_map(key_map, event) {
 			const enabled_command = commands.find(cmd => cmd.is_enabled());
 			if (enabled_command) {
 				event.preventDefault();
-				
+
 				// Execute command (may be sync or async)
 				const result = enabled_command.execute();
-				
+
 				// If it's a promise, handle errors (fire-and-forget)
 				if (result instanceof Promise) {
 					result.catch(err => {
 						console.error('Command execution failed:', err);
 					});
 				}
-				
+
 				return true;
 			}
 		}
@@ -97,10 +97,10 @@ function handle_key_map(key_map, event) {
 
 /**
  * KeyMapper manages keyboard shortcuts using a stack-based scope system.
- * 
+ *
  * Scopes are tried from top to bottom (most specific to most general).
  * This makes it completely general-purpose - no knowledge of specific contexts.
- * 
+ *
  * Usage:
  *   const mapper = new KeyMapper();
  *   mapper.push_scope(app_keymap);        // Base layer
@@ -116,6 +116,7 @@ export class KeyMapper {
 	 * Push a new scope onto the stack (becomes highest priority)
 	 */
 	push_scope(keymap) {
+		console.log('pushed keymap', keymap);
 		this.scope_stack.push(keymap);
 	}
 
@@ -123,13 +124,16 @@ export class KeyMapper {
 	 * Pop the most recent scope from the stack
 	 */
 	pop_scope() {
-		return this.scope_stack.pop();
+		const keymap = this.scope_stack.pop();
+		console.log('popped keymap', keymap);
+		return keymap;
 	}
 
 	/**
 	 * Handle keyboard event by trying scopes from top to bottom
 	 */
 	handle_keydown(event) {
+		console.log('KeyMapper.handle_keydown', event);
 		// Try from most specific (top of stack) to most general (bottom)
 		for (let i = this.scope_stack.length - 1; i >= 0; i--) {
 			if (handle_key_map(this.scope_stack[i], event)) {

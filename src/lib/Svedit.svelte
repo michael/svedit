@@ -1,5 +1,5 @@
 <script>
-	import { setContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -7,7 +7,9 @@
 		char_to_utf16_offset,
 		get_char_at
 	} from './util.js';
-	import { break_text_node, insert_default_node, select_all } from './transforms.svelte.js';
+	import { break_text_node, select_all, insert_default_node } from './transforms.svelte.js';
+	import { SelectAllCommand, InsertDefaultNodeCommand } from './commands.svelte.js';
+	import { define_keymap } from './KeyMapper.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -88,6 +90,31 @@
 	};
 
 	setContext('svedit', svedit_context);
+
+	// Get KeyMapper from context (may be undefined if not provided)
+	const key_mapper = getContext('key_mapper');
+
+	// Create command instances
+	const svedit_commands = {
+		select_all: new SelectAllCommand(svedit_context),
+		insert_default_node: new InsertDefaultNodeCommand(svedit_context)
+	};
+
+	// Define keymap for Svedit
+	const svedit_keymap = define_keymap({
+		'meta+A,ctrl+a': [svedit_commands.select_all],
+		'enter': [svedit_commands.insert_default_node]
+	});
+
+	// Handle focus - push Svedit keymap onto stack
+	function handle_canvas_focus() {
+		key_mapper?.push_scope(svedit_keymap);
+	}
+
+	// Handle blur - pop Svedit keymap from stack
+	function handle_canvas_blur() {
+		key_mapper?.pop_scope();
+	}
 
 	/**
 	 * @param {InputEvent} event
@@ -752,9 +779,6 @@ ${fallback_html}`;
 	}
 
 	function onkeydown(e) {
-		// Turn editable on
-
-
 		// Only handle keyboard events if focus is within the canvas
 		if (!canvas?.contains(document.activeElement)) return;
 
@@ -1505,7 +1529,7 @@ ${fallback_html}`;
   with any app-specific event handling.
 -->
 <svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
-<svelte:window {onkeydown} />
+<!-- <svelte:window {onkeydown} /> -->
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
@@ -1519,6 +1543,8 @@ ${fallback_html}`;
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
+		onfocus={handle_canvas_focus}
+		onblur={handle_canvas_blur}
 		contenteditable={editable ? 'true' : 'false'}
 		{autocapitalize}
 		{spellcheck}
