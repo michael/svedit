@@ -214,6 +214,11 @@ export default class Document {
 	history = $state.raw([]);
 	history_index = $state.raw(-1);
 	last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
+	
+	// Commands and keymap - initialized by Svedit when ready
+	// NOTE: Assumes single Svedit instance per document
+	commands = $state.raw({});
+	keymap = $state.raw({});
 
 	// Reactive helpers for UI state
 	can_undo = $derived(this.history_index >= 0);
@@ -344,6 +349,24 @@ export default class Document {
 			return this.config.generate_id();
 		} else {
 			return crypto.randomUUID();
+		}
+	}
+
+	/**
+	 * Initialize commands and keymap for this document.
+	 * Called by Svedit component when it has the necessary context.
+	 * 
+	 * NOTE: This assumes a single Svedit instance per document.
+	 * For multiple editors on the same document, this architecture would need
+	 * to be refactored to move selection and commands to an EditorState pattern.
+	 * 
+	 * @param {object} context - The svedit context with doc, editable, canvas, etc.
+	 */
+	initialize_commands(context) {
+		if (this.config?.create_commands_and_keymap) {
+			const { commands, keymap } = this.config.create_commands_and_keymap(context);
+			this.commands = commands;
+			this.keymap = keymap;
 		}
 	}
 

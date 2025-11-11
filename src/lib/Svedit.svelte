@@ -92,17 +92,15 @@
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
 
-	// Create commands and keymap from config factory (if provided)
-	// eslint-disable-next-line no-unused-vars
-	const { commands: svedit_commands, keymap: svedit_keymap } = 
-		doc.config?.create_commands_and_keymap?.(svedit_context) ?? { commands: {}, keymap: {} };
+	// Initialize commands and keymap on the document
+	doc.initialize_commands(svedit_context);
 
-	// Handle focus - push Svedit keymap onto stack
+	// Handle focus - push document's keymap onto stack
 	function handle_canvas_focus() {
-		key_mapper?.push_scope(svedit_keymap);
+		key_mapper?.push_scope(doc.keymap);
 	}
 
-	// Handle blur - pop Svedit keymap from stack
+	// Handle blur - pop document's keymap from stack
 	function handle_canvas_blur() {
 		key_mapper?.pop_scope();
 	}
@@ -891,47 +889,47 @@ ${fallback_html}`;
 			doc.apply(doc.tr.annotate_text('highlight'));
 			e.preventDefault();
 			e.stopPropagation();
-		} else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-			const has_link = doc.active_annotation('link');
-			if (has_link) {
-				// Delete link
-				doc.apply(doc.tr.annotate_text('link'));
-			} else {
-				// Create link
-				const href = window.prompt('Enter the URL', 'https://example.com');
-				if (href) {
-					doc.apply(doc.tr.annotate_text('link', { href }));
-				}
-			}
+		// } else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+		// 	const has_link = doc.active_annotation('link');
+		// 	if (has_link) {
+		// 		// Delete link
+		// 		doc.apply(doc.tr.annotate_text('link'));
+		// 	} else {
+		// 		// Create link
+		// 		const href = window.prompt('Enter the URL', 'https://example.com');
+		// 		if (href) {
+		// 			doc.apply(doc.tr.annotate_text('link', { href }));
+		// 		}
+		// 	}
 
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'property') {
-			// Focus toolbar for property selections
-			focus_toolbar();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'node') {
-			const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (e.key === 'Enter' && selection?.type === 'property') {
+		// 	// Focus toolbar for property selections
+		// 	focus_toolbar();
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (e.key === 'Enter' && selection?.type === 'node') {
+		// 	const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
 
-			if (is_collapsed) {
-				// Always insert default node on ENTER
-				const tr = doc.tr;
-				insert_default_node(tr);
-				doc.apply(tr);
-			} else if (span_length === 1) {
-				focus_toolbar();
-			}
-			// Node selections with multiple nodes do nothing on Enter
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'text') {
-			const tr = doc.tr;
-			if (break_text_node(tr)) {
-				doc.apply(tr);
-			}
-			e.preventDefault();
-			e.stopPropagation();
+		// 	if (is_collapsed) {
+		// 		// Always insert default node on ENTER
+		// 		const tr = doc.tr;
+		// 		insert_default_node(tr);
+		// 		doc.apply(tr);
+		// 	} else if (span_length === 1) {
+		// 		focus_toolbar();
+		// 	}
+		// 	// Node selections with multiple nodes do nothing on Enter
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (e.key === 'Enter' && selection?.type === 'text') {
+		// 	const tr = doc.tr;
+		// 	if (break_text_node(tr)) {
+		// 		doc.apply(tr);
+		// 	}
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
 		} else if (e.key === 'Escape' && selection) {
 			doc.select_parent();
 			e.preventDefault();

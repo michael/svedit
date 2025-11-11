@@ -1,19 +1,34 @@
 import Command from './Command.svelte.js';
 import { select_all, insert_default_node, break_text_node } from './transforms.svelte.js';
+import { is_selection_collapsed } from './util.js';
 
 /**
  * Command that toggles a link annotation on the current text selection.
  * If a link exists, removes it. If no link exists, prompts for URL and creates one.
  */
 export class ToggleLinkCommand extends Command {
+	active = $derived(this.is_active());
+
+	is_active() {
+		return this.context.doc.active_annotation('link');
+	}
+
 	is_enabled() {
-		return this.context.editable && this.context.doc.selection?.type === 'text';
+		const { doc, editable } = this.context;
+
+		const has_link = doc.active_annotation('link'); // toggle to disable
+		const no_annotation_and_cursor_not_collapsed = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+		return (
+			editable &&
+			doc.selection?.type === 'text' &&
+			(has_link || no_annotation_and_cursor_not_collapsed)
+		);
 	}
 
 	execute() {
 		const doc = this.context.doc;
 		const has_link = doc.active_annotation('link');
-		
+
 		if (has_link) {
 			// Delete link
 			doc.apply(doc.tr.annotate_text('link'));
@@ -35,7 +50,7 @@ export class AddNewLineCommand extends Command {
 	is_enabled() {
 		const doc = this.context.doc;
 		const selection = doc.selection;
-		
+
 		return (
 			this.context.editable &&
 			selection?.type === 'text' &&
