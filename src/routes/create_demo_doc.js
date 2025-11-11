@@ -6,6 +6,8 @@ import {
 	AddNewLineCommand,
 	BreakTextNodeCommand,
 	ToggleLinkCommand,
+	UndoCommand,
+	RedoCommand,
 	define_keymap 
 } from 'svedit';
 import nanoid from './nanoid.js';
@@ -772,7 +774,9 @@ const document_config = {
 			insert_default_node: new InsertDefaultNodeCommand(context),
 			add_new_line: new AddNewLineCommand(context),
 			break_text_node: new BreakTextNodeCommand(context),
-			toggle_link: new ToggleLinkCommand(context)
+			toggle_link: new ToggleLinkCommand(context),
+			undo: new UndoCommand(context),
+			redo: new RedoCommand(context)
 		};
 
 		// Define keymap binding keys to commands
@@ -781,7 +785,9 @@ const document_config = {
 			'enter': [commands.break_text_node, commands.insert_default_node],
 			'meta+enter,ctrl+enter': [commands.insert_default_node],
 			'shift+enter': [commands.add_new_line],
-			'meta+k,ctrl+k': [commands.toggle_link]
+			'meta+k,ctrl+k': [commands.toggle_link],
+			'meta+z,ctrl+z': [commands.undo],
+			'meta+shift+z,ctrl+shift+z': [commands.redo]
 		});
 
 		return { commands, keymap };

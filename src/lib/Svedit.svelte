@@ -79,6 +79,9 @@
 		get editable() {
 			return editable;
 		},
+		set editable(value) {
+			editable = value;
+		},
 		get is_composing() {
 			return is_composing;
 		},
@@ -852,31 +855,31 @@ ${fallback_html}`;
 			tr.set_selection(old_selection);
 			doc.apply(tr);
 			e.preventDefault();
-		} else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
-			const tr = doc.tr;
-			if (select_all(tr)) {
-				doc.apply(tr);
-			}
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-			doc.undo();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-			doc.redo();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (
-			e.key === 'Enter' &&
-			e.shiftKey &&
-			!is_mobile &&
-			selection?.type === 'text' &&
-			doc.inspect(selection.path).allow_newlines
-		) {
-			doc.apply(doc.tr.insert_text('\n'));
-			e.preventDefault();
-			e.stopPropagation();
+		// } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
+		// 	const tr = doc.tr;
+		// 	if (select_all(tr)) {
+		// 		doc.apply(tr);
+		// 	}
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+		// 	doc.undo();
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+		// 	doc.redo();
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
+		// } else if (
+		// 	e.key === 'Enter' &&
+		// 	e.shiftKey &&
+		// 	!is_mobile &&
+		// 	selection?.type === 'text' &&
+		// 	doc.inspect(selection.path).allow_newlines
+		// ) {
+		// 	doc.apply(doc.tr.insert_text('\n'));
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
 		} else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
 			doc.apply(doc.tr.annotate_text('strong'));
 			e.preventDefault();

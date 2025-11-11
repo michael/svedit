@@ -3,6 +3,32 @@ import { select_all, insert_default_node, break_text_node } from './transforms.s
 import { is_selection_collapsed } from './util.js';
 
 /**
+ * Command that undoes the last change to the document.
+ */
+export class UndoCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.can_undo;
+	}
+
+	execute() {
+		this.context.doc.undo();
+	}
+}
+
+/**
+ * Command that redoes the last undone change to the document.
+ */
+export class RedoCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.can_redo;
+	}
+
+	execute() {
+		this.context.doc.redo();
+	}
+}
+
+/**
  * Command that toggles a link annotation on the current text selection.
  * If a link exists, removes it. If no link exists, prompts for URL and creates one.
  */
