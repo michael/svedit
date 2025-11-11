@@ -933,10 +933,10 @@ ${fallback_html}`;
 		// 	}
 		// 	e.preventDefault();
 		// 	e.stopPropagation();
-		} else if (e.key === 'Escape' && selection) {
-			doc.select_parent();
-			e.preventDefault();
-			e.stopPropagation();
+		// } else if (e.key === 'Escape' && selection) {
+		// 	doc.select_parent();
+		// 	e.preventDefault();
+		// 	e.stopPropagation();
 		}
 	}
 

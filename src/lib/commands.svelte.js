@@ -29,6 +29,20 @@ export class RedoCommand extends Command {
 }
 
 /**
+ * Command that selects the parent of the current selection.
+ * Useful for navigating up the document hierarchy.
+ */
+export class SelectParentCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection;
+	}
+
+	execute() {
+		this.context.doc.select_parent();
+	}
+}
+
+/**
  * Command that toggles a link annotation on the current text selection.
  * If a link exists, removes it. If no link exists, prompts for URL and creates one.
  */

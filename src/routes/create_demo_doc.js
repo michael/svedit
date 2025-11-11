@@ -8,6 +8,7 @@ import {
 	ToggleLinkCommand,
 	UndoCommand,
 	RedoCommand,
+	SelectParentCommand,
 	define_keymap 
 } from 'svedit';
 import nanoid from './nanoid.js';
@@ -776,7 +777,8 @@ const document_config = {
 			break_text_node: new BreakTextNodeCommand(context),
 			toggle_link: new ToggleLinkCommand(context),
 			undo: new UndoCommand(context),
-			redo: new RedoCommand(context)
+			redo: new RedoCommand(context),
+			select_parent: new SelectParentCommand(context)
 		};
 
 		// Define keymap binding keys to commands
@@ -787,7 +789,8 @@ const document_config = {
 			'shift+enter': [commands.add_new_line],
 			'meta+k,ctrl+k': [commands.toggle_link],
 			'meta+z,ctrl+z': [commands.undo],
-			'meta+shift+z,ctrl+shift+z': [commands.redo]
+			'meta+shift+z,ctrl+shift+z': [commands.redo],
+			'escape': [commands.select_parent]
 		});
 
 		return { commands, keymap };
