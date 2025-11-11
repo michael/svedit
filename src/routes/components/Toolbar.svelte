@@ -1,6 +1,5 @@
 <script>
 	import Icon from './Icon.svelte';
-	import { is_selection_collapsed } from 'svedit';
 
 	let { doc, focus_canvas, editable = $bindable(false) } = $props();
 
@@ -61,23 +60,6 @@
 			tr.set([doc.layout_node.id, 'layout'], layout);
 			doc.apply(tr);
 		}
-	}
-
-	function toggle_link() {
-		// if the user cancels the prompt it will use the previous link
-		const has_link = Boolean(doc.active_annotation('link'));
-		const tr = doc.tr;
-		if (has_link) {
-			// Remove link
-			tr.annotate_text('link');
-		} else {
-			// Create link
-			const href = window.prompt('Enter the URL', 'https://example.com');
-			if (href) {
-				tr.annotate_text('link', { href });
-			}
-		}
-		doc.apply(tr);
 	}
 
 	// Check if we have a collapsed node selection (node cursor)
@@ -175,14 +157,9 @@
 			<button
 				title="Bold"
 				class="bold"
-				onclick={() => {
-					const tr = doc.tr;
-					tr.annotate_text('strong');
-					doc.apply(tr);
-				}}
-				disabled={(doc.active_annotation() && !doc.active_annotation('strong')) ||
-					(!doc.active_annotation() && is_selection_collapsed(doc.selection))}
-				class:active={doc.active_annotation('strong')}
+				onclick={() => doc.commands.toggle_strong?.execute()}
+				disabled={doc.commands.toggle_strong?.disabled}
+				class:active={doc.commands.toggle_strong?.active}
 			>
 				<Icon name="bold" />
 			</button>
@@ -191,14 +168,9 @@
 			<button
 				title="Italic"
 				class="italic"
-				onclick={() => {
-					const tr = doc.tr;
-					tr.annotate_text('emphasis');
-					doc.apply(tr);
-				}}
-				disabled={(doc.active_annotation() && !doc.active_annotation('emphasis')) ||
-					(!doc.active_annotation() && is_selection_collapsed(doc.selection))}
-				class:active={doc.active_annotation('emphasis')}
+				onclick={() => doc.commands.toggle_emphasis?.execute()}
+				disabled={doc.commands.toggle_emphasis?.disabled}
+				class:active={doc.commands.toggle_emphasis?.active}
 			>
 				<Icon name="italic" />
 			</button>
@@ -207,14 +179,9 @@
 			<button
 				title="Highlight"
 				class="highlight"
-				onclick={() => {
-					const tr = doc.tr;
-					tr.annotate_text('highlight');
-					doc.apply(tr);
-				}}
-				disabled={(doc.active_annotation() && !doc.active_annotation('highlight')) ||
-					(!doc.active_annotation() && is_selection_collapsed(doc.selection))}
-				class:active={doc.active_annotation('highlight')}
+				onclick={() => doc.commands.toggle_highlight?.execute()}
+				disabled={doc.commands.toggle_highlight?.disabled}
+				class:active={doc.commands.toggle_highlight?.active}
 			>
 				<Icon name="highlight" />
 			</button>
@@ -222,7 +189,7 @@
 		{#if doc.available_annotation_types.includes('link')}
 			<button
 				title="Link"
-				onclick={toggle_link}
+				onclick={() => doc.commands.toggle_link?.execute()}
 				disabled={doc.commands.toggle_link?.disabled}
 				class:active={doc.commands.toggle_link?.active}
 			>
@@ -284,28 +251,15 @@
 	{#if editable}
 		<button
 			title="Undo"
-			onclick={() => {
-				console.log('Undo clicked, can_undo:', doc.can_undo, 'history_index:', doc.history_index);
-				doc.undo();
-			}}
-			disabled={!doc.can_undo}
+			onclick={() => doc.commands.undo?.execute()}
+			disabled={doc.commands.undo?.disabled}
 		>
 			<Icon name="rotate-left" />
 		</button>
 		<button
 			title="Redo"
-			onclick={() => {
-				console.log(
-					'Redo clicked, can_redo:',
-					doc.can_redo,
-					'history_index:',
-					doc.history_index,
-					'history_length:',
-					doc.history.length
-				);
-				doc.redo();
-			}}
-			disabled={!doc.can_redo}
+			onclick={() => doc.commands.redo?.execute()}
+			disabled={doc.commands.redo?.disabled}
 		>
 			<Icon name="rotate-right" />
 		</button>
