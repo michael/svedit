@@ -18,19 +18,13 @@ export function define_keymap(keymap) {
 
 		for (const alternative of alternatives) {
 			const parts = alternative.trim().toLowerCase().split('+');
-			const non_modifiers = parts.filter(part => !MODIFIER_KEYS.includes(part));
+			const non_modifiers = parts.filter((part) => !MODIFIER_KEYS.includes(part));
 
 			if (non_modifiers.length !== 1) {
 				throw new Error(
 					`Invalid key combo: "${alternative}". Must have exactly one non-modifier key. Found: ${non_modifiers.length}`
 				);
 			}
-
-			// if (non_modifiers[0].length !== 1) {
-			// 	throw new Error(
-			// 		`Invalid key combo: "${alternative}". Non-modifier key must be a single character. Got: "${non_modifiers[0]}"`
-			// 	);
-			// }
 		}
 	}
 	return keymap;
@@ -43,16 +37,16 @@ export function define_keymap(keymap) {
 function matches_key_combo(key_combo, event) {
 	const alternatives = key_combo.split(',');
 
-	return alternatives.some(alternative => {
+	return alternatives.some((alternative) => {
 		const parts = alternative.trim().toLowerCase().split('+');
-		const modifiers = parts.filter(part => MODIFIER_KEYS.includes(part));
-		const non_modifier = parts.find(part => !MODIFIER_KEYS.includes(part));
+		const modifiers = parts.filter((part) => MODIFIER_KEYS.includes(part));
+		const non_modifier = parts.find((part) => !MODIFIER_KEYS.includes(part));
 
 		// Check if all specified modifiers are pressed
-		const modifiers_match = modifiers.every(mod => event[MODIFIER_EVENT_KEYS[mod]]);
+		const modifiers_match = modifiers.every((mod) => event[MODIFIER_EVENT_KEYS[mod]]);
 
 		// Check if no unspecified modifiers are pressed
-		const no_extra_modifiers = MODIFIER_KEYS.every(mod => {
+		const no_extra_modifiers = MODIFIER_KEYS.every((mod) => {
 			if (modifiers.includes(mod)) return true; // This modifier is expected
 			return !event[MODIFIER_EVENT_KEYS[mod]]; // This modifier should NOT be pressed
 		});
@@ -74,7 +68,7 @@ function handle_key_map(key_map, event) {
 	for (const [key_combo, commands] of Object.entries(key_map)) {
 		if (matches_key_combo(key_combo, event)) {
 			// Find the first enabled command and execute it
-			const enabled_command = commands.find(cmd => cmd.is_enabled());
+			const enabled_command = commands.find((cmd) => cmd.is_enabled());
 			if (enabled_command) {
 				event.preventDefault();
 
@@ -83,7 +77,7 @@ function handle_key_map(key_map, event) {
 
 				// If it's a promise, handle errors (fire-and-forget)
 				if (result instanceof Promise) {
-					result.catch(err => {
+					result.catch((err) => {
 						console.error('Command execution failed:', err);
 					});
 				}
@@ -116,7 +110,7 @@ export class KeyMapper {
 	 * Push a new scope onto the stack (becomes highest priority)
 	 */
 	push_scope(keymap) {
-		console.log('pushed keymap', keymap);
+		// console.log('pushed keymap', keymap);
 		this.scope_stack.push(keymap);
 	}
 
@@ -125,7 +119,7 @@ export class KeyMapper {
 	 */
 	pop_scope() {
 		const keymap = this.scope_stack.pop();
-		console.log('popped keymap', keymap);
+		// console.log('popped keymap', keymap);
 		return keymap;
 	}
 
