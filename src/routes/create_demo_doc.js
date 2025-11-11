@@ -1,9 +1,10 @@
-import {
-	Document,
-	define_document_schema,
-	SelectAllCommand,
+import { 
+	Document, 
+	define_document_schema, 
+	SelectAllCommand, 
 	InsertDefaultNodeCommand,
-	define_keymap
+	AddNewLineCommand,
+	define_keymap 
 } from 'svedit';
 import nanoid from './nanoid.js';
 
@@ -766,13 +767,15 @@ const document_config = {
 		// Create command instances with the provided context
 		const commands = {
 			select_all: new SelectAllCommand(context),
-			insert_default_node: new InsertDefaultNodeCommand(context)
+			insert_default_node: new InsertDefaultNodeCommand(context),
+			add_new_line: new AddNewLineCommand(context)
 		};
 
 		// Define keymap binding keys to commands
 		const keymap = define_keymap({
 			'meta+a,ctrl+a': [commands.select_all],
-			'enter': [commands.insert_default_node]
+			'meta+enter,ctrl+enter': [commands.insert_default_node],
+			'shift+enter': [commands.add_new_line]
 		});
 
 		return { commands, keymap };
