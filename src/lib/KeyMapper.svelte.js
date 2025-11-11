@@ -104,6 +104,7 @@ function handle_key_map(key_map, event) {
 export class KeyMapper {
 	constructor() {
 		this.scope_stack = [];
+		this.skip_onkeydown = false;
 	}
 
 	/**
@@ -127,6 +128,8 @@ export class KeyMapper {
 	 * Handle keyboard event by trying scopes from top to bottom
 	 */
 	handle_keydown(event) {
+		// Key handling temporarily disabled (e.g. while character composition takes place)
+		if (this.skip_onkeydown) return;
 		// console.log('KeyMapper.handle_keydown', event);
 		// Try from most specific (top of stack) to most general (bottom)
 		for (let i = this.scope_stack.length - 1; i >= 0; i--) {
