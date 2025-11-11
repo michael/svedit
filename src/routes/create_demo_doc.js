@@ -5,6 +5,7 @@ import {
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
+	ToggleLinkCommand,
 	define_keymap 
 } from 'svedit';
 import nanoid from './nanoid.js';
@@ -770,7 +771,8 @@ const document_config = {
 			select_all: new SelectAllCommand(context),
 			insert_default_node: new InsertDefaultNodeCommand(context),
 			add_new_line: new AddNewLineCommand(context),
-			break_text_node: new BreakTextNodeCommand(context)
+			break_text_node: new BreakTextNodeCommand(context),
+			toggle_link: new ToggleLinkCommand(context)
 		};
 
 		// Define keymap binding keys to commands
@@ -778,7 +780,8 @@ const document_config = {
 			'meta+a,ctrl+a': [commands.select_all],
 			'enter': [commands.break_text_node, commands.insert_default_node],
 			'meta+enter,ctrl+enter': [commands.insert_default_node],
-			'shift+enter': [commands.add_new_line]
+			'shift+enter': [commands.add_new_line],
+			'meta+k,ctrl+k': [commands.toggle_link]
 		});
 
 		return { commands, keymap };

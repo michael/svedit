@@ -2,6 +2,32 @@ import Command from './Command.svelte.js';
 import { select_all, insert_default_node, break_text_node } from './transforms.svelte.js';
 
 /**
+ * Command that toggles a link annotation on the current text selection.
+ * If a link exists, removes it. If no link exists, prompts for URL and creates one.
+ */
+export class ToggleLinkCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection?.type === 'text';
+	}
+
+	execute() {
+		const doc = this.context.doc;
+		const has_link = doc.active_annotation('link');
+		
+		if (has_link) {
+			// Delete link
+			doc.apply(doc.tr.annotate_text('link'));
+		} else {
+			// Create link
+			const href = window.prompt('Enter the URL', 'https://example.com');
+			if (href) {
+				doc.apply(doc.tr.annotate_text('link', { href }));
+			}
+		}
+	}
+}
+
+/**
  * Command that adds a new line character at the current cursor position.
  * Only works in text selections where newlines are allowed.
  */
