@@ -35,38 +35,12 @@
 	let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
 	// Track temporary disabled onkeydown events (e.g. during character composition)
-	let skip_onkeydown = false;
+	// let skip_onkeydown = false;
 	let is_composing = $state(false);
 	let before_composition_selection = undefined;
 
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
-
-	/**
-	 * Detect if the current browser is on a mobile device
-	 * @returns {boolean} true if mobile browser, false otherwise
-	 */
-	// function is_mobile_browser() {
-	// 	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-	// 		return false;
-	// 	}
-
-	// 	const user_agent = navigator.userAgent;
-	// 	return (
-	// 		/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-	// 		'ontouchstart' in window ||
-	// 		navigator.maxTouchPoints > 0
-	// 	);
-	// }
-
-	// function is_chrome_desktop_browser() {
-	//   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-	//     return false;
-	//   }
-	//   const user_agent = navigator.userAgent;
-	//   const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-	//   return is_chrome && !is_mobile;
-	// }
 
 	/** Expose function so parent can call it */
 	export { focus_canvas };
@@ -237,7 +211,7 @@
 
 		// Disable keydown event handling during composition. This way, you can confirm
 		// a diacritic (a->ä) with ENTER without causing a line break.
-		skip_onkeydown = true;
+		key_mapper.skip_onkeydown = true;
 		is_composing = true;
 		return;
 	}
@@ -276,7 +250,7 @@
 			// NOTE: We need a little timeout to nudge Safari into not handling the
 			// ENTER press when confirming a diacritic
 			setTimeout(() => {
-				skip_onkeydown = false;
+				key_mapper.skip_onkeydown = false;
 				is_composing = false;
 			}, 100);
 		}

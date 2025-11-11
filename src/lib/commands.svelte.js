@@ -1,6 +1,6 @@
 import Command from './Command.svelte.js';
 import { select_all, insert_default_node, break_text_node } from './transforms.svelte.js';
-import { is_selection_collapsed } from './util.js';
+import { is_selection_collapsed, is_mobile_browser } from './util.js';
 
 /**
  * Command that undoes the last change to the document.
@@ -118,6 +118,7 @@ export class ToggleLinkCommand extends Command {
 /**
  * Command that adds a new line character at the current cursor position.
  * Only works in text selections where newlines are allowed.
+ * Disabled on mobile browsers where Shift+Enter has different behavior.
  */
 export class AddNewLineCommand extends Command {
 	is_enabled() {
@@ -126,6 +127,7 @@ export class AddNewLineCommand extends Command {
 
 		return (
 			this.context.editable &&
+			!is_mobile_browser() &&
 			selection?.type === 'text' &&
 			doc.inspect(selection.path).allow_newlines
 		);
