@@ -15,6 +15,6 @@ export { default as Command } from './Command.svelte.js';
 // Keyboard handling
 export { KeyMapper, define_keymap } from './KeyMapper.svelte.js';
 
-// Commands and utilities
-export * from './commands.svelte.js';
+// Transforms and utilities
+export * from './transforms.svelte.js';
 export * from './util.js';

@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import create_test_doc from './create_test_doc.js';
-import { join_text_node } from '../lib/commands.svelte.js';
+import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
