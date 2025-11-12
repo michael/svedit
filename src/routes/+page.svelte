@@ -1,10 +1,12 @@
 <script>
-	import { Svedit } from 'svedit';
+	import { setContext } from 'svelte';
+	import { Svedit, Command, KeyMapper, define_keymap } from 'svedit';
 	import Toolbar from './components/Toolbar.svelte';
 	import create_demo_doc from './create_demo_doc.js';
 
 	const doc = create_demo_doc();
 
+	let app_el;
 	let svedit_ref;
 	let editable = $state(true);
 
@@ -13,6 +15,65 @@
 			svedit_ref.focus_canvas();
 		}
 	}
+
+	export { focus_canvas };
+
+	class EditCommand extends Command {
+		is_enabled() {
+			// disabled if edit mode is already on
+			return !this.context.editable;
+		}
+
+		execute() {
+			this.context.editable = true;
+		}
+	}
+
+	class SaveCommand extends Command {
+
+		is_enabled() {
+			// Saving is only possible while edit mode is on.
+			return this.context.editable;
+		}
+
+		async execute() {
+			// Example: async commands are supported
+			// await update_document(this.context.doc);
+			this.context.editable = false;
+		}
+	}
+
+
+	const app_command_context = {
+		get editable() {
+			return editable;
+		},
+		set editable(value) {
+			editable = value;
+		},
+		get doc() {
+			return doc;
+		},
+		get app_el() {
+			return app_el;
+		}
+	};
+
+	const app_commands = {
+		edit_document: new EditCommand(app_command_context),
+		save_document: new SaveCommand(app_command_context)
+	};
+
+	// Create KeyMapper and provide via context
+	const key_mapper = new KeyMapper();
+	setContext('key_mapper', key_mapper);
+
+	// Push app-level scope (base layer)
+	const app_key_map = define_keymap({
+		'meta+e,ctrl+e': [app_commands.edit_document],
+		'meta+s,ctrl+s': [app_commands.save_document]
+	});
+	key_mapper.push_scope(app_key_map);
 </script>
 
 <svelte:head>
@@ -20,7 +81,7 @@
 	<script async defer src="https://buttons.github.io/buttons.js"></script>
 </svelte:head>
 
-<div class="demo-wrapper">
+<div class="demo-wrapper" bind:this={app_el}>
 	<Toolbar {doc} {focus_canvas} bind:editable />
 	<Svedit {doc} bind:editable bind:this={svedit_ref} path={[doc.document_id]} />
 
@@ -33,6 +94,8 @@
 		</div>
 	{/if}
 </div>
+
+<svelte:window onkeydown={key_mapper.handle_keydown.bind(key_mapper)} />
 
 <style>
 	.debug-info {

@@ -1,191 +1,255 @@
-import { split_annotated_text, join_annotated_text, get_char_length } from './util.js';
-import { get_default_node_type } from './Document.svelte.js';
+import Command from './Command.svelte.js';
+import { insert_default_node, break_text_node } from './transforms.svelte.js';
+import { is_selection_collapsed, is_mobile_browser, get_char_length } from './util.js';
 
-export function break_text_node(tr) {
-	const doc = tr.doc;
-	// Keep a reference of the original selection (before any transforms are applied)
-	const selection = doc.selection;
-	// First we need to ensure we have a text selection
-	if (selection.type !== 'text') return false;
-
-	// Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
-	// which is wrapped inside a node_array (e.g. page.body)
-
-	// Owner of the text property (e.g. paragraph)
-	const node = doc.get(selection.path.slice(0, -1));
-	if (doc.kind(node) !== 'text') return false;
-	const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
-	// console.log('is_inside_node_array', is_inside_node_array);
-	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
-	const node_array_prop = selection.path.at(-3);
-	// console.log('node_array_prop', node_array_prop);
-	// Get the node that owns the node_array property (e.g. a page.body)
-	const node_array_node = doc.get(selection.path.slice(0, -3));
-	// console.log('node_array_node', $state.snapshot(node_array_node));
-
-	// Delete selection unless collapsed
-	if (selection.anchor_offset !== selection.focus_offset) {
-		tr.delete_selection();
+/**
+ * Command that undoes the last change to the document.
+ */
+export class UndoCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.can_undo;
 	}
 
-	const split_at_position = tr.doc.selection.anchor_offset;
-	const content = tr.doc.get(selection.path);
-	const [left_text, right_text] = split_annotated_text(content, split_at_position);
+	execute() {
+		this.context.doc.undo();
+	}
+}
 
-	tr.set([node.id, 'content'], left_text);
+/**
+ * Command that redoes the last undone change to the document.
+ */
+export class RedoCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.can_redo;
+	}
 
-	const node_insert_position = {
-		type: 'node',
-		path: tr.doc.selection.path.slice(0, -2),
-		anchor_offset: parseInt(tr.doc.selection.path.at(-2), 10) + 1,
-		focus_offset: parseInt(tr.doc.selection.path.at(-2), 10) + 1
-	};
+	execute() {
+		this.context.doc.redo();
+	}
+}
 
-	// TODO: Only use default_node_type when cursor is at the end of
-	const node_array_property_definition =
-		doc.schema[node_array_node.type].properties[node_array_prop];
-	const target_node_type = get_default_node_type(node_array_property_definition);
+/**
+ * Command that selects the parent of the current selection.
+ * Useful for navigating up the document hierarchy.
+ */
+export class SelectParentCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection;
+	}
 
-	if (!target_node_type) {
-		console.warn(
-			'Cannot determine target node type for break_text_node - no default_ref_type and multiple node_types'
+	execute() {
+		this.context.doc.select_parent();
+	}
+}
+
+/**
+ * Generic command that toggles an annotation on the current text selection.
+ * Used for simple annotations like bold, italic, highlight, etc.
+ */
+export class ToggleAnnotationCommand extends Command {
+	constructor(node_type, context) {
+		super(context);
+		this.node_type = node_type;
+	}
+
+	active = $derived(this.is_active());
+
+	is_active() {
+		return this.context.doc.active_annotation(this.node_type);
+	}
+
+	is_enabled() {
+		const { doc, editable } = this.context;
+		const has_annotation = doc.active_annotation(this.node_type);
+		const no_annotation_and_cursor_not_collapsed = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+
+		return (
+			editable &&
+			doc.selection?.type === 'text' &&
+			(has_annotation || no_annotation_and_cursor_not_collapsed)
 		);
-		return false;
 	}
 
-	tr.set_selection(node_insert_position);
-
-	doc.config.inserters[target_node_type](tr, right_text);
-	return true;
-}
-
-export function join_text_node(tr) {
-	const doc = tr.doc;
-	// Keep a reference of the original selection (before any transforms are applied)
-	const selection = doc.selection;
-	// First we need to ensure we have a text selection
-	if (selection.type !== 'text') return false;
-
-	const node = doc.get(selection.path.slice(0, -1));
-	if (doc.kind(node) !== 'text') return false;
-	const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
-	// console.log('is_inside_node_array', is_inside_node_array);
-	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
-
-	const node_index = parseInt(doc.selection.path.at(-2), 10);
-
-	// Determine if we can join with the previous node
-	let can_join = false;
-	let predecessor_node = null;
-
-	if (node_index > 0) {
-		const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
-		predecessor_node = doc.get(previous_text_path);
-		can_join = doc.kind(predecessor_node) === 'text';
-	}
-
-	// Special behavior: if we can't join and current node is empty, delete it
-	if (!can_join && node.content.text === '') {
-		tr.set_selection({
-			type: 'node',
-			path: doc.selection.path.slice(0, -2),
-			anchor_offset: node_index,
-			focus_offset: node_index + 1
-		});
-		tr.delete_selection();
-		return true;
-	}
-
-	// If we can't join for any reason, return false
-	if (!can_join) {
-		return false;
-	}
-
-	// Normal joining logic - both nodes are text nodes
-	const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
-	const joined_text = join_annotated_text(predecessor_node.content, node.content);
-
-	// Calculate cursor position based on original predecessor content length
-	const cursor_position = get_char_length(predecessor_node.content.text);
-
-	// First set the joined content on the predecessor node (preserves annotations)
-	tr.set([predecessor_node.id, 'content'], joined_text);
-
-	// Then delete the current node
-	tr.set_selection({
-		type: 'node',
-		path: doc.selection.path.slice(0, -2),
-		anchor_offset: node_index,
-		focus_offset: node_index + 1
-	});
-
-	tr.delete_selection();
-
-	// Finally set the cursor position at the join point using the pre-calculated position
-	tr.set_selection({
-		type: 'text',
-		path: [...previous_text_path, 'content'],
-		anchor_offset: cursor_position,
-		focus_offset: cursor_position
-	});
-	return true;
-}
-
-export function insert_default_node(tr) {
-	const doc = tr.doc;
-	const selection = doc.selection;
-
-	// Only work with collapsed node selections
-	if (selection?.type !== 'node' || selection.anchor_offset !== selection.focus_offset) {
-		return false;
-	}
-
-	const path = selection.path;
-	const node_array_node = doc.get(path.slice(0, -1));
-	const property_name = path.at(-1);
-
-	// Get the definition for this property
-	const property_definition = doc.schema[node_array_node.type].properties[property_name];
-	const default_type = get_default_node_type(property_definition);
-
-	// Use the inserter function if available
-	if (doc.config?.inserters?.[default_type]) {
-		doc.config.inserters[default_type](tr);
-		return true;
-	} else {
-		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	execute() {
+		this.context.doc.apply(this.context.doc.tr.annotate_text(this.node_type));
 	}
 }
 
-export function select_all(tr) {
-	const doc = tr.doc;
-	const selection = doc.selection;
+/**
+ * Command that toggles a link annotation on the current text selection.
+ * If a link exists, removes it. If no link exists, prompts for URL and creates one.
+ */
+export class ToggleLinkCommand extends Command {
+	active = $derived(this.is_active());
 
-	if (!selection) {
-		return false;
+	is_active() {
+		return this.context.doc.active_annotation('link');
 	}
 
-	if (selection.type === 'text') {
-		const text_content = doc.get(selection.path);
-		const text_length = get_char_length(text_content.text);
+	is_enabled() {
+		const { doc, editable } = this.context;
 
-		// Check if all text is already selected
-		const is_all_text_selected =
-			Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
-			Math.max(selection.anchor_offset, selection.focus_offset) === text_length;
+		const can_remove_link = doc.active_annotation('link');
+		const can_create_link = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+		return (
+			editable &&
+			doc.selection?.type === 'text' &&
+			(can_remove_link || can_create_link)
+		);
+	}
 
-		if (!is_all_text_selected) {
-			// Select all text in the current text node
-			tr.set_selection({
-				type: 'text',
-				path: selection.path,
-				anchor_offset: 0,
-				focus_offset: text_length
-			});
-			return true;
+	execute() {
+		const doc = this.context.doc;
+		const can_create_link = doc.active_annotation('link');
+
+		if (can_create_link) {
+			// Delete link
+			doc.apply(doc.tr.annotate_text('link'));
 		} else {
-			// All text is selected, move up to select the containing node
-			const node_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
+			// Create link
+			const href = window.prompt('Enter the URL', 'https://example.com');
+			if (href) {
+				doc.apply(doc.tr.annotate_text('link', { href }));
+			}
+		}
+	}
+}
+
+/**
+ * Command that adds a new line character at the current cursor position.
+ * Only works in text selections where newlines are allowed.
+ * Disabled on mobile browsers where Shift+Enter has different behavior.
+ */
+export class AddNewLineCommand extends Command {
+	is_enabled() {
+		const doc = this.context.doc;
+		const selection = doc.selection;
+
+		return (
+			this.context.editable &&
+			!is_mobile_browser() &&
+			selection?.type === 'text' &&
+			doc.inspect(selection.path).allow_newlines
+		);
+	}
+
+	execute() {
+		this.context.doc.apply(this.context.doc.tr.insert_text('\n'));
+	}
+}
+
+/**
+ * Command that breaks a text node at the cursor position.
+ * Creates a new node and splits the content between the current and new node.
+ * Only works in text selections.
+ */
+export class BreakTextNodeCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection?.type === 'text';
+	}
+
+	execute() {
+		const tr = this.context.doc.tr;
+		if (break_text_node(tr)) {
+			this.context.doc.apply(tr);
+		}
+	}
+}
+
+/**
+ * Command that selects all content in the current context.
+ * Progressively expands selection from text → node → parent node array.
+ */
+export class SelectAllCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection;
+	}
+
+	execute() {
+		const doc = this.context.doc;
+		const selection = doc.selection;
+
+		if (!selection) {
+			return;
+		}
+
+		if (selection.type === 'text') {
+			const text_content = doc.get(selection.path);
+			const text_length = get_char_length(text_content.text);
+
+			// Check if all text is already selected
+			const is_all_text_selected =
+				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+				Math.max(selection.anchor_offset, selection.focus_offset) === text_length;
+
+			if (!is_all_text_selected) {
+				// Select all text in the current text node
+				doc.selection = {
+					type: 'text',
+					path: selection.path,
+					anchor_offset: 0,
+					focus_offset: text_length
+				};
+			} else {
+				// All text is selected, move up to select the containing node
+				const node_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
+
+				// Check if we have enough path segments and if we're inside a node_array
+				if (node_path.length >= 2) {
+					const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
+
+					if (is_inside_node_array) {
+						const node_index = parseInt(node_path.at(-1));
+						doc.selection = {
+							type: 'node',
+							path: node_path.slice(0, -1),
+							anchor_offset: node_index,
+							focus_offset: node_index + 1
+						};
+					}
+				}
+				// Stop expanding - text is not in a selectable node_array
+			}
+		} else if (selection.type === 'node') {
+			const node_array_path = selection.path;
+			const node_array = doc.get(node_array_path);
+
+			// Check if the entire node_array is already selected
+			const is_entire_node_array_selected =
+				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+				Math.max(selection.anchor_offset, selection.focus_offset) === node_array.length;
+
+			if (!is_entire_node_array_selected) {
+				// Select the entire node_array
+				doc.selection = {
+					type: 'node',
+					path: node_array_path,
+					anchor_offset: 0,
+					focus_offset: node_array.length
+				};
+			} else {
+				// Entire node_array is selected, try to move up to parent node_array
+				const parent_path = node_array_path.slice(0, -1);
+
+				// Check if we have enough path segments and if parent is a valid node_array
+				if (parent_path.length >= 2) {
+					const is_parent_node_array = doc.inspect(parent_path.slice(0, -1))?.type === 'node_array';
+
+					if (is_parent_node_array) {
+						const parent_node_index = parseInt(parent_path.at(-1));
+						doc.selection = {
+							type: 'node',
+							path: parent_path.slice(0, -1),
+							anchor_offset: parent_node_index,
+							focus_offset: parent_node_index + 1
+						};
+					}
+				}
+				// Stop expanding - we've reached the top level
+			}
+		} else if (selection.type === 'property') {
+			// For property selections, select the containing node
+			const node_path = selection.path.slice(0, -1);
 
 			// Check if we have enough path segments and if we're inside a node_array
 			if (node_path.length >= 2) {
@@ -193,77 +257,130 @@ export function select_all(tr) {
 
 				if (is_inside_node_array) {
 					const node_index = parseInt(node_path.at(-1));
-					tr.set_selection({
+					doc.selection = {
 						type: 'node',
 						path: node_path.slice(0, -1),
 						anchor_offset: node_index,
 						focus_offset: node_index + 1
-					});
-					return true;
+					};
 				}
 			}
-			// Stop expanding - text is not in a selectable node_array
+			// Stop expanding - property is not in a selectable node_array
 		}
-	} else if (selection.type === 'node') {
-		const node_array_path = selection.path;
-		const node_array = doc.get(node_array_path);
+	}
+}
 
-		// Check if the entire node_array is already selected
-		const is_entire_node_array_selected =
-			Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
-			Math.max(selection.anchor_offset, selection.focus_offset) === node_array.length;
-
-		if (!is_entire_node_array_selected) {
-			// Select the entire node_array
-			tr.set_selection({
-				type: 'node',
-				path: node_array_path,
-				anchor_offset: 0,
-				focus_offset: node_array.length
-			});
-			return true;
-		} else {
-			// Entire node_array is selected, try to move up to parent node_array
-			const parent_path = node_array_path.slice(0, -1);
-
-			// Check if we have enough path segments and if parent is a valid node_array
-			if (parent_path.length >= 2) {
-				const is_parent_node_array = doc.inspect(parent_path.slice(0, -1))?.type === 'node_array';
-
-				if (is_parent_node_array) {
-					const parent_node_index = parseInt(parent_path.at(-1));
-					tr.set_selection({
-						type: 'node',
-						path: parent_path.slice(0, -1),
-						anchor_offset: parent_node_index,
-						focus_offset: parent_node_index + 1
-					});
-					return true;
-				}
-			}
-			// Stop expanding - we've reached the top level
-		}
-	} else if (selection.type === 'property') {
-		// For property selections, select the containing node
-		const node_path = selection.path.slice(0, -1);
-
-		// Check if we have enough path segments and if we're inside a node_array
-		if (node_path.length >= 2) {
-			const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
-
-			if (is_inside_node_array) {
-				const node_index = parseInt(node_path.at(-1));
-				tr.set_selection({
-					type: 'node',
-					path: node_path.slice(0, -1),
-					anchor_offset: node_index,
-					focus_offset: node_index + 1
-				});
-				return true;
-			}
-		}
-		// Stop expanding - property is not in a selectable node_array
+/**
+ * Command that inserts a default node at the current cursor position.
+ * Only works when a node selection is active.
+ */
+export class InsertDefaultNodeCommand extends Command {
+	is_enabled() {
+		return this.context.editable && this.context.doc.selection?.type === 'node';
 	}
 
-	return false;
+	execute() {
+		const tr = this.context.doc.tr;
+		insert_default_node(tr);
+		this.context.doc.apply(tr);
+	}
+}
+
+/**
+ * Command that cycles through available layouts for a node.
+ * Direction can be 'next' or 'previous'.
+ */
+export class CycleLayoutCommand extends Command {
+	constructor(direction, context) {
+		super(context);
+		this.direction = direction;
+	}
+
+	is_enabled() {
+		const doc = this.context.doc;
+		const layout_node = doc.layout_node;
+
+		if (!this.context.editable || !layout_node) return false;
+
+		const layout_count = doc.config.node_layouts?.[layout_node.type];
+		return layout_count > 1 && layout_node?.layout;
+	}
+
+	execute() {
+		const doc = this.context.doc;
+		const node = doc.layout_node;
+		const layout_count = doc.config.node_layouts[node.type];
+
+		let new_layout;
+		if (this.direction === 'next') {
+			new_layout = (node.layout % layout_count) + 1;
+		} else {
+			new_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
+		}
+
+		const tr = doc.tr;
+		tr.set([node.id, 'layout'], new_layout);
+		doc.apply(tr);
+	}
+}
+
+/**
+ * Command that cycles through available node types in a node array.
+ * Direction can be 'next' or 'previous'.
+ */
+export class CycleNodeTypeCommand extends Command {
+	constructor(direction, context) {
+		super(context);
+		this.direction = direction;
+	}
+
+	is_enabled() {
+		const doc = this.context.doc;
+
+		if (!this.context.editable || !doc.selection) return false;
+
+		// Need to check if we have a node selection or can select parent
+		let selection = doc.selection;
+		if (selection.type !== 'node') {
+			// Would need to select parent first
+			return true; // Let execute handle this
+		}
+
+		const node_array_schema = doc.inspect(selection.path);
+		if (node_array_schema.type !== 'node_array') return false;
+
+		// Need at least 2 types to cycle
+		return node_array_schema.node_types?.length > 1;
+	}
+
+	execute() {
+		const doc = this.context.doc;
+
+		// Ensure we have a node selection
+		if (doc.selection.type !== 'node') {
+			doc.select_parent();
+		}
+
+		const node = doc.selected_node;
+		const old_selection = structuredClone(doc.selection);
+		const node_array_schema = doc.inspect(doc.selection.path);
+
+		// If we are not dealing with a node selection in a container, return
+		if (node_array_schema.type !== 'node_array') return;
+
+		const current_type_index = node_array_schema.node_types.indexOf(node.type);
+		let new_type_index;
+
+		if (this.direction === 'next') {
+			new_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
+		} else {
+			new_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
+		}
+
+		const new_type = node_array_schema.node_types[new_type_index];
+		const tr = doc.tr;
+		doc.config.inserters[new_type](tr);
+		tr.set_selection(old_selection);
+		doc.apply(tr);
+	}
 }

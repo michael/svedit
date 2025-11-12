@@ -3,6 +3,37 @@
  */
 
 /**
+ * Detect if the current browser is on a mobile device
+ * @returns {boolean} true if mobile browser, false otherwise
+ */
+export function is_mobile_browser() {
+	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+		return false;
+	}
+
+	const user_agent = navigator.userAgent;
+	return (
+		/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
+		'ontouchstart' in window ||
+		navigator.maxTouchPoints > 0
+	);
+}
+
+/**
+ * Detect if the current browser is Chrome on desktop
+ * @returns {boolean} true if Chrome desktop browser, false otherwise
+ */
+export function is_chrome_desktop_browser() {
+	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+		return false;
+	}
+	const user_agent = navigator.userAgent;
+	const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
+	const is_mobile = is_mobile_browser();
+	return is_chrome && !is_mobile;
+}
+
+/**
  * Get the actual character length (accounting for multi-byte characters)
  *
  * Uses Intl.Segmenter to count grapheme clusters rather than UTF-16 code units,

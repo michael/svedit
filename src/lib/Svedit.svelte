@@ -1,5 +1,5 @@
 <script>
-	import { setContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -7,7 +7,6 @@
 		char_to_utf16_offset,
 		get_char_at
 	} from './util.js';
-	import { break_text_node, insert_default_node, select_all } from './commands.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -30,59 +29,55 @@
 		spellcheck = 'true'
 	} = $props();
 
-	let canvas_ref;
+	let canvas;
 	let root_node = $derived(doc.get(path));
 	let Overlays = $derived(doc.config.system_components.Overlays);
 	let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
-	// Track temporary disabled onkeydown events (e.g. during character composition)
-	let skip_onkeydown = false;
 	let is_composing = $state(false);
 	let before_composition_selection = undefined;
 
-	let is_mobile = $derived(is_mobile_browser());
+	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
-
-	/**
-	 * Detect if the current browser is on a mobile device
-	 * @returns {boolean} true if mobile browser, false otherwise
-	 */
-	function is_mobile_browser() {
-		if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-			return false;
-		}
-
-		const user_agent = navigator.userAgent;
-		return (
-			/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-			'ontouchstart' in window ||
-			navigator.maxTouchPoints > 0
-		);
-	}
-
-	// function is_chrome_desktop_browser() {
-	//   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-	//     return false;
-	//   }
-	//   const user_agent = navigator.userAgent;
-	//   const is_chrome = user_agent.includes('Chrome') && !user_agent.includes('Edg');
-	//   return is_chrome && !is_mobile;
-	// }
 
 	/** Expose function so parent can call it */
 	export { focus_canvas };
 
-	setContext('svedit', {
+	const context = {
 		get doc() {
 			return doc;
 		},
 		get editable() {
 			return editable;
 		},
+		set editable(value) {
+			editable = value;
+		},
 		get is_composing() {
 			return is_composing;
+		},
+		get canvas() {
+			return canvas;
 		}
-	});
+	};
+
+	setContext('svedit', context);
+
+	// Get KeyMapper from context (may be undefined if not provided)
+	const key_mapper = getContext('key_mapper');
+
+	// Initialize commands and keymap on the document
+	doc.initialize_commands(context);
+
+	// Handle focus - push document's keymap onto stack
+	function handle_canvas_focus() {
+		key_mapper?.push_scope(doc.keymap);
+	}
+
+	// Handle blur - pop document's keymap from stack
+	function handle_canvas_blur() {
+		key_mapper?.pop_scope();
+	}
 
 	/**
 	 * @param {InputEvent} event
@@ -120,7 +115,7 @@
 		}
 
 		// Only take input when in a valid text selection inside the canvas
-		if (!canvas_ref?.contains(document.activeElement)) {
+		if (!canvas?.contains(document.activeElement)) {
 			event.preventDefault();
 			return;
 		}
@@ -169,10 +164,6 @@
 			return;
 		}
 
-		// Since we return on event.isComposing we can definitely be sure that we're not
-		// in a composition anymore.
-		before_composition_selection = undefined;
-
 		// Insert the character, unless there is none.
 		let inserted_text = event.data;
 
@@ -214,7 +205,7 @@
 
 		// Disable keydown event handling during composition. This way, you can confirm
 		// a diacritic (a->ä) with ENTER without causing a line break.
-		skip_onkeydown = true;
+		key_mapper.skip_onkeydown = true;
 		is_composing = true;
 		return;
 	}
@@ -225,8 +216,8 @@
 	 */
 	function oncompositionend(event) {
 		console.log('DEBUG: oncompositionend, insert:', event.data, event);
-		if (!canvas_ref?.contains(document.activeElement)) return;
-		if (canvas_ref?.contains(document.activeElement) && doc.selection?.type === 'text') {
+		if (!canvas?.contains(document.activeElement)) return;
+		if (canvas?.contains(document.activeElement) && doc.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
 			// of finishing a composition. For instance, the user might have selected a different
 			// part of the text while composing.
@@ -253,7 +244,7 @@
 			// NOTE: We need a little timeout to nudge Safari into not handling the
 			// ENTER press when confirming a diacritic
 			setTimeout(() => {
-				skip_onkeydown = false;
+				key_mapper.skip_onkeydown = false;
 				is_composing = false;
 			}, 100);
 		}
@@ -272,7 +263,7 @@
 
 		// Only handle selection changes if selection is within the canvas
 		const range = dom_selection.getRangeAt(0);
-		if (!canvas_ref?.contains(range.commonAncestorContainer)) return;
+		if (!canvas?.contains(range.commonAncestorContainer)) return;
 		let selection = __get_selection_from_dom();
 		if (selection) {
 			doc.selection = selection;
@@ -432,7 +423,7 @@ ${fallback_html}`;
 	 */
 	function oncopy(event, delete_selection = false) {
 		// Only handle copy events if focus is within the canvas
-		if (!canvas_ref?.contains(document.activeElement)) return;
+		if (!canvas?.contains(document.activeElement)) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -572,7 +563,7 @@ ${fallback_html}`;
 
 	async function onpaste(event) {
 		// Only handle paste events if focus is within the canvas
-		if (!canvas_ref?.contains(document.activeElement)) return;
+		if (!canvas?.contains(document.activeElement)) return;
 		event.preventDefault();
 
 		let plain_text,
@@ -711,7 +702,7 @@ ${fallback_html}`;
 		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
 		if (
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
-			canvas_ref?.contains(document.activeElement)
+			canvas?.contains(document.activeElement)
 		) {
 			// Skip. No need to rerender.
 			return;
@@ -728,207 +719,22 @@ ${fallback_html}`;
 		}
 	}
 
-	function focus_toolbar() {
-		// Find the first interactive element in the toolbar and focus it
-		const toolbar = document.querySelector('.editor-toolbar');
-		if (toolbar) {
-			const firstInteractive = /** @type {HTMLElement} */ (
-				toolbar.querySelector('input, button, select, textarea')
-			);
-			if (firstInteractive) {
-				firstInteractive.focus();
-			}
-		}
-	}
+	// function focus_toolbar() {
+	// 	// Find the first interactive element in the toolbar and focus it
+	// 	const toolbar = document.querySelector('.editor-toolbar');
+	// 	if (toolbar) {
+	// 		const firstInteractive = /** @type {HTMLElement} */ (
+	// 			toolbar.querySelector('input, button, select, textarea')
+	// 		);
+	// 		if (firstInteractive) {
+	// 			firstInteractive.focus();
+	// 		}
+	// 	}
+	// }
 
 	function focus_canvas() {
 		// We just render the selection (which will return focus to the canvas) implicitly
 		render_selection();
-	}
-
-	function onkeydown(e) {
-		// Turn editable on
-		if (e.key === 'e' && (e.ctrlKey || e.metaKey)) {
-			editable = true;
-			return;
-		}
-
-		// Turn editable off (=save)
-		if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-			doc.selection = null;
-			editable = false;
-			e.preventDefault();
-			e.stopPropagation();
-			return;
-		}
-
-		// Only handle keyboard events if focus is within the canvas
-		if (!canvas_ref?.contains(document.activeElement)) return;
-
-		// Key handling temporarily disabled (e.g. while character composition takes place)
-		if (skip_onkeydown) {
-			// Currently we do nothing, but we could handle keydown during character composition here.
-			return;
-		}
-
-		const selection = /** @type {any} */ (doc.selection);
-		const is_collapsed = selection?.anchor_offset === selection?.focus_offset;
-
-		if (
-			(e.key === 'ArrowRight' && e.altKey && e.ctrlKey && doc.layout_node) ||
-			(e.key === 'ArrowRight' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
-		) {
-			const node = doc.layout_node;
-			const layout_count = doc.config.node_layouts[node.type];
-
-			if (layout_count > 1 && node?.layout) {
-				const next_layout = (node.layout % layout_count) + 1;
-				console.log('layout / count / next_layout', node.layout, layout_count, next_layout);
-				const tr = doc.tr;
-				tr.set([doc.layout_node?.id, 'layout'], next_layout);
-				doc.apply(tr);
-			}
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && doc.layout_node) ||
-			(e.key === 'ArrowLeft' && e.altKey && e.ctrlKey && e.shiftKey && doc.layout_node)
-		) {
-			const node = doc.layout_node;
-			const layout_count = doc.config.node_layouts[node.type];
-
-			if (layout_count > 1 && node?.layout) {
-				const prev_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
-				const tr = doc.tr;
-				tr.set([doc.layout_node?.id, 'layout'], prev_layout);
-				doc.apply(tr);
-				console.log('layout / count / prev_layout', node.layout, layout_count, prev_layout);
-			}
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowDown' && e.altKey && e.ctrlKey) ||
-			(e.key === 'ArrowDown' && e.altKey && e.ctrlKey && e.shiftKey)
-		) {
-			if (doc.selection.type !== 'node') {
-				doc.select_parent();
-			}
-			const node = doc.selected_node;
-			const old_selection = structuredClone(doc.selection);
-			const node_array_schema = doc.inspect(doc.selection.path);
-			// If we are not dealing with a node selection in a container, return
-			if (node_array_schema.type !== 'node_array') return;
-			const current_type_index = node_array_schema.node_types.indexOf(node.type);
-			const next_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
-			const next_type = node_array_schema.node_types[next_type_index];
-			const tr = doc.tr;
-			doc.config.inserters[next_type](tr);
-			tr.set_selection(old_selection);
-			doc.apply(tr);
-			e.preventDefault();
-		} else if (
-			(e.key === 'ArrowUp' && e.altKey && e.ctrlKey) ||
-			(e.key === 'ArrowUp' && e.altKey && e.ctrlKey && e.shiftKey)
-		) {
-			if (doc.selection.type !== 'node') {
-				doc.select_parent();
-			}
-			const node = doc.selected_node;
-			const old_selection = structuredClone(doc.selection);
-			const node_array_schema = doc.inspect(doc.selection.path);
-			// If we are not dealing with a node selection in a container, return
-			if (node_array_schema.type !== 'node_array') return;
-			const current_type_index = node_array_schema.node_types.indexOf(node.type);
-			const prev_type_index =
-				(current_type_index - 1 + node_array_schema.node_types.length) %
-				node_array_schema.node_types.length;
-			const prev_type = node_array_schema.node_types[prev_type_index];
-			const tr = doc.tr;
-			doc.config.inserters[prev_type](tr);
-			tr.set_selection(old_selection);
-			doc.apply(tr);
-			e.preventDefault();
-		} else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
-			const tr = doc.tr;
-			if (select_all(tr)) {
-				doc.apply(tr);
-			}
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-			doc.undo();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-			doc.redo();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (
-			e.key === 'Enter' &&
-			e.shiftKey &&
-			!is_mobile &&
-			selection?.type === 'text' &&
-			doc.inspect(selection.path).allow_newlines
-		) {
-			doc.apply(doc.tr.insert_text('\n'));
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'b' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('strong'));
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'i' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('emphasis'));
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'u' && (e.ctrlKey || e.metaKey) && selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('highlight'));
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-			const has_link = doc.active_annotation('link');
-			if (has_link) {
-				// Delete link
-				doc.apply(doc.tr.annotate_text('link'));
-			} else {
-				// Create link
-				const href = window.prompt('Enter the URL', 'https://example.com');
-				if (href) {
-					doc.apply(doc.tr.annotate_text('link', { href }));
-				}
-			}
-
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'property') {
-			// Focus toolbar for property selections
-			focus_toolbar();
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'node') {
-			const span_length = Math.abs(selection.focus_offset - selection.anchor_offset);
-
-			if (is_collapsed) {
-				// Always insert default node on ENTER
-				const tr = doc.tr;
-				insert_default_node(tr);
-				doc.apply(tr);
-			} else if (span_length === 1) {
-				focus_toolbar();
-			}
-			// Node selections with multiple nodes do nothing on Enter
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Enter' && selection?.type === 'text') {
-			const tr = doc.tr;
-			if (break_text_node(tr)) {
-				doc.apply(tr);
-			}
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'Escape' && selection) {
-			doc.select_parent();
-			e.preventDefault();
-			e.stopPropagation();
-		}
 	}
 
 	/**
@@ -1236,7 +1042,7 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
-		const node_array_el = canvas_ref.querySelector(
+		const node_array_el = canvas.querySelector(
 			`[data-path="${node_array_path}"][data-type="node_array"]`
 		);
 		if (!node_array_el) return null;
@@ -1319,7 +1125,7 @@ ${fallback_html}`;
 		}
 
 		// Ensure the node_array is focused
-		const node_array_el = canvas_ref.querySelector(
+		const node_array_el = canvas.querySelector(
 			`[data-path="${node_array_path}"][data-type="node_array"]`
 		);
 		if (node_array_el) {
@@ -1339,7 +1145,7 @@ ${fallback_html}`;
 	function __render_property_selection() {
 		const selection = doc.selection;
 		// The element that holds the property
-		const el = canvas_ref.querySelector(
+		const el = canvas.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
 		const cursor_trap_selectable = el.querySelector('.svedit-selectable');
@@ -1364,7 +1170,7 @@ ${fallback_html}`;
 	function __render_text_selection() {
 		const selection = /** @type {any} */ (doc.selection);
 		// The element that holds the annotated string
-		const el = canvas_ref.querySelector(
+		const el = canvas.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="text"]`
 		);
 		const empty_text = doc.get(selection.path).text.length === 0;
@@ -1512,7 +1318,7 @@ ${fallback_html}`;
   with any app-specific event handling.
 -->
 <svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
-<svelte:window {onkeydown} />
+<!-- <svelte:window {onkeydown} /> -->
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
@@ -1522,10 +1328,12 @@ ${fallback_html}`;
 		class:node-cursor={doc.selection?.type === 'node' &&
 			doc.selection.anchor_offset === doc.selection.focus_offset}
 		class:property-selection={doc.selection?.type === 'property'}
-		bind:this={canvas_ref}
+		bind:this={canvas}
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
+		onfocus={handle_canvas_focus}
+		onblur={handle_canvas_blur}
 		contenteditable={editable ? 'true' : 'false'}
 		{autocapitalize}
 		{spellcheck}

@@ -9,7 +9,7 @@ import {
 	get_selection_range,
 	is_selection_collapsed
 } from './util.js';
-import { join_text_node } from './commands.svelte.js';
+import { join_text_node } from './transforms.svelte.js';
 
 /**
  * Transaction class for managing atomic document operations with undo/redo support.

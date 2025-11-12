@@ -1,4 +1,19 @@
-import { Document, define_document_schema } from 'svedit';
+import {
+	Document,
+	define_document_schema,
+	SelectAllCommand,
+	InsertDefaultNodeCommand,
+	AddNewLineCommand,
+	BreakTextNodeCommand,
+	ToggleAnnotationCommand,
+	ToggleLinkCommand,
+	UndoCommand,
+	RedoCommand,
+	SelectParentCommand,
+	CycleLayoutCommand,
+	CycleNodeTypeCommand,
+	define_keymap
+} from 'svedit';
 import nanoid from './nanoid.js';
 
 // System components
@@ -747,6 +762,55 @@ const document_config = {
 			//   focus_offset: 0
 			// });
 		}
+	},
+
+	/**
+	 * Factory function to create Svedit commands and keymap.
+	 * Called by Svedit component with the svedit context.
+	 *
+	 * @param {object} context - The svedit context with doc, editable, canvas.
+	 * @returns {{ commands: object, keymap: object }}
+	 */
+	create_commands_and_keymap: (context) => {
+		// Create command instances with the provided context
+		const commands = {
+			select_all: new SelectAllCommand(context),
+			insert_default_node: new InsertDefaultNodeCommand(context),
+			add_new_line: new AddNewLineCommand(context),
+			break_text_node: new BreakTextNodeCommand(context),
+			toggle_strong: new ToggleAnnotationCommand('strong', context),
+			toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
+			toggle_highlight: new ToggleAnnotationCommand('highlight', context),
+			toggle_link: new ToggleLinkCommand(context),
+			undo: new UndoCommand(context),
+			redo: new RedoCommand(context),
+			select_parent: new SelectParentCommand(context),
+			next_layout: new CycleLayoutCommand('next', context),
+			previous_layout: new CycleLayoutCommand('previous', context),
+			next_type: new CycleNodeTypeCommand('next', context),
+			previous_type: new CycleNodeTypeCommand('previous', context)
+		};
+
+		// Define keymap binding keys to commands
+		const keymap = define_keymap({
+			'meta+a,ctrl+a': [commands.select_all],
+			enter: [commands.break_text_node, commands.insert_default_node],
+			'meta+enter,ctrl+enter': [commands.insert_default_node],
+			'shift+enter': [commands.add_new_line],
+			'meta+b,ctrl+b': [commands.toggle_strong],
+			'meta+i,ctrl+i': [commands.toggle_emphasis],
+			'meta+u,ctrl+u': [commands.toggle_highlight],
+			'meta+k,ctrl+k': [commands.toggle_link],
+			'meta+z,ctrl+z': [commands.undo],
+			'meta+shift+z,ctrl+shift+z': [commands.redo],
+			escape: [commands.select_parent],
+			'ctrl+alt+arrowright': [commands.next_layout],
+			'ctrl+alt+arrowleft': [commands.previous_layout],
+			'ctrl+alt+arrowdown': [commands.next_type],
+			'ctrl+alt+arrowup': [commands.previous_type]
+		});
+
+		return { commands, keymap };
 	}
 };
 
