@@ -62,7 +62,7 @@ export class ToggleAnnotationCommand extends Command {
 		const { doc, editable } = this.context;
 		const has_annotation = doc.active_annotation(this.node_type);
 		const no_annotation_and_cursor_not_collapsed = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
-		
+
 		return (
 			editable &&
 			doc.selection?.type === 'text' &&
@@ -89,20 +89,20 @@ export class ToggleLinkCommand extends Command {
 	is_enabled() {
 		const { doc, editable } = this.context;
 
-		const has_link = doc.active_annotation('link'); // toggle to disable
-		const no_annotation_and_cursor_not_collapsed = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+		const can_remove_link = doc.active_annotation('link');
+		const can_create_link = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
 		return (
 			editable &&
 			doc.selection?.type === 'text' &&
-			(has_link || no_annotation_and_cursor_not_collapsed)
+			(can_remove_link || can_create_link)
 		);
 	}
 
 	execute() {
 		const doc = this.context.doc;
-		const has_link = doc.active_annotation('link');
+		const can_create_link = doc.active_annotation('link');
 
-		if (has_link) {
+		if (can_create_link) {
 			// Delete link
 			doc.apply(doc.tr.annotate_text('link'));
 		} else {
@@ -201,9 +201,9 @@ export class CycleLayoutCommand extends Command {
 	is_enabled() {
 		const doc = this.context.doc;
 		const layout_node = doc.layout_node;
-		
+
 		if (!this.context.editable || !layout_node) return false;
-		
+
 		const layout_count = doc.config.node_layouts?.[layout_node.type];
 		return layout_count > 1 && layout_node?.layout;
 	}
@@ -212,14 +212,14 @@ export class CycleLayoutCommand extends Command {
 		const doc = this.context.doc;
 		const node = doc.layout_node;
 		const layout_count = doc.config.node_layouts[node.type];
-		
+
 		let new_layout;
 		if (this.direction === 'next') {
 			new_layout = (node.layout % layout_count) + 1;
 		} else {
 			new_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
 		}
-		
+
 		const tr = doc.tr;
 		tr.set([node.id, 'layout'], new_layout);
 		doc.apply(tr);
@@ -238,47 +238,47 @@ export class CycleNodeTypeCommand extends Command {
 
 	is_enabled() {
 		const doc = this.context.doc;
-		
+
 		if (!this.context.editable || !doc.selection) return false;
-		
+
 		// Need to check if we have a node selection or can select parent
 		let selection = doc.selection;
 		if (selection.type !== 'node') {
 			// Would need to select parent first
 			return true; // Let execute handle this
 		}
-		
+
 		const node_array_schema = doc.inspect(selection.path);
 		if (node_array_schema.type !== 'node_array') return false;
-		
+
 		// Need at least 2 types to cycle
 		return node_array_schema.node_types?.length > 1;
 	}
 
 	execute() {
 		const doc = this.context.doc;
-		
+
 		// Ensure we have a node selection
 		if (doc.selection.type !== 'node') {
 			doc.select_parent();
 		}
-		
+
 		const node = doc.selected_node;
 		const old_selection = structuredClone(doc.selection);
 		const node_array_schema = doc.inspect(doc.selection.path);
-		
+
 		// If we are not dealing with a node selection in a container, return
 		if (node_array_schema.type !== 'node_array') return;
-		
+
 		const current_type_index = node_array_schema.node_types.indexOf(node.type);
 		let new_type_index;
-		
+
 		if (this.direction === 'next') {
 			new_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
 		} else {
 			new_type_index = (current_type_index - 1 + node_array_schema.node_types.length) % node_array_schema.node_types.length;
 		}
-		
+
 		const new_type = node_array_schema.node_types[new_type_index];
 		const tr = doc.tr;
 		doc.config.inserters[new_type](tr);

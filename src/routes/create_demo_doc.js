@@ -1,7 +1,7 @@
-import { 
-	Document, 
-	define_document_schema, 
-	SelectAllCommand, 
+import {
+	Document,
+	define_document_schema,
+	SelectAllCommand,
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
@@ -12,7 +12,7 @@ import {
 	SelectParentCommand,
 	CycleLayoutCommand,
 	CycleNodeTypeCommand,
-	define_keymap 
+	define_keymap
 } from 'svedit';
 import nanoid from './nanoid.js';
 
@@ -794,7 +794,7 @@ const document_config = {
 		// Define keymap binding keys to commands
 		const keymap = define_keymap({
 			'meta+a,ctrl+a': [commands.select_all],
-			'enter': [commands.break_text_node, commands.insert_default_node],
+			enter: [commands.break_text_node, commands.insert_default_node],
 			'meta+enter,ctrl+enter': [commands.insert_default_node],
 			'shift+enter': [commands.add_new_line],
 			'meta+b,ctrl+b': [commands.toggle_strong],
@@ -803,7 +803,7 @@ const document_config = {
 			'meta+k,ctrl+k': [commands.toggle_link],
 			'meta+z,ctrl+z': [commands.undo],
 			'meta+shift+z,ctrl+shift+z': [commands.redo],
-			'escape': [commands.select_parent],
+			escape: [commands.select_parent],
 			'ctrl+alt+arrowright': [commands.next_layout],
 			'ctrl+alt+arrowleft': [commands.previous_layout],
 			'ctrl+alt+arrowdown': [commands.next_type],
