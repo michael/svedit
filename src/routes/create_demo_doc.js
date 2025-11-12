@@ -766,9 +766,9 @@ const document_config = {
 
 	/**
 	 * Factory function to create Svedit commands and keymap.
-	 * Called by Svedit component with the svedit_context.
+	 * Called by Svedit component with the svedit context.
 	 *
-	 * @param {object} context - The svedit context with doc, editable, etc.
+	 * @param {object} context - The svedit context with doc, editable, canvas.
 	 * @returns {{ commands: object, keymap: object }}
 	 */
 	create_commands_and_keymap: (context) => {
