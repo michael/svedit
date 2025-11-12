@@ -1,6 +1,6 @@
 import Command from './Command.svelte.js';
-import { select_all, insert_default_node, break_text_node } from './transforms.svelte.js';
-import { is_selection_collapsed, is_mobile_browser } from './util.js';
+import { insert_default_node, break_text_node } from './transforms.svelte.js';
+import { is_selection_collapsed, is_mobile_browser, get_char_length } from './util.js';
 
 /**
  * Command that undoes the last change to the document.
@@ -166,9 +166,107 @@ export class SelectAllCommand extends Command {
 	}
 
 	execute() {
-		const tr = this.context.doc.tr;
-		select_all(tr);
-		this.context.doc.apply(tr);
+		const doc = this.context.doc;
+		const selection = doc.selection;
+
+		if (!selection) {
+			return;
+		}
+
+		if (selection.type === 'text') {
+			const text_content = doc.get(selection.path);
+			const text_length = get_char_length(text_content.text);
+
+			// Check if all text is already selected
+			const is_all_text_selected =
+				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+				Math.max(selection.anchor_offset, selection.focus_offset) === text_length;
+
+			if (!is_all_text_selected) {
+				// Select all text in the current text node
+				doc.selection = {
+					type: 'text',
+					path: selection.path,
+					anchor_offset: 0,
+					focus_offset: text_length
+				};
+			} else {
+				// All text is selected, move up to select the containing node
+				const node_path = selection.path.slice(0, -1); // Remove the property name (e.g., 'content')
+
+				// Check if we have enough path segments and if we're inside a node_array
+				if (node_path.length >= 2) {
+					const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
+
+					if (is_inside_node_array) {
+						const node_index = parseInt(node_path.at(-1));
+						doc.selection = {
+							type: 'node',
+							path: node_path.slice(0, -1),
+							anchor_offset: node_index,
+							focus_offset: node_index + 1
+						};
+					}
+				}
+				// Stop expanding - text is not in a selectable node_array
+			}
+		} else if (selection.type === 'node') {
+			const node_array_path = selection.path;
+			const node_array = doc.get(node_array_path);
+
+			// Check if the entire node_array is already selected
+			const is_entire_node_array_selected =
+				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
+				Math.max(selection.anchor_offset, selection.focus_offset) === node_array.length;
+
+			if (!is_entire_node_array_selected) {
+				// Select the entire node_array
+				doc.selection = {
+					type: 'node',
+					path: node_array_path,
+					anchor_offset: 0,
+					focus_offset: node_array.length
+				};
+			} else {
+				// Entire node_array is selected, try to move up to parent node_array
+				const parent_path = node_array_path.slice(0, -1);
+
+				// Check if we have enough path segments and if parent is a valid node_array
+				if (parent_path.length >= 2) {
+					const is_parent_node_array = doc.inspect(parent_path.slice(0, -1))?.type === 'node_array';
+
+					if (is_parent_node_array) {
+						const parent_node_index = parseInt(parent_path.at(-1));
+						doc.selection = {
+							type: 'node',
+							path: parent_path.slice(0, -1),
+							anchor_offset: parent_node_index,
+							focus_offset: parent_node_index + 1
+						};
+					}
+				}
+				// Stop expanding - we've reached the top level
+			}
+		} else if (selection.type === 'property') {
+			// For property selections, select the containing node
+			const node_path = selection.path.slice(0, -1);
+
+			// Check if we have enough path segments and if we're inside a node_array
+			if (node_path.length >= 2) {
+				const is_inside_node_array = doc.inspect(node_path.slice(0, -1))?.type === 'node_array';
+
+				if (is_inside_node_array) {
+					const node_index = parseInt(node_path.at(-1));
+					doc.selection = {
+						type: 'node',
+						path: node_path.slice(0, -1),
+						anchor_offset: node_index,
+						focus_offset: node_index + 1
+					};
+				}
+			}
+			// Stop expanding - property is not in a selectable node_array
+		}
 	}
 }
 
