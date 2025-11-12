@@ -34,8 +34,6 @@
 	let Overlays = $derived(doc.config.system_components.Overlays);
 	let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
 
-	// Track temporary disabled onkeydown events (e.g. during character composition)
-	// let skip_onkeydown = false;
 	let is_composing = $state(false);
 	let before_composition_selection = undefined;
 
@@ -45,7 +43,7 @@
 	/** Expose function so parent can call it */
 	export { focus_canvas };
 
-	const svedit_context = {
+	const context = {
 		get doc() {
 			return doc;
 		},
@@ -63,13 +61,13 @@
 		}
 	};
 
-	setContext('svedit', svedit_context);
+	setContext('svedit', context);
 
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
 
 	// Initialize commands and keymap on the document
-	doc.initialize_commands(svedit_context);
+	doc.initialize_commands(context);
 
 	// Handle focus - push document's keymap onto stack
 	function handle_canvas_focus() {
@@ -165,10 +163,6 @@
 			event.preventDefault();
 			return;
 		}
-
-		// Since we return on event.isComposing we can definitely be sure that we're not
-		// in a composition anymore.
-		before_composition_selection = undefined;
 
 		// Insert the character, unless there is none.
 		let inserted_text = event.data;
