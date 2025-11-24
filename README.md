@@ -766,7 +766,7 @@ You can access the current selection through `doc.selection` anytime. And you ca
 
 Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component.
 
-```js
+```svelte
 <Svedit {doc} path={[doc.document_id]} editable={true} />
 ```
 
@@ -778,7 +778,7 @@ Node components are Svelte components that render specific node types in your do
 
 A typical node component follows this pattern:
 
-```js
+```svelte
 <script>
   import { Node, AnnotatedTextProperty } from 'svedit';
   let { path } = $props();
@@ -804,7 +804,7 @@ Svedit provides specialized components for rendering different property types:
 
 **`<AnnotatedTextProperty>`** - For editable text content with inline formatting:
 
-```js
+```svelte
 <AnnotatedTextProperty
   tag="p"
   class="body"
@@ -815,7 +815,7 @@ Svedit provides specialized components for rendering different property types:
 
 **`<NodeArrayProperty>`** - For container properties that hold multiple nodes:
 
-```js
+```svelte
 <NodeArrayProperty 
   class="list-items"
   path={[...path, 'list_items']} 
@@ -824,7 +824,7 @@ Svedit provides specialized components for rendering different property types:
 
 **`<CustomProperty>`** - For custom properties like images or other non-text content:
 
-```js
+```svelte
 <CustomProperty class="image-wrapper" path={[...path, 'image']}>
   <div contenteditable="false">
     <img src={node.image} alt={node.title.text} />
@@ -836,7 +836,7 @@ Svedit provides specialized components for rendering different property types:
 
 Use the Svedit context to access node data:
 
-```js
+```svelte
 <script>
   import { getContext } from 'svelte';
   const svedit = getContext('svedit');
@@ -851,7 +851,7 @@ Use the Svedit context to access node data:
 
 Here's a complete example of a text node component that supports multiple layouts:
 
-```js
+```svelte
 <script>
   import { getContext } from 'svelte';
   import { Node, AnnotatedTextProperty } from 'svedit';
@@ -879,7 +879,7 @@ Here's a complete example of a text node component that supports multiple layout
 
 A simple list component that renders child items:
 
-```js
+```svelte
 <script>
   import { Node, NodeArrayProperty } from 'svedit';
   let { path } = $props();
