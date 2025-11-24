@@ -136,42 +136,6 @@ export class ToggleAnnotationCommand extends Command {
 }
 
 /**
- * Command that toggles a link annotation on the current text selection.
- * If a link exists, removes it. If no link exists, prompts for URL and creates one.
- */
-export class ToggleLinkCommand extends Command {
-	active = $derived(this.is_active());
-
-	is_active() {
-		return this.context.doc.active_annotation('link');
-	}
-
-	is_enabled() {
-		const { doc, editable } = this.context;
-
-		const can_remove_link = doc.active_annotation('link');
-		const can_create_link = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
-		return editable && doc.selection?.type === 'text' && (can_remove_link || can_create_link);
-	}
-
-	execute() {
-		const doc = this.context.doc;
-		const can_create_link = doc.active_annotation('link');
-
-		if (can_create_link) {
-			// Delete link
-			doc.apply(doc.tr.annotate_text('link'));
-		} else {
-			// Create link
-			const href = window.prompt('Enter the URL', 'https://example.com');
-			if (href) {
-				doc.apply(doc.tr.annotate_text('link', { href }));
-			}
-		}
-	}
-}
-
-/**
  * Command that adds a new line character at the current cursor position.
  * Only works in text selections where newlines are allowed.
  * Disabled on mobile browsers where Shift+Enter has different behavior.

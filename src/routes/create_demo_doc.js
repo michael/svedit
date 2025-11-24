@@ -1,18 +1,22 @@
 import {
 	Document,
-	define_document_schema,
 	SelectAllCommand,
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
 	ToggleAnnotationCommand,
-	ToggleLinkCommand,
 	UndoCommand,
 	RedoCommand,
 	SelectParentCommand,
+	define_document_schema,
 	define_keymap
 } from 'svedit';
-import { CycleLayoutCommand, CycleNodeTypeCommand, ResetImageCommand } from './commands.svelte.js';
+import {
+	CycleLayoutCommand,
+	CycleNodeTypeCommand,
+	ResetImageCommand,
+	ToggleLinkCommand
+} from './commands.svelte.js';
 import nanoid from './nanoid.js';
 
 // System components
