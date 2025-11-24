@@ -719,19 +719,6 @@ ${fallback_html}`;
 		}
 	}
 
-	// function focus_toolbar() {
-	// 	// Find the first interactive element in the toolbar and focus it
-	// 	const toolbar = document.querySelector('.editor-toolbar');
-	// 	if (toolbar) {
-	// 		const firstInteractive = /** @type {HTMLElement} */ (
-	// 			toolbar.querySelector('input, button, select, textarea')
-	// 		);
-	// 		if (firstInteractive) {
-	// 			firstInteractive.focus();
-	// 		}
-	// 	}
-	// }
-
 	function focus_canvas() {
 		// We just render the selection (which will return focus to the canvas) implicitly
 		render_selection();
@@ -1170,9 +1157,7 @@ ${fallback_html}`;
 	function __render_text_selection() {
 		const selection = /** @type {any} */ (doc.selection);
 		// The element that holds the annotated string
-		const el = canvas.querySelector(
-			`[data-path="${selection.path.join('.')}"][data-type="text"]`
-		);
+		const el = canvas.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
 		const empty_text = doc.get(selection.path).text.length === 0;
 
 		const range = window.document.createRange();
@@ -1318,7 +1303,6 @@ ${fallback_html}`;
   with any app-specific event handling.
 -->
 <svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
-<!-- <svelte:window {onkeydown} /> -->
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">

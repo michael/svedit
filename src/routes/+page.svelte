@@ -5,7 +5,6 @@
 	import create_demo_doc from './create_demo_doc.js';
 
 	const doc = create_demo_doc();
-
 	let app_el;
 	let svedit_ref;
 	let editable = $state(true);
@@ -15,8 +14,6 @@
 			svedit_ref.focus_canvas();
 		}
 	}
-
-	export { focus_canvas };
 
 	class EditCommand extends Command {
 		is_enabled() {
@@ -30,7 +27,6 @@
 	}
 
 	class SaveCommand extends Command {
-
 		is_enabled() {
 			// Saving is only possible while edit mode is on.
 			return this.context.editable;
@@ -42,7 +38,6 @@
 			this.context.editable = false;
 		}
 	}
-
 
 	const app_command_context = {
 		get editable() {
@@ -68,7 +63,7 @@
 	const key_mapper = new KeyMapper();
 	setContext('key_mapper', key_mapper);
 
-	// Push app-level scope (base layer)
+	// Push app-level keymap scope
 	const app_key_map = define_keymap({
 		'meta+e,ctrl+e': [app_commands.edit_document],
 		'meta+s,ctrl+s': [app_commands.save_document]
