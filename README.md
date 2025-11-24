@@ -335,25 +335,29 @@ Svedit provides several core commands out of the box:
 
 #### Using Document Commands
 
-Create command instances with the Svedit context and bind them to UI elements:
+Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/create_demo_doc.js`](src/routes/create_demo_doc.js) in the `create_commands_and_keymap` configuration function:
 
 ```js
-// The Svedit component provides this context internally
-const svedit_context = {
-  doc,
-  editable: true,
-  canvas: editor_element,
-  is_composing: false
-};
+create_commands_and_keymap: (context) => {
+  const commands = {
+    undo: new UndoCommand(context),
+    redo: new RedoCommand(context),
+    toggle_strong: new ToggleAnnotationCommand('strong', context),
+    toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
+    // ... more commands
+  };
 
-const document_commands = {
-  undo: new UndoCommand(svedit_context),
-  redo: new RedoCommand(svedit_context),
-  bold: new ToggleAnnotationCommand('bold', svedit_context)
-};
+  const keymap = define_keymap({
+    'meta+z,ctrl+z': [commands.undo],
+    'meta+b,ctrl+b': [commands.toggle_strong],
+    // ... more keybindings
+  });
+
+  return { commands, keymap };
+}
 ```
 
-Bind commands to UI elements in your Svelte components:
+Bind commands to UI elements in your components:
 
 ```svelte
 <button 
@@ -674,7 +678,7 @@ Find my contact details [here](https://editable.website).
 
 ## Beta version
 
-It's early. Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.
+It's still early. Expect bugs. Expect missing features. Expect the need for more work on your part to make this fit for your use case.
 
 ## Credits
 
