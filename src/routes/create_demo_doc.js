@@ -12,7 +12,7 @@ import {
 	SelectParentCommand,
 	define_keymap
 } from 'svedit';
-import { CycleLayoutCommand, CycleNodeTypeCommand } from './commands.svelte.js';
+import { CycleLayoutCommand, CycleNodeTypeCommand, ResetImageCommand } from './commands.svelte.js';
 import nanoid from './nanoid.js';
 
 // System components
@@ -787,7 +787,8 @@ const document_config = {
 			next_layout: new CycleLayoutCommand('next', context),
 			previous_layout: new CycleLayoutCommand('previous', context),
 			next_type: new CycleNodeTypeCommand('next', context),
-			previous_type: new CycleNodeTypeCommand('previous', context)
+			previous_type: new CycleNodeTypeCommand('previous', context),
+			reset_image: new ResetImageCommand(context)
 		};
 
 		// Define keymap binding keys to commands
@@ -806,7 +807,8 @@ const document_config = {
 			'ctrl+alt+arrowright': [commands.next_layout],
 			'ctrl+alt+arrowleft': [commands.previous_layout],
 			'ctrl+alt+arrowdown': [commands.next_type],
-			'ctrl+alt+arrowup': [commands.previous_type]
+			'ctrl+alt+arrowup': [commands.previous_type],
+			backspace: [commands.reset_image]
 		});
 
 		return { commands, keymap };
