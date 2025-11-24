@@ -144,53 +144,58 @@ const document_schema = {
 
 ## Document serialization format (to drive an editing session in the browser)
 
-A document is just a subsets of nodes, with a few rules:
+A serialized document contains a `document_id` (the entry point) and a `nodes` object with all content nodes.
 
-- there must be a node (the document node) with the id of the document as an entry point (e.g. page_1)
-- so the document is a node itself, with references to the underlying content (which live in separate nodes)
-- all other nodes need to be traversible from that root node (unlinked nodes will be discarded on a save)
-- in the serialization format the nodes need to be ordered, so that nodes that are referenced, are already defined (makes it easier to initialize the document)
-- Your document must not contain cyclic references for that reason
+Rules:
+- All nodes must be reachable from the document node (unreachable nodes are discarded)
+- No cyclic references allowed
+- Text content uses `{ text: '', annotations: [] }` format
 
 Here's an example document:
+
 ```js
-const serialized_doc = [
-  {
-    id: 'nav_item_1',
-    type: 'nav_item',
-    url: '/homepage',
-    label: 'Home',
-  },
-  {
-    id: 'nav_1',
-    type: 'nav',
-    nav_items: ['nav_item_1'],
-  },
-  {
-    id: 'paragraph_1',
-    content: ['Hello world.', []],
-  },
-  {
-    id: 'list_item_1',
-    type: 'list_item',
-    content: ['first list item', []],
-  },
-  {
-    id: 'list_item_2',
-    type: 'list_item',
-    content: ['second list item', []],
-  },
-  {
-    id: 'list_1',
-    type: 'list',
-    list_items: ['list_item_1', 'list_item_2'],
-  },
-  {
-    id: 'page_1',
-    type: 'page',
-    body: ['nav_1', 'paragraph_1', 'list_1'],
-  },
-]
+const serialized_doc = {
+  document_id: 'page_1',
+  nodes: {
+    nav_item_1: {
+      id: 'nav_item_1',
+      type: 'nav_item',
+      url: '/homepage',
+      label: 'Home'
+    },
+    nav_1: {
+      id: 'nav_1',
+      type: 'nav',
+      nav_items: ['nav_item_1']
+    },
+    paragraph_1: {
+      id: 'paragraph_1',
+      type: 'text',
+      layout: 1,
+      content: { text: 'Hello world.', annotations: [] }
+    },
+    list_item_1: {
+      id: 'list_item_1',
+      type: 'list_item',
+      content: { text: 'First list item', annotations: [] }
+    },
+    list_item_2: {
+      id: 'list_item_2',
+      type: 'list_item',
+      content: { text: 'Second list item', annotations: [] }
+    },
+    list_1: {
+      id: 'list_1',
+      type: 'list',
+      list_items: ['list_item_1', 'list_item_2']
+    },
+    page_1: {
+      id: 'page_1',
+      type: 'page',
+      body: ['nav_1', 'paragraph_1', 'list_1']
+    }
+  }
+};
 ```
 
 ## Document config
