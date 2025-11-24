@@ -176,53 +176,52 @@ const serialized_doc = [
 ]
 ```
 
-## Configuration
+## Document config
 
-For Svedit to work, you also need to provide an app-specific config object, always available via doc.config for introspection.
+Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_doc.js`](src/routes/create_demo_doc.js).
 
 ```js
 const document_config = {
-  // Provide a custom id generator (ideally a UUID to avoid collisions)
-  generate_id: function() {
-    return nanoid();
-  },
-  system_components: {
-    NodeCursorTrap,
-    Overlay,
-  },
-  node_components: {
-    Page,
-    Button,
-    Text,
-    Story,
-    List,
-    ListItem,
-    ImageGrid,
-    ImageGridItem,
-    Hero
-  },
-  // TEMPORARY: Determines how many layouts are available for each node type
-  node_layouts: {
-    text: 4,
-    list: 5,
-    list_item: 1,
-  },
-  // Custom functions to insert new "blank" nodes and setting the selection
-  // depending on the intended behavior.
+  // ID generator for creating new nodes
+  generate_id: () => nanoid(),
+  
+  // System components (NodeCursorTrap, Overlays) 
+  system_components: { NodeCursorTrap, Overlays },
+  
+  // Map node types to Svelte components
+  node_components: { Page, Text, Story, List, Button, ... },
+  
+  // Number of layout variants per node type
+  node_layouts: { text: 4, story: 3, list: 5 },
+  
+  // Functions that create and insert new nodes
   inserters: {
-    text: function(tr, content = {text: '', annotations: []}, layout = 1) {
-      const new_text = {
-   			id: nanoid(),
-   			type: 'text',
-        layout,
-   			content
-  		};
-      tr.create(new_text);
-  		tr.insert_nodes([new_text.id]);
-    },
-  }
+    text: (tr, content = {text: '', annotations: []}) => {
+      const id = nanoid();
+      tr.create_node(id, 'text', { content });
+      tr.insert_nodes([id]);
+    }
+  },
+  
+  // Returns { commands, keymap } for the editor instance
+  create_commands_and_keymap: (context) => { ... },
+  
+  // Optional: handle image paste events
+  handle_image_paste: (doc, images) => { ... }
 };
 ```
+
+**Key config options:**
+
+- **`generate_id`** - Function that generates unique IDs for new nodes
+- **`node_components`** - Maps each node type from your schema to a Svelte component
+- **`system_components`** - Provides custom NodeCursorTrap and Overlays components
+- **`inserters`** - Functions that create blank nodes of each type and set up the selection
+- **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
+- **`node_layouts`** - Number of layout variants available for each node type (used by CycleLayoutCommand)
+- **`handle_image_paste`** - Optional handler for image paste events
+
+The config is accessible throughout your app via `doc.config`.
 
 ## Document API
 
