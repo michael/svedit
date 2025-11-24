@@ -43,6 +43,23 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 **White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
 
+## How it works
+
+Svedit connects five key pieces:
+
+1. **Schema** - Define your content structure (node types, properties, annotations)
+2. **Document** - Manages the content graph, selection state, and history
+3. **Config** - Maps node types to components, provides inserters and commands
+4. **Components** - Render your content using Svelte (one component per node type)
+5. **Commands** - User actions (bold text, insert node, undo/redo) that modify the document
+
+**The flow:**
+- Define a schema → create a Document → provide config → render with `<Svedit>` component
+- User interactions trigger commands → commands use transactions → transactions are composed of transforms → document is modified
+- Svelte's reactivity automatically updates the UI
+
+All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The document's selection state syncs bidirectionally with the DOM selection.
+
 ## Graph data model
 
 Svedit documents are represented in a simple JSON-based graph data model. There's a globally addressable space, a graph of content nodes if you want. This allows you to share pieces of content not only in the same document, but across multiple documents. E.g. you could share a navigation bar, while still being able to edit it in place (while changes will affect all places they are used).
