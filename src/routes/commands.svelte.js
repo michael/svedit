@@ -1,29 +1,29 @@
 import Command from '$lib/Command.svelte.js';
 import { is_selection_collapsed } from '$lib/util.js';
+import { get_layout_node } from './app_utils.js';
 
 /**
  * Command that cycles through available layouts for a node.
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
+	layout_node = $derived(get_layout_node(this.context.doc));
+
 	constructor(direction, context) {
 		super(context);
 		this.direction = direction;
 	}
 
 	is_enabled() {
-		const doc = this.context.doc;
-		const layout_node = doc.layout_node;
+		if (!this.context.editable || !this.layout_node) return false;
 
-		if (!this.context.editable || !layout_node) return false;
-
-		const layout_count = doc.config.node_layouts?.[layout_node.type];
-		return layout_count > 1 && layout_node?.layout;
+		const layout_count = this.context.doc.config.node_layouts?.[this.layout_node.type];
+		return layout_count > 1 && this.layout_node?.layout;
 	}
 
 	execute() {
 		const doc = this.context.doc;
-		const node = doc.layout_node;
+		const node = this.layout_node;
 		const layout_count = doc.config.node_layouts[node.type];
 
 		let new_layout;

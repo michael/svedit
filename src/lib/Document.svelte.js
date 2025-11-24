@@ -214,7 +214,7 @@ export default class Document {
 	history = $state.raw([]);
 	history_index = $state.raw(-1);
 	last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
-	
+
 	// Commands and keymap - initialized by Svedit when ready
 	// NOTE: Assumes single Svedit instance per document
 	commands = $state.raw({});
@@ -226,7 +226,6 @@ export default class Document {
 
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
-	layout_node = $derived(this.get_layout_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
 
 	/**
@@ -355,11 +354,11 @@ export default class Document {
 	/**
 	 * Initialize commands and keymap for this document.
 	 * Called by Svedit component when it has the necessary context.
-	 * 
+	 *
 	 * NOTE: This assumes a single Svedit instance per document.
 	 * For multiple editors on the same document, this architecture would need
 	 * to be refactored to move selection and commands to an EditorState pattern.
-	 * 
+	 *
 	 * @param {object} context - The svedit context with doc, editable, canvas, etc.
 	 */
 	initialize_commands(context) {
@@ -395,30 +394,6 @@ export default class Document {
 			if (!owner_node_path) return null;
 			const owner_node = this.get(owner_node_path);
 			return owner_node;
-		}
-	}
-
-	// NOTE: This code is a bit whacky, but works for now.
-	// TODO: Refactor as we settle on a final API
-	get_layout_node() {
-		if (!this.selected_node) return null;
-
-		// The selected node already is a layout node
-		if (this.selected_node.layout) {
-			return this.selected_node;
-		}
-
-		// We resolve the parent node if available, and return it if it's a layout node.
-		// NOTE: We only support one level atm, we may want to implement this recursively
-		if (this.selection.type === 'node') {
-			const parent_node = this.get(this.selection.path.slice(0, -1));
-			return parent_node.layout ? parent_node : null;
-		} else {
-			// We are either in a text or property (=custom) selection
-			const parent_node_path = this.selection?.path?.slice(0, -3);
-			if (!parent_node_path) return null;
-			const parent_node = this.get(parent_node_path);
-			return parent_node.layout ? parent_node : null;
 		}
 	}
 

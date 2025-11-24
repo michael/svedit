@@ -1,7 +1,10 @@
 <script>
 	import Icon from './Icon.svelte';
+	import { get_layout_node } from '../app_utils.js';
 
 	let { doc, focus_canvas, editable = $bindable(false) } = $props();
+
+	let layout_node = $derived(get_layout_node(doc));
 
 	let input_ref = $state();
 
@@ -45,19 +48,19 @@
 	}
 
 	function handle_layout_change(layout_index) {
-		if (!doc.layout_node) return;
-		if (doc.layout_node.id) {
+		if (!layout_node) return;
+		if (layout_node.id) {
 			const tr = doc.tr;
-			tr.set([doc.layout_node.id, 'layout'], layout_index);
+			tr.set([layout_node.id, 'layout'], layout_index);
 			doc.apply(tr);
 		}
 	}
 
 	function handle_list_layout_change(layout) {
-		if (!doc.layout_node) return;
-		if (doc.layout_node.id) {
+		if (!layout_node) return;
+		if (layout_node.id) {
 			const tr = doc.tr;
-			tr.set([doc.layout_node.id, 'layout'], layout);
+			tr.set([layout_node.id, 'layout'], layout);
 			doc.apply(tr);
 		}
 	}
@@ -212,22 +215,22 @@
 		<hr />
 	{/if}
 
-	{#if doc.layout_node?.type === 'story'}
+	{#if layout_node?.type === 'story'}
 		{#each layout_options as option (option.value)}
 			<button
 				onclick={() => handle_layout_change(option.value)}
-				class:active={doc.layout_node.layout === option.value}
+				class:active={layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
 		{/each}
 	{/if}
-	{#if doc.layout_node?.type === 'list'}
+	{#if layout_node?.type === 'list'}
 		<hr />
 		{#each list_layout_options as option (option.value)}
 			<button
 				onclick={() => handle_list_layout_change(option.value)}
-				class:active={doc.layout_node.layout === option.value}
+				class:active={layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
 			</button>
