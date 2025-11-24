@@ -265,11 +265,11 @@ There are two types of commands in Svedit:
 
 Let's start with document-scoped commands, which are the foundation of the editing experience.
 
-### Document-Scoped Commands
+### Document-scoped commands
 
 Document-scoped commands operate on a specific document and have access to its selection, content, and editing state through a context object.
 
-#### Creating a Document-Scoped Command
+#### Creating a document-scoped command
 
 Extend the `Command` base class and implement the `is_enabled()` and `execute()` methods:
 
@@ -287,7 +287,7 @@ class ToggleBoldCommand extends Command {
 }
 ```
 
-#### Document Command Context
+#### Document command context
 
 Document-scoped commands receive a `context` object with access to the Svedit instance state:
 
@@ -296,7 +296,7 @@ Document-scoped commands receive a `context` object with access to the Svedit in
 - `context.canvas` - The DOM element of the Svedit editor canvas
 - `context.is_composing` - Whether IME composition is currently taking place
 
-### Command Lifecycle Methods
+### Command lifecycle methods
 
 **`is_enabled(): boolean`**
 
@@ -320,7 +320,7 @@ execute() {
 }
 ```
 
-#### Built-in Document Commands
+#### Built-in document commands
 
 Svedit provides several core commands out of the box:
 
@@ -333,7 +333,7 @@ Svedit provides several core commands out of the box:
 - `SelectAllCommand` - Progressively expand selection
 - `InsertDefaultNodeCommand` - Insert a new node at cursor
 
-#### Using Document Commands
+#### Using document commands
 
 Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/create_demo_doc.js`](src/routes/create_demo_doc.js) in the `create_commands_and_keymap` configuration function:
 
@@ -368,7 +368,7 @@ Bind commands to UI elements in your components:
 </button>
 ```
 
-#### Derived State in Commands
+#### Derived state in commands
 
 Commands can have derived state for reactive UI binding. The `active` property in toggle commands is a common pattern:
 
@@ -390,7 +390,7 @@ class ToggleItalicCommand extends Command {
 The `disabled` property is automatically derived from `is_enabled()` on all commands.
 
 
-#### DOM Access in Commands
+#### DOM access in commands
 
 Commands can access the DOM through the context or global APIs:
 
@@ -410,11 +410,11 @@ class CopyCommand extends Command {
 }
 ```
 
-### App-Level Commands and Scope Hierarchy
+### App-level commands and scope hierarchy
 
 While document-scoped commands operate on a specific Svedit instance, app-level commands operate at the application level and handle concerns like saving, loading, switching between edit/view modes, or managing multiple documents.
 
-#### Understanding the Scope Stack
+#### Understanding the scope stack
 
 Svedit uses a scope hierarchy (scope stack) to manage which commands are active at any given time:
 
@@ -427,7 +427,7 @@ When a Svedit instance gains focus:
 
 This means commands automatically work with the correct document based on focus.
 
-#### Creating App-Level Commands
+#### Creating app-level commands
 
 App-level commands have their own context, separate from any specific document:
 
@@ -456,7 +456,7 @@ class ToggleEditModeCommand extends Command {
 }
 ```
 
-#### App-Level Context
+#### App-level context
 
 The app-level context contains application-wide state and methods:
 
@@ -486,7 +486,7 @@ const app_commands = {
 
 The KeyMapper manages keyboard shortcuts using a scope-based stack system. Scopes are tried from top to bottom (most recent to least recent), allowing more specific keymaps to override general ones.
 
-### Basic Usage
+### Basic usage
 
 ```js
 import { KeyMapper, define_keymap } from 'svedit';
@@ -509,14 +509,14 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
-### Key Syntax
+### Key syntax
 
 - **Multiple modifiers**: `meta+shift+z`, `ctrl+alt+k`
 - **Cross-platform**: `meta+z,ctrl+z` (tries Meta+Z first, then Ctrl+Z)
 - **Modifiers**: `meta`, `ctrl`, `alt`, `shift`
 - **Keys**: Any key name (e.g., `a`, `enter`, `escape`, `arrowup`)
 
-### Command Arrays
+### Command arrays
 
 Commands are wrapped in arrays to support fallback behavior:
 
@@ -529,7 +529,7 @@ define_keymap({
 });
 ```
 
-### Scope Stack
+### Scope stack
 
 Use `push_scope()` and `pop_scope()` to manage different keyboard contexts:
 
