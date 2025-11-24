@@ -42,6 +42,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Pattern**: If it's a web platform API or Svelte API, keep camelCase. If it's our custom variable/function name, use snake_case.
 
+**Documentation Style:**
+- Use sentence case for all headings in documentation (README.md, etc.)
+- Use sentence case for code comments
+- Sentence case means: capitalize only the first word and proper nouns
+- **Exception**: "Svedit" is always capitalized as it's a proper noun (the product name)
+- Examples:
+  - ✓ "Getting started" (not "Getting Started")
+  - ✓ "Why Svedit?" (not "Why svedit?") - Svedit is a proper noun
+  - ✓ "Developing Svedit" (not "Developing svedit") - Svedit is a proper noun
+  - ✓ "Document-scoped commands" (not "Document-Scoped Commands")
+  - ✓ "Create a new user" (not "Create a New User")
+  - ✓ "API reference" (not "API Reference")
+- This applies to: markdown headings, JSDoc comments, inline comments, commit messages
+
 ## Architecture
 
 Svedit is a rich content editor template built with Svelte 5 that uses a graph-based data model.
