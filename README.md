@@ -241,6 +241,64 @@ console.log($state.snapshot(body));
 const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
 ```
 
+## Transforms
+
+Transforms are pure functions that modify a transaction. They encapsulate common editing operations like breaking text nodes, joining nodes, or inserting new content.
+
+Transforms take a transaction (`tr`) as their parameter and return `true` if successful or `false` if the transform cannot be applied (e.g., wrong selection type or invalid state).
+
+```js
+// Example: break a text node at the cursor
+import { break_text_node } from 'svedit';
+
+const tr = doc.tr;
+const success = break_text_node(tr);
+if (success) {
+  doc.apply(tr);
+}
+```
+
+### Built-in transforms
+
+Svedit provides several core transforms in [`src/lib/transforms.svelte.js`](src/lib/transforms.svelte.js):
+
+- `break_text_node(tr)` - Split a text node at the cursor position
+- `join_text_node(tr)` - Join current text node with the previous one
+- `insert_default_node(tr)` - Insert a new node at the current selection
+
+### Composability
+
+Transforms are composable. You can build higher-level transforms from lower-level ones:
+
+```js
+function custom_transform(tr) {
+  // Compose multiple transforms
+  if (!break_text_node(tr)) return false;
+  if (!insert_default_node(tr)) return false;
+  return true;
+}
+```
+
+### Writing your own transforms
+
+You're encouraged to write custom transforms for your application's specific needs. Keep them pure functions that operate on the transaction object:
+
+```js
+function insert_heading(tr) {
+  const doc = tr.doc;
+  const selection = doc.selection;
+  
+  if (selection?.type !== 'node') return false;
+  
+  // Create and insert a heading node
+  const heading_id = doc.config.generate_id();
+  tr.create_node(heading_id, 'heading', { content: { text: '', annotations: [] } });
+  tr.insert_nodes(selection.path, selection.anchor_offset, [heading_id]);
+  
+  return true;
+}
+```
+
 ## Transaction API
 
 Documents need to be changed through transactions, which can consist of one or
