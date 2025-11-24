@@ -100,3 +100,19 @@ export class CycleNodeTypeCommand extends Command {
 		doc.apply(tr);
 	}
 }
+
+export class ResetImageCommand extends Command {
+	is_enabled() {
+		const doc = this.context.doc;
+		if (!this.context.editable || doc.selection.type !== 'property') return false;
+		const property_definition = doc.inspect(doc.selection.path);
+		return property_definition.name === 'image';
+	}
+
+	execute() {
+		const doc = this.context.doc;
+		const tr = doc.tr;
+		tr.set(doc.selection.path, '');
+		doc.apply(tr);
+	}
+}

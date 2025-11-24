@@ -336,28 +336,14 @@ export default class Transaction {
 	 * - For node selections: Removes selected nodes and cascades deletion of unreferenced nodes
 	 * - For text selections: Removes selected text and adjusts annotations accordingly
 	 * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
+	 * - Property selections are ignored: Those are best handled handled via commands + keyboard shortcuts.
 	 *
 	 * @param {'backward' | 'forward'} [direction] - Direction of deletion for collapsed selections
 	 * @returns {Transaction} This transaction instance for method chaining
 	 */
 	delete_selection(direction = 'backward') {
-		if (!this.doc.selection) return this;
+		if (!this.doc.selection || this.doc.selection.type === 'property') return this;
 		const path = this.doc.selection.path;
-
-		if (this.doc.selection.type === 'property') {
-			const property_definition = this.doc.inspect(path);
-
-			// TODO: These need to be application-specific handlers
-			if (property_definition.type === 'node') {
-				const node = this.doc.get(path);
-				if (node.type === 'image') {
-					this.set([...path, 'src'], '');
-				}
-			} else if (property_definition.type === 'string') {
-				this.set(path, '');
-			}
-			return this;
-		}
 
 		// Get the start and end indices for the selection
 		let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
