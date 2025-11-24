@@ -255,6 +255,306 @@ doc.apply(tr); // applies the transaction to the document
 console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
 ```
 
+## Commands API
+
+Commands provide a structured way to implement user actions. Commands are stateful and UI-aware, unlike transforms which are pure functions.
+
+There are two types of commands in Svedit:
+- **Document-scoped commands** - Bound to a specific Svedit instance/document and only active when that editor has focus
+- **App-level commands** - Operate at the application level, independent of any specific document
+
+Let's start with document-scoped commands, which are the foundation of the editing experience.
+
+### Document-Scoped Commands
+
+Document-scoped commands operate on a specific document and have access to its selection, content, and editing state through a context object.
+
+#### Creating a Document-Scoped Command
+
+Extend the `Command` base class and implement the `is_enabled()` and `execute()` methods:
+
+```js
+import Command from 'svedit';
+
+class ToggleBoldCommand extends Command {
+  is_enabled() {
+    return this.context.editable && this.context.doc.selection?.type === 'text';
+  }
+
+  execute() {
+    this.context.doc.apply(this.context.doc.tr.annotate_text('bold'));
+  }
+}
+```
+
+#### Document Command Context
+
+Document-scoped commands receive a `context` object with access to the Svedit instance state:
+
+- `context.doc` - The current document instance
+- `context.editable` - Whether the editor is in edit mode
+- `context.canvas` - The DOM element of the Svedit editor canvas
+- `context.is_composing` - Whether IME composition is currently taking place
+
+### Command Lifecycle Methods
+
+**`is_enabled(): boolean`**
+
+Determines if the command can currently be executed. This is automatically evaluated and exposed as the `disabled` derived property, which can be used to disable UI elements.
+
+```js
+is_enabled() {
+  return this.context.editable && this.context.doc.selection?.type === 'text';
+}
+```
+
+**`execute(): void | Promise<void>`**
+
+Executes the command's action. Can be synchronous or asynchronous.
+
+```js
+execute() {
+  const tr = this.context.doc.tr;
+  tr.insert_text('Hello');
+  this.context.doc.apply(tr);
+}
+```
+
+#### Built-in Document Commands
+
+Svedit provides several core commands out of the box:
+
+- `UndoCommand` - Undo the last change
+- `RedoCommand` - Redo the last undone change
+- `SelectParentCommand` - Select the parent of the current selection
+- `ToggleAnnotationCommand` - Toggle text annotations (bold, italic, etc.)
+- `AddNewLineCommand` - Insert newline character in text
+- `BreakTextNodeCommand` - Split text node at cursor
+- `SelectAllCommand` - Progressively expand selection
+- `InsertDefaultNodeCommand` - Insert a new node at cursor
+
+#### Using Document Commands
+
+Create command instances with the Svedit context and bind them to UI elements:
+
+```js
+// The Svedit component provides this context internally
+const svedit_context = {
+  doc,
+  editable: true,
+  canvas: editor_element,
+  is_composing: false
+};
+
+const document_commands = {
+  undo: new UndoCommand(svedit_context),
+  redo: new RedoCommand(svedit_context),
+  bold: new ToggleAnnotationCommand('bold', svedit_context)
+};
+```
+
+Bind commands to UI elements in your Svelte components:
+
+```svelte
+<button 
+  disabled={document_commands.bold.disabled}
+  class:active={document_commands.bold.active}
+  onclick={() => document_commands.bold.execute()}>
+  Bold
+</button>
+```
+
+#### Derived State in Commands
+
+Commands can have derived state for reactive UI binding. The `active` property in toggle commands is a common pattern:
+
+```js
+class ToggleItalicCommand extends Command {
+  // Automatically recomputes when annotation state changes
+  active = $derived(this.context.doc.active_annotation('italic'));
+
+  is_enabled() {
+    return this.context.editable && this.context.doc.selection?.type === 'text';
+  }
+
+  execute() {
+    this.context.doc.apply(this.context.doc.tr.annotate_text('italic'));
+  }
+}
+```
+
+The `disabled` property is automatically derived from `is_enabled()` on all commands.
+
+#### Keyboard Shortcuts
+
+Document commands can be bound to keyboard shortcuts using the KeyMapper:
+
+```js
+import { KeyMapper, define_keymap } from 'svedit';
+
+// Create the KeyMapper instance
+const key_mapper = new KeyMapper();
+
+// Define and push the keymap scope
+const keymap = define_keymap({
+  'meta+z,ctrl+z': [document_commands.undo],
+  'meta+shift+z,ctrl+shift+z': [document_commands.redo],
+  'meta+b,ctrl+b': [document_commands.bold],
+  'enter': [document_commands.break_text_node]
+});
+
+// Register the keymap at the top of the scope stack
+key_mapper.push_scope(keymap);
+
+// Handle keydown events
+window.addEventListener('keydown', (event) => {
+  key_mapper.handle_keydown(event);
+});
+```
+
+Note that commands are wrapped in arrays - this allows you to define fallback commands if the first one is disabled.
+
+#### DOM Access in Commands
+
+Commands can access the DOM through the context or global APIs:
+
+```js
+class CopyCommand extends Command {
+  is_enabled() {
+    return this.context.doc.selection !== null;
+  }
+
+  async execute() {
+    const text = this.context.doc.get_selected_text();
+    await navigator.clipboard.writeText(text);
+    
+    // Access the editor canvas
+    this.context.canvas.classList.add('copy-feedback');
+  }
+}
+```
+
+### App-Level Commands and Scope Hierarchy
+
+While document-scoped commands operate on a specific Svedit instance, app-level commands operate at the application level and handle concerns like saving, loading, switching between edit/view modes, or managing multiple documents.
+
+#### Understanding the Scope Stack
+
+Svedit uses a scope hierarchy (scope stack) to manage which commands are active at any given time:
+
+1. **App-level scope** (top level) - Commands that are always available, independent of document focus
+2. **Document-level scope** (per Svedit instance) - Commands bound to a specific document/editor
+
+When a Svedit instance gains focus:
+- The previous document's scope is **popped** from the stack (its commands become inactive)
+- The newly focused document's scope is **pushed** onto the stack (its commands become active)
+
+This means keyboard shortcuts and other command bindings automatically work with the correct document based on focus.
+
+#### Creating App-Level Commands
+
+App-level commands have their own context, separate from any specific document:
+
+```js
+import Command from 'svedit';
+
+class SaveCommand extends Command {
+  is_enabled() {
+    return this.context.editable;
+  }
+
+  async execute() {
+    await this.context.save_all_documents();
+    this.context.show_notification('All changes saved');
+  }
+}
+
+class ToggleEditModeCommand extends Command {
+  is_enabled() {
+    return !this.context.editable;
+  }
+
+  execute() {
+    this.context.editable = true;
+  }
+}
+```
+
+#### App-Level Context
+
+The app-level context contains application-wide state and methods:
+
+```js
+const app_context = {
+  get editable() {
+    return editable; // App-level editable state
+  },
+  set editable(value) {
+    editable = value;
+  },
+  get doc() {
+		return doc;
+	},
+	get app_el() {
+		return app_el;
+	}
+};
+
+const app_commands = {
+  save: new SaveCommand(app_context),
+  toggle_edit: new ToggleEditCommand(app_context)
+};
+```
+
+#### Scope-Aware Keyboard Shortcuts
+
+Your keyboard shortcuts should handle both levels:
+
+```js
+// Create the KeyMapper instance
+const key_mapper = new KeyMapper();
+
+// App-level keymap (always active)
+const app_keymap = define_keymap({
+  'meta+s,ctrl+s': [app_commands.save],
+  'meta+e,ctrl+e': [app_commands.toggle_edit],
+  'meta+n,ctrl+n': [app_commands.new_document]
+});
+key_mapper.push_scope(app_keymap);
+
+// Document-level keymap (pushed when document gains focus)
+const doc_keymap = define_keymap({
+  'meta+z,ctrl+z': [document_commands.undo],
+  'meta+shift+z,ctrl+shift+z': [document_commands.redo],
+  'meta+b,ctrl+b': [document_commands.bold],
+  'enter': [document_commands.break_text_node]
+});
+
+// When document gains focus:
+key_mapper.push_scope(doc_keymap);
+
+// When document loses focus:
+key_mapper.pop_scope();
+
+// Handle keydown events globally
+window.addEventListener('keydown', (event) => {
+  key_mapper.handle_keydown(event);
+});
+```
+
+When implementing focus management, ensure you push/pop the appropriate command scope so keyboard shortcuts route to the correct handler. The KeyMapper tries scopes from top to bottom (most recent to oldest), so more specific keymaps should be pushed later.
+
+#### Terminology Summary
+
+To avoid confusion:
+
+- **Document-scoped commands** / **Document commands** - Bound to a specific Svedit instance, operate on that document
+- **App-level commands** - Operate at the application level, not tied to any specific document
+- **Custom commands** - Non-core commands you create (can be either document-scoped or app-level)
+- **Built-in commands** - Core editing commands provided by Svedit (all document-scoped)
+```
+
+
 ## Selections
 
 Selections are at the heart of Svedit. There are just three types of selections:
