@@ -385,34 +385,6 @@ class ToggleItalicCommand extends Command {
 
 The `disabled` property is automatically derived from `is_enabled()` on all commands.
 
-#### Keyboard Shortcuts
-
-Document commands can be bound to keyboard shortcuts using the KeyMapper:
-
-```js
-import { KeyMapper, define_keymap } from 'svedit';
-
-// Create the KeyMapper instance
-const key_mapper = new KeyMapper();
-
-// Define and push the keymap scope
-const keymap = define_keymap({
-  'meta+z,ctrl+z': [document_commands.undo],
-  'meta+shift+z,ctrl+shift+z': [document_commands.redo],
-  'meta+b,ctrl+b': [document_commands.bold],
-  'enter': [document_commands.break_text_node]
-});
-
-// Register the keymap at the top of the scope stack
-key_mapper.push_scope(keymap);
-
-// Handle keydown events
-window.addEventListener('keydown', (event) => {
-  key_mapper.handle_keydown(event);
-});
-```
-
-Note that commands are wrapped in arrays - this allows you to define fallback commands if the first one is disabled.
 
 #### DOM Access in Commands
 
@@ -449,7 +421,7 @@ When a Svedit instance gains focus:
 - The previous document's scope is **popped** from the stack (its commands become inactive)
 - The newly focused document's scope is **pushed** onto the stack (its commands become active)
 
-This means keyboard shortcuts and other command bindings automatically work with the correct document based on focus.
+This means commands automatically work with the correct document based on focus.
 
 #### Creating App-Level Commands
 
@@ -506,53 +478,79 @@ const app_commands = {
 };
 ```
 
-#### Scope-Aware Keyboard Shortcuts
+## Scope-aware Keyboard Shortcuts
 
-Your keyboard shortcuts should handle both levels:
+The KeyMapper manages keyboard shortcuts using a scope-based stack system. Scopes are tried from top to bottom (most recent to least recent), allowing more specific keymaps to override general ones.
+
+### Basic Usage
 
 ```js
-// Create the KeyMapper instance
+import { KeyMapper, define_keymap } from 'svedit';
+
 const key_mapper = new KeyMapper();
 
-// App-level keymap (always active)
-const app_keymap = define_keymap({
-  'meta+s,ctrl+s': [app_commands.save],
-  'meta+e,ctrl+e': [app_commands.toggle_edit],
-  'meta+n,ctrl+n': [app_commands.new_document]
-});
-key_mapper.push_scope(app_keymap);
-
-// Document-level keymap (pushed when document gains focus)
-const doc_keymap = define_keymap({
+// Define a keymap
+const keymap = define_keymap({
   'meta+z,ctrl+z': [document_commands.undo],
-  'meta+shift+z,ctrl+shift+z': [document_commands.redo],
   'meta+b,ctrl+b': [document_commands.bold],
   'enter': [document_commands.break_text_node]
 });
 
-// When document gains focus:
-key_mapper.push_scope(doc_keymap);
+// Push the keymap onto the scope stack
+key_mapper.push_scope(keymap);
 
-// When document loses focus:
-key_mapper.pop_scope();
-
-// Handle keydown events globally
+// Handle keydown events
 window.addEventListener('keydown', (event) => {
   key_mapper.handle_keydown(event);
 });
 ```
 
-When implementing focus management, ensure you push/pop the appropriate command scope so keyboard shortcuts route to the correct handler. The KeyMapper tries scopes from top to bottom (most recent to oldest), so more specific keymaps should be pushed later.
+### Key Syntax
 
-#### Terminology Summary
+- **Multiple modifiers**: `meta+shift+z`, `ctrl+alt+k`
+- **Cross-platform**: `meta+z,ctrl+z` (tries Meta+Z first, then Ctrl+Z)
+- **Modifiers**: `meta`, `ctrl`, `alt`, `shift`
+- **Keys**: Any key name (e.g., `a`, `enter`, `escape`, `arrowup`)
 
-To avoid confusion:
+### Command Arrays
 
-- **Document-scoped commands** / **Document commands** - Bound to a specific Svedit instance, operate on that document
-- **App-level commands** - Operate at the application level, not tied to any specific document
-- **Custom commands** - Non-core commands you create (can be either document-scoped or app-level)
-- **Built-in commands** - Core editing commands provided by Svedit (all document-scoped)
+Commands are wrapped in arrays to support fallback behavior:
+
+```js
+define_keymap({
+  'meta+b,ctrl+b': [
+    document_commands.bold,      // Try this first
+    document_commands.fallback   // Use this if first is disabled
+  ]
+});
 ```
+
+### Scope Stack
+
+Use `push_scope()` and `pop_scope()` to manage different keyboard contexts:
+
+```js
+// App-level keymap (always active)
+const app_keymap = define_keymap({
+  'meta+s,ctrl+s': [app_commands.save],
+  'meta+n,ctrl+n': [app_commands.new_document]
+});
+key_mapper.push_scope(app_keymap);
+
+// Document-level keymap (active when editor has focus)
+const doc_keymap = define_keymap({
+  'meta+z,ctrl+z': [document_commands.undo],
+  'meta+b,ctrl+b': [document_commands.bold]
+});
+
+// When editor gains focus:
+key_mapper.push_scope(doc_keymap);
+
+// When editor loses focus:
+key_mapper.pop_scope();
+```
+
+The KeyMapper tries scopes from top to bottom, so push more specific keymaps last.
 
 
 ## Selections
