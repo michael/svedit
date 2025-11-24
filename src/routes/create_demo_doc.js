@@ -10,10 +10,9 @@ import {
 	UndoCommand,
 	RedoCommand,
 	SelectParentCommand,
-	CycleLayoutCommand,
-	CycleNodeTypeCommand,
 	define_keymap
 } from 'svedit';
+import { CycleLayoutCommand, CycleNodeTypeCommand } from './commands.svelte.js';
 import nanoid from './nanoid.js';
 
 // System components
