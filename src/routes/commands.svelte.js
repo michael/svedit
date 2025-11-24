@@ -1,4 +1,5 @@
 import Command from '$lib/Command.svelte.js';
+import { is_selection_collapsed } from '$lib/util.js';
 
 /**
  * Command that cycles through available layouts for a node.
@@ -114,5 +115,41 @@ export class ResetImageCommand extends Command {
 		const tr = doc.tr;
 		tr.set(doc.selection.path, '');
 		doc.apply(tr);
+	}
+}
+
+/**
+ * Command that toggles link annotations on text selections.
+ * Prompts user for URL when creating a link.
+ */
+export class ToggleLinkCommand extends Command {
+	active = $derived(this.is_active());
+
+	is_active() {
+		return this.context.doc.active_annotation('link');
+	}
+
+	is_enabled() {
+		const { doc, editable } = this.context;
+
+		const can_remove_link = doc.active_annotation('link');
+		const can_create_link = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
+		return editable && doc.selection?.type === 'text' && (can_remove_link || can_create_link);
+	}
+
+	execute() {
+		const doc = this.context.doc;
+		const can_create_link = doc.active_annotation('link');
+
+		if (can_create_link) {
+			// Delete link
+			doc.apply(doc.tr.annotate_text('link'));
+		} else {
+			// Create link
+			const href = window.prompt('Enter the URL', 'https://example.com');
+			if (href) {
+				doc.apply(doc.tr.annotate_text('link', { href }));
+			}
+		}
 	}
 }
