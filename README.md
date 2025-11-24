@@ -1,6 +1,6 @@
 # Svedit
 
-Svedit (think Svelte Edit) is a a tiny library for building editable websites in Svelte. You can model your content in JSON, render it with custom Svelte components, and (this is the kicker) site owners can edit their site directly in the layout without the need for a CMS.
+Svedit (think Svelte Edit) is a tiny library for building editable websites in Svelte. You can model your content in JSON, render it with custom Svelte components, and (this is the kicker) site owners can edit their site directly in the layout without the need for a CMS.
 
 Try the [demo](https://svedit.dev).
 
@@ -908,7 +908,7 @@ const document_config = {
 }
 ```
 
-The key in this map corresponds to the node's `type` property in the schema. Note that Svedit uses `snake_to_pascal` case conversion to match node types to component classes. For example, a node with `type: "list_item"` will look for a component registered as `ListItem` in the `node_components` map.
+The key in this map corresponds to the node's `type` property in the schema. Note that the component name should match the node type name. For example, a node with `type: "list_item"` will look for a component registered as `ListItem` in the `node_components` map.
 
 ## Mastering contenteditable
 
@@ -953,7 +953,7 @@ Further things to consider:
 
 ## Full API docs?
 
-Not yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scences.
+Not yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scenes.
 
 ## Developing Svedit
 
