@@ -248,6 +248,10 @@ The config is accessible throughout your app via `doc.config`.
 
 The Document class manages your content graph, selection state, and history. See [`src/lib/Document.svelte.js`](src/lib/Document.svelte.js) for the full API.
 
+## Immutable document state
+
+The content of a document (doc.nodes) is stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(doc.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
+
 ### Creating a document
 
 ```js
