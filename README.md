@@ -191,7 +191,7 @@ const document_config = {
   // Map node types to Svelte components
   node_components: { Page, Text, Story, List, Button, ... },
   
-  // Number of layout variants per node type
+  // App-specific: Number of layout variants per node type
   node_layouts: { text: 4, story: 3, list: 5 },
   
   // Functions that create and insert new nodes
@@ -218,26 +218,61 @@ const document_config = {
 - **`system_components`** - Provides custom NodeCursorTrap and Overlays components
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
-- **`node_layouts`** - Number of layout variants available for each node type (used by CycleLayoutCommand)
 - **`handle_image_paste`** - Optional handler for image paste events
 
 The config is accessible throughout your app via `doc.config`.
 
 ## Document API
 
-The Document API is central to Svedit. First you need to create a Document instance.
+The Document class manages your content graph, selection state, and history. See [`src/lib/Document.svelte.js`](src/lib/Document.svelte.js) for the full API.
+
+### Creating a document
 
 ```js
-const doc = new Document(document_schema, serialized_doc, { config: document_config });
+const doc = new Document(schema, serialized_doc, { config });
 ```
 
-To read/traverse and write the document graph:
+### Reading the graph
 
 ```js
-// get the body (=array of node ids)
-const body =  doc.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
-console.log($state.snapshot(body));
-const nav = doc.get(['nav_1']) // => { id: 'nav_1', type: 'nav', nav_items: ['document_nav_item_1'] }
+doc.get(['page_1', 'body'])         // => ['nav_1', 'paragraph_1', 'list_1']
+doc.get(['nav_1'])                  // => { id: 'nav_1', type: 'nav', ... }
+doc.inspect(['page_1', 'body'])     // => { type: 'node_array', node_types: [...] }
+doc.kind(node)                      // => 'text' or 'node'
+```
+
+### Selection and state
+
+```js
+doc.selection                       // Current selection (text, node, or property)
+doc.selected_node                   // The currently selected node (derived)
+doc.active_annotation('bold')       // Check if annotation is active at cursor
+doc.can_insert('paragraph')         // Check if node type can be inserted
+```
+
+### Making changes
+
+```js
+const tr = doc.tr;                  // Create a transaction
+tr.set(['nav_1', 'label'], 'Home');
+tr.insert_nodes(['new_node_id']);
+doc.apply(tr);                      // Apply the transaction
+```
+
+### History
+
+```js
+doc.can_undo                        // Boolean (derived)
+doc.can_redo                        // Boolean (derived)
+doc.undo()
+doc.redo()
+```
+
+### Utilities
+
+```js
+doc.select_parent()                 // Select parent of current selection
+doc.config                          // Access the config object
 ```
 
 ## Transforms
