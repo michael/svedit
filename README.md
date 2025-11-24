@@ -770,6 +770,146 @@ Now you can start making your Svelte pages in-place editable by wrapping your de
 <Svedit {doc} path={[doc.document_id]} editable={true} />
 ```
 
+## Node components
+
+Node components are Svelte components that render specific node types in your document. Each node component receives a `path` prop and uses the `<Node>` wrapper component along with property components to render the node's content.
+
+### Basic structure
+
+A typical node component follows this pattern:
+
+```js
+<script>
+  import { Node, AnnotatedTextProperty } from 'svedit';
+  let { path } = $props();
+</script>
+
+<Node {path}>
+  <div class="my-node">
+    <AnnotatedTextProperty path={[...path, 'content']} />
+  </div>
+</Node>
+```
+
+### The `<Node>` wrapper
+
+Every node component must wrap its content in the `<Node>` component. This wrapper:
+- Registers the node with the editor
+- Handles selection and cursor behavior
+- Provides the foundation for editing interactions
+
+### Property components
+
+Svedit provides specialized components for rendering different property types:
+
+**`<AnnotatedTextProperty>`** - For editable text content with inline formatting:
+
+```js
+<AnnotatedTextProperty
+  tag="p"
+  class="body"
+  path={[...path, 'content']}
+  placeholder="Enter text here"
+/>
+```
+
+**`<NodeArrayProperty>`** - For container properties that hold multiple nodes:
+
+```js
+<NodeArrayProperty 
+  class="list-items"
+  path={[...path, 'list_items']} 
+/>
+```
+
+**`<CustomProperty>`** - For custom properties like images or other non-text content:
+
+```js
+<CustomProperty class="image-wrapper" path={[...path, 'image']}>
+  <div contenteditable="false">
+    <img src={node.image} alt={node.title.text} />
+  </div>
+</CustomProperty>
+```
+
+### Accessing node data
+
+Use the Svedit context to access node data:
+
+```js
+<script>
+  import { getContext } from 'svelte';
+  const svedit = getContext('svedit');
+  
+  let { path } = $props();
+  let node = $derived(svedit.doc.get(path));
+  let layout = $derived(node.layout || 1);
+</script>
+```
+
+### Example: Text component
+
+Here's a complete example of a text node component that supports multiple layouts:
+
+```js
+<script>
+  import { getContext } from 'svelte';
+  import { Node, AnnotatedTextProperty } from 'svedit';
+
+  const svedit = getContext('svedit');
+  let { path } = $props();
+  let node = $derived(svedit.doc.get(path));
+  let layout = $derived(node.layout || 1);
+  let tag = $derived(layout === 1 ? 'p' : `h${layout - 1}`);
+</script>
+
+<Node {path}>
+  <div class="text layout-{layout}">
+    <AnnotatedTextProperty
+      {tag}
+      class="body"
+      path={[...path, 'content']}
+      placeholder="Enter text"
+    />
+  </div>
+</Node>
+```
+
+### Example: List component
+
+A simple list component that renders child items:
+
+```js
+<script>
+  import { Node, NodeArrayProperty } from 'svedit';
+  let { path } = $props();
+</script>
+
+<Node {path}>
+  <div class="list">
+    <NodeArrayProperty path={[...path, 'list_items']} />
+  </div>
+</Node>
+```
+
+### Registering node components
+
+Node components are registered in the document config's `node_components` map:
+
+```js
+const document_config = {
+  node_components: {
+    Text,
+    Story,
+    List,
+    ListItem,
+    // ... other components
+  }
+}
+```
+
+The key in this map corresponds to the node's `type` property in the schema. Note that Svedit uses `snake_to_pascal` case conversion to match node types to component classes. For example, a node with `type: "list_item"` will look for a component registered as `ListItem` in the `node_components` map.
+
 ## Mastering contenteditable
 
 Svedit relies on the contenteditable attribute to make elements editable. The below example shows you
