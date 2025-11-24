@@ -335,16 +335,61 @@ function insert_heading(tr) {
 
 ## Transaction API
 
-Documents need to be changed through transactions, which can consist of one or
-multiple ops that are applied in a single step and are undo/redo-able.
+Transactions group multiple operations into atomic units that can be applied and undone as one. See [`src/lib/Transaction.svelte.js`](src/lib/Transaction.svelte.js) for the full API.
+
+### Basic usage
 
 ```js
-console.log('nav.nav_items before:', $state.snapshot(nav.nav_items));
-const tr = doc.tr; // creates a new transaction
-const new_nav_items = nav.nav_items.slice(0, -1);
-tr.set(['nav_1', 'nav_items'], new_nav_items);
-doc.apply(tr); // applies the transaction to the document
-console.log('nav.nav_items after:', $state.snapshot(nav.nav_items));
+const tr = doc.tr;                          // Create a new transaction
+tr.set(['node_1', 'title'], 'New Title');   // Modify properties
+doc.apply(tr);                              // Apply atomically
+```
+
+### Node operations
+
+```js
+// Create a new node
+tr.create({ id: 'para_1', type: 'paragraph', content: {...} });
+
+// Delete a node
+tr.delete('node_id');
+
+// Insert nodes into a node_array
+tr.insert_nodes(['node_1', 'node_2']);
+```
+
+### Text operations
+
+```js
+// Insert text at cursor
+tr.insert_text('Hello');
+
+// Annotate selected text
+tr.annotate_text('bold');
+tr.annotate_text('link', { href: 'https://example.com' });
+
+// Delete selected text or nodes
+tr.delete_selection();
+```
+
+### Selection
+
+```js
+// Set the selection after operations
+tr.set_selection({
+  type: 'text',
+  path: ['node_1', 'content'],
+  anchor_offset: 0,
+  focus_offset: 5
+});
+```
+
+All transaction methods return `this` for chaining:
+
+```js
+tr.create(node)
+  .insert_nodes([node.id])
+  .set_selection(new_selection);
 ```
 
 ## Commands API
