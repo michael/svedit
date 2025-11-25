@@ -732,7 +732,7 @@ export default class Transaction {
 	_count_references_excluding_deleted(target_node_id, nodes_to_delete) {
 		let count = 0;
 
-		for (const node of Object.values(this.doc.nodes)) {
+		for (const node of Object.values(this.doc.doc.nodes)) {
 			// Skip nodes that are marked for deletion
 			if (nodes_to_delete[node.id]) continue;
 

@@ -6,5 +6,5 @@
 </script>
 
 <Layout>
-	<Svedit {session} editable={true} path={[session.document_id]} />
+	<Svedit {session} editable={true} path={[session.doc.document_id]} />
 </Layout>
