@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text, get_char_length } from './util.js';
+import { split_annotated_text, join_annotated_text, get_char_length } from './utils.js';
 import { get_default_node_type } from './Session.svelte.js';
 
 export function break_text_node(tr) {

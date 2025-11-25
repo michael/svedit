@@ -8,7 +8,7 @@ import {
 	traverse,
 	get_selection_range,
 	is_selection_collapsed
-} from './util.js';
+} from './utils.js';
 import { join_text_node } from './transforms.svelte.js';
 import {
 	get as doc_get,

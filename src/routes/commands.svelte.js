@@ -1,5 +1,5 @@
 import Command from '$lib/Command.svelte.js';
-import { is_selection_collapsed } from '$lib/util.js';
+import { is_selection_collapsed } from '$lib/utils.js';
 import { get_layout_node } from './app_utils.js';
 
 /**

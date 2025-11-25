@@ -1,5 +1,5 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
-import { is_selection_collapsed, is_mobile_browser, get_char_length } from './util.js';
+import { is_selection_collapsed, is_mobile_browser, get_char_length } from './utils.js';
 
 /**
  * Base class for commands that can be executed in response to user actions
