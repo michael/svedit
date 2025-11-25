@@ -11,7 +11,7 @@
 	let is_focused = $derived(_is_focused());
 
 	function _is_focused() {
-		const sel = svedit.editor_state.selection;
+		const sel = svedit.session.selection;
 
 		if (
 			sel?.type === 'node' &&

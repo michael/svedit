@@ -17,7 +17,7 @@ import { is_selection_collapsed, is_mobile_browser, get_char_length } from './ut
  *   }
  *
  *   async execute() {
- *     await update_document(this.context.doc);
+ *     await update_document(this.context.session);
  *     this.context.editable = false;
  *   }
  * }
@@ -66,11 +66,11 @@ export default class Command {
  */
 export class UndoCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.editor_state.can_undo;
+		return this.context.editable && this.context.session.can_undo;
 	}
 
 	execute() {
-		this.context.editor_state.undo();
+		this.context.session.undo();
 	}
 }
 
@@ -79,11 +79,11 @@ export class UndoCommand extends Command {
  */
 export class RedoCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.editor_state.can_redo;
+		return this.context.editable && this.context.session.can_redo;
 	}
 
 	execute() {
-		this.context.editor_state.redo();
+		this.context.session.redo();
 	}
 }
 
@@ -93,11 +93,11 @@ export class RedoCommand extends Command {
  */
 export class SelectParentCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.editor_state.selection;
+		return this.context.editable && this.context.session.selection;
 	}
 
 	execute() {
-		this.context.editor_state.select_parent();
+		this.context.session.select_parent();
 	}
 }
 
@@ -114,24 +114,24 @@ export class ToggleAnnotationCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.editor_state.active_annotation(this.node_type);
+		return this.context.session.active_annotation(this.node_type);
 	}
 
 	is_enabled() {
-		const { editor_state, editable } = this.context;
-		const has_annotation = editor_state.active_annotation(this.node_type);
+		const { session, editable } = this.context;
+		const has_annotation = session.active_annotation(this.node_type);
 		const no_annotation_and_cursor_not_collapsed =
-			!editor_state.active_annotation() && !is_selection_collapsed(editor_state.selection);
+			!session.active_annotation() && !is_selection_collapsed(session.selection);
 
 		return (
 			editable &&
-			editor_state.selection?.type === 'text' &&
+			session.selection?.type === 'text' &&
 			(has_annotation || no_annotation_and_cursor_not_collapsed)
 		);
 	}
 
 	execute() {
-		this.context.editor_state.apply(this.context.editor_state.tr.annotate_text(this.node_type));
+		this.context.session.apply(this.context.session.tr.annotate_text(this.node_type));
 	}
 }
 
@@ -142,19 +142,19 @@ export class ToggleAnnotationCommand extends Command {
  */
 export class AddNewLineCommand extends Command {
 	is_enabled() {
-		const editor_state = this.context.editor_state;
-		const selection = editor_state.selection;
+		const session = this.context.session;
+		const selection = session.selection;
 
 		return (
 			this.context.editable &&
 			!is_mobile_browser() &&
 			selection?.type === 'text' &&
-			editor_state.inspect(selection.path).allow_newlines
+			session.inspect(selection.path).allow_newlines
 		);
 	}
 
 	execute() {
-		this.context.editor_state.apply(this.context.editor_state.tr.insert_text('\n'));
+		this.context.session.apply(this.context.session.tr.insert_text('\n'));
 	}
 }
 
@@ -165,13 +165,13 @@ export class AddNewLineCommand extends Command {
  */
 export class BreakTextNodeCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.editor_state.selection?.type === 'text';
+		return this.context.editable && this.context.session.selection?.type === 'text';
 	}
 
 	execute() {
-		const tr = this.context.editor_state.tr;
+		const tr = this.context.session.tr;
 		if (break_text_node(tr)) {
-			this.context.editor_state.apply(tr);
+			this.context.session.apply(tr);
 		}
 	}
 }
@@ -182,19 +182,19 @@ export class BreakTextNodeCommand extends Command {
  */
 export class SelectAllCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.editor_state.selection;
+		return this.context.editable && this.context.session.selection;
 	}
 
 	execute() {
-		const editor_state = this.context.editor_state;
-		const selection = editor_state.selection;
+		const session = this.context.session;
+		const selection = session.selection;
 
 		if (!selection) {
 			return;
 		}
 
 		if (selection.type === 'text') {
-			const text_content = editor_state.get(selection.path);
+			const text_content = session.get(selection.path);
 			const text_length = get_char_length(text_content.text);
 
 			// Check if all text is already selected
@@ -204,7 +204,7 @@ export class SelectAllCommand extends Command {
 
 			if (!is_all_text_selected) {
 				// Select all text in the current text node
-				editor_state.selection = {
+				session.selection = {
 					type: 'text',
 					path: selection.path,
 					anchor_offset: 0,
@@ -217,11 +217,11 @@ export class SelectAllCommand extends Command {
 				// Check if we have enough path segments and if we're inside a node_array
 				if (node_path.length >= 2) {
 					const is_inside_node_array =
-						editor_state.inspect(node_path.slice(0, -1))?.type === 'node_array';
+						session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_inside_node_array) {
 						const node_index = parseInt(node_path.at(-1));
-						editor_state.selection = {
+						session.selection = {
 							type: 'node',
 							path: node_path.slice(0, -1),
 							anchor_offset: node_index,
@@ -233,7 +233,7 @@ export class SelectAllCommand extends Command {
 			}
 		} else if (selection.type === 'node') {
 			const node_array_path = selection.path;
-			const node_array = editor_state.get(node_array_path);
+			const node_array = session.get(node_array_path);
 
 			// Check if the entire node_array is already selected
 			const is_entire_node_array_selected =
@@ -242,7 +242,7 @@ export class SelectAllCommand extends Command {
 
 			if (!is_entire_node_array_selected) {
 				// Select the entire node_array
-				editor_state.selection = {
+				session.selection = {
 					type: 'node',
 					path: node_array_path,
 					anchor_offset: 0,
@@ -255,11 +255,11 @@ export class SelectAllCommand extends Command {
 				// Check if we have enough path segments and if parent is a valid node_array
 				if (parent_path.length >= 2) {
 					const is_parent_node_array =
-						editor_state.inspect(parent_path.slice(0, -1))?.type === 'node_array';
+						session.inspect(parent_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_parent_node_array) {
 						const parent_node_index = parseInt(parent_path.at(-1));
-						editor_state.selection = {
+						session.selection = {
 							type: 'node',
 							path: parent_path.slice(0, -1),
 							anchor_offset: parent_node_index,
@@ -275,12 +275,11 @@ export class SelectAllCommand extends Command {
 
 			// Check if we have enough path segments and if we're inside a node_array
 			if (node_path.length >= 2) {
-				const is_inside_node_array =
-					editor_state.inspect(node_path.slice(0, -1))?.type === 'node_array';
+				const is_inside_node_array = session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 				if (is_inside_node_array) {
 					const node_index = parseInt(node_path.at(-1));
-					editor_state.selection = {
+					session.selection = {
 						type: 'node',
 						path: node_path.slice(0, -1),
 						anchor_offset: node_index,
@@ -299,7 +298,7 @@ export class SelectAllCommand extends Command {
  */
 export class InsertDefaultNodeCommand extends Command {
 	is_enabled() {
-		const selection = this.context.editor_state.selection;
+		const selection = this.context.session.selection;
 		return (
 			this.context.editable &&
 			selection?.type === 'node' &&
@@ -308,8 +307,8 @@ export class InsertDefaultNodeCommand extends Command {
 	}
 
 	execute() {
-		const tr = this.context.editor_state.tr;
+		const tr = this.context.session.tr;
 		insert_default_node(tr);
-		this.context.editor_state.apply(tr);
+		this.context.session.apply(tr);
 	}
 }

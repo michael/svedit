@@ -2,9 +2,9 @@
 	import Svedit from '../../lib/Svedit.svelte';
 	import Layout from '../../routes/components/Layout.svelte';
 
-	let { editor_state } = $props();
+	let { session } = $props();
 </script>
 
 <Layout>
-	<Svedit {editor_state} editable={true} path={[editor_state.document_id]} />
+	<Svedit {session} editable={true} path={[session.document_id]} />
 </Layout>

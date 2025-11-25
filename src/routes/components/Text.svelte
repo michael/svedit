@@ -4,7 +4,7 @@
 
 	const svedit = getContext('svedit');
 	let { path } = $props();
-	let node = $derived(svedit.editor_state.get(path));
+	let node = $derived(svedit.session.get(path));
 	let layout = $derived(node.layout || 1);
 	let tag = $derived(get_tag(layout));
 	let text_style = $derived(get_text_style_from_layout(layout));

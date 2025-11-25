@@ -7,12 +7,12 @@ export { default as NodeArrayProperty } from './NodeArrayProperty.svelte';
 
 // Core classes and utilities
 export {
-	default as EditorState,
+	default as Session,
 	define_document_schema,
 	is_primitive_type,
 	get_default_node_type,
 	validate_document_schema
-} from './state/EditorState.svelte.js';
+} from './Session.svelte.js';
 export { default as Transaction } from './Transaction.svelte.js';
 
 // Command system
