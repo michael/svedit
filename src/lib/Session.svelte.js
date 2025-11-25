@@ -1,5 +1,13 @@
 import Transaction from './Transaction.svelte.js';
 import { char_slice, get_char_length, traverse, get_selection_range } from './util.js';
+import {
+	get as doc_get,
+	property_type as doc_property_type,
+	kind as doc_kind,
+	inspect as doc_inspect,
+	apply_op,
+	count_references as doc_count_references
+} from './doc_utils.js';
 
 /**
  * @import {
@@ -144,7 +152,7 @@ function is_id_valid(id) {
  * @param {Record<string, any>} all_nodes - All nodes in the document to check references
  * @throws {Error} Throws if the node is invalid
  */
-function validate_node(node, schema, all_nodes = {}) {
+export function validate_node(node, schema, all_nodes = {}) {
 	if (!is_id_valid(node.id)) {
 		throw new Error(`Node ${node.id} has an invalid id.`);
 	}
@@ -355,7 +363,7 @@ export default class Session {
 
 	validate() {
 		for (const node of Object.values(this.doc.nodes)) {
-			this.validate_node(node);
+			validate_node(node, this.schema, this.doc.nodes);
 		}
 	}
 
@@ -413,52 +421,6 @@ export default class Session {
 		}
 	}
 
-	// Internal unsafe function: Never call this directly
-	// NOTE: We are using a copy-on-write approach here, to avoid mutating the original object
-	_apply_op(op) {
-		const [type, ...args] = op;
-		if (type === 'set') {
-			// NOTE: We can assume normalized paths
-			const [node_id, property] = args[0];
-			// We make sure to use a deep copy of the value.
-			const value = structuredClone(args[1]);
-			this.doc = {
-				...this.doc,
-				nodes: {
-					...this.doc.nodes,
-					[node_id]: {
-						...this.doc.nodes[node_id],
-						[property]: value
-					}
-				}
-			};
-		} else if (type === 'create') {
-			this.doc = {
-				...this.doc,
-				nodes: {
-					...this.doc.nodes,
-					[args[0].id]: structuredClone(args[0]) // Deep copy the node
-				}
-			};
-		} else if (type === 'delete') {
-			// eslint-disable-next-line
-			const { [args[0]]: _removed, ...remaining_nodes } = this.doc.nodes;
-			this.doc = {
-				...this.doc,
-				nodes: remaining_nodes
-			};
-		}
-	}
-
-	/**
-	 * Validate a node against the document schema.
-	 * @param {any} node - The node to validate
-	 * @throws {Error} Throws if the node is invalid
-	 */
-	validate_node(node) {
-		validate_node(node, this.schema, this.doc.nodes);
-	}
-
 	/**
 	 * Creates a new transaction for making atomic changes to the document.
 	 *
@@ -466,15 +428,12 @@ export default class Session {
 	 */
 	get tr() {
 		// We create a copy of the current state to avoid modifying the original
-		const transaction_session = new Session(
+		return new Transaction(
 			this.schema,
-			{ document_id: this.document_id, nodes: this.doc.nodes },
-			{
-				config: this.config,
-				selection: this.selection
-			}
+			structuredClone(this.doc),
+			structuredClone(this.selection),
+			this.config
 		);
-		return new Transaction(transaction_session);
 	}
 
 	/**
@@ -486,9 +445,9 @@ export default class Session {
 	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
 	 */
 	apply(transaction, { batch = false } = {}) {
-		this.doc = transaction.session.doc; // Get the doc from the transaction's Session
+		this.doc = transaction.doc;
 		// Make sure selection gets a new reference (is rerendered)
-		this.selection = structuredClone(transaction.session.selection);
+		this.selection = structuredClone(transaction.selection);
 		if (this.history_index < this.history.length - 1) {
 			this.history = this.history.slice(0, this.history_index + 1);
 		}
@@ -535,12 +494,14 @@ export default class Session {
 			return;
 		}
 		const change = this.history[this.history_index];
-		const tr = this.tr;
+		let doc = this.doc;
 		change.inverse_ops
 			.slice()
 			.reverse()
-			.forEach((op) => tr.session._apply_op(op));
-		this.doc = tr.session.doc;
+			.forEach((op) => {
+				doc = apply_op(doc, op);
+			});
+		this.doc = doc;
 		this.selection = change.selection_before;
 		this.history_index = this.history_index - 1;
 		return this;
@@ -552,11 +513,11 @@ export default class Session {
 		}
 		this.history_index = this.history_index + 1;
 		const change = this.history[this.history_index];
-		const tr = this.tr;
-		change.ops.forEach((op) => tr.session._apply_op(op));
-		tr.set_selection(change.selection_after);
-
-		this.doc = tr.session.doc;
+		let doc = this.doc;
+		change.ops.forEach((op) => {
+			doc = apply_op(doc, op);
+		});
+		this.doc = doc;
 		this.selection = change.selection_after;
 		return this;
 	}
@@ -582,78 +543,7 @@ export default class Session {
 	 * session.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
 	 */
 	get(path) {
-		if (typeof path === 'string') {
-			path = [path];
-		}
-		if (!(Array.isArray(path) && path.length >= 1)) {
-			throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
-		}
-
-		let val = this.doc.nodes[path[0]];
-		let val_type = 'node';
-
-		for (let i = 1; i < path.length; i++) {
-			const path_segment = path[i];
-			if (val_type === 'node') {
-				if (this.property_type(val.type, path_segment) === 'node_array') {
-					val = val[path_segment]; // e.g. for the page body ['list_1', 'paragraph_1']
-					val_type = 'node_array';
-				} else if (this.property_type(val.type, path_segment) === 'annotated_text') {
-					val = val[path_segment];
-					val_type = 'annotated_text';
-				} else if (this.property_type(val.type, path_segment) === 'node') {
-					val = this.doc.nodes[val[path_segment]];
-					val_type = 'node';
-				} else if (
-					['string_array', 'integer_array'].includes(this.property_type(val.type, path_segment))
-				) {
-					val = val[path_segment];
-					val_type = 'value_array';
-				} else {
-					// Resolve value properties such as string, integer, datetime
-					val = val[path_segment];
-					val_type = 'value';
-				}
-			} else if (val_type === 'node_array') {
-				// We expect the val to be an array of node ids and the path_segment to be an array index
-				val = this.doc.nodes[val[path_segment]];
-				val_type = 'node';
-			} else if (val_type === 'value_array') {
-				val = val[path_segment];
-				val_type = 'value';
-			} else if (val_type === 'annotated_text') {
-				if (path_segment === 'text') {
-					val = val.text;
-					val_type = 'value';
-				} else if (path_segment === 'annotations') {
-					val = val.annotations;
-					val_type = 'annotation_array';
-				} else {
-					throw new Error(
-						`Invalid path segment "${path_segment}" for annotated_text. Use "text" or "annotations".`
-					);
-				}
-			} else if (val_type === 'annotation_array') {
-				val = val[path_segment];
-				val_type = 'annotation';
-			} else if (val_type === 'annotation') {
-				if (path_segment === 'node_id') {
-					val = this.doc.nodes[val.node_id];
-					val_type = 'node';
-				} else if (path_segment === 'start_offset') {
-					val = val.start_offset;
-					val_type = 'value';
-				} else if (path_segment === 'end_offset') {
-					val = val.end_offset;
-					val_type = 'value';
-				} else {
-					throw new Error(
-						`Invalid path segment "${path_segment}" for annotation. Use "start_offset", "end_offset", or "node_id".`
-					);
-				}
-			}
-		}
-		return val;
+		return doc_get(this.schema, this.doc, path);
 	}
 
 	/**
@@ -683,26 +573,7 @@ export default class Session {
 	 * @returns {{kind: 'property'|'node', [key: string]: any}}
 	 */
 	inspect(path) {
-		const parent = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
-		if (parent?.type) {
-			// Parent is a node, so we are dealing with a property.
-			const property_name = path.at(-1);
-			return {
-				kind: 'property',
-				name: property_name,
-				// Merge property spec from schema
-				...this.schema[parent.type].properties[property_name]
-			};
-		} else {
-			// Parent is a property (or we are at the root), so we are dealing with a node.
-			const node = this.get(path);
-			return {
-				kind: 'node',
-				id: node.id,
-				type: node.type,
-				properties: this.schema[node.type]
-			};
-		}
+		return doc_inspect(this.schema, this.doc, path);
 	}
 
 	/**
@@ -712,7 +583,7 @@ export default class Session {
 	 * @returns {NodeKind}
 	 */
 	kind(node) {
-		return this.schema[node.type].kind;
+		return doc_kind(this.schema, node);
 	}
 
 	/**
@@ -911,38 +782,12 @@ export default class Session {
 	// property_type('page', 'body') => 'node_array'
 	// property_type('paragraph', 'content') => 'annotated_text'
 	property_type(type, property) {
-		if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
-		if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
-		// NOTE: Not sure if we should treat type and id as properties
-		if (property === 'type') return 'string';
-		if (property === 'id') return 'string';
-
-		if (!this.schema[type]) throw new Error(`Type ${type} not found in schema`);
-		if (!this.schema[type].properties[property])
-			throw new Error(`Property ${property} not found in type ${type}`);
-
-		return this.schema[type].properties[property].type;
+		return doc_property_type(this.schema, type, property);
 	}
 
 	// Count how many times a node is referenced in the document
 	count_references(node_id) {
-		let count = 0;
-
-		for (const node of Object.values(this.doc.nodes)) {
-			for (const [property, value] of Object.entries(node)) {
-				if (property === 'id' || property === 'type') continue;
-
-				const prop_type = this.property_type(node.type, property);
-
-				if (prop_type === 'node_array' && Array.isArray(value)) {
-					count += value.filter((id) => id === node_id).length;
-				} else if (prop_type === 'node' && value === node_id) {
-					count += 1;
-				}
-			}
-		}
-
-		return count;
+		return doc_count_references(this.schema, this.doc, node_id);
 	}
 
 	// Get all nodes referenced by a given node (recursively)
