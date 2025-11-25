@@ -428,12 +428,7 @@ export default class Session {
 	 */
 	get tr() {
 		// We create a copy of the current state to avoid modifying the original
-		return new Transaction(
-			this.schema,
-			structuredClone(this.doc),
-			structuredClone(this.selection),
-			this.config
-		);
+		return new Transaction(this.schema, this.doc, this.selection, this.config);
 	}
 
 	/**
