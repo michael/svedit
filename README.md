@@ -494,7 +494,7 @@ Document-scoped commands receive a `context` object with access to the Svedit in
 
 - `context.session` - The current session instance
 - `context.editable` - Whether the editor is in edit mode
-- `context.canvas` - The DOM element of the Svedit editor canvas
+- `context.canvas_el` - The DOM element of the Svedit editor canvas
 - `context.is_composing` - Whether IME composition is currently taking place
 
 ### Command lifecycle methods
@@ -606,7 +606,7 @@ class CopyCommand extends Command {
     await navigator.clipboard.writeText(text);
     
     // Access the editor canvas
-    this.context.canvas.classList.add('copy-feedback');
+    this.context.canvas_el.classList.add('copy-feedback');
   }
 }
 ```

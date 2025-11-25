@@ -29,7 +29,7 @@
 		spellcheck = 'true'
 	} = $props();
 
-	let canvas;
+	let canvas_el;
 	let root_node = $derived(session.get(path));
 	let Overlays = $derived(session.config.system_components.Overlays);
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
@@ -56,8 +56,8 @@
 		get is_composing() {
 			return is_composing;
 		},
-		get canvas() {
-			return canvas;
+		get canvas_el() {
+			return canvas_el;
 		}
 	};
 
@@ -115,7 +115,7 @@
 		}
 
 		// Only take input when in a valid text selection inside the canvas
-		if (!canvas?.contains(document.activeElement)) {
+		if (!canvas_el?.contains(document.activeElement)) {
 			event.preventDefault();
 			return;
 		}
@@ -216,8 +216,8 @@
 	 */
 	function oncompositionend(event) {
 		console.log('DEBUG: oncompositionend, insert:', event.data, event);
-		if (!canvas?.contains(document.activeElement)) return;
-		if (canvas?.contains(document.activeElement) && session.selection?.type === 'text') {
+		if (!canvas_el?.contains(document.activeElement)) return;
+		if (canvas_el?.contains(document.activeElement) && session.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
 			// of finishing a composition. For instance, the user might have selected a different
 			// part of the text while composing.
@@ -263,7 +263,7 @@
 
 		// Only handle selection changes if selection is within the canvas
 		const range = dom_selection.getRangeAt(0);
-		if (!canvas?.contains(range.commonAncestorContainer)) return;
+		if (!canvas_el?.contains(range.commonAncestorContainer)) return;
 		let selection = __get_selection_from_dom();
 		if (selection) {
 			session.selection = selection;
@@ -422,7 +422,7 @@ ${fallback_html}`;
 	 */
 	function oncopy(event, delete_selection = false) {
 		// Only handle copy events if focus is within the canvas
-		if (!canvas?.contains(document.activeElement)) return;
+		if (!canvas_el?.contains(document.activeElement)) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -562,7 +562,7 @@ ${fallback_html}`;
 
 	async function onpaste(event) {
 		// Only handle paste events if focus is within the canvas
-		if (!canvas?.contains(document.activeElement)) return;
+		if (!canvas_el?.contains(document.activeElement)) return;
 		event.preventDefault();
 
 		let plain_text,
@@ -703,7 +703,7 @@ ${fallback_html}`;
 		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
 		if (
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
-			canvas?.contains(document.activeElement)
+			canvas_el?.contains(document.activeElement)
 		) {
 			// Skip. No need to rerender.
 			return;
@@ -1030,7 +1030,7 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
-		const node_array_el = canvas.querySelector(
+		const node_array_el = canvas_el.querySelector(
 			`[data-path="${node_array_path}"][data-type="node_array"]`
 		);
 		if (!node_array_el) return null;
@@ -1113,7 +1113,7 @@ ${fallback_html}`;
 		}
 
 		// Ensure the node_array is focused
-		const node_array_el = canvas.querySelector(
+		const node_array_el = canvas_el.querySelector(
 			`[data-path="${node_array_path}"][data-type="node_array"]`
 		);
 		if (node_array_el) {
@@ -1133,7 +1133,7 @@ ${fallback_html}`;
 	function __render_property_selection() {
 		const selection = session.selection;
 		// The element that holds the property
-		const el = canvas.querySelector(
+		const el = canvas_el.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
 		const cursor_trap_selectable = el.querySelector('.svedit-selectable');
@@ -1158,7 +1158,9 @@ ${fallback_html}`;
 	function __render_text_selection() {
 		const selection = /** @type {any} */ (session.selection);
 		// The element that holds the annotated string
-		const el = canvas.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
+		const el = canvas_el.querySelector(
+			`[data-path="${selection.path.join('.')}"][data-type="text"]`
+		);
 		const empty_text = session.get(selection.path).text.length === 0;
 
 		const range = window.document.createRange();
@@ -1313,7 +1315,7 @@ ${fallback_html}`;
 		class:node-cursor={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
-		bind:this={canvas}
+		bind:this={canvas_el}
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
