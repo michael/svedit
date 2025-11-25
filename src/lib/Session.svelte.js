@@ -353,27 +353,8 @@ export default class Session {
 		return this.doc.document_id;
 	}
 
-	/**
-	 * Gets the nodes from the doc
-	 * @returns {Record<string, SerializedNode>}
-	 */
-	get nodes() {
-		return this.doc.nodes;
-	}
-
-	/**
-	 * Sets the nodes on the doc (creates a new doc reference)
-	 * @param {Record<string, SerializedNode>} value
-	 */
-	set nodes(value) {
-		this.doc = {
-			...this.doc,
-			nodes: value
-		};
-	}
-
 	validate() {
-		for (const node of Object.values(this.nodes)) {
+		for (const node of Object.values(this.doc.nodes)) {
 			this.validate_node(node);
 		}
 	}
@@ -441,22 +422,31 @@ export default class Session {
 			const [node_id, property] = args[0];
 			// We make sure to use a deep copy of the value.
 			const value = structuredClone(args[1]);
-			this.nodes = {
-				...this.nodes,
-				[node_id]: {
-					...this.nodes[node_id],
-					[property]: value
+			this.doc = {
+				...this.doc,
+				nodes: {
+					...this.doc.nodes,
+					[node_id]: {
+						...this.doc.nodes[node_id],
+						[property]: value
+					}
 				}
 			};
 		} else if (type === 'create') {
-			this.nodes = {
-				...this.nodes,
-				[args[0].id]: structuredClone(args[0]) // Deep copy the node
+			this.doc = {
+				...this.doc,
+				nodes: {
+					...this.doc.nodes,
+					[args[0].id]: structuredClone(args[0]) // Deep copy the node
+				}
 			};
 		} else if (type === 'delete') {
 			// eslint-disable-next-line
-			const { [args[0]]: _removed, ...remainingNodes } = this.nodes;
-			this.nodes = remainingNodes;
+			const { [args[0]]: _removed, ...remaining_nodes } = this.doc.nodes;
+			this.doc = {
+				...this.doc,
+				nodes: remaining_nodes
+			};
 		}
 	}
 
@@ -466,7 +456,7 @@ export default class Session {
 	 * @throws {Error} Throws if the node is invalid
 	 */
 	validate_node(node) {
-		validate_node(node, this.schema, this.nodes);
+		validate_node(node, this.schema, this.doc.nodes);
 	}
 
 	/**
@@ -478,7 +468,7 @@ export default class Session {
 		// We create a copy of the current state to avoid modifying the original
 		const transaction_state = new Session(
 			this.schema,
-			{ document_id: this.document_id, nodes: this.nodes },
+			{ document_id: this.document_id, nodes: this.doc.nodes },
 			{
 				config: this.config,
 				selection: this.selection
@@ -599,7 +589,7 @@ export default class Session {
 			throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 		}
 
-		let val = this.nodes[path[0]];
+		let val = this.doc.nodes[path[0]];
 		let val_type = 'node';
 
 		for (let i = 1; i < path.length; i++) {
@@ -612,7 +602,7 @@ export default class Session {
 					val = val[path_segment];
 					val_type = 'annotated_text';
 				} else if (this.property_type(val.type, path_segment) === 'node') {
-					val = this.nodes[val[path_segment]];
+					val = this.doc.nodes[val[path_segment]];
 					val_type = 'node';
 				} else if (
 					['string_array', 'integer_array'].includes(this.property_type(val.type, path_segment))
@@ -626,7 +616,7 @@ export default class Session {
 				}
 			} else if (val_type === 'node_array') {
 				// We expect the val to be an array of node ids and the path_segment to be an array index
-				val = this.nodes[val[path_segment]];
+				val = this.doc.nodes[val[path_segment]];
 				val_type = 'node';
 			} else if (val_type === 'value_array') {
 				val = val[path_segment];
@@ -648,7 +638,7 @@ export default class Session {
 				val_type = 'annotation';
 			} else if (val_type === 'annotation') {
 				if (path_segment === 'node_id') {
-					val = this.nodes[val.node_id];
+					val = this.doc.nodes[val.node_id];
 					val_type = 'node';
 				} else if (path_segment === 'start_offset') {
 					val = val.start_offset;
@@ -896,7 +886,7 @@ export default class Session {
 	 * @note Nodes that are not reachable from the entry point node will not be included in the serialization
 	 */
 	traverse(node_id) {
-		return traverse(node_id, this.schema, $state.snapshot(this.nodes));
+		return traverse(node_id, this.schema, $state.snapshot(this.doc.nodes));
 	}
 
 	/**
@@ -938,7 +928,7 @@ export default class Session {
 	count_references(node_id) {
 		let count = 0;
 
-		for (const node of Object.values(this.nodes)) {
+		for (const node of Object.values(this.doc.nodes)) {
 			for (const [property, value] of Object.entries(node)) {
 				if (property === 'id' || property === 'type') continue;
 

@@ -78,14 +78,14 @@
 
 <div class="demo-wrapper" bind:this={app_el}>
 	<Toolbar {session} {focus_canvas} bind:editable />
-	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.document_id]} />
+	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.doc.document_id]} />
 
 	{#if editable}
 		<div class="flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto">
 			<p>Selection:</p>
 			<pre class="debug-info p-4">{JSON.stringify(session.selection || {}, null, '  ')}</pre>
 			<p>Nodes:</p>
-			<pre class="debug-info p-4">{JSON.stringify(session.nodes, null, '  ')}</pre>
+			<pre class="debug-info p-4">{JSON.stringify(session.doc, null, '  ')}</pre>
 		</div>
 	{/if}
 </div>

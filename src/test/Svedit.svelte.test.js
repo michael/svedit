@@ -15,7 +15,7 @@ describe('Svedit.svelte', () => {
 		// Now set node cursor between first and second node
 		session.selection = {
 			type: 'node',
-			path: [session.document_id, 'body'],
+			path: [session.doc.document_id, 'body'],
 			anchor_offset: 1,
 			focus_offset: 1
 		};
@@ -44,7 +44,7 @@ describe('Svedit.svelte', () => {
 		// Now set property selection
 		session.selection = {
 			type: 'property',
-			path: [session.document_id, 'body', 0, 'image']
+			path: [session.doc.document_id, 'body', 0, 'image']
 		};
 
 		// Wait for Svelte effects to complete
