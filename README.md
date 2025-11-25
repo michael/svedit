@@ -678,7 +678,7 @@ const app_commands = {
 };
 ```
 
-## Scope-aware Keyboard Shortcuts
+## Scope-aware keyboard shortcuts
 
 The KeyMapper manages keyboard shortcuts using a scope-based stack system. Scopes are tried from top to bottom (most recent to least recent), allowing more specific keymaps to override general ones.
 
@@ -753,7 +753,7 @@ key_mapper.pop_scope();
 The KeyMapper tries scopes from top to bottom, so push more specific keymaps last.
 
 
-## Selections
+## Selection
 
 Selections are at the heart of Svedit. There are just three types of selections:
 
