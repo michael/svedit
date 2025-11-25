@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	const svedit = getContext('svedit');
 	let { path, content } = $props();
-	let node = $derived(svedit.doc.get(path));
+	let node = $derived(svedit.editor_state.get(path));
 </script>
 
 <a

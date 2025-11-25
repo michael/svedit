@@ -1,4 +1,4 @@
-import type Document from './Document.svelte.js';
+import type EditorState from './state/EditorState.svelte.js';
 import type Svedit from './Svedit.svelte';
 
 // ===== SVELTE TYPE IMPORTS =====
@@ -310,8 +310,8 @@ export type CustomPropertyProps = {
  * Props for the CustomProperty component
  */
 export type SveditProps = {
-	/** The full path to the property */
-	doc: Document;
+	/** The editor state instance */
+	editor_state: EditorState;
 	/** Determines wether the document should be editable or read-only. */
 	editable?: boolean;
 	/** The path to the root element (e.g. ['page_1']) */

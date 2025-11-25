@@ -2,9 +2,9 @@
 	import Icon from './Icon.svelte';
 	import { get_layout_node } from '../app_utils.js';
 
-	let { doc, focus_canvas, editable = $bindable(false) } = $props();
+	let { editor_state, focus_canvas, editable = $bindable(false) } = $props();
 
-	let layout_node = $derived(get_layout_node(doc));
+	let layout_node = $derived(get_layout_node(editor_state));
 
 	let input_ref = $state();
 
@@ -42,7 +42,7 @@
 
 	function toggle_editable() {
 		if (editable) {
-			doc.selection = null;
+			editor_state.selection = null;
 		}
 		editable = !editable;
 	}
@@ -50,36 +50,37 @@
 	function handle_layout_change(layout_index) {
 		if (!layout_node) return;
 		if (layout_node.id) {
-			const tr = doc.tr;
+			const tr = editor_state.tr;
 			tr.set([layout_node.id, 'layout'], layout_index);
-			doc.apply(tr);
+			editor_state.apply(tr);
 		}
 	}
 
 	function handle_list_layout_change(layout) {
 		if (!layout_node) return;
 		if (layout_node.id) {
-			const tr = doc.tr;
+			const tr = editor_state.tr;
 			tr.set([layout_node.id, 'layout'], layout);
-			doc.apply(tr);
+			editor_state.apply(tr);
 		}
 	}
 
 	// Check if we have a collapsed node selection (node cursor)
 	let is_node_cursor = $derived(
-		doc.selection?.type === 'node' && doc.selection.anchor_offset === doc.selection.focus_offset
+		editor_state.selection?.type === 'node' &&
+			editor_state.selection.anchor_offset === editor_state.selection.focus_offset
 	);
 
 	// Get allowed node_types for current node_array
 	let allowed_node_types = $derived.by(() => {
 		if (!is_node_cursor) return [];
 
-		const node_array_path = doc.selection.path;
-		const node_array_node = doc.get(node_array_path.slice(0, -1)); // Get the parent node
+		const node_array_path = editor_state.selection.path;
+		const node_array_node = editor_state.get(node_array_path.slice(0, -1)); // Get the parent node
 		const node_array_property = node_array_path.at(-1); // Get the property name
 
 		// Get schema for this node type
-		const node_schema = doc.schema[node_array_node?.type];
+		const node_schema = editor_state.schema[node_array_node?.type];
 		if (!node_schema) return [];
 
 		// Get property schema
@@ -92,35 +93,37 @@
 	// Function to insert node (always inserts paragraph for now, ignoring node_type)
 	function insert_node(node_type) {
 		if (!is_node_cursor) return;
-		const tr = doc.tr;
-		doc.config.inserters[node_type](tr);
-		doc.apply(tr);
+		const tr = editor_state.tr;
+		editor_state.config.inserters[node_type](tr);
+		editor_state.apply(tr);
 	}
 
 	// Check if we should show the image URL input
 	let show_image_input = $derived(
-		doc.selection?.type === 'property' && doc.selection.path.at(-1) === 'image'
+		editor_state.selection?.type === 'property' && editor_state.selection.path.at(-1) === 'image'
 	);
 
 	// Check if we should show the link URL input
-	let show_link_input = $derived(typeof doc.selected_node?.href === 'string');
+	let show_link_input = $derived(typeof editor_state.selected_node?.href === 'string');
 
 	// Get current image URL value
-	let current_image_url = $derived(show_image_input ? doc.get(doc.selection.path) : '');
+	let current_image_url = $derived(
+		show_image_input ? editor_state.get(editor_state.selection.path) : ''
+	);
 
 	// Get current link URL value
-	let current_link_url = $derived(show_link_input ? doc.selected_node?.href : '');
+	let current_link_url = $derived(show_link_input ? editor_state.selected_node?.href : '');
 
 	function update_url() {
-		const tr = doc.tr;
-		if (doc.selection.path.at(-1) === 'label') {
+		const tr = editor_state.tr;
+		if (editor_state.selection.path.at(-1) === 'label') {
 			// We are updating the href property of a button
-			tr.set([...doc.selection.path.slice(0, -1), 'href'], input_ref.value);
+			tr.set([...editor_state.selection.path.slice(0, -1), 'href'], input_ref.value);
 		} else {
 			// Otherwise it's the image property
-			tr.set(doc.selection.path, input_ref.value);
+			tr.set(editor_state.selection.path, input_ref.value);
 		}
-		doc.apply(tr);
+		editor_state.apply(tr);
 	}
 
 	function handle_toolbar_keydown(event) {
@@ -155,46 +158,46 @@
 		</div>
 		<hr />
 	{/if}
-	{#if doc.selection?.type === 'text'}
-		{#if doc.available_annotation_types.includes('strong')}
+	{#if editor_state.selection?.type === 'text'}
+		{#if editor_state.available_annotation_types.includes('strong')}
 			<button
 				title="Bold"
 				class="bold"
-				onclick={() => doc.commands.toggle_strong?.execute()}
-				disabled={doc.commands.toggle_strong?.disabled}
-				class:active={doc.commands.toggle_strong?.active}
+				onclick={() => editor_state.commands.toggle_strong?.execute()}
+				disabled={editor_state.commands.toggle_strong?.disabled}
+				class:active={editor_state.commands.toggle_strong?.active}
 			>
 				<Icon name="bold" />
 			</button>
 		{/if}
-		{#if doc.available_annotation_types.includes('emphasis')}
+		{#if editor_state.available_annotation_types.includes('emphasis')}
 			<button
 				title="Italic"
 				class="italic"
-				onclick={() => doc.commands.toggle_emphasis?.execute()}
-				disabled={doc.commands.toggle_emphasis?.disabled}
-				class:active={doc.commands.toggle_emphasis?.active}
+				onclick={() => editor_state.commands.toggle_emphasis?.execute()}
+				disabled={editor_state.commands.toggle_emphasis?.disabled}
+				class:active={editor_state.commands.toggle_emphasis?.active}
 			>
 				<Icon name="italic" />
 			</button>
 		{/if}
-		{#if doc.available_annotation_types.includes('highlight')}
+		{#if editor_state.available_annotation_types.includes('highlight')}
 			<button
 				title="Highlight"
 				class="highlight"
-				onclick={() => doc.commands.toggle_highlight?.execute()}
-				disabled={doc.commands.toggle_highlight?.disabled}
-				class:active={doc.commands.toggle_highlight?.active}
+				onclick={() => editor_state.commands.toggle_highlight?.execute()}
+				disabled={editor_state.commands.toggle_highlight?.disabled}
+				class:active={editor_state.commands.toggle_highlight?.active}
 			>
 				<Icon name="highlight" />
 			</button>
 		{/if}
-		{#if doc.available_annotation_types.includes('link')}
+		{#if editor_state.available_annotation_types.includes('link')}
 			<button
 				title="Link"
-				onclick={() => doc.commands.toggle_link?.execute()}
-				disabled={doc.commands.toggle_link?.disabled}
-				class:active={doc.commands.toggle_link?.active}
+				onclick={() => editor_state.commands.toggle_link?.execute()}
+				disabled={editor_state.commands.toggle_link?.disabled}
+				class:active={editor_state.commands.toggle_link?.active}
 			>
 				<Icon name="link" />
 			</button>
@@ -247,22 +250,22 @@
 		{/each}
 	{/if}
 
-	{#if doc.selection?.type === 'text' || (doc.selection?.type === 'node' && doc.selected_node?.type === 'story') || (doc.selection?.type === 'node' && doc.selected_node?.type === 'list')}
+	{#if editor_state.selection?.type === 'text' || (editor_state.selection?.type === 'node' && editor_state.selected_node?.type === 'story') || (editor_state.selection?.type === 'node' && editor_state.selected_node?.type === 'list')}
 		<hr />
 	{/if}
 
 	{#if editable}
 		<button
 			title="Undo"
-			onclick={() => doc.commands.undo?.execute()}
-			disabled={doc.commands.undo?.disabled}
+			onclick={() => editor_state.commands.undo?.execute()}
+			disabled={editor_state.commands.undo?.disabled}
 		>
 			<Icon name="rotate-left" />
 		</button>
 		<button
 			title="Redo"
-			onclick={() => doc.commands.redo?.execute()}
-			disabled={doc.commands.redo?.disabled}
+			onclick={() => editor_state.commands.redo?.execute()}
+			disabled={editor_state.commands.redo?.disabled}
 		>
 			<Icon name="rotate-right" />
 		</button>

@@ -1,5 +1,5 @@
-import Transaction from './Transaction.svelte.js';
-import { char_slice, get_char_length, traverse, get_selection_range } from './util.js';
+import Transaction from '../Transaction.svelte.js';
+import { char_slice, get_char_length, traverse, get_selection_range } from '../util.js';
 
 /**
  * @import {
@@ -15,7 +15,7 @@ import { char_slice, get_char_length, traverse, get_selection_range } from './ut
  *   DocumentSchema,
  *   SerializedNode,
  *   SerializedDocument
- * } from './types.d.ts';
+ * } from '../types.d.ts';
  */
 
 const BATCH_WINDOW_MS = 1000; // 1 second
@@ -204,13 +204,25 @@ function validate_node(node, schema, all_nodes = {}) {
 	}
 }
 
-export default class Document {
+/**
+ * @typedef {Object} EditorStateOptions
+ * @property {Selection} [selection] - Initial selection state
+ * @property {any} [config] - Editor configuration
+ */
+
+export default class EditorState {
 	/** @type {Selection | undefined} */
 	#selection = $state.raw();
-	config = $state.raw();
+
+	/** @type {DocumentSchema} */
 	schema = $state.raw();
-	document_id = $state.raw();
-	nodes = $state.raw();
+
+	/** @type {SerializedDocument} */
+	doc = $state.raw();
+
+	/** @type {any} */
+	config = $state.raw();
+
 	history = $state.raw([]);
 	history_index = $state.raw(-1);
 	last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
@@ -316,35 +328,58 @@ export default class Document {
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
-	 * @param {SerializedDocument} serialized_doc - The serialized document array
-	 * @param {object} [options] - Optional configuration
-	 * @param {Selection} [options.selection] - Initial selection state
-	 * @param {any} [options.config] - Document configuration
+	 * @param {SerializedDocument} doc - The serialized document
+	 * @param {EditorStateOptions} [options] - Optional configuration
 	 */
-	constructor(schema, serialized_doc, { selection, config } = {}) {
+	constructor(schema, doc, options = {}) {
+		const { selection, config } = options;
+
 		// Validate the schema first
 		validate_document_schema(schema);
 
 		this.schema = schema;
+		this.doc = doc;
 		this.config = config;
-		this.nodes = serialized_doc.nodes;
 
-		// The last element in the serialized_doc is the document itself (the root node)
-		this.document_id = serialized_doc.document_id; // serialized_doc.at(-1)?.id;
-
-		// Set selection after nodes are initialized so validation can work properly
+		// Set selection after doc is initialized so validation can work properly
 		this.selection = selection;
+	}
+
+	/**
+	 * Gets the document_id from the doc
+	 * @returns {string}
+	 */
+	get document_id() {
+		return this.doc.document_id;
+	}
+
+	/**
+	 * Gets the nodes from the doc
+	 * @returns {Record<string, SerializedNode>}
+	 */
+	get nodes() {
+		return this.doc.nodes;
+	}
+
+	/**
+	 * Sets the nodes on the doc (creates a new doc reference)
+	 * @param {Record<string, SerializedNode>} value
+	 */
+	set nodes(value) {
+		this.doc = {
+			...this.doc,
+			nodes: value
+		};
 	}
 
 	validate() {
 		for (const node of Object.values(this.nodes)) {
 			this.validate_node(node);
-			this.nodes[node.id] = node;
 		}
 	}
 
 	generate_id() {
-		if (this.config.generate_id) {
+		if (this.config?.generate_id) {
 			return this.config.generate_id();
 		} else {
 			return crypto.randomUUID();
@@ -440,8 +475,8 @@ export default class Document {
 	 * @returns {Transaction} A new transaction instance
 	 */
 	get tr() {
-		// We create a copy of the current document to avoid modifying the original
-		const transaction_doc = new Document(
+		// We create a copy of the current state to avoid modifying the original
+		const transaction_state = new EditorState(
 			this.schema,
 			{ document_id: this.document_id, nodes: this.nodes },
 			{
@@ -449,7 +484,7 @@ export default class Document {
 				selection: this.selection
 			}
 		);
-		return new Transaction(transaction_doc);
+		return new Transaction(transaction_state);
 	}
 
 	/**
@@ -461,7 +496,7 @@ export default class Document {
 	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
 	 */
 	apply(transaction, { batch = false } = {}) {
-		this.nodes = transaction.doc.nodes; // No deep copy, trust transaction's evolved state
+		this.doc = transaction.doc.doc; // Get the doc from the transaction's EditorState
 		// Make sure selection gets a new reference (is rerendered)
 		this.selection = structuredClone(transaction.doc.selection);
 		if (this.history_index < this.history.length - 1) {
@@ -515,7 +550,7 @@ export default class Document {
 			.slice()
 			.reverse()
 			.forEach((op) => tr.doc._apply_op(op));
-		this.nodes = tr.doc.nodes;
+		this.doc = tr.doc.doc;
 		this.selection = change.selection_before;
 		this.history_index = this.history_index - 1;
 		return this;
@@ -531,7 +566,7 @@ export default class Document {
 		change.ops.forEach((op) => tr.doc._apply_op(op));
 		tr.set_selection(change.selection_after);
 
-		this.nodes = tr.doc.nodes;
+		this.doc = tr.doc.doc;
 		this.selection = change.selection_after;
 		return this;
 	}

@@ -11,8 +11,8 @@
 
 	let is_focused = $derived.by(() => {
 		return (
-			svedit.doc.selection?.type === 'text' &&
-			path.join('.') === svedit.doc.selection?.path.join('.')
+			svedit.editor_state.selection?.type === 'text' &&
+			path.join('.') === svedit.editor_state.selection?.path.join('.')
 		);
 	});
 
@@ -37,7 +37,7 @@
 
 			// Add the annotated string using character-aware slicing
 			const annotated_content = char_slice(text, annotation.start_offset, annotation.end_offset);
-			const node = svedit.doc.get(annotation.node_id);
+			const node = svedit.editor_state.get(annotation.node_id);
 			if (!node) throw new Error(`Node not found for annotation ${annotation.node_id}`);
 
 			fragments.push({
@@ -60,9 +60,9 @@
 	}
 
 	let fragments = $derived(
-		get_fragments(svedit.doc.get(path).text, svedit.doc.get(path).annotations)
+		get_fragments(svedit.editor_state.get(path).text, svedit.editor_state.get(path).annotations)
 	);
-	let plain_text = $derived(svedit.doc.get(path).text);
+	let plain_text = $derived(svedit.editor_state.get(path).text);
 	let is_empty = $derived(
 		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
 	);
@@ -86,7 +86,7 @@
 	{#each fragments as fragment, index (index)}
 		{#if typeof fragment === 'string'}{fragment}{:else}
 			{@const AnnotationComponent =
-				svedit.doc.config.node_components[snake_to_pascal(fragment.node.type)]}
+				svedit.editor_state.config.node_components[snake_to_pascal(fragment.node.type)]}
 			<AnnotationComponent
 				path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
 				content={fragment.content}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import create_test_doc from './create_test_doc.js';
 
-describe('Document.svelte.js', () => {
+describe('EditorState.svelte.js', () => {
 	it('should be traversable', () => {
 		const doc = create_test_doc();
 
