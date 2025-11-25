@@ -146,9 +146,9 @@ const document_schema = {
 ```
 
 
-## Document serialization format (to drive an editing session in the browser)
+## Document format
 
-A serialized document contains a `document_id` (the entry point) and a `nodes` object with all content nodes.
+A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes.
 
 Rules:
 - All nodes must be reachable from the document node (unreachable nodes are discarded)
@@ -158,7 +158,7 @@ Rules:
 Here's an example document:
 
 ```js
-const serialized_doc = {
+const doc = {
   document_id: 'page_1',
   nodes: {
     nav_item_1: {
@@ -261,7 +261,7 @@ Document content (`session.doc`) and selection (`session.selection`) are **immut
 ```js
 import { Session } from 'svedit';
 
-const session = new Session(schema, serialized_doc, { config });
+const session = new Session(schema, doc, { config });
 ```
 
 ### Reading the graph
