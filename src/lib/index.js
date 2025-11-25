@@ -6,14 +6,17 @@ export { default as Node } from './Node.svelte';
 export { default as NodeArrayProperty } from './NodeArrayProperty.svelte';
 
 // Core classes and utilities
+export { default as Session } from './Session.svelte.js';
+export { default as Transaction } from './Transaction.svelte.js';
+
+// Document utilities
 export {
-	default as Session,
 	define_document_schema,
 	is_primitive_type,
 	get_default_node_type,
-	validate_document_schema
-} from './Session.svelte.js';
-export { default as Transaction } from './Transaction.svelte.js';
+	validate_document_schema,
+	validate_node
+} from './doc_utils.js';
 
 // Command system
 export { default as Command } from './Command.svelte.js';

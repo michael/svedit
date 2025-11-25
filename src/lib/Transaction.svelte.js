@@ -16,9 +16,9 @@ import {
 	kind as doc_kind,
 	inspect as doc_inspect,
 	apply_op,
-	count_references_excluding_deleted
+	count_references_excluding_deleted,
+	validate_node
 } from './doc_utils.js';
-import { validate_node } from './Session.svelte.js';
 
 /**
  * Transaction class for managing atomic document operations with undo/redo support.
