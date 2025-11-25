@@ -24,4 +24,4 @@ export { KeyMapper, define_keymap } from './KeyMapper.svelte.js';
 
 // Transforms and utilities
 export * from './transforms.svelte.js';
-export * from './util.js';
+export * from './utils.js';

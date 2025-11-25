@@ -6,7 +6,7 @@
 		utf16_to_char_offset,
 		char_to_utf16_offset,
 		get_char_at
-	} from './util.js';
+	} from './utils.js';
 
 	/** @import {
 	 *   SveditProps,

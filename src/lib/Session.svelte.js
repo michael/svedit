@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, get_char_length, traverse, get_selection_range } from './util.js';
+import { char_slice, get_char_length, traverse, get_selection_range } from './utils.js';
 import {
 	get as doc_get,
 	property_type as doc_property_type,

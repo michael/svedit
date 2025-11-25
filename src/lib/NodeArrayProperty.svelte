@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
-	import { snake_to_pascal } from './util.js';
+	import { snake_to_pascal } from './utils.js';
 
 	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 

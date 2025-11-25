@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { char_slice, get_char_length, snake_to_pascal } from './util.js';
+	import { char_slice, get_char_length, snake_to_pascal } from './utils.js';
 
 	/** @import { AnnotatedTextPropertyProps, Annotation, AnnotationFragment } from './types.d.ts'; */
 
