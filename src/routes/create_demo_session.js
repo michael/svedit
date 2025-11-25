@@ -813,7 +813,9 @@ const document_config = {
 			'ctrl+alt+arrowleft': [commands.previous_layout],
 			'ctrl+alt+arrowdown': [commands.next_type],
 			'ctrl+alt+arrowup': [commands.previous_type],
-			backspace: [commands.reset_image]
+			backspace: [commands.reset_image],
+			// iOS auto-capitalization workaround (shift is pressed on property selection)
+			'shift+backspace': [commands.reset_image]
 		});
 
 		return { commands, keymap };
