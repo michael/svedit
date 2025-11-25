@@ -231,7 +231,7 @@ const document_config = {
 	}
 };
 
-export default function create_test_doc() {
+export default function create_test_session() {
 	const session = new Session(document_schema, serialized_doc, { config: document_config });
 	return session;
 }

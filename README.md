@@ -33,7 +33,7 @@ And run the development server:
 npm run dev
 ```
 
-Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_doc.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
+Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
 
 ## Principles
 
@@ -200,7 +200,7 @@ const serialized_doc = {
 
 ## Document config
 
-Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_doc.js`](src/routes/create_demo_doc.js).
+Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
 
 ```js
 const document_config = {
@@ -498,7 +498,7 @@ Svedit provides several core commands out of the box:
 
 #### Using document commands
 
-Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/create_demo_doc.js`](src/routes/create_demo_doc.js) in the `create_commands_and_keymap` configuration function:
+Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) in the `create_commands_and_keymap` configuration function:
 
 ```js
 create_commands_and_keymap: (context) => {
