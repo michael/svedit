@@ -218,23 +218,23 @@ export type NodeSchema = TextNodeSchema | NonTextNodeSchema;
 export type DocumentSchema = Record<string, NodeSchema>;
 
 /**
- * A serialized node in the document format.
+ * A node in the document.
  * Must have id and type properties, with other properties defined by the schema.
  */
-export type SerializedNode = {
+export type DocumentNode = {
 	id: string;
 	type: string;
 	[key: string]: any;
 };
 
 /**
- * The document serialization format - an object with document_id and nodes.
- * The nodes object maps node IDs to their serialized node data.
+ * The document format - an object with document_id and nodes.
+ * The nodes object maps node IDs to their node data.
  */
-export type SerializedDocument = {
+export type Document = {
 	document_id: string;
 	nodes: {
-		[key: string]: SerializedNode;
+		[key: string]: DocumentNode;
 	};
 };
 

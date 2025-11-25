@@ -188,7 +188,7 @@ const document_schema = define_document_schema({
 	}
 });
 
-const serialized_doc = {
+const doc = {
 	document_id: 'page_1',
 	nodes: {
 		emphasis_1: {
@@ -622,7 +622,7 @@ const document_config = {
 			// NOTE: Relies on insert_nodes selecting the newly inserted node(s)
 			tr.set_selection({
 				type: 'text',
-				path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'content'],
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			});
@@ -649,7 +649,7 @@ const document_config = {
 			// NOTE: Relies on insert_nodes selecting the newly inserted node(s)
 			// tr.set_selection({
 			//   type: 'text',
-			//   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
+			//   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'title'],
 			//   anchor_offset: 0,
 			//   focus_offset: 0
 			// });
@@ -686,7 +686,7 @@ const document_config = {
 			tr.insert_nodes([new_list_item.id]);
 			tr.set_selection({
 				type: 'text',
-				path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'content'],
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
 				anchor_offset: 0,
 				focus_offset: 0
 			});
@@ -726,9 +726,9 @@ const document_config = {
 			tr.insert_nodes([new_image_grid_item.id]);
 			tr.set_selection({
 				type: 'node',
-				path: [...tr.doc.selection.path],
-				anchor_offset: tr.doc.selection.focus_offset,
-				focus_offset: tr.doc.selection.focus_offset
+				path: [...tr.selection.path],
+				anchor_offset: tr.selection.focus_offset,
+				focus_offset: tr.selection.focus_offset
 			});
 		},
 		button: function (tr) {
@@ -742,9 +742,9 @@ const document_config = {
 			tr.insert_nodes([new_button.id]);
 			tr.set_selection({
 				type: 'node',
-				path: [...tr.doc.selection.path],
-				anchor_offset: tr.doc.selection.focus_offset,
-				focus_offset: tr.doc.selection.focus_offset
+				path: [...tr.selection.path],
+				anchor_offset: tr.selection.focus_offset,
+				focus_offset: tr.selection.focus_offset
 			});
 		},
 		hero: function (tr) {
@@ -760,7 +760,7 @@ const document_config = {
 			tr.insert_nodes([new_hero.id]);
 			// tr.set_selection({
 			//   type: 'text',
-			//   path: [...tr.doc.selection.path, tr.doc.selection.focus_offset - 1, 'title'],
+			//   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'title'],
 			//   anchor_offset: 0,
 			//   focus_offset: 0
 			// });
@@ -821,7 +821,7 @@ const document_config = {
 };
 
 export default function create_demo_session() {
-	const session = new Session(document_schema, serialized_doc, { config: document_config });
+	const session = new Session(document_schema, doc, { config: document_config });
 	// This makes sure that the document is in a valid state.
 	session.validate_doc();
 	return session;

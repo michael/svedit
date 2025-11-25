@@ -23,8 +23,8 @@ import {
  *   NodeKind,
  *   NodeSchema,
  *   DocumentSchema,
- *   SerializedNode,
- *   SerializedDocument
+ *   DocumentNode,
+ *   Document
  * } from './types.d.ts';
  */
 
@@ -43,7 +43,7 @@ export default class Session {
 	/** @type {DocumentSchema} */
 	schema = $state.raw();
 
-	/** @type {SerializedDocument} */
+	/** @type {Document} */
 	doc = $state.raw();
 
 	/** @type {any} */
@@ -154,7 +154,7 @@ export default class Session {
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
-	 * @param {SerializedDocument} doc - The serialized document
+	 * @param {Document} doc - The document
 	 * @param {SessionOptions} [options] - Optional configuration
 	 */
 	constructor(schema, doc, options = {}) {
@@ -566,20 +566,20 @@ export default class Session {
 	 * 3. Root node (entry point) last
 	 *
 	 * @param {string} node_id - The ID of the node to start traversing from
-	 * @returns {Array<SerializedNode>} Array of nodes in depth-first order
-	 * @note Nodes that are not reachable from the entry point node will not be included in the serialization
+	 * @returns {Array<DocumentNode>} Array of nodes in depth-first order
+	 * @note Nodes that are not reachable from the entry point node will not be included
 	 */
 	traverse(node_id) {
 		return traverse(node_id, this.schema, $state.snapshot(this.doc.nodes));
 	}
 
 	/**
-	 * Convert the document to serialized format.
+	 * Convert the document to a clean format for persistence.
 	 *
-	 * We make a traversal to ensure that orphaned nodes are not included in the serialization,
+	 * We make a traversal to ensure that orphaned nodes are not included,
 	 * and that leaf nodes go first, followed by branches and the root node at last.
 	 *
-	 * @returns {SerializedDocument} The serialized document array
+	 * @returns {Document} The document
 	 */
 	to_json() {
 		// this will order the nodes (depth-first traversal)
