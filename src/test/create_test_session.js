@@ -1,4 +1,5 @@
-import Session, { define_document_schema } from '../lib/Session.svelte.js';
+import Session from '../lib/Session.svelte.js';
+import { define_document_schema } from '../lib/doc_utils.js';
 import nanoid from '../routes/nanoid.js';
 
 // System components
