@@ -6,7 +6,7 @@
 	let { path } = $props();
 
 	// We expect the list_node to be the parent in the path
-	let list_node = $derived(svedit.editor_state.get(path.slice(0, -2)));
+	let list_node = $derived(svedit.session.get(path.slice(0, -2)));
 	let list_style = $derived(get_list_style_from_layout(list_node?.layout));
 
 	/** @param {number} layout */

@@ -6,15 +6,15 @@
 	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
-	let NodeCursorTrap = $derived(svedit.editor_state.config.system_components.NodeCursorTrap);
+	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
 
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class } = $props();
 
 	let nodes = $derived(
-		svedit.editor_state
+		svedit.session
 			.get(path)
-			.map(/** @param {string} node_id */ (node_id) => svedit.editor_state.get(node_id))
+			.map(/** @param {string} node_id */ (node_id) => svedit.session.get(node_id))
 	);
 </script>
 
@@ -38,7 +38,7 @@
 		</div>
 	{/if}
 	{#each nodes as node, index (index)}
-		{@const Component = svedit.editor_state.config.node_components[snake_to_pascal(node.type)]}
+		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
 			<Component path={[...path, index]} />
 		{:else}

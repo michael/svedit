@@ -4,7 +4,7 @@
 	import Toolbar from './components/Toolbar.svelte';
 	import create_demo_doc from './create_demo_doc.js';
 
-	const editor_state = create_demo_doc();
+	const session = create_demo_doc();
 	let app_el;
 	let svedit_ref;
 	let editable = $state(true);
@@ -34,7 +34,7 @@
 
 		async execute() {
 			// Example: async commands are supported
-			// await update_document(this.context.doc);
+			// await update_document(this.context.session);
 			this.context.editable = false;
 		}
 	}
@@ -46,8 +46,8 @@
 		set editable(value) {
 			editable = value;
 		},
-		get editor_state() {
-			return editor_state;
+		get session() {
+			return session;
 		},
 		get app_el() {
 			return app_el;
@@ -77,15 +77,15 @@
 </svelte:head>
 
 <div class="demo-wrapper" bind:this={app_el}>
-	<Toolbar {editor_state} {focus_canvas} bind:editable />
-	<Svedit {editor_state} bind:editable bind:this={svedit_ref} path={[editor_state.document_id]} />
+	<Toolbar {session} {focus_canvas} bind:editable />
+	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.document_id]} />
 
 	{#if editable}
 		<div class="flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto">
 			<p>Selection:</p>
-			<pre class="debug-info p-4">{JSON.stringify(editor_state.selection || {}, null, '  ')}</pre>
+			<pre class="debug-info p-4">{JSON.stringify(session.selection || {}, null, '  ')}</pre>
 			<p>Nodes:</p>
-			<pre class="debug-info p-4">{JSON.stringify(editor_state.nodes, null, '  ')}</pre>
+			<pre class="debug-info p-4">{JSON.stringify(session.nodes, null, '  ')}</pre>
 		</div>
 	{/if}
 </div>

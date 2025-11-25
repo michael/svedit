@@ -4,7 +4,7 @@
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
-	let node = $derived(svedit.editor_state.get(path));
+	let node = $derived(svedit.session.get(path));
 	let has_image = $derived(node.image && node.image.trim() !== '');
 </script>
 

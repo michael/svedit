@@ -10,7 +10,7 @@ describe('Svedit.svelte', () => {
 	it('should map node cursor to DOM', async () => {
 		const doc = create_test_doc();
 
-		/* const { container } = */ render(SveditTest, { editor_state: doc });
+		/* const { container } = */ render(SveditTest, { session: doc });
 
 		// Now set node cursor between first and second node
 		doc.selection = {
@@ -39,7 +39,7 @@ describe('Svedit.svelte', () => {
 
 	it('should map property selection to DOM', async () => {
 		const doc = create_test_doc();
-		/* const { container }  = */ render(SveditTest, { editor_state: doc });
+		/* const { container }  = */ render(SveditTest, { session: doc });
 
 		// Now set property selection
 		doc.selection = {
@@ -61,7 +61,7 @@ describe('Svedit.svelte', () => {
 
 	it('should allow copying and pasting a story node with button reference multiple times', async () => {
 		const doc = create_test_doc();
-		const { container } = render(SveditTest, { editor_state: doc });
+		const { container } = render(SveditTest, { session: doc });
 
 		// Get the original story and button content
 		const original_story = doc.get('story_1');
@@ -489,7 +489,7 @@ describe('Svedit.svelte', () => {
 
 	it('should encode and decode svedit data in HTML clipboard format', async () => {
 		const doc = create_test_doc();
-		const { container } = render(SveditTest, { editor_state: doc });
+		const { container } = render(SveditTest, { session: doc });
 
 		// Select a story node to copy
 		doc.selection = {
@@ -610,7 +610,7 @@ describe('Svedit.svelte', () => {
 
 	it('should handle Unicode characters in clipboard data', async () => {
 		const doc = create_test_doc();
-		const { container } = render(SveditTest, { editor_state: doc });
+		const { container } = render(SveditTest, { session: doc });
 
 		// Create a text node with Unicode characters (emojis, special chars)
 		const unicode_text_id = nanoid();

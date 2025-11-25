@@ -1,4 +1,4 @@
-import EditorState, { define_document_schema } from '../lib/state/EditorState.svelte.js';
+import Session, { define_document_schema } from '../lib/Session.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 // System components
@@ -232,6 +232,6 @@ const document_config = {
 };
 
 export default function create_test_doc() {
-	const doc = new EditorState(document_schema, serialized_doc, { config: document_config });
-	return doc;
+	const session = new Session(document_schema, serialized_doc, { config: document_config });
+	return session;
 }

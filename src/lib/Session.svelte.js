@@ -1,5 +1,5 @@
-import Transaction from '../Transaction.svelte.js';
-import { char_slice, get_char_length, traverse, get_selection_range } from '../util.js';
+import Transaction from './Transaction.svelte.js';
+import { char_slice, get_char_length, traverse, get_selection_range } from './util.js';
 
 /**
  * @import {
@@ -15,7 +15,7 @@ import { char_slice, get_char_length, traverse, get_selection_range } from '../u
  *   DocumentSchema,
  *   SerializedNode,
  *   SerializedDocument
- * } from '../types.d.ts';
+ * } from './types.d.ts';
  */
 
 const BATCH_WINDOW_MS = 1000; // 1 second
@@ -205,12 +205,12 @@ function validate_node(node, schema, all_nodes = {}) {
 }
 
 /**
- * @typedef {Object} EditorStateOptions
+ * @typedef {Object} SessionOptions
  * @property {Selection} [selection] - Initial selection state
  * @property {any} [config] - Editor configuration
  */
 
-export default class EditorState {
+export default class Session {
 	/** @type {Selection | undefined} */
 	#selection = $state.raw();
 
@@ -228,7 +228,7 @@ export default class EditorState {
 	last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
 
 	// Commands and keymap - initialized by Svedit when ready
-	// NOTE: Assumes single Svedit instance per document
+	// NOTE: Assumes single Svedit instance per session
 	commands = $state.raw({});
 	keymap = $state.raw({});
 
@@ -329,7 +329,7 @@ export default class EditorState {
 	/**
 	 * @param {DocumentSchema} schema - The document schema
 	 * @param {SerializedDocument} doc - The serialized document
-	 * @param {EditorStateOptions} [options] - Optional configuration
+	 * @param {SessionOptions} [options] - Optional configuration
 	 */
 	constructor(schema, doc, options = {}) {
 		const { selection, config } = options;
@@ -387,14 +387,14 @@ export default class EditorState {
 	}
 
 	/**
-	 * Initialize commands and keymap for this document.
+	 * Initialize commands and keymap for this session.
 	 * Called by Svedit component when it has the necessary context.
 	 *
-	 * NOTE: This assumes a single Svedit instance per document.
+	 * NOTE: This assumes a single Svedit instance per session.
 	 * For multiple editors on the same document, this architecture would need
-	 * to be refactored to move selection and commands to an EditorState pattern.
+	 * to be refactored to support multiple sessions per document.
 	 *
-	 * @param {object} context - The svedit context with doc, editable, canvas, etc.
+	 * @param {object} context - The svedit context with session, editable, canvas, etc.
 	 */
 	initialize_commands(context) {
 		if (this.config?.create_commands_and_keymap) {
@@ -476,7 +476,7 @@ export default class EditorState {
 	 */
 	get tr() {
 		// We create a copy of the current state to avoid modifying the original
-		const transaction_state = new EditorState(
+		const transaction_state = new Session(
 			this.schema,
 			{ document_id: this.document_id, nodes: this.nodes },
 			{
@@ -496,7 +496,7 @@ export default class EditorState {
 	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
 	 */
 	apply(transaction, { batch = false } = {}) {
-		this.doc = transaction.doc.doc; // Get the doc from the transaction's EditorState
+		this.doc = transaction.doc.doc; // Get the doc from the transaction's Session
 		// Make sure selection gets a new reference (is rerendered)
 		this.selection = structuredClone(transaction.doc.selection);
 		if (this.history_index < this.history.length - 1) {
@@ -577,19 +577,19 @@ export default class EditorState {
 	 * @returns {any} Either a node instance object or the value of a property
 	 * @example
 	 * // Get a node by ID
-	 * doc.get('list_1') // => { type: 'list', id: 'list_1', ... }
+	 * session.get('list_1') // => { type: 'list', id: 'list_1', ... }
 	 *
 	 * @example
 	 * // Get a node array property
-	 * doc.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
+	 * session.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
 	 *
 	 * @example
 	 * // Get a specific node from an array
-	 * doc.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
+	 * session.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
 	 *
 	 * @example
 	 * // Get an annotated text property
-	 * doc.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
+	 * session.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
 	 */
 	get(path) {
 		if (typeof path === 'string') {
@@ -673,7 +673,7 @@ export default class EditorState {
 	 * @todo The layout of these should be improved and more explictly typed
 	 *
 	 * @example
-	 * doc.inspect(['page_1', 'body']) => {
+	 * session.inspect(['page_1', 'body']) => {
 	 *   kind: 'property',
 	 *   name: 'body',
 	 *   type: 'node_array',
@@ -682,7 +682,7 @@ export default class EditorState {
 	 * }
 	 *
 	 * @example
-	 * doc.inspect(['page_1', 'body', 1]) => {
+	 * session.inspect(['page_1', 'body', 1]) => {
 	 *   kind: 'node',
 	 *   id: 'paragraph_234',
 	 *   type: 'paragraph',
