@@ -60,11 +60,7 @@ Svedit connects five key pieces:
 
 All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The session's selection state syncs bidirectionally with the DOM selection.
 
-## Graph data model
-
-Svedit documents are represented in a simple JSON-based graph data model. There's a globally addressable space, a graph of content nodes if you want. This allows you to share pieces of content not only in the same document, but across multiple documents. E.g. you could share a navigation bar, while still being able to edit it in place (while changes will affect all places they are used).
-
-## Schema definitions
+## Schema
 
 You can use a simple JSON-compatible schema definition language to enforce constraints on your documents. E.g. to make sure a page node always has a property body with references to nodes that are allowed within a page.
 
@@ -145,8 +141,7 @@ const document_schema = {
 };
 ```
 
-
-## Document format
+## Document
 
 A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes.
 
@@ -202,7 +197,7 @@ const doc = {
 };
 ```
 
-## Document config
+## Config
 
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
 
