@@ -244,13 +244,13 @@ const document_config = {
 
 The config is accessible throughout your app via `session.config`.
 
-## Session API
+## Session
 
 The `Session` class manages your content graph, selection state, and history. See [`src/lib/Session.svelte.js`](src/lib/Session.svelte.js) for the full API.
 
-## Immutable document state
+### Immutable state
 
-The content of a session (`session.doc`) is stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(session.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
+The content of a session (`session.doc`) as well as the selection (`session.selection`) are stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(session.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
 
 ### Creating a session
 
@@ -390,7 +390,7 @@ function insert_heading(tr) {
 
 Transactions provide the same API surface as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, etc.), so transforms can query the editor state without needing a reference to the session.
 
-## Transaction API
+## Transaction
 
 Transactions group multiple operations into atomic units that can be applied and undone as one. See [`src/lib/Transaction.svelte.js`](src/lib/Transaction.svelte.js) for the full API.
 
@@ -449,7 +449,7 @@ tr.create(node)
   .set_selection(new_selection);
 ```
 
-## Commands API
+## Commands
 
 Commands provide a structured way to implement user actions. Commands are stateful and UI-aware, unlike transforms which are pure functions.
 
