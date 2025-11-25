@@ -1,6 +1,6 @@
 # Svedit
 
-Svedit (think Svelte Edit) is a tiny library for building editable websites in Svelte. You can model your content in JSON, render it with custom Svelte components, and (this is the kicker) site owners can edit their site directly in the layout — **no CMS needed**.
+Svedit (think Svelte Edit) is a tiny library for building editable websites in Svelte. You can model your content in JSON, render it with custom Svelte components, and (this is the kicker) site owners can **edit their site directly in the layout** — no CMS needed.
 
 Try the [demo](https://svedit.dev).
 
@@ -37,9 +37,9 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 ## Principles
 
-**Chromeless canvas:** We keep the canvas chromeless, meaning there's no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools are shown in separate overlays or in the fixed toolbar.
+**Chromeless canvas:** We keep the canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
 
-**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, we assume that a node with a property named `content` of type `annotated_text` is considered kind `text`, while all other nodes are considered kind `node`. Text nodes have special behavior in the system for editing (e.g. they can be splitted and joined).
+**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, a node with a property named `content` of type `annotated_text` is considered kind `text`, while all other nodes are considered kind `block`. Text nodes have special behavior in the system for editing (e.g. they can be split and joined).
 
 **White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
 
@@ -55,7 +55,7 @@ Svedit connects five key pieces:
 
 **The flow:**
 - Define a schema → create a Session → provide config → render with `<Svedit>` component
-- User interactions trigger commands → commands use transactions → transactions are composed of transforms → session is modified
+- User interactions trigger commands → commands create transactions → transforms modify transactions → session applies the transaction
 - Svelte's reactivity automatically updates the UI
 
 All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The session's selection state syncs bidirectionally with the DOM selection.
@@ -70,7 +70,11 @@ You can use a simple JSON-compatible schema definition language to enforce const
 
 First off, everything is a node. The page is a node, and so is a paragraph, a list, a list item, a nav and a nav item.
 
-A top-level node that is accessible via a route we internally call a `document` (e.g. a page, event, etc.)
+Each node has a `kind` that determines its behavior:
+- `document`: A top-level node accessible via a route (e.g. a page, event)
+- `block`: A structured node that contains other nodes or properties
+- `text`: A node with editable text content (can be split and joined)
+- `annotation`: An inline annotation applied to text (bold, link, etc.)
 
 Properties of nodes can hold values:
 - `string`: A good old JavaScript string
@@ -250,7 +254,7 @@ The `Session` class manages your content graph, selection state, and history. Se
 
 ### Immutable state
 
-The content of a session (`session.doc`) as well as the selection (`session.selection`) are stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(session.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
+Document content (`session.doc`) and selection (`session.selection`) are **immutable** with **copy-on-write** semantics. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, `console.log(session.get(some_node_id))` gives you a readable raw object, not a proxy.
 
 ### Creating a session
 
@@ -275,7 +279,7 @@ session.kind(node)                      // => 'text', 'block', or 'annotation'
 ```js
 session.selection                       // Current selection (text, node, or property)
 session.selected_node                   // The currently selected node (derived)
-session.active_annotation('bold')       // Check if annotation is active at cursor
+session.active_annotation('strong')     // Check if annotation is active at cursor
 session.can_insert('paragraph')         // Check if node type can be inserted
 session.available_annotation_types      // Annotation types allowed at current selection (derived)
 ```
@@ -329,6 +333,8 @@ session.doc.document_id                 // The document's root ID
 session.generate_id()                   // Generate a new unique ID
 session.config                          // Access the config object
 session.validate_doc()                  // Validate all nodes against schema
+session.traverse(node_id)               // Get all nodes reachable from a node
+session.select_parent()                 // Select parent of current selection
 ```
 
 ## Transforms
@@ -388,11 +394,9 @@ function insert_heading(tr) {
 }
 ```
 
-Transactions provide the same API surface as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, etc.), so transforms can query the editor state without needing a reference to the session.
-
 ## Transaction
 
-Transactions group multiple operations into atomic units that can be applied and undone as one. See [`src/lib/Transaction.svelte.js`](src/lib/Transaction.svelte.js) for the full API.
+Transactions group multiple operations into atomic units that can be applied and undone as one. They provide the same read API as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, `tr.generate_id()`), so transforms can query document state directly. See [`src/lib/Transaction.svelte.js`](src/lib/Transaction.svelte.js) for the full API.
 
 ### Basic usage
 
@@ -405,24 +409,27 @@ session.apply(tr);                          // Apply atomically
 ### Node operations
 
 ```js
-// Create a new node
-tr.create({ id: 'para_1', type: 'paragraph', content: {...} });
+// Create a new node (must include all required properties from schema)
+tr.create({ id: 'para_1', type: 'paragraph', content: { text: '', annotations: [] } });
 
-// Delete a node
+// Delete a node (cascades to unreferenced child nodes)
 tr.delete('node_id');
 
-// Insert nodes into a node_array
+// Insert nodes at current node selection
 tr.insert_nodes(['node_1', 'node_2']);
+
+// Build a subgraph from existing nodes (generates new IDs)
+const new_root_id = tr.build(source_node_id, source_nodes);
 ```
 
 ### Text operations
 
 ```js
-// Insert text at cursor
+// Insert text at cursor (replaces selection if expanded)
 tr.insert_text('Hello');
 
-// Annotate selected text
-tr.annotate_text('bold');
+// Toggle annotation on selected text
+tr.annotate_text('strong');
 tr.annotate_text('link', { href: 'https://example.com' });
 
 // Delete selected text or nodes
@@ -468,15 +475,15 @@ Document-scoped commands operate on a specific document and have access to its s
 Extend the `Command` base class and implement the `is_enabled()` and `execute()` methods:
 
 ```js
-import Command from 'svedit';
+import { Command } from 'svedit';
 
-class ToggleBoldCommand extends Command {
+class ToggleStrongCommand extends Command {
   is_enabled() {
     return this.context.editable && this.context.session.selection?.type === 'text';
   }
 
   execute() {
-    this.context.session.apply(this.context.session.tr.annotate_text('bold'));
+    this.context.session.apply(this.context.session.tr.annotate_text('strong'));
   }
 }
 ```
@@ -555,9 +562,9 @@ Bind commands to UI elements in your components:
 
 ```svelte
 <button 
-  disabled={document_commands.bold.disabled}
-  class:active={document_commands.bold.active}
-  onclick={() => document_commands.bold.execute()}>
+  disabled={document_commands.toggle_strong.disabled}
+  class:active={document_commands.toggle_strong.active}
+  onclick={() => document_commands.toggle_strong.execute()}>
   Bold
 </button>
 ```
@@ -567,16 +574,16 @@ Bind commands to UI elements in your components:
 Commands can have derived state for reactive UI binding. The `active` property in toggle commands is a common pattern:
 
 ```js
-class ToggleItalicCommand extends Command {
+class ToggleEmphasisCommand extends Command {
   // Automatically recomputes when annotation state changes
-  active = $derived(this.context.session.active_annotation('italic'));
+  active = $derived(this.context.session.active_annotation('emphasis'));
 
   is_enabled() {
     return this.context.editable && this.context.session.selection?.type === 'text';
   }
 
   execute() {
-    this.context.session.apply(this.context.session.tr.annotate_text('italic'));
+    this.context.session.apply(this.context.session.tr.annotate_text('emphasis'));
   }
 }
 ```
@@ -626,7 +633,7 @@ This means commands automatically work with the correct document based on focus.
 App-level commands have their own context, separate from any specific document:
 
 ```js
-import Command from 'svedit';
+import { Command } from 'svedit';
 
 class SaveCommand extends Command {
   is_enabled() {
