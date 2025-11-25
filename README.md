@@ -298,6 +298,30 @@ session.undo()
 session.redo()
 ```
 
+### Detecting unsaved changes
+
+Because document state is immutable, you can detect unsaved changes by comparing references. When a change is made, `session.doc` gets a new reference — unchanged documents keep the same reference.
+
+```js
+let last_saved_doc = $state(null);
+let has_unsaved_changes = $derived.by(() => {
+  if (!last_saved_doc) {
+    // No save yet — use undo history as indicator
+    return session.can_undo;
+  } else {
+    // Compare current doc reference against last saved
+    return last_saved_doc !== session.doc;
+  }
+});
+
+function save() {
+  // ... save to server ...
+  last_saved_doc = session.doc;
+}
+```
+
+This works because of Svedit's copy-on-write strategy: only modified parts of the document are copied, so reference equality is a reliable and efficient way to detect changes. You can use `has_unsaved_changes` to show/hide a save button, display a dirty indicator, or warn before navigating away.
+
 ### Utilities
 
 ```js
