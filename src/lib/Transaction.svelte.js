@@ -28,19 +28,19 @@ import { join_text_node } from './transforms.svelte.js';
  */
 export default class Transaction {
 	/**
-	 * Creates a new Transaction for the given document.
+	 * Creates a new Transaction for the given session.
 	 *
-	 * @param {any} doc - The document instance this transaction operates on
+	 * @param {any} session - The session instance this transaction operates on
 	 */
-	constructor(doc) {
-		this.doc = doc;
+	constructor(session) {
+		this.session = session;
 		// Here we track the ops during the transaction
 		/** @type {Record<string, any>[]} */
 		this.ops = [];
 		/** @type {Record<string, any>[]} */
 		this.inverse_ops = [];
 		// Remember the selection before the transaction started
-		this.selection_before = this.doc.selection;
+		this.selection_before = this.session.selection;
 	}
 
 	/**
@@ -50,7 +50,7 @@ export default class Transaction {
 	 * @returns {any} The value at the specified path
 	 */
 	get(path) {
-		return this.doc.get(path);
+		return this.session.get(path);
 	}
 
 	/**
@@ -59,7 +59,7 @@ export default class Transaction {
 	 * @returns {Selection} The current selection object
 	 */
 	get selection() {
-		return this.doc.selection;
+		return this.session.selection;
 	}
 
 	/**
@@ -79,7 +79,7 @@ export default class Transaction {
 	 * ```
 	 */
 	set(path, value) {
-		const node = this.doc.get(path.slice(0, -1));
+		const node = this.session.get(path.slice(0, -1));
 
 		// Turns ["page_1", "body", "0", "description"]
 		// into ["paragraph_1", "description"].
@@ -94,7 +94,7 @@ export default class Transaction {
 		const previous_value = structuredClone($state.snapshot(node[property_key]));
 
 		// Collect node IDs that might need to be deleted after the set operation
-		const prop_type = this.doc.property_type(node.type, property_key);
+		const prop_type = this.session.property_type(node.type, property_key);
 		/** @type {NodeId[]} */
 		let removed_node_ids = [];
 
@@ -112,7 +112,7 @@ export default class Transaction {
 		const op = ['set', normalized_path, value];
 		this.ops.push(op);
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
-		this.doc._apply_op(op);
+		this.session._apply_op(op);
 
 		for (const removed_node_id of removed_node_ids) {
 			// NOTE: This implicitly deletes childnodes as well, given that they are no longer referenced.
@@ -126,15 +126,15 @@ export default class Transaction {
 	// NOTE: all ids will be mapped to new unique ids.
 	// NOTE: Omitted properties will be populated with default values.
 	build(node_id, nodes) {
-		const depth_first_nodes = traverse(node_id, this.doc.schema, nodes);
+		const depth_first_nodes = traverse(node_id, this.session.schema, nodes);
 		// This maps original ids to newly generated ids
 		const id_map = {};
 
 		for (const node of depth_first_nodes) {
-			const new_id = this.doc.generate_id();
+			const new_id = this.session.generate_id();
 			id_map[node.id] = new_id;
 			const new_node = { ...node, id: new_id };
-			const node_schema = this.doc.schema[node.type];
+			const node_schema = this.session.schema[node.type];
 
 			// Update all property references to use new IDs
 			for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
@@ -202,16 +202,16 @@ export default class Transaction {
 	 */
 	create(node) {
 		// Validate node against schema
-		this.doc.validate_node(node);
+		this.session.validate_node(node);
 
-		if (this.doc.get(node.id)) {
+		if (this.session.get(node.id)) {
 			throw new Error('Node with id ' + node.id + ' already exists');
 		}
 
 		const op = ['create', node];
 		this.ops.push(op);
 		this.inverse_ops.push(['delete', node.id]);
-		this.doc._apply_op(op);
+		this.session._apply_op(op);
 		return this;
 	}
 
@@ -229,16 +229,16 @@ export default class Transaction {
 	 * ```
 	 */
 	delete(id) {
-		const previous_value = this.doc.get(id);
+		const previous_value = this.session.get(id);
 		if (!previous_value) {
 			console.warn(`Deletion of node ${id} skipped, as it does not exist.`);
 		}
 		// Get nodes referenced by this node BEFORE deleting it.
-		const referenced_nodes = this.doc.get_referenced_nodes(id);
+		const referenced_nodes = this.session.get_referenced_nodes(id);
 		const op = ['delete', id];
 		this.ops.push(op);
 		this.inverse_ops.push(['create', previous_value]);
-		this.doc._apply_op(op);
+		this.session._apply_op(op);
 		// Check if the nodes that were referenced by the deleted node are now orphaned
 		// NOTE: We don't do this yet, because we still have some manual child node removal code
 		// that causes errors. But we should soon implement this only here.
@@ -254,8 +254,8 @@ export default class Transaction {
 	 * @throws {Error} Throws if the selection is invalid or out of bounds
 	 */
 	set_selection(selection) {
-		this.doc._validate_selection(selection);
-		this.doc.selection = selection;
+		this.session._validate_selection(selection);
+		this.session.selection = selection;
 		return this;
 	}
 
@@ -280,13 +280,15 @@ export default class Transaction {
 	 * ```
 	 */
 	annotate_text(annotation_type, annotation_properties) {
-		if (this.doc.selection.type !== 'text') return this;
+		if (this.session.selection.type !== 'text') return this;
 
-		const { start, end } = get_selection_range(this.doc.selection);
-		const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
+		const { start, end } = get_selection_range(this.session.selection);
+		const annotated_text = structuredClone(
+			$state.snapshot(this.session.get(this.session.selection.path))
+		);
 		const annotations = annotated_text.annotations;
-		const existing_annotation = this.doc.active_annotation();
-		const existing_annotation_same_type = this.doc.active_annotation(annotation_type);
+		const existing_annotation = this.session.active_annotation();
+		const existing_annotation_same_type = this.session.active_annotation(annotation_type);
 
 		if (existing_annotation) {
 			// If there's an existing annotation of the same type, remove it
@@ -306,16 +308,16 @@ export default class Transaction {
 				return this;
 			}
 		} else {
-			if (is_selection_collapsed(this.doc.selection)) {
+			if (is_selection_collapsed(this.session.selection)) {
 				console.log('Annotations can only be added to expanded text selections.');
 				return this;
 			}
-			if (!this.doc.available_annotation_types.includes(annotation_type)) {
+			if (!this.session.available_annotation_types.includes(annotation_type)) {
 				console.log(`Annotation type ${annotation_type} is not allowed here.`);
 				return this;
 			}
 			const new_annotation_node = {
-				id: this.doc.generate_id(),
+				id: this.session.generate_id(),
 				type: annotation_type,
 				...annotation_properties
 			};
@@ -325,7 +327,7 @@ export default class Transaction {
 		}
 
 		// Update the annotated text
-		this.set(this.doc.selection.path, annotated_text);
+		this.set(this.session.selection.path, annotated_text);
 		return this;
 	}
 
@@ -342,19 +344,19 @@ export default class Transaction {
 	 * @returns {Transaction} This transaction instance for method chaining
 	 */
 	delete_selection(direction = 'backward') {
-		if (!this.doc.selection || this.doc.selection.type === 'property') return this;
-		const path = this.doc.selection.path;
+		if (!this.session.selection || this.session.selection.type === 'property') return this;
+		const path = this.session.selection.path;
 
 		// Get the start and end indices for the selection
-		let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
-		let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
+		let start = Math.min(this.session.selection.anchor_offset, this.session.selection.focus_offset);
+		let end = Math.max(this.session.selection.anchor_offset, this.session.selection.focus_offset);
 		let length;
 
-		if (this.doc.selection?.type === 'text') {
-			const text_content = this.doc.get(this.doc.selection.path).text;
+		if (this.session.selection?.type === 'text') {
+			const text_content = this.session.get(this.session.selection.path).text;
 			length = get_char_length(text_content);
-		} else if (this.doc.selection?.type === 'node') {
-			const node_array = this.doc.get(this.doc.selection.path);
+		} else if (this.session.selection?.type === 'node') {
+			const node_array = this.session.get(this.session.selection.path);
 			length = node_array.length;
 		}
 
@@ -370,17 +372,17 @@ export default class Transaction {
 				return this;
 			} else if (direction === 'forward' && end === length) {
 				// At end of text - try to join with next text node
-				const node_index = parseInt(String(this.doc.selection.path.at(-2)), 10);
-				const successor_node = this.doc.get([
-					...this.doc.selection.path.slice(0, -2),
+				const node_index = parseInt(String(this.session.selection.path.at(-2)), 10);
+				const successor_node = this.session.get([
+					...this.session.selection.path.slice(0, -2),
 					node_index + 1
 				]);
 				// Check if next node is a text node
-				if (successor_node && this.doc.kind(successor_node) === 'text') {
+				if (successor_node && this.session.kind(successor_node) === 'text') {
 					// Set selection to beginning of next text node
 					this.set_selection({
 						type: 'text',
-						path: [...this.doc.selection.path.slice(0, -2), node_index + 1, 'content'],
+						path: [...this.session.selection.path.slice(0, -2), node_index + 1, 'content'],
 						anchor_offset: 0,
 						focus_offset: 0
 					});
@@ -391,8 +393,8 @@ export default class Transaction {
 			}
 		}
 
-		if (this.doc.selection.type === 'node') {
-			const node_array = [...this.doc.get(path)];
+		if (this.session.selection.type === 'node') {
+			const node_array = [...this.session.get(path)];
 
 			// Remove the selected nodes from the node_array
 			node_array.splice(start, end - start);
@@ -402,15 +404,15 @@ export default class Transaction {
 			this.set(path, node_array);
 
 			// Update the selection to point to the start of the deleted range
-			this.doc.selection = {
+			this.session.selection = {
 				type: 'node',
 				path,
 				anchor_offset: start,
 				focus_offset: start
 			};
-		} else if (this.doc.selection.type === 'text') {
-			const path = this.doc.selection.path;
-			let text = structuredClone($state.snapshot(this.doc.get(path)));
+		} else if (this.session.selection.type === 'text') {
+			const path = this.session.selection.path;
+			let text = structuredClone($state.snapshot(this.session.get(path)));
 
 			// Update the text content using character-based operations
 			const original_text = text.text;
@@ -498,19 +500,19 @@ export default class Transaction {
 	 * ```
 	 */
 	insert_nodes(node_ids) {
-		if (this.doc.selection.type !== 'node') return this;
+		if (this.session.selection.type !== 'node') return this;
 
 		// Unless cursor is collapsed, delete the selected nodes as a first step
-		if (this.doc.selection.anchor_offset !== this.doc.selection.focus_offset) {
+		if (this.session.selection.anchor_offset !== this.session.selection.focus_offset) {
 			this.delete_selection();
 		}
 
-		const path = this.doc.selection.path;
-		const node_array = [...this.doc.get(path)];
+		const path = this.session.selection.path;
+		const node_array = [...this.session.get(path)];
 
 		// Get the start and end indices for the selection
-		let start = Math.min(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
-		let end = Math.max(this.doc.selection.anchor_offset, this.doc.selection.focus_offset);
+		let start = Math.min(this.session.selection.anchor_offset, this.session.selection.focus_offset);
+		let end = Math.max(this.session.selection.anchor_offset, this.session.selection.focus_offset);
 
 		if (start !== end) {
 			// Remove the currently selected nodes from the node_array
@@ -524,9 +526,9 @@ export default class Transaction {
 		// Update the node_array in the entry
 		this.set(path, node_array);
 
-		this.doc.selection = {
+		this.session.selection = {
 			type: 'node',
-			path: [...this.doc.selection.path],
+			path: [...this.session.selection.path],
 			anchor_offset: start,
 			focus_offset: start + node_ids.length
 		};
@@ -550,16 +552,18 @@ export default class Transaction {
 	 * ```
 	 */
 	insert_text(replaced_text, annotations = [], nodes = {}) {
-		if (this.doc.selection?.type !== 'text') return this;
+		if (this.session.selection?.type !== 'text') return this;
 
 		// Unless selection is collapsed, delete the selected content
 		// NOTE: This makes sure wrapped annotations are disposed correctly
-		if (!is_selection_collapsed(this.doc.selection)) {
+		if (!is_selection_collapsed(this.session.selection)) {
 			this.delete_selection();
 		}
 
-		const annotated_text = structuredClone($state.snapshot(this.doc.get(this.doc.selection.path)));
-		const { start, end } = get_selection_range(this.doc.selection);
+		const annotated_text = structuredClone(
+			$state.snapshot(this.session.get(this.session.selection.path))
+		);
+		const { start, end } = get_selection_range(this.session.selection);
 
 		// Transform the plain text string using character-based operations
 		const text = annotated_text.text;
@@ -635,24 +639,24 @@ export default class Transaction {
 			.filter(Boolean);
 
 		annotated_text.annotations = new_annotations;
-		this.set(this.doc.selection.path, annotated_text); // this will update the current state and create a history entry
+		this.set(this.session.selection.path, annotated_text); // this will update the current state and create a history entry
 
 		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
 		const new_selection = {
 			type: 'text',
-			path: this.doc.selection.path,
+			path: this.session.selection.path,
 			anchor_offset: start + get_char_length(replaced_text),
 			focus_offset: start + get_char_length(replaced_text)
 		};
-		this.doc.selection = new_selection;
+		this.session.selection = new_selection;
 
 		// Now we apply annotations if there are any, but only if there's no active annotation
 		// at the current collapsed cursor
-		if (!this.doc.active_annotation() && annotations.length > 0) {
+		if (!this.session.active_annotation() && annotations.length > 0) {
 			const new_annotations = annotations
 				.map((annotation) => {
 					const original_annotation_node = nodes[annotation.node_id];
-					const text_property_definition = this.doc.inspect(this.doc.selection.path);
+					const text_property_definition = this.session.inspect(this.session.selection.path);
 					// console.log('original_annotation_node.type', original_annotation_node.type);
 					// console.log('text_property_definition', text_property_definition);
 					if (text_property_definition.node_types.includes(original_annotation_node.type)) {
@@ -670,7 +674,7 @@ export default class Transaction {
 				.filter(Boolean);
 			const next_annotated_text = structuredClone(annotated_text);
 			next_annotated_text.annotations = next_annotated_text.annotations.concat(new_annotations);
-			this.set(this.doc.selection.path, next_annotated_text); // this will update the current state and create a history entry
+			this.set(this.session.selection.path, next_annotated_text); // this will update the current state and create a history entry
 		}
 
 		return this;
@@ -707,7 +711,7 @@ export default class Transaction {
 				nodes_to_delete[node_id] = true;
 
 				// Also check all nodes referenced by this node
-				const referenced_nodes = this.doc.get_referenced_nodes(node_id);
+				const referenced_nodes = this.session.get_referenced_nodes(node_id);
 				to_check.push(...referenced_nodes);
 			}
 		}
@@ -732,14 +736,14 @@ export default class Transaction {
 	_count_references_excluding_deleted(target_node_id, nodes_to_delete) {
 		let count = 0;
 
-		for (const node of Object.values(this.doc.doc.nodes)) {
+		for (const node of Object.values(this.session.doc.nodes)) {
 			// Skip nodes that are marked for deletion
 			if (nodes_to_delete[node.id]) continue;
 
 			for (const [property, value] of Object.entries(node)) {
 				if (property === 'id' || property === 'type') continue;
 
-				const prop_type = this.doc.property_type(node.type, property);
+				const prop_type = this.session.property_type(node.type, property);
 
 				if (prop_type === 'node_array' && Array.isArray(value)) {
 					count += value.filter((id) => id === target_node_id).length;

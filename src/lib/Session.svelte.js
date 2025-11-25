@@ -466,7 +466,7 @@ export default class Session {
 	 */
 	get tr() {
 		// We create a copy of the current state to avoid modifying the original
-		const transaction_state = new Session(
+		const transaction_session = new Session(
 			this.schema,
 			{ document_id: this.document_id, nodes: this.doc.nodes },
 			{
@@ -474,7 +474,7 @@ export default class Session {
 				selection: this.selection
 			}
 		);
-		return new Transaction(transaction_state);
+		return new Transaction(transaction_session);
 	}
 
 	/**
@@ -486,9 +486,9 @@ export default class Session {
 	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
 	 */
 	apply(transaction, { batch = false } = {}) {
-		this.doc = transaction.doc.doc; // Get the doc from the transaction's Session
+		this.doc = transaction.session.doc; // Get the doc from the transaction's Session
 		// Make sure selection gets a new reference (is rerendered)
-		this.selection = structuredClone(transaction.doc.selection);
+		this.selection = structuredClone(transaction.session.selection);
 		if (this.history_index < this.history.length - 1) {
 			this.history = this.history.slice(0, this.history_index + 1);
 		}
@@ -539,8 +539,8 @@ export default class Session {
 		change.inverse_ops
 			.slice()
 			.reverse()
-			.forEach((op) => tr.doc._apply_op(op));
-		this.doc = tr.doc.doc;
+			.forEach((op) => tr.session._apply_op(op));
+		this.doc = tr.session.doc;
 		this.selection = change.selection_before;
 		this.history_index = this.history_index - 1;
 		return this;
@@ -553,10 +553,10 @@ export default class Session {
 		this.history_index = this.history_index + 1;
 		const change = this.history[this.history_index];
 		const tr = this.tr;
-		change.ops.forEach((op) => tr.doc._apply_op(op));
+		change.ops.forEach((op) => tr.session._apply_op(op));
 		tr.set_selection(change.selection_after);
 
-		this.doc = tr.doc.doc;
+		this.doc = tr.session.doc;
 		this.selection = change.selection_after;
 		return this;
 	}
