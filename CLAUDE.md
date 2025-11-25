@@ -25,6 +25,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Only implement the specific change requested
 - You can suggest what the next step could be, but don't implement it
 
+**Refactoring Guidelines:**
+- During refactors, make ONLY the minimal changes needed (e.g., renaming APIs)
+- Do NOT "improve" or restructure logic while refactoring
+- If you see something that could be improved, note it separately for a future task
+- Refactoring and improving are two separate activities - never combine them
+
 **Code Style:**
 - Use snake_case for all variable names, function names, and identifiers
 - This applies to JavaScript/TypeScript code, test files, and any new code written
