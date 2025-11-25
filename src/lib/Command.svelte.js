@@ -292,11 +292,16 @@ export class SelectAllCommand extends Command {
 
 /**
  * Command that inserts a default node at the current cursor position.
- * Only works when a node selection is active.
+ * Only works when a collapsed node selection is active.
  */
 export class InsertDefaultNodeCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.doc.selection?.type === 'node';
+		const selection = this.context.doc.selection;
+		return (
+			this.context.editable &&
+			selection?.type === 'node' &&
+			selection.anchor_offset === selection.focus_offset
+		);
 	}
 
 	execute() {
