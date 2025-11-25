@@ -361,7 +361,7 @@ export default class Session {
 		return this.doc.document_id;
 	}
 
-	validate() {
+	validate_doc() {
 		for (const node of Object.values(this.doc.nodes)) {
 			validate_node(node, this.schema, this.doc.nodes);
 		}

@@ -48,17 +48,17 @@ Now make it your own. The next thing you probably want to do is define your own 
 Svedit connects five key pieces:
 
 1. **Schema** - Define your content structure (node types, properties, annotations)
-2. **Document** - Manages the content graph, selection state, and history
+2. **Session** - Manages the content graph, selection state, and history
 3. **Config** - Maps node types to components, provides inserters and commands
 4. **Components** - Render your content using Svelte (one component per node type)
-5. **Commands** - User actions (bold text, insert node, undo/redo) that modify the document
+5. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
 
 **The flow:**
-- Define a schema → create a Document → provide config → render with `<Svedit>` component
-- User interactions trigger commands → commands use transactions → transactions are composed of transforms → document is modified
+- Define a schema → create a Session → provide config → render with `<Svedit>` component
+- User interactions trigger commands → commands use transactions → transactions are composed of transforms → session is modified
 - Svelte's reactivity automatically updates the UI
 
-All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The document's selection state syncs bidirectionally with the DOM selection.
+All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The session's selection state syncs bidirectionally with the DOM selection.
 
 ## Graph data model
 
@@ -229,7 +229,7 @@ const document_config = {
   create_commands_and_keymap: (context) => { ... },
   
   // Optional: handle image paste events
-  handle_image_paste: (doc, images) => { ... }
+  handle_image_paste: (session, images) => { ... }
 };
 ```
 
@@ -242,63 +242,69 @@ const document_config = {
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events
 
-The config is accessible throughout your app via `doc.config`.
+The config is accessible throughout your app via `session.config`.
 
-## Document API
+## Session API
 
-The Document class manages your content graph, selection state, and history. See [`src/lib/Document.svelte.js`](src/lib/Document.svelte.js) for the full API.
+The `Session` class manages your content graph, selection state, and history. See [`src/lib/Session.svelte.js`](src/lib/Session.svelte.js) for the full API.
 
 ## Immutable document state
 
-The content of a document (doc.nodes) is stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(doc.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
+The content of a session (`session.doc`) is stored as an **immutable data structure** with a **copy-on-write strategy**. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, when you do `console.log(session.get(some_node_id))` you'll get a more readable raw object, rather than a proxy.
 
-### Creating a document
+### Creating a session
 
 ```js
-const doc = new Document(schema, serialized_doc, { config });
+import { Session } from 'svedit';
+
+const session = new Session(schema, serialized_doc, { config });
 ```
 
 ### Reading the graph
 
 ```js
-doc.get(['page_1', 'body'])         // => ['nav_1', 'paragraph_1', 'list_1']
-doc.get(['nav_1'])                  // => { id: 'nav_1', type: 'nav', ... }
-doc.inspect(['page_1', 'body'])     // => { type: 'node_array', node_types: [...] }
-doc.kind(node)                      // => 'text' or 'node'
+session.get(['page_1', 'body'])         // => ['nav_1', 'paragraph_1', 'list_1']
+session.get(['nav_1'])                  // => { id: 'nav_1', type: 'nav', ... }
+session.get('nav_1')                    // => shorthand for above (single node ID)
+session.inspect(['page_1', 'body'])     // => { kind: 'property', type: 'node_array', node_types: [...] }
+session.kind(node)                      // => 'text', 'block', or 'annotation'
 ```
 
 ### Selection and state
 
 ```js
-doc.selection                       // Current selection (text, node, or property)
-doc.selected_node                   // The currently selected node (derived)
-doc.active_annotation('bold')       // Check if annotation is active at cursor
-doc.can_insert('paragraph')         // Check if node type can be inserted
+session.selection                       // Current selection (text, node, or property)
+session.selected_node                   // The currently selected node (derived)
+session.active_annotation('bold')       // Check if annotation is active at cursor
+session.can_insert('paragraph')         // Check if node type can be inserted
+session.available_annotation_types      // Annotation types allowed at current selection (derived)
 ```
 
 ### Making changes
 
 ```js
-const tr = doc.tr;                  // Create a transaction
+const tr = session.tr;                  // Create a transaction
 tr.set(['nav_1', 'label'], 'Home');
 tr.insert_nodes(['new_node_id']);
-doc.apply(tr);                      // Apply the transaction
+session.apply(tr);                      // Apply the transaction
 ```
 
 ### History
 
 ```js
-doc.can_undo                        // Boolean (derived)
-doc.can_redo                        // Boolean (derived)
-doc.undo()
-doc.redo()
+session.can_undo                        // Boolean (derived)
+session.can_redo                        // Boolean (derived)
+session.undo()
+session.redo()
 ```
 
 ### Utilities
 
 ```js
-doc.select_parent()                 // Select parent of current selection
-doc.config                          // Access the config object
+session.doc.document_id                 // The document's root ID
+session.generate_id()                   // Generate a new unique ID
+session.config                          // Access the config object
+session.validate_doc()                  // Validate all nodes against schema
 ```
 
 ## Transforms
@@ -311,10 +317,10 @@ Transforms take a transaction (`tr`) as their parameter and return `true` if suc
 // Example: break a text node at the cursor
 import { break_text_node } from 'svedit';
 
-const tr = doc.tr;
+const tr = session.tr;
 const success = break_text_node(tr);
 if (success) {
-  doc.apply(tr);
+  session.apply(tr);
 }
 ```
 
@@ -345,19 +351,20 @@ You're encouraged to write custom transforms for your application's specific nee
 
 ```js
 function insert_heading(tr) {
-  const doc = tr.doc;
-  const selection = doc.selection;
+  const selection = tr.selection;
   
   if (selection?.type !== 'node') return false;
   
   // Create and insert a heading node
-  const heading_id = doc.config.generate_id();
+  const heading_id = tr.generate_id();
   tr.create_node(heading_id, 'heading', { content: { text: '', annotations: [] } });
   tr.insert_nodes(selection.path, selection.anchor_offset, [heading_id]);
   
   return true;
 }
 ```
+
+Transactions provide the same API surface as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, etc.), so transforms can query the editor state without needing a reference to the session.
 
 ## Transaction API
 
@@ -366,9 +373,9 @@ Transactions group multiple operations into atomic units that can be applied and
 ### Basic usage
 
 ```js
-const tr = doc.tr;                          // Create a new transaction
+const tr = session.tr;                      // Create a new transaction
 tr.set(['node_1', 'title'], 'New Title');   // Modify properties
-doc.apply(tr);                              // Apply atomically
+session.apply(tr);                          // Apply atomically
 ```
 
 ### Node operations
@@ -441,11 +448,11 @@ import Command from 'svedit';
 
 class ToggleBoldCommand extends Command {
   is_enabled() {
-    return this.context.editable && this.context.doc.selection?.type === 'text';
+    return this.context.editable && this.context.session.selection?.type === 'text';
   }
 
   execute() {
-    this.context.doc.apply(this.context.doc.tr.annotate_text('bold'));
+    this.context.session.apply(this.context.session.tr.annotate_text('bold'));
   }
 }
 ```
@@ -454,7 +461,7 @@ class ToggleBoldCommand extends Command {
 
 Document-scoped commands receive a `context` object with access to the Svedit instance state:
 
-- `context.doc` - The current document instance
+- `context.session` - The current session instance
 - `context.editable` - Whether the editor is in edit mode
 - `context.canvas` - The DOM element of the Svedit editor canvas
 - `context.is_composing` - Whether IME composition is currently taking place
@@ -467,7 +474,7 @@ Determines if the command can currently be executed. This is automatically evalu
 
 ```js
 is_enabled() {
-  return this.context.editable && this.context.doc.selection?.type === 'text';
+  return this.context.editable && this.context.session.selection?.type === 'text';
 }
 ```
 
@@ -477,9 +484,9 @@ Executes the command's action. Can be synchronous or asynchronous.
 
 ```js
 execute() {
-  const tr = this.context.doc.tr;
+  const tr = this.context.session.tr;
   tr.insert_text('Hello');
-  this.context.doc.apply(tr);
+  this.context.session.apply(tr);
 }
 ```
 
@@ -538,14 +545,14 @@ Commands can have derived state for reactive UI binding. The `active` property i
 ```js
 class ToggleItalicCommand extends Command {
   // Automatically recomputes when annotation state changes
-  active = $derived(this.context.doc.active_annotation('italic'));
+  active = $derived(this.context.session.active_annotation('italic'));
 
   is_enabled() {
-    return this.context.editable && this.context.doc.selection?.type === 'text';
+    return this.context.editable && this.context.session.selection?.type === 'text';
   }
 
   execute() {
-    this.context.doc.apply(this.context.doc.tr.annotate_text('italic'));
+    this.context.session.apply(this.context.session.tr.annotate_text('italic'));
   }
 }
 ```
@@ -560,11 +567,11 @@ Commands can access the DOM through the context or global APIs:
 ```js
 class CopyCommand extends Command {
   is_enabled() {
-    return this.context.doc.selection !== null;
+    return this.context.session.selection !== null;
   }
 
   async execute() {
-    const text = this.context.doc.get_selected_text();
+    const text = this.context.session.get_selected_plain_text();
     await navigator.clipboard.writeText(text);
     
     // Access the editor canvas
@@ -631,12 +638,12 @@ const app_context = {
   set editable(value) {
     editable = value;
   },
-  get doc() {
-		return doc;
-	},
-	get app_el() {
-		return app_el;
-	}
+  get session() {
+    return session;
+  },
+  get app_el() {
+    return app_el;
+  }
 };
 
 const app_commands = {
@@ -760,14 +767,14 @@ Selections are at the heart of Svedit. There are just three types of selections:
   }
   ```
 
-You can access the current selection through `doc.selection` anytime. And you can programmatically set the selection using `doc.selection = new_selection`.
+You can access the current selection through `session.selection` anytime. And you can programmatically set the selection using `session.selection = new_selection`.
 
 ## Rendering
 
 Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component.
 
 ```svelte
-<Svedit {doc} path={[doc.document_id]} editable={true} />
+<Svedit {session} path={[session.doc.document_id]} editable={true} />
 ```
 
 ## Node components
@@ -842,7 +849,7 @@ Use the Svedit context to access node data:
   const svedit = getContext('svedit');
   
   let { path } = $props();
-  let node = $derived(svedit.doc.get(path));
+  let node = $derived(svedit.session.get(path));
   let layout = $derived(node.layout || 1);
 </script>
 ```
@@ -858,7 +865,7 @@ Here's a complete example of a text node component that supports multiple layout
 
   const svedit = getContext('svedit');
   let { path } = $props();
-  let node = $derived(svedit.doc.get(path));
+  let node = $derived(svedit.session.get(path));
   let layout = $derived(node.layout || 1);
   let tag = $derived(layout === 1 ? 'p' : `h${layout - 1}`);
 </script>
