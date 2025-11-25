@@ -531,37 +531,33 @@ export default class Transaction {
 			length = node_array.length;
 		}
 
-		// For collapsed selections, we need to determine what to delete
+		// If selection is collapsed we delete the previous char/node (backward)
+		// or the next char/node (forward)
 		if (start === end) {
-			if (this.selection.type === 'text') {
-				if (direction === 'backward') {
-					if (start > 0) {
-						start = start - 1;
-					} else if (start === 0) {
-						// At beginning of text - try to join with previous text node
-						join_text_node(this);
-						return this;
-					}
-				} else if (direction === 'forward' && end === length) {
-					// At end of text - try to join with next text node
-					const node_index = parseInt(String(this.selection.path.at(-2)), 10);
-					const successor_node = this.get([...this.selection.path.slice(0, -2), node_index + 1]);
-					// Check if next node is a text node
-					if (successor_node && this.kind(successor_node) === 'text') {
-						// Set selection to beginning of next text node
-						this.set_selection({
-							type: 'text',
-							path: [...this.selection.path.slice(0, -2), node_index + 1, 'content'],
-							anchor_offset: 0,
-							focus_offset: 0
-						});
-						// Then join (which will merge into the previous node)
-						join_text_node(this);
-						return this;
-					}
-				} else {
-					end = end + 1;
+			if (direction === 'backward' && start > 0) {
+				start = start - 1;
+			} else if (direction === 'forward' && end < length) {
+				end = end + 1;
+			} else if (direction === 'backward' && start === 0) {
+				join_text_node(this);
+				return this;
+			} else if (direction === 'forward' && end === length) {
+				// At end of text - try to join with next text node
+				const node_index = parseInt(String(this.selection.path.at(-2)), 10);
+				const successor_node = this.get([...this.selection.path.slice(0, -2), node_index + 1]);
+				// Check if next node is a text node
+				if (successor_node && this.kind(successor_node) === 'text') {
+					// Set selection to beginning of next text node
+					this.set_selection({
+						type: 'text',
+						path: [...this.selection.path.slice(0, -2), node_index + 1, 'content'],
+						anchor_offset: 0,
+						focus_offset: 0
+					});
+					// Use join_text_node to merge with previous node
+					join_text_node(this);
 				}
+				return this;
 			}
 		}
 
