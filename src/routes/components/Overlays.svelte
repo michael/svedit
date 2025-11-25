@@ -6,11 +6,11 @@
 
 	let node_array_selection_paths = $derived(get_node_array_selection_paths());
 	let selected_link_path = $derived(get_selected_link_path());
-	let selected_link = $derived(selected_link_path ? svedit.doc.get(selected_link_path) : null);
+	let selected_link = $derived(selected_link_path ? svedit.editor_state.get(selected_link_path) : null);
 
 	function get_node_array_selection_paths() {
 		const paths = [];
-		const sel = svedit.doc.selection;
+		const sel = svedit.editor_state.selection;
 		if (!sel) return;
 
 		// Node selection. Not collapsed.
@@ -26,12 +26,12 @@
 	}
 
 	function get_selected_link_path() {
-		const sel = svedit.doc.selection;
+		const sel = svedit.editor_state.selection;
 		if (!sel || sel.type !== 'text') return null;
 
-		const active_annotation = svedit.doc.active_annotation('link');
+		const active_annotation = svedit.editor_state.active_annotation('link');
 		if (active_annotation) {
-			const annotated_text = svedit.doc.get(sel.path);
+			const annotated_text = svedit.editor_state.get(sel.path);
 
 			const annotation_index = annotated_text.annotations.indexOf(active_annotation);
 			return [...sel.path, 'annotations', annotation_index, 'node_id'];
@@ -40,10 +40,10 @@
 	}
 </script>
 
-{#if svedit.doc.selection?.type === 'property'}
+{#if svedit.editor_state.selection?.type === 'property'}
 	<div
 		class="property-selection-overlay"
-		style="position-anchor: --{svedit.doc.selection.path.join('-')};"
+		style="position-anchor: --{svedit.editor_state.selection.path.join('-')};"
 	></div>
 {/if}
 <!-- Here we render  and other stuff that should lay atop of the canvas -->

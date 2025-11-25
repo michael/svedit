@@ -1,4 +1,4 @@
-import Document, { define_document_schema } from '../lib/Document.svelte.js';
+import EditorState, { define_document_schema } from '../lib/state/EditorState.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 // System components
@@ -12,7 +12,6 @@ import Button from '../routes/components/Button.svelte';
 import Text from '../routes/components/Text.svelte';
 import List from '../routes/components/List.svelte';
 import ListItem from '../routes/components/ListItem.svelte';
-
 
 const document_schema = define_document_schema({
 	page: {
@@ -96,12 +95,12 @@ const serialized_doc = {
 			buttons: ['button_1'],
 			description: { text: 'First story description.', annotations: [] }
 		},
-		list_item_1:{
+		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
 			content: { text: 'first list item', annotations: [] }
 		},
-		list_item_2:{
+		list_item_2: {
 			id: 'list_item_2',
 			type: 'list_item',
 			content: { text: 'second list item', annotations: [] }
@@ -121,9 +120,7 @@ const serialized_doc = {
 			created_at: '2025-05-30T10:39:59.987Z'
 		}
 	}
-
-}
-
+};
 
 const document_config = {
 	generate_id: nanoid,
@@ -235,6 +232,6 @@ const document_config = {
 };
 
 export default function create_test_doc() {
-	const doc = new Document(document_schema, serialized_doc, { config: document_config });
+	const doc = new EditorState(document_schema, serialized_doc, { config: document_config });
 	return doc;
 }

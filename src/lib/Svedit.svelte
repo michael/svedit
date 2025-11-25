@@ -21,7 +21,7 @@
 
 	/** @type {SveditProps} */
 	let {
-		doc,
+		editor_state,
 		editable = $bindable(false),
 		path,
 		class: css_class,
@@ -30,9 +30,11 @@
 	} = $props();
 
 	let canvas;
-	let root_node = $derived(doc.get(path));
-	let Overlays = $derived(doc.config.system_components.Overlays);
-	let RootComponent = $derived(doc.config.node_components[snake_to_pascal(root_node.type)]);
+	let root_node = $derived(editor_state.get(path));
+	let Overlays = $derived(editor_state.config.system_components.Overlays);
+	let RootComponent = $derived(
+		editor_state.config.node_components[snake_to_pascal(root_node.type)]
+	);
 
 	let is_composing = $state(false);
 	let before_composition_selection = undefined;
@@ -44,8 +46,8 @@
 	export { focus_canvas };
 
 	const context = {
-		get doc() {
-			return doc;
+		get editor_state() {
+			return editor_state;
 		},
 		get editable() {
 			return editable;
@@ -66,12 +68,12 @@
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
 
-	// Initialize commands and keymap on the document
-	doc.initialize_commands(context);
+	// Initialize commands and keymap on the editor state
+	editor_state.initialize_commands(context);
 
-	// Handle focus - push document's keymap onto stack
+	// Handle focus - push editor state's keymap onto stack
 	function handle_canvas_focus() {
-		key_mapper?.push_scope(doc.keymap);
+		key_mapper?.push_scope(editor_state.keymap);
 	}
 
 	// Handle blur - pop document's keymap from stack
@@ -108,10 +110,10 @@
 			return;
 		}
 
-		// NOTE: in cases we can't reliably map event.getTargetRanges()[0] to a doc selection,
-		// the original doc.selection is used.
+		// NOTE: in cases we can't reliably map event.getTargetRanges()[0] to a editor_state selection,
+		// the original editor_state.selection is used.
 		if (target_selection) {
-			doc.selection = target_selection;
+			editor_state.selection = target_selection;
 		}
 
 		// Only take input when in a valid text selection inside the canvas
@@ -120,22 +122,22 @@
 			return;
 		}
 
-		if (event.inputType === 'formatBold' && doc.selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('strong'));
+		if (event.inputType === 'formatBold' && editor_state.selection?.type === 'text') {
+			editor_state.apply(editor_state.tr.annotate_text('strong'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
-		if (event.inputType === 'formatItalic' && doc.selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('emphasis'));
+		if (event.inputType === 'formatItalic' && editor_state.selection?.type === 'text') {
+			editor_state.apply(editor_state.tr.annotate_text('emphasis'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
 		// NOTE: underline doesn't make much sense as a semantic annotation,
 		// so we rewire `cmd + u` to toggle highlights
-		if (event.inputType === 'formatUnderline' && doc.selection?.type === 'text') {
-			doc.apply(doc.tr.annotate_text('highlight'));
+		if (event.inputType === 'formatUnderline' && editor_state.selection?.type === 'text') {
+			editor_state.apply(editor_state.tr.annotate_text('highlight'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
@@ -143,14 +145,14 @@
 		if (
 			['deleteContentBackward', 'deleteWordBackward', 'deleteContent'].includes(event.inputType)
 		) {
-			doc.apply(doc.tr.delete_selection('backward'));
+			editor_state.apply(editor_state.tr.delete_selection('backward'));
 			event.preventDefault();
 			event.stopPropagation();
 			return;
 		}
 
 		if (['deleteContentForward', 'deleteWordForward'].includes(event.inputType)) {
-			doc.apply(doc.tr.delete_selection('forward'));
+			editor_state.apply(editor_state.tr.delete_selection('forward'));
 			event.preventDefault();
 			event.stopPropagation();
 			return;
@@ -179,9 +181,9 @@
 			return;
 		}
 
-		const tr = doc.tr;
+		const tr = editor_state.tr;
 		tr.insert_text(inserted_text);
-		doc.apply(tr, { batch: true });
+		editor_state.apply(tr, { batch: true });
 		event.preventDefault();
 	}
 
@@ -192,7 +194,7 @@
 	 */
 	function oncompositionstart(event) {
 		console.log('DEBUG: oncompositionstart', event.data);
-		if (doc.selection.type !== 'text') {
+		if (editor_state.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
 			window.getSelection()?.removeAllRanges();
 
@@ -217,7 +219,7 @@
 	function oncompositionend(event) {
 		console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas?.contains(document.activeElement)) return;
-		if (canvas?.contains(document.activeElement) && doc.selection?.type === 'text') {
+		if (canvas?.contains(document.activeElement) && editor_state.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
 			// of finishing a composition. For instance, the user might have selected a different
 			// part of the text while composing.
@@ -231,14 +233,14 @@
 			// Otherwise, we assume a no-op. E.g. when a user enables dictation on Samsung-Android
 			// and disables it right after. See: https://github.com/michael/web-editing/issues/11
 			if (before_composition_selection) {
-				doc.selection = before_composition_selection;
+				editor_state.selection = before_composition_selection;
 				console.log('event.data', event.data);
-				const tr = doc.tr;
+				const tr = editor_state.tr;
 				tr.insert_text(event.data);
-				doc.apply(tr);
+				editor_state.apply(tr);
 				// Recover user selection after composition. This assumes that document positions of natively
 				// modified DOM (before transaction applied) are equal to the positions after the transaction.
-				doc.selection = user_selection;
+				editor_state.selection = user_selection;
 			}
 
 			// NOTE: We need a little timeout to nudge Safari into not handling the
@@ -266,7 +268,7 @@
 		if (!canvas?.contains(range.commonAncestorContainer)) return;
 		let selection = __get_selection_from_dom();
 		if (selection) {
-			doc.selection = selection;
+			editor_state.selection = selection;
 		}
 	}
 
@@ -317,9 +319,9 @@ ${fallback_html}`;
 	 * @param {Object} node - Node object
 	 * @returns {string} HTML representation
 	 */
-	function default_node_html_exporter(node, doc, html_exporters) {
+	function default_node_html_exporter(node, editor_state, html_exporters) {
 		let html = '';
-		const node_schema = doc.schema[node.type];
+		const node_schema = editor_state.schema[node.type];
 
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
@@ -332,9 +334,9 @@ ${fallback_html}`;
 				}
 			} else if (property_definition.type === 'node_array') {
 				for (const child_id of prop_value) {
-					const child = doc.get(child_id);
+					const child = editor_state.get(child_id);
 					const child_exporter = html_exporters[child.type] || default_node_html_exporter;
-					html += child_exporter(child, doc, html_exporters);
+					html += child_exporter(child, editor_state, html_exporters);
 				}
 			}
 		}
@@ -373,14 +375,14 @@ ${fallback_html}`;
 		let html = '';
 
 		for (const node of nodes) {
-			const html_exporters = doc.config.html_exporters || {};
+			const html_exporters = editor_state.config.html_exporters || {};
 
 			if (html_exporters[node.type]) {
 				// Use custom exporter for this node type
-				html += html_exporters[node.type](node, doc, html_exporters);
+				html += html_exporters[node.type](node, editor_state, html_exporters);
 			} else {
 				// Use default exporter
-				html += default_node_html_exporter(node, doc, html_exporters);
+				html += default_node_html_exporter(node, editor_state, html_exporters);
 			}
 		}
 		return html;
@@ -401,9 +403,9 @@ ${fallback_html}`;
 	function prepare_copy_payload(selected_node_ids) {
 		const nodes = {};
 
-		// Get subgraph for each selected node using doc.traverse()
+		// Get subgraph for each selected node using editor_state.traverse()
 		for (const node_id of selected_node_ids) {
-			const subgraph = doc.traverse(node_id);
+			const subgraph = editor_state.traverse(node_id);
 
 			// Add all nodes from this subgraph to our nodes collection
 			for (const node of subgraph) {
@@ -430,9 +432,9 @@ ${fallback_html}`;
 
 		let plain_text, annotated_text, html;
 
-		if (doc.selection?.type === 'text') {
-			plain_text = doc.get_selected_plain_text();
-			annotated_text = doc.get_selected_annotated_text();
+		if (editor_state.selection?.type === 'text') {
+			plain_text = editor_state.get_selected_plain_text();
+			annotated_text = editor_state.get_selected_annotated_text();
 			const fallback_html = `<span>${annotated_text.text}</span>`;
 
 			console.log('Text copy:', {
@@ -442,8 +444,8 @@ ${fallback_html}`;
 			});
 
 			html = create_svedit_html_format(annotated_text, fallback_html);
-		} else if (doc.selection?.type === 'node') {
-			const selected_nodes = doc.get_selected_nodes();
+		} else if (editor_state.selection?.type === 'node') {
+			const selected_nodes = editor_state.get_selected_nodes();
 			const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
 
 			const json_data = { nodes, main_nodes };
@@ -463,9 +465,9 @@ ${fallback_html}`;
 			html = create_svedit_html_format(json_data, fallback_html);
 			// Generate plain text representation
 			plain_text = export_plain_text(selected_node_objects);
-		} else if (doc.selection?.type === 'property') {
-			const property_definition = doc.inspect(doc.selection.path);
-			const value = doc.get(doc.selection.path);
+		} else if (editor_state.selection?.type === 'property') {
+			const property_definition = editor_state.inspect(editor_state.selection.path);
+			const value = editor_state.get(editor_state.selection.path);
 			const json_data = {
 				kind: 'property',
 				name: property_definition.name,
@@ -487,7 +489,7 @@ ${fallback_html}`;
 		}
 
 		if (delete_selection) {
-			doc.apply(doc.tr.delete_selection());
+			editor_state.apply(editor_state.tr.delete_selection());
 		}
 	}
 
@@ -507,15 +509,15 @@ ${fallback_html}`;
 
 		// NOTE: At this point, nodes contains a subgraph from the copy
 		// with original ids.
-		let tr = doc.tr;
+		let tr = editor_state.tr;
 		if (selection) {
 			tr.set_selection(selection);
 		}
 
 		// We can safely assume we're dealing with a node_array property
-		const property_definition = doc.inspect(tr.selection.path);
+		const property_definition = editor_state.inspect(tr.selection.path);
 		const first_compatible_text_node_type = property_definition.node_types.find(
-			(type) => doc.kind({ type }) === 'text'
+			(type) => editor_state.kind({ type }) === 'text'
 		);
 
 		const nodes_to_insert = [];
@@ -524,7 +526,7 @@ ${fallback_html}`;
 			const node = nodes[node_id];
 			if (!property_definition.node_types.includes(node.type)) {
 				// Incompatible node type detected
-				if (doc.kind(node) === 'text' && first_compatible_text_node_type) {
+				if (editor_state.kind(node) === 'text' && first_compatible_text_node_type) {
 					const new_node_id = tr.build('the_node', {
 						the_node: {
 							id: 'the_node',
@@ -548,11 +550,11 @@ ${fallback_html}`;
 
 		if (!rejected) {
 			tr.insert_nodes(nodes_to_insert);
-			doc.apply(tr);
+			editor_state.apply(tr);
 			return true;
 		} else {
 			if (tr.selection.path.length >= 2) {
-				const next_node_insert_cursor = doc.get_next_node_insert_cursor(tr.selection);
+				const next_node_insert_cursor = editor_state.get_next_node_insert_cursor(tr.selection);
 				if (next_node_insert_cursor) {
 					try_node_paste(pasted_json, next_node_insert_cursor);
 				}
@@ -586,7 +588,7 @@ ${fallback_html}`;
 		}
 
 		if (pasted_images.length > 0) {
-			pasted_json = await doc.config.handle_image_paste(doc, pasted_images);
+			pasted_json = await editor_state.config.handle_image_paste(editor_state, pasted_images);
 			console.log('pasted_json_after_image_paste', pasted_json);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
 			// handled inside handle_image_paste already.
@@ -639,54 +641,62 @@ ${fallback_html}`;
 		console.log('plain_text', plain_text);
 		console.log('pasted_json', pasted_json);
 
-		if (pasted_json?.main_nodes && doc.selection?.type === 'node') {
+		if (pasted_json?.main_nodes && editor_state.selection?.type === 'node') {
 			// Paste nodes at a node selection
 			try_node_paste(pasted_json);
-		} else if (pasted_json?.kind === 'property' && doc.selection?.type === 'property') {
-			const property_definition = doc.inspect(doc.selection.path);
+		} else if (pasted_json?.kind === 'property' && editor_state.selection?.type === 'property') {
+			const property_definition = editor_state.inspect(editor_state.selection.path);
 			if (property_definition.type === pasted_json.type) {
 				if (property_definition.type === 'node') {
-					const tr = doc.tr;
+					const tr = editor_state.tr;
 					const new_id = tr.build('some_new_node_id', {
 						some_new_node_id: {
 							...pasted_json.value,
 							id: 'some_new_node_id'
 						}
 					});
-					tr.set(doc.selection.path, new_id);
-					doc.apply(tr);
+					tr.set(editor_state.selection.path, new_id);
+					editor_state.apply(tr);
 				} else {
 					// we assume that we have a value type for the property (string, number)
-					doc.apply(doc.tr.set(doc.selection.path, pasted_json.value));
+					editor_state.apply(editor_state.tr.set(editor_state.selection.path, pasted_json.value));
 				}
 			}
-		} else if (doc.selection?.type === 'text' && pasted_json?.text) {
+		} else if (editor_state.selection?.type === 'text' && pasted_json?.text) {
 			// Paste text at a text selection
-			doc.apply(doc.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes));
+			editor_state.apply(
+				editor_state.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes)
+			);
 		} else if (
-			doc.selection?.type === 'text' &&
+			editor_state.selection?.type === 'text' &&
 			pasted_json?.main_nodes?.length === 1 &&
-			doc.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
+			editor_state.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
 		) {
 			// Paste a single text node, at a text cursor
 			const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
-			doc.apply(
-				doc.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+			editor_state.apply(
+				editor_state.tr.insert_text(
+					text_property.text,
+					text_property.annotations,
+					pasted_json.nodes
+				)
 			);
-		} else if (['text', 'property'].includes(doc.selection?.type) && pasted_json?.nodes) {
+		} else if (['text', 'property'].includes(editor_state.selection?.type) && pasted_json?.nodes) {
 			// Paste nodes at a text or property selection by finding the next valid insert cursor
-			const next_node_insert_cursor = doc.get_next_node_insert_cursor(doc.selection);
+			const next_node_insert_cursor = editor_state.get_next_node_insert_cursor(
+				editor_state.selection
+			);
 			try_node_paste(pasted_json, next_node_insert_cursor);
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
-			doc.apply(doc.tr.insert_text(plain_text.trim()));
+			editor_state.apply(editor_state.tr.insert_text(plain_text.trim()));
 		} else {
 			console.log('Could not paste.');
 		}
 	}
 
 	function render_selection() {
-		const selection = /** @type {Selection} */ (doc.selection);
+		const selection = /** @type {Selection} */ (editor_state.selection);
 		let prev_selection =
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
@@ -947,7 +957,7 @@ ${fallback_html}`;
 		if (!path) return null;
 
 		// EDGE CASE 1B: Cursor after trailing <br> at end of text
-		const text_content = doc.get(path).text;
+		const text_content = editor_state.get(path).text;
 		const text_length = get_char_length(text_content);
 		if (text_length > 0) {
 			const last_char = get_char_at(text_content, text_length - 1);
@@ -1041,7 +1051,7 @@ ${fallback_html}`;
 	}
 
 	function __render_node_selection() {
-		const selection = /** @type {NodeSelection} */ (doc.selection);
+		const selection = /** @type {NodeSelection} */ (editor_state.selection);
 		const node_array_path = selection.path.join('.');
 		let is_collapsed = selection.anchor_offset === selection.focus_offset;
 		let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
@@ -1130,7 +1140,7 @@ ${fallback_html}`;
 	}
 
 	function __render_property_selection() {
-		const selection = doc.selection;
+		const selection = editor_state.selection;
 		// The element that holds the property
 		const el = canvas.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
@@ -1155,10 +1165,10 @@ ${fallback_html}`;
 	}
 
 	function __render_text_selection() {
-		const selection = /** @type {any} */ (doc.selection);
+		const selection = /** @type {any} */ (editor_state.selection);
 		// The element that holds the annotated string
 		const el = canvas.querySelector(`[data-path="${selection.path.join('.')}"][data-type="text"]`);
-		const empty_text = doc.get(selection.path).text.length === 0;
+		const empty_text = editor_state.get(selection.path).text.length === 0;
 
 		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
@@ -1308,10 +1318,10 @@ ${fallback_html}`;
 <div class="svedit">
 	<div
 		class="svedit-canvas {css_class}"
-		class:hide-selection={doc.selection?.type === 'node'}
-		class:node-cursor={doc.selection?.type === 'node' &&
-			doc.selection.anchor_offset === doc.selection.focus_offset}
-		class:property-selection={doc.selection?.type === 'property'}
+		class:hide-selection={editor_state.selection?.type === 'node'}
+		class:node-cursor={editor_state.selection?.type === 'node' &&
+			editor_state.selection.anchor_offset === editor_state.selection.focus_offset}
+		class:property-selection={editor_state.selection?.type === 'property'}
 		bind:this={canvas}
 		{onbeforeinput}
 		{oncompositionstart}

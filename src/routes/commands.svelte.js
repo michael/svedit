@@ -7,7 +7,7 @@ import { get_layout_node } from './app_utils.js';
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
-	layout_node = $derived(get_layout_node(this.context.doc));
+	layout_node = $derived(get_layout_node(this.context.editor_state));
 
 	constructor(direction, context) {
 		super(context);
@@ -17,14 +17,14 @@ export class CycleLayoutCommand extends Command {
 	is_enabled() {
 		if (!this.context.editable || !this.layout_node) return false;
 
-		const layout_count = this.context.doc.config.node_layouts?.[this.layout_node.type];
+		const layout_count = this.context.editor_state.config.node_layouts?.[this.layout_node.type];
 		return layout_count > 1 && this.layout_node?.layout;
 	}
 
 	execute() {
-		const doc = this.context.doc;
+		const editor_state = this.context.editor_state;
 		const node = this.layout_node;
-		const layout_count = doc.config.node_layouts[node.type];
+		const layout_count = editor_state.config.node_layouts[node.type];
 
 		let new_layout;
 		if (this.direction === 'next') {
@@ -33,9 +33,9 @@ export class CycleLayoutCommand extends Command {
 			new_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
 		}
 
-		const tr = doc.tr;
+		const tr = editor_state.tr;
 		tr.set([node.id, 'layout'], new_layout);
-		doc.apply(tr);
+		editor_state.apply(tr);
 	}
 }
 
@@ -50,18 +50,18 @@ export class CycleNodeTypeCommand extends Command {
 	}
 
 	is_enabled() {
-		const doc = this.context.doc;
+		const editor_state = this.context.editor_state;
 
-		if (!this.context.editable || !doc.selection) return false;
+		if (!this.context.editable || !editor_state.selection) return false;
 
 		// Need to check if we have a node selection or can select parent
-		let selection = doc.selection;
+		let selection = editor_state.selection;
 		if (selection.type !== 'node') {
 			// Would need to select parent first
 			return true; // Let execute handle this
 		}
 
-		const node_array_schema = doc.inspect(selection.path);
+		const node_array_schema = editor_state.inspect(selection.path);
 		if (node_array_schema.type !== 'node_array') return false;
 
 		// Need at least 2 types to cycle
@@ -69,16 +69,16 @@ export class CycleNodeTypeCommand extends Command {
 	}
 
 	execute() {
-		const doc = this.context.doc;
+		const editor_state = this.context.editor_state;
 
 		// Ensure we have a node selection
-		if (doc.selection.type !== 'node') {
-			doc.select_parent();
+		if (editor_state.selection.type !== 'node') {
+			editor_state.select_parent();
 		}
 
-		const node = doc.selected_node;
-		const old_selection = structuredClone(doc.selection);
-		const node_array_schema = doc.inspect(doc.selection.path);
+		const node = editor_state.selected_node;
+		const old_selection = structuredClone(editor_state.selection);
+		const node_array_schema = editor_state.inspect(editor_state.selection.path);
 
 		// If we are not dealing with a node selection in a container, return
 		if (node_array_schema.type !== 'node_array') return;
@@ -95,26 +95,26 @@ export class CycleNodeTypeCommand extends Command {
 		}
 
 		const new_type = node_array_schema.node_types[new_type_index];
-		const tr = doc.tr;
-		doc.config.inserters[new_type](tr);
+		const tr = editor_state.tr;
+		editor_state.config.inserters[new_type](tr);
 		tr.set_selection(old_selection);
-		doc.apply(tr);
+		editor_state.apply(tr);
 	}
 }
 
 export class ResetImageCommand extends Command {
 	is_enabled() {
-		const doc = this.context.doc;
-		if (!this.context.editable || doc.selection.type !== 'property') return false;
-		const property_definition = doc.inspect(doc.selection.path);
+		const editor_state = this.context.editor_state;
+		if (!this.context.editable || editor_state.selection.type !== 'property') return false;
+		const property_definition = editor_state.inspect(editor_state.selection.path);
 		return property_definition.name === 'image';
 	}
 
 	execute() {
-		const doc = this.context.doc;
-		const tr = doc.tr;
-		tr.set(doc.selection.path, '');
-		doc.apply(tr);
+		const editor_state = this.context.editor_state;
+		const tr = editor_state.tr;
+		tr.set(editor_state.selection.path, '');
+		editor_state.apply(tr);
 	}
 }
 
@@ -126,29 +126,32 @@ export class ToggleLinkCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.doc.active_annotation('link');
+		return this.context.editor_state.active_annotation('link');
 	}
 
 	is_enabled() {
-		const { doc, editable } = this.context;
+		const { editor_state, editable } = this.context;
 
-		const can_remove_link = doc.active_annotation('link');
-		const can_create_link = !doc.active_annotation() && !is_selection_collapsed(doc.selection);
-		return editable && doc.selection?.type === 'text' && (can_remove_link || can_create_link);
+		const can_remove_link = editor_state.active_annotation('link');
+		const can_create_link =
+			!editor_state.active_annotation() && !is_selection_collapsed(editor_state.selection);
+		return (
+			editable && editor_state.selection?.type === 'text' && (can_remove_link || can_create_link)
+		);
 	}
 
 	execute() {
-		const doc = this.context.doc;
-		const can_create_link = doc.active_annotation('link');
+		const editor_state = this.context.editor_state;
+		const can_create_link = editor_state.active_annotation('link');
 
 		if (can_create_link) {
 			// Delete link
-			doc.apply(doc.tr.annotate_text('link'));
+			editor_state.apply(editor_state.tr.annotate_text('link'));
 		} else {
 			// Create link
 			const href = window.prompt('Enter the URL', 'https://example.com');
 			if (href) {
-				doc.apply(doc.tr.annotate_text('link', { href }));
+				editor_state.apply(editor_state.tr.annotate_text('link', { href }));
 			}
 		}
 	}
