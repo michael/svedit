@@ -2,9 +2,8 @@ import { split_annotated_text, join_annotated_text, get_char_length } from './ut
 import { get_default_node_type } from './Session.svelte.js';
 
 export function break_text_node(tr) {
-	const doc = tr.session;
 	// Keep a reference of the original selection (before any transforms are applied)
-	const selection = doc.selection;
+	const selection = tr.selection;
 	// First we need to ensure we have a text selection
 	if (selection.type !== 'text') return false;
 
@@ -12,15 +11,15 @@ export function break_text_node(tr) {
 	// which is wrapped inside a node_array (e.g. page.body)
 
 	// Owner of the text property (e.g. paragraph)
-	const node = doc.get(selection.path.slice(0, -1));
-	if (doc.kind(node) !== 'text') return false;
-	const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
+	const node = tr.get(selection.path.slice(0, -1));
+	if (tr.kind(node) !== 'text') return false;
+	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	// console.log('is_inside_node_array', is_inside_node_array);
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 	const node_array_prop = selection.path.at(-3);
 	// console.log('node_array_prop', node_array_prop);
 	// Get the node that owns the node_array property (e.g. a page.body)
-	const node_array_node = doc.get(selection.path.slice(0, -3));
+	const node_array_node = tr.get(selection.path.slice(0, -3));
 	// console.log('node_array_node', $state.snapshot(node_array_node));
 
 	// Delete selection unless collapsed
@@ -28,22 +27,22 @@ export function break_text_node(tr) {
 		tr.delete_selection();
 	}
 
-	const split_at_position = tr.session.selection.anchor_offset;
-	const content = tr.session.get(selection.path);
+	const split_at_position = tr.selection.anchor_offset;
+	const content = tr.get(selection.path);
 	const [left_text, right_text] = split_annotated_text(content, split_at_position);
 
 	tr.set([node.id, 'content'], left_text);
 
 	const node_insert_position = {
 		type: 'node',
-		path: tr.session.selection.path.slice(0, -2),
-		anchor_offset: parseInt(tr.session.selection.path.at(-2), 10) + 1,
-		focus_offset: parseInt(tr.session.selection.path.at(-2), 10) + 1
+		path: tr.selection.path.slice(0, -2),
+		anchor_offset: parseInt(tr.selection.path.at(-2), 10) + 1,
+		focus_offset: parseInt(tr.selection.path.at(-2), 10) + 1
 	};
 
 	// TODO: Only use default_node_type when cursor is at the end of
 	const node_array_property_definition =
-		doc.schema[node_array_node.type].properties[node_array_prop];
+		tr.schema[node_array_node.type].properties[node_array_prop];
 	const target_node_type = get_default_node_type(node_array_property_definition);
 
 	if (!target_node_type) {
@@ -55,40 +54,39 @@ export function break_text_node(tr) {
 
 	tr.set_selection(node_insert_position);
 
-	doc.config.inserters[target_node_type](tr, right_text);
+	tr.config.inserters[target_node_type](tr, right_text);
 	return true;
 }
 
 export function join_text_node(tr) {
-	const doc = tr.session;
 	// Keep a reference of the original selection (before any transforms are applied)
-	const selection = doc.selection;
+	const selection = tr.selection;
 	// First we need to ensure we have a text selection
 	if (selection.type !== 'text') return false;
 
-	const node = doc.get(selection.path.slice(0, -1));
-	if (doc.kind(node) !== 'text') return false;
-	const is_inside_node_array = doc.inspect(selection.path.slice(0, -2))?.type === 'node_array';
+	const node = tr.get(selection.path.slice(0, -1));
+	if (tr.kind(node) !== 'text') return false;
+	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	// console.log('is_inside_node_array', is_inside_node_array);
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
-	const node_index = parseInt(doc.selection.path.at(-2), 10);
+	const node_index = parseInt(tr.selection.path.at(-2), 10);
 
 	// Determine if we can join with the previous node
 	let can_join = false;
 	let predecessor_node = null;
 
 	if (node_index > 0) {
-		const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
-		predecessor_node = doc.get(previous_text_path);
-		can_join = doc.kind(predecessor_node) === 'text';
+		const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
+		predecessor_node = tr.get(previous_text_path);
+		can_join = tr.kind(predecessor_node) === 'text';
 	}
 
 	// Special behavior: if we can't join and current node is empty, delete it
 	if (!can_join && node.content.text === '') {
 		tr.set_selection({
 			type: 'node',
-			path: doc.selection.path.slice(0, -2),
+			path: tr.selection.path.slice(0, -2),
 			anchor_offset: node_index,
 			focus_offset: node_index + 1
 		});
@@ -102,7 +100,7 @@ export function join_text_node(tr) {
 	}
 
 	// Normal joining logic - both nodes are text nodes
-	const previous_text_path = [...doc.selection.path.slice(0, -2), node_index - 1];
+	const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
 	const joined_text = join_annotated_text(predecessor_node.content, node.content);
 
 	// Calculate cursor position based on original predecessor content length
@@ -114,7 +112,7 @@ export function join_text_node(tr) {
 	// Then delete the current node
 	tr.set_selection({
 		type: 'node',
-		path: doc.selection.path.slice(0, -2),
+		path: tr.selection.path.slice(0, -2),
 		anchor_offset: node_index,
 		focus_offset: node_index + 1
 	});
@@ -132,8 +130,7 @@ export function join_text_node(tr) {
 }
 
 export function insert_default_node(tr) {
-	const doc = tr.session;
-	const selection = doc.selection;
+	const selection = tr.selection;
 
 	// Only work with collapsed node selections
 	if (selection?.type !== 'node' || selection.anchor_offset !== selection.focus_offset) {
@@ -141,16 +138,16 @@ export function insert_default_node(tr) {
 	}
 
 	const path = selection.path;
-	const node_array_node = doc.get(path.slice(0, -1));
+	const node_array_node = tr.get(path.slice(0, -1));
 	const property_name = path.at(-1);
 
 	// Get the definition for this property
-	const property_definition = doc.schema[node_array_node.type].properties[property_name];
+	const property_definition = tr.schema[node_array_node.type].properties[property_name];
 	const default_type = get_default_node_type(property_definition);
 
 	// Use the inserter function if available
-	if (doc.config?.inserters?.[default_type]) {
-		doc.config.inserters[default_type](tr);
+	if (tr.config?.inserters?.[default_type]) {
+		tr.config.inserters[default_type](tr);
 		return true;
 	} else {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);
