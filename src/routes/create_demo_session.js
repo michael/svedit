@@ -820,7 +820,7 @@ const document_config = {
 	}
 };
 
-export default function create_demo_doc() {
+export default function create_demo_session() {
 	const session = new Session(document_schema, serialized_doc, { config: document_config });
 	// This makes sure that the document is in a valid state.
 	session.validate();

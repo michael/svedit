@@ -2,9 +2,9 @@
 	import { setContext } from 'svelte';
 	import { Svedit, Command, KeyMapper, define_keymap } from 'svedit';
 	import Toolbar from './components/Toolbar.svelte';
-	import create_demo_doc from './create_demo_doc.js';
+	import create_demo_session from './create_demo_session.js';
 
-	const session = create_demo_doc();
+	const session = create_demo_session();
 	let app_el;
 	let svedit_ref;
 	let editable = $state(true);

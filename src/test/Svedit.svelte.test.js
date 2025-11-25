@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
-import create_test_doc from './create_test_doc.js';
+import create_test_session from './create_test_session.js';
 import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
 	it('should map node cursor to DOM', async () => {
-		const doc = create_test_doc();
+		const session = create_test_session();
 
-		/* const { container } = */ render(SveditTest, { session: doc });
+		/* const { container } = */ render(SveditTest, { session });
 
 		// Now set node cursor between first and second node
-		doc.selection = {
+		session.selection = {
 			type: 'node',
-			path: [doc.document_id, 'body'],
+			path: [session.document_id, 'body'],
 			anchor_offset: 1,
 			focus_offset: 1
 		};
@@ -38,13 +38,13 @@ describe('Svedit.svelte', () => {
 	});
 
 	it('should map property selection to DOM', async () => {
-		const doc = create_test_doc();
-		/* const { container }  = */ render(SveditTest, { session: doc });
+		const session = create_test_session();
+		/* const { container }  = */ render(SveditTest, { session });
 
 		// Now set property selection
-		doc.selection = {
+		session.selection = {
 			type: 'property',
-			path: [doc.document_id, 'body', 0, 'image']
+			path: [session.document_id, 'body', 0, 'image']
 		};
 
 		// Wait for Svelte effects to complete
@@ -60,23 +60,23 @@ describe('Svedit.svelte', () => {
 	});
 
 	it('should allow copying and pasting a story node with button reference multiple times', async () => {
-		const doc = create_test_doc();
-		const { container } = render(SveditTest, { session: doc });
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
 
 		// Get the original story and button content
-		const original_story = doc.get('story_1');
-		const original_button = doc.get('button_1');
+		const original_story = session.get('story_1');
+		const original_button = session.get('button_1');
 
 		expect(original_story.title).toEqual({ text: 'First story', annotations: [] });
 		expect(original_story.buttons).toEqual(['button_1']);
 		expect(original_button.label).toEqual({ text: 'Get started', annotations: [] });
 
 		// Initial body state: ['story_1, 'story_1, 'list_1]
-		const initial_body = doc.get(['page_1', 'body']);
+		const initial_body = session.get(['page_1', 'body']);
 		expect(initial_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 		// Set selection to the first story node
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 0,
@@ -129,7 +129,7 @@ describe('Svedit.svelte', () => {
 		expect(copied_html).not.toBe('');
 
 		// Keep same selection for paste (to replace, not insert)
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 0,
@@ -154,14 +154,14 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 10)); // Give time for transaction
 
 		// Verify first paste - should still have 3 items (replaced, not inserted)
-		const body_after_first_paste = doc.get(['page_1', 'body']);
+		const body_after_first_paste = session.get(['page_1', 'body']);
 		expect(body_after_first_paste.length).toBe(3);
 
 		// Get the new story ID (first element should be the replaced one)
 		const first_new_story_id = body_after_first_paste[0];
-		const first_new_story = doc.get(first_new_story_id);
+		const first_new_story = session.get(first_new_story_id);
 		const first_new_button_id = first_new_story.buttons[0];
-		const first_new_button = doc.get(first_new_button_id);
+		const first_new_button = session.get(first_new_button_id);
 
 		// Content should be the same as original
 		expect(first_new_story.title).toEqual({ text: 'First story', annotations: [] });
@@ -178,7 +178,7 @@ describe('Svedit.svelte', () => {
 		expect(first_new_story.buttons).toEqual([first_new_button_id]);
 
 		// Keep same selection for second paste (to replace again)
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 0,
@@ -202,14 +202,14 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 10)); // Give time for transaction
 
 		// Verify second paste - should still have 3 total items (replaced again)
-		const body_after_second_paste = doc.get(['page_1', 'body']);
+		const body_after_second_paste = session.get(['page_1', 'body']);
 		expect(body_after_second_paste.length).toBe(3);
 
 		// Get the second new story ID (first element should be the second replacement)
 		const second_new_story_id = body_after_second_paste[0];
-		const second_new_story = doc.get(second_new_story_id);
+		const second_new_story = session.get(second_new_story_id);
 		const second_new_button_id = second_new_story.buttons[0];
-		const second_new_button = doc.get(second_new_button_id);
+		const second_new_button = session.get(second_new_button_id);
 
 		// Content should still be the same
 		expect(second_new_story.title).toEqual({ text: 'First story', annotations: [] });
@@ -228,22 +228,22 @@ describe('Svedit.svelte', () => {
 		expect(second_new_story.buttons).toEqual([second_new_button_id]);
 
 		// Verify the first paste's nodes no longer exist (they were replaced)
-		expect(doc.get(first_new_story_id)).toBeUndefined();
-		expect(doc.get(first_new_button_id)).toBeUndefined();
+		expect(session.get(first_new_story_id)).toBeUndefined();
+		expect(session.get(first_new_button_id)).toBeUndefined();
 
 		// But the current (second) paste nodes exist
-		expect(doc.get(second_new_story_id)).toBeDefined();
-		expect(doc.get(second_new_button_id)).toBeDefined();
+		expect(session.get(second_new_story_id)).toBeDefined();
+		expect(session.get(second_new_button_id)).toBeDefined();
 
 		// Original nodes should still exist (at position 1)
-		expect(doc.get('story_1')).toBeDefined();
-		expect(doc.get('button_1')).toBeDefined();
+		expect(session.get('story_1')).toBeDefined();
+		expect(session.get('button_1')).toBeDefined();
 		expect(body_after_second_paste[1]).toBe('story_1');
 	});
 
 	describe('join_text_node command', () => {
 		it('should delete empty text node when trying to join with non-text predecessor', () => {
-			const doc = create_test_doc();
+			const session = create_test_session();
 
 			// Create an empty text node after a story
 			const empty_text_id = nanoid();
@@ -254,17 +254,17 @@ describe('Svedit.svelte', () => {
 				content: { text: '', annotations: [] } // Empty content
 			};
 
-			const tr = doc.tr;
+			const tr = session.tr;
 			tr.create(empty_text_node);
 
 			// Insert the empty text node after the first story
-			const body = doc.get(['page_1', 'body']);
+			const body = session.get(['page_1', 'body']);
 			const new_body = [body[0], empty_text_id, ...body.slice(1)];
 			tr.set(['page_1', 'body'], new_body);
-			doc.apply(tr);
+			session.apply(tr);
 
 			// Set text selection in the empty text node (position 1 in body)
-			doc.selection = {
+			session.selection = {
 				type: 'text',
 				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
@@ -272,25 +272,25 @@ describe('Svedit.svelte', () => {
 			};
 
 			// Apply join_text_node command
-			const join_tr = doc.tr;
+			const join_tr = session.tr;
 			join_text_node(join_tr);
-			doc.apply(join_tr);
+			session.apply(join_tr);
 
 			// Empty text node should be deleted
-			expect(doc.get(empty_text_id)).toBeUndefined();
+			expect(session.get(empty_text_id)).toBeUndefined();
 
 			// Body should be back to original state
-			const final_body = doc.get(['page_1', 'body']);
+			const final_body = session.get(['page_1', 'body']);
 			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 1 (where the deleted node was)
-			expect(doc.selection.type).toBe('node');
-			expect(doc.selection.anchor_offset).toBe(1);
-			expect(doc.selection.focus_offset).toBe(1);
+			expect(session.selection.type).toBe('node');
+			expect(session.selection.anchor_offset).toBe(1);
+			expect(session.selection.focus_offset).toBe(1);
 		});
 
 		it('should do nothing when trying to join non-empty text node with non-text predecessor', () => {
-			const doc = create_test_doc();
+			const session = create_test_session();
 
 			// Create a non-empty text node after a story
 			const text_id = nanoid();
@@ -301,17 +301,17 @@ describe('Svedit.svelte', () => {
 				content: { text: 'Some content', annotations: [] }
 			};
 
-			const tr = doc.tr;
+			const tr = session.tr;
 			tr.create(text_node);
 
 			// Insert the text node after the first story
-			const body = doc.get(['page_1', 'body']);
+			const body = session.get(['page_1', 'body']);
 			const new_body = [body[0], text_id, ...body.slice(1)];
 			tr.set(['page_1', 'body'], new_body);
-			doc.apply(tr);
+			session.apply(tr);
 
 			// Set text selection in the text node (position 1 in body)
-			doc.selection = {
+			session.selection = {
 				type: 'text',
 				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
@@ -319,23 +319,23 @@ describe('Svedit.svelte', () => {
 			};
 
 			// Apply join_text_node command
-			const join_tr = doc.tr;
+			const join_tr = session.tr;
 			const result = join_text_node(join_tr);
 
 			// Should return false (no action taken)
 			expect(result).toBe(false);
 
 			// Text node should still exist
-			expect(doc.get(text_id)).toBeDefined();
-			expect(doc.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
+			expect(session.get(text_id)).toBeDefined();
+			expect(session.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
 
 			// Body should remain unchanged
-			const final_body = doc.get(['page_1', 'body']);
+			const final_body = session.get(['page_1', 'body']);
 			expect(final_body).toEqual(['story_1', text_id, 'story_1', 'list_1']);
 		});
 
 		it('should delete empty text node at position 0', () => {
-			const doc = create_test_doc();
+			const session = create_test_session();
 
 			// Create an empty text node and put it at the beginning
 			const empty_text_id = nanoid();
@@ -346,17 +346,17 @@ describe('Svedit.svelte', () => {
 				content: { text: '', annotations: [] } // Empty content
 			};
 
-			const tr = doc.tr;
+			const tr = session.tr;
 			tr.create(empty_text_node);
 
 			// Insert the empty text node at the beginning
-			const body = doc.get(['page_1', 'body']);
+			const body = session.get(['page_1', 'body']);
 			const new_body = [empty_text_id, ...body];
 			tr.set(['page_1', 'body'], new_body);
-			doc.apply(tr);
+			session.apply(tr);
 
 			// Set text selection in the empty text node (position 0 in body)
-			doc.selection = {
+			session.selection = {
 				type: 'text',
 				path: ['page_1', 'body', 0, 'content'],
 				anchor_offset: 0,
@@ -364,25 +364,25 @@ describe('Svedit.svelte', () => {
 			};
 
 			// Apply join_text_node command
-			const join_tr = doc.tr;
+			const join_tr = session.tr;
 			join_text_node(join_tr);
-			doc.apply(join_tr);
+			session.apply(join_tr);
 
 			// Empty text node should be deleted
-			expect(doc.get(empty_text_id)).toBeUndefined();
+			expect(session.get(empty_text_id)).toBeUndefined();
 
 			// Body should be back to original state
-			const final_body = doc.get(['page_1', 'body']);
+			const final_body = session.get(['page_1', 'body']);
 			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 0
-			expect(doc.selection.type).toBe('node');
-			expect(doc.selection.anchor_offset).toBe(0);
-			expect(doc.selection.focus_offset).toBe(0);
+			expect(session.selection.type).toBe('node');
+			expect(session.selection.anchor_offset).toBe(0);
+			expect(session.selection.focus_offset).toBe(0);
 		});
 
 		it('should do nothing when non-empty text node is at position 0', () => {
-			const doc = create_test_doc();
+			const session = create_test_session();
 
 			// Create a non-empty text node and put it at the beginning
 			const text_id = nanoid();
@@ -393,17 +393,17 @@ describe('Svedit.svelte', () => {
 				content: { text: 'Some content', annotations: [] }
 			};
 
-			const tr = doc.tr;
+			const tr = session.tr;
 			tr.create(text_node);
 
 			// Insert the text node at the beginning
-			const body = doc.get(['page_1', 'body']);
+			const body = session.get(['page_1', 'body']);
 			const new_body = [text_id, ...body];
 			tr.set(['page_1', 'body'], new_body);
-			doc.apply(tr);
+			session.apply(tr);
 
 			// Set text selection in the text node (position 0 in body)
-			doc.selection = {
+			session.selection = {
 				type: 'text',
 				path: ['page_1', 'body', 0, 'content'],
 				anchor_offset: 0,
@@ -411,23 +411,23 @@ describe('Svedit.svelte', () => {
 			};
 
 			// Apply join_text_node command
-			const join_tr = doc.tr;
+			const join_tr = session.tr;
 			const result = join_text_node(join_tr);
 
 			// Should return false (no action taken)
 			expect(result).toBe(false);
 
 			// Text node should still exist
-			expect(doc.get(text_id)).toBeDefined();
-			expect(doc.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
+			expect(session.get(text_id)).toBeDefined();
+			expect(session.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
 
 			// Body should remain unchanged
-			const final_body = doc.get(['page_1', 'body']);
+			const final_body = session.get(['page_1', 'body']);
 			expect(final_body).toEqual([text_id, 'story_1', 'story_1', 'list_1']);
 		});
 
 		it('should join two text nodes and position cursor at end of joined text', () => {
-			const doc = create_test_doc();
+			const session = create_test_session();
 
 			// Create two text nodes
 			const first_text_id = nanoid();
@@ -447,16 +447,16 @@ describe('Svedit.svelte', () => {
 				content: { text: ' second text', annotations: [] }
 			};
 
-			const tr = doc.tr;
+			const tr = session.tr;
 			tr.create(first_text_node);
 			tr.create(second_text_node);
 
 			// Replace body with our two text nodes
 			tr.set(['page_1', 'body'], [first_text_id, second_text_id]);
-			doc.apply(tr);
+			session.apply(tr);
 
 			// Set text selection in the second text node
-			doc.selection = {
+			session.selection = {
 				type: 'text',
 				path: ['page_1', 'body', 1, 'content'],
 				anchor_offset: 0,
@@ -464,35 +464,35 @@ describe('Svedit.svelte', () => {
 			};
 
 			// Apply join_text_node command
-			const join_tr = doc.tr;
+			const join_tr = session.tr;
 			join_text_node(join_tr);
-			doc.apply(join_tr);
+			session.apply(join_tr);
 
 			// Second text node should be deleted
-			expect(doc.get(second_text_id)).toBeUndefined();
+			expect(session.get(second_text_id)).toBeUndefined();
 
 			// First text node should contain joined content
-			const first_text = doc.get(first_text_id);
+			const first_text = session.get(first_text_id);
 			expect(first_text.content).toEqual({ text: 'First text second text', annotations: [] });
 
 			// Body should only contain the first text node
-			const final_body = doc.get(['page_1', 'body']);
+			const final_body = session.get(['page_1', 'body']);
 			expect(final_body).toEqual([first_text_id]);
 
 			// Selection should be positioned at the end of the original first text
-			expect(doc.selection.type).toBe('text');
-			expect(doc.selection.path).toEqual(['page_1', 'body', 0, 'content']);
-			expect(doc.selection.anchor_offset).toBe(10); // Length of "First text"
-			expect(doc.selection.focus_offset).toBe(10);
+			expect(session.selection.type).toBe('text');
+			expect(session.selection.path).toEqual(['page_1', 'body', 0, 'content']);
+			expect(session.selection.anchor_offset).toBe(10); // Length of "First text"
+			expect(session.selection.focus_offset).toBe(10);
 		});
 	});
 
 	it('should encode and decode svedit data in HTML clipboard format', async () => {
-		const doc = create_test_doc();
-		const { container } = render(SveditTest, { session: doc });
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
 
 		// Select a story node to copy
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 0,
@@ -582,7 +582,7 @@ describe('Svedit.svelte', () => {
 		expect(decoded_data.main_nodes).toContain('story_1');
 
 		// Test paste functionality with HTML format - insert at end
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 3,
@@ -604,13 +604,13 @@ describe('Svedit.svelte', () => {
 		await new Promise((resolve) => setTimeout(resolve, 20)); // Give time for async paste operation
 
 		// Verify paste worked - should have 4 items now (original 3 + 1 pasted)
-		const body_after_paste = doc.get(['page_1', 'body']);
+		const body_after_paste = session.get(['page_1', 'body']);
 		expect(body_after_paste).toHaveLength(4);
 	});
 
 	it('should handle Unicode characters in clipboard data', async () => {
-		const doc = create_test_doc();
-		const { container } = render(SveditTest, { session: doc });
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
 
 		// Create a text node with Unicode characters (emojis, special chars)
 		const unicode_text_id = nanoid();
@@ -621,17 +621,17 @@ describe('Svedit.svelte', () => {
 			content: { text: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', annotations: [] }
 		};
 
-		const tr = doc.tr;
+		const tr = session.tr;
 		tr.create(unicode_text_node);
 
 		// Insert the text node at the beginning
-		const body = doc.get(['page_1', 'body']);
+		const body = session.get(['page_1', 'body']);
 		const new_body = [unicode_text_id, ...body];
 		tr.set(['page_1', 'body'], new_body);
-		doc.apply(tr);
+		session.apply(tr);
 
 		// Select the Unicode text node
-		doc.selection = {
+		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body'],
 			anchor_offset: 0,
