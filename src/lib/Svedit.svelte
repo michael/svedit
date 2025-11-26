@@ -58,7 +58,8 @@
 		},
 		get canvas_el() {
 			return canvas_el;
-		}
+		},
+		focus_canvas
 	};
 
 	setContext('svedit', context);
