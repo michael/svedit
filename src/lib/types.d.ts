@@ -342,15 +342,27 @@ export type AnnotatedText = {
 };
 
 /**
+ * Represents a selection highlight fragment for non-annotated text selections
+ */
+export type SelectionHighlightFragment = {
+	type: 'selection_highlight';
+	content: string;
+};
+
+/**
+ * Represents an annotation fragment in annotated text content
+ */
+export type AnnotationFragment = {
+	type: 'annotation';
+	/** NodeId that has annotation type and details */
+	node: any;
+	/** The text content of the annotation */
+	content: string;
+	/** Index of the annotation in the original array */
+	annotation_index: number;
+};
+
+/**
  * Represents a fragment of annotated text content
  */
-export type AnnotationFragment =
-	| string
-	| {
-			/** NodeId that has annotation type and details */
-			node: any;
-			/** The text content of the annotation */
-			content: string;
-			/** Index of the annotation in the original array */
-			annotation_index: number;
-	  };
+export type Fragment = string | AnnotationFragment | SelectionHighlightFragment;
