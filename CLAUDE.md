@@ -48,6 +48,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Pattern**: If it's a web platform API or Svelte API, keep camelCase. If it's our custom variable/function name, use snake_case.
 
+**File Extensions:**
+- Files using Svelte runes (`$state`, `$derived`, `$effect`, etc.) must use `.svelte.js` or `.svelte.ts` extension
+
 **Documentation Style:**
 - Use sentence case for all headings in documentation (README.md, etc.)
 - Use sentence case for code comments
@@ -94,9 +97,7 @@ Content is defined through schemas that specify:
 
 ### Data Flow
 
-1. Raw document data is loaded into `Document`
+1. Raw document data is loaded into `Session`
 2. Changes are made through transactions for undo/redo support
 3. Selection state is synchronized between internal model and DOM
 4. Components render content based on document state and schema definitions
-
-The editor is currently on the `document-graph` branch implementing a new graph-based data model to support shared content across multiple documents.
