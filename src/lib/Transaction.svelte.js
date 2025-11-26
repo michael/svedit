@@ -1,5 +1,5 @@
 /**
- * @import { NodeId, Selection, DocumentPath } from './types.js'
+ * @import { NodeId, Selection, DocumentPath } from './types.d.js'
  */
 
 import {

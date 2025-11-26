@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema } from './types.js'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema } from './types.d.ts'
  */
 
 /**
