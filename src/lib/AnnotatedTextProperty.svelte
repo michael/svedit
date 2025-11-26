@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { char_slice, get_char_length, snake_to_pascal, get_selection_range } from './utils.js';
 
-	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment } from './types.d.ts'; */
+	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionHighlightFragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
@@ -46,18 +46,18 @@
 		if (selection_overlaps_annotation(selection_range.start, selection_range.end, annotations)) {
 			return null;
 		}
-		return {
-			start: selection_range.start,
-			end: selection_range.end
-		};
+		return /** @type {const} */ ({
+			type: 'selection_highlight',
+			start_offset: selection_range.start,
+			end_offset: selection_range.end
+		});
 	});
 
 	/**
 	 * Converts text with annotations into renderable fragments for display.
-	 * Also inserts a selection highlight fragment if applicable.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation>} annotations - Array of annotations where each is {start_offset, end_offset, node_id}
-	 * @param {{ start: number, end: number } | null} sel_highlight - Selection highlight range if any
+	 * @param {Array<Annotation>} annotations - Array of annotations
+	 * @param {{ type: 'selection_highlight', start_offset: number, end_offset: number } | null} sel_highlight - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
 	function get_fragments(text, annotations, sel_highlight) {
@@ -65,57 +65,40 @@
 		let fragments = [];
 		let last_index = 0;
 
-		// Sort annotations by start_offset
-		const sorted_annotations = [...annotations].sort((a, b) => a.start_offset - b.start_offset);
+		// Merge annotations with selection highlight and sort by start offset
+		const ranges = [...annotations, ...(sel_highlight ? [sel_highlight] : [])].sort(
+			(a, b) => a.start_offset - b.start_offset
+		);
 
-		// Create a merged list of breakpoints (annotations + selection highlight)
-		/** @type {Array<{ type: 'annotation', start: number, end: number, annotation: Annotation } | { type: 'selection_highlight', start: number, end: number }>} */
-		let breakpoints = sorted_annotations.map((a) => ({
-			type: 'annotation',
-			start: a.start_offset,
-			end: a.end_offset,
-			annotation: a
-		}));
-
-		if (sel_highlight) {
-			breakpoints.push({
-				type: 'selection_highlight',
-				start: sel_highlight.start,
-				end: sel_highlight.end
-			});
-			// Re-sort by start offset
-			breakpoints.sort((a, b) => a.start - b.start);
-		}
-
-		for (let bp of breakpoints) {
-			// Add text before this breakpoint
-			if (bp.start > last_index) {
-				fragments.push(char_slice(text, last_index, bp.start));
+		for (const range of ranges) {
+			// Add text before this range
+			if (range.start_offset > last_index) {
+				fragments.push(char_slice(text, last_index, range.start_offset));
 			}
 
-			const content = char_slice(text, bp.start, bp.end);
+			const content = char_slice(text, range.start_offset, range.end_offset);
 
-			if (bp.type === 'annotation') {
-				const node = svedit.session.get(bp.annotation.node_id);
-				if (!node) throw new Error(`Node not found for annotation ${bp.annotation.node_id}`);
+			if ('node_id' in range) {
+				const node = svedit.session.get(range.node_id);
+				if (!node) throw new Error(`Node not found for annotation ${range.node_id}`);
 
 				fragments.push({
 					type: 'annotation',
 					node,
 					content,
-					annotation_index: annotations.indexOf(bp.annotation)
+					annotation_index: annotations.indexOf(range)
 				});
-			} else if (bp.type === 'selection_highlight') {
+			} else {
 				fragments.push({
 					type: 'selection_highlight',
 					content
 				});
 			}
 
-			last_index = bp.end;
+			last_index = range.end_offset;
 		}
 
-		// Add any remaining text after the last breakpoint
+		// Add any remaining text
 		if (last_index < get_char_length(text)) {
 			fragments.push(char_slice(text, last_index));
 		}
