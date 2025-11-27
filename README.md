@@ -8,7 +8,7 @@ Try the [demo](https://svedit.dev).
 
 Because Svelte‘s reactivity system is **the perfect fit** for building super-lightweight content editing experiences.
 
-In fact, they're so lightweight, your content **is** your editor — no context switching between a backend and the live site.
+In fact, they're so lightweight, **your content is your editor** — no context switching between a backend and the live site.
 
 Svedit just gives you the gluing pieces around **defining a custom document model** and **mapping DOM selections** to the internal model and vice versa.
 
@@ -37,7 +37,7 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 ## Principles
 
-**Simplicity over completeness:** Completeness comes at an exponential cost. Every edge case handled adds complexity that ripples through the entire codebase. Svedit intentionally covers the common cases well and leaves the rest to you. The result is a small, understandable core that you can extend rather than a bloated framework you have to fight.
+**Simplicity over completeness:** Svedit doesn't guess what your app needs or offer ready-made blocks. Instead, we keep the core lean and provide carefully crafted examples showing how to build anything on top — without compromising flexibility.
 
 **White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
 
@@ -54,11 +54,9 @@ Svedit connects five key pieces:
 5. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
 
 **The flow:**
-- Define a schema → create a Session → provide config → render with `<Svedit>` component
-- User interactions trigger commands → commands create transactions → transforms modify transactions → session applies the transaction
-- Svelte's reactivity automatically updates the UI
-
-All changes go through transactions for atomic updates and undo/redo support. Transforms are the building blocks — pure functions that modify transactions. The session's selection state syncs bidirectionally with the DOM selection.
+- Define a schema → create a session → provide config → render with `<Svedit>` component
+- User interactions trigger commands → commands create transactions → which run transforms to modify the document → session applies the transaction → Svelte's reactivity updates the UI
+- Selection state syncs bidirectionally with the DOM
 
 ## Schema
 
