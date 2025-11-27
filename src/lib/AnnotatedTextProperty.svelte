@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { char_slice, get_char_length, snake_to_pascal, get_selection_range } from './utils.js';
 
-	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionHighlightFragment } from './types.d.ts'; */
+	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
@@ -16,59 +16,37 @@
 		);
 	});
 
-	// Get selection range if this property is focused and selection is not collapsed
-	let selection_range = $derived.by(() => {
-		if (!is_focused) return null;
+	// Get selection highlight range if not inside an annotation
+	let selection_highlight_range = $derived.by(() => {
+		if (!is_focused) return undefined;
+		if (svedit.session.active_annotation()) return undefined;
 		const sel = svedit.session.selection;
-		if (!sel || sel.type !== 'text') return null;
+		if (!sel || sel.type !== 'text') return undefined;
 		const range = get_selection_range(sel);
-		if (!range || range.start === range.end) return null;
-		return range;
-	});
-
-	/**
-	 * Check if selection overlaps with any annotation
-	 * @param {number} sel_start
-	 * @param {number} sel_end
-	 * @param {Array<Annotation>} annotations
-	 * @returns {boolean}
-	 */
-	function selection_overlaps_annotation(sel_start, sel_end, annotations) {
-		return annotations.some(
-			({ start_offset, end_offset }) => sel_start < end_offset && sel_end > start_offset
-		);
-	}
-
-	// Get selection highlight info if selection doesn't overlap annotations
-	let selection_highlight = $derived.by(() => {
-		if (!selection_range) return null;
-		const annotations = svedit.session.get(path).annotations;
-		if (selection_overlaps_annotation(selection_range.start, selection_range.end, annotations)) {
-			return null;
-		}
-		return /** @type {const} */ ({
-			type: 'selection_highlight',
-			start_offset: selection_range.start,
-			end_offset: selection_range.end
-		});
+		if (!range) return undefined;
+		return {
+			start_offset: range.start,
+			end_offset: range.end
+		};
 	});
 
 	/**
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
 	 * @param {Array<Annotation>} annotations - Array of annotations
-	 * @param {{ type: 'selection_highlight', start_offset: number, end_offset: number } | null} sel_highlight - Optional selection highlight range
+	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
-	function get_fragments(text, annotations, sel_highlight) {
+	function get_fragments(text, annotations, selection_highlight_range) {
 		/** @type {Array<Fragment>} */
 		let fragments = [];
 		let last_index = 0;
 
 		// Merge annotations with selection highlight and sort by start offset
-		const ranges = [...annotations, ...(sel_highlight ? [sel_highlight] : [])].sort(
-			(a, b) => a.start_offset - b.start_offset
-		);
+		const ranges = [
+			...annotations,
+			...(selection_highlight_range ? [selection_highlight_range] : [])
+		].sort((a, b) => a.start_offset - b.start_offset);
 
 		for (const range of ranges) {
 			// Add text before this range
@@ -86,7 +64,7 @@
 					type: 'annotation',
 					node,
 					content,
-					annotation_index: annotations.indexOf(range)
+					annotation_index: annotations.indexOf(/** @type {Annotation} */ (range))
 				});
 			} else {
 				fragments.push({
@@ -110,7 +88,7 @@
 		get_fragments(
 			svedit.session.get(path).text,
 			svedit.session.get(path).annotations,
-			selection_highlight
+			selection_highlight_range
 		)
 	);
 	let plain_text = $derived(svedit.session.get(path).text);
@@ -180,5 +158,11 @@
 
 	.selection-highlight {
 		background: var(--editing-fill-color);
+	}
+
+	/* Make a collapsed cursor visible */
+	.selection-highlight:empty {
+		background: none;
+		outline: 0.5px solid var(--editing-stroke-color);
 	}
 </style>
