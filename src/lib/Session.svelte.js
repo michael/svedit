@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, get_char_length, traverse, get_selection_range } from './utils.js';
+import { char_slice, get_char_length, traverse } from './utils.js';
 import {
 	get as doc_get,
 	property_type as doc_property_type,
@@ -8,7 +8,8 @@ import {
 	apply_op,
 	count_references as doc_count_references,
 	validate_document_schema,
-	validate_node
+	validate_node,
+	get_active_annotation
 } from './doc_utils.js';
 
 /**
@@ -440,30 +441,11 @@ export default class Session {
 	 * Returns the annotation object that is currently "under the cursor".
 	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
 	 *
-	 * @param {string} annotation_type
+	 * @param {string} [annotation_type] Optional annotation type to filter by
 	 * @returns {Annotation|null}
 	 */
 	active_annotation(annotation_type) {
-		if (this.selection?.type !== 'text') return null;
-
-		const range = get_selection_range(this.selection);
-		const annotated_text = this.get(this.selection.path);
-		const annotations = annotated_text.annotations;
-
-		const active_annotation =
-			annotations.find(
-				({ start_offset, end_offset }) =>
-					(start_offset <= range.start_offset && end_offset > range.start_offset) ||
-					(start_offset < range.end_offset && end_offset >= range.end_offset) ||
-					(start_offset >= range.start_offset && end_offset <= range.end_offset)
-			) || null;
-
-		if (annotation_type && active_annotation) {
-			const annotation_node = this.get(active_annotation?.node_id);
-			return annotation_node?.type === annotation_type ? active_annotation : null;
-		} else {
-			return active_annotation;
-		}
+		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
 	}
 
 	get_selected_annotated_text() {

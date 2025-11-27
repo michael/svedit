@@ -4,8 +4,10 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema } from './types.d.ts'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation } from './types'
  */
+
+import { get_selection_range } from './utils.js';
 
 /**
  * Identity function — keeps schema at runtime & makes IDE infer types.
@@ -407,9 +409,47 @@ export function count_references(schema, doc, node_id) {
 }
 
 /**
- * Counts references to a node, excluding nodes marked for deletion.
+ * Gets the currently active annotation at the selection, optionally filtered by type.
+ *
+ * An annotation is considered "active" if it overlaps with the current selection in any way:
+ * - Annotation contains the selection start
+ * - Annotation contains the selection end
+ * - Selection fully contains the annotation
  *
  * @param {object} schema - The document schema
+ * @param {object} doc - The document containing nodes
+ * @param {Selection} selection - The current text selection
+ * @param {string} [annotation_type] - Optional annotation type to filter by
+ * @returns {Annotation | null} The active annotation, or null if none found
+ */
+export function get_active_annotation(schema, doc, selection, annotation_type) {
+	if (selection?.type !== 'text') return null;
+	const range = get_selection_range(selection);
+	if (!range) return null;
+
+	const annotated_text = get(schema, doc, selection.path);
+	const annotations = annotated_text.annotations;
+
+	const active_annotation =
+		annotations.find(
+			(/** @type {Annotation} */ { start_offset, end_offset }) =>
+				(start_offset <= range.start_offset && end_offset > range.start_offset) ||
+				(start_offset < range.end_offset && end_offset >= range.end_offset) ||
+				(start_offset >= range.start_offset && end_offset <= range.end_offset)
+		) || null;
+
+	if (annotation_type && active_annotation) {
+		const annotation_node = get(schema, doc, [active_annotation.node_id]);
+		return annotation_node?.type === annotation_type ? active_annotation : null;
+	} else {
+		return active_annotation;
+	}
+}
+
+/**
+ * Counts references to a node, excluding nodes marked for deletion.
+ *
+ * @param {DocumentSchema} schema - The document schema
  * @param {object} doc - The document containing nodes
  * @param {NodeId} target_node_id - The node ID to count references for
  * @param {Record<NodeId, boolean>} nodes_to_delete - Nodes marked for deletion
