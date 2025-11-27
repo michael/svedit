@@ -45,13 +45,16 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 ## How it works
 
-Svedit connects five key pieces:
+Svedit connects eight key pieces:
 
 1. **Schema** - Define your content structure (node types, properties, annotations)
-2. **Session** - Manages the content graph, selection state, and history
-3. **Config** - Maps node types to components, provides inserters and commands
-4. **Components** - Render your content using Svelte (one component per node type)
-5. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
+2. **Document** - An actual document, containing a `document_id` and a flat map of nodes that hold the content
+3. **Session** - Manages the document, selection state, and history
+4. **Transaction** - Groups multiple document operations (create, delete, set) into a single atomic unit with undo/redo support
+5. **Transforms** - Higher-level composable functions that run inside a transaction (e.g., `break_text_node`, `join_text_node`) to modify the document.
+6. **Config** - Maps node types to components, provides inserters and commands
+7. **Components** - Render your content using Svelte (one component per node type)
+8. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
 
 **The flow:**
 - Define a schema → create a session → provide config → render with `<Svedit>` component
