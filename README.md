@@ -37,11 +37,11 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 ## Principles
 
-**Chromeless canvas:** We keep the canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
-
-**Convention over configuration:** We use conventions and assumptions to reduce configuration code and limit the number of ways something can go wrong. For instance, a node with a property named `content` of type `annotated_text` is considered kind `text`, while all other nodes are considered kind `block`. Text nodes have special behavior in the system for editing (e.g. they can be split and joined).
+**Simplicity over completeness:** Completeness comes at an exponential cost. Every edge case handled adds complexity that ripples through the entire codebase. Svedit intentionally covers the common cases well and leaves the rest to you. The result is a small, understandable core that you can extend rather than a bloated framework you have to fight.
 
 **White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
+
+**Chromeless canvas:** Svedit keeps the editing canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
 
 ## How it works
 
