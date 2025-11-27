@@ -35,7 +35,7 @@
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
 	let is_composing = $state(false);
-	let before_composition_selection = undefined;
+	let before_composition_selection = null;
 
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
@@ -252,7 +252,7 @@
 
 		// Reset before_composition_selection, so we are ready for capturing the starting selection
 		// of the next composition.
-		before_composition_selection = undefined;
+		before_composition_selection = null;
 		return;
 	}
 

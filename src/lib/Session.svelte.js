@@ -35,7 +35,7 @@ const BATCH_WINDOW_MS = 1000; // 1 second
 
 export default class Session {
 	/** @type {Selection | undefined} */
-	#selection = $state.raw();
+	#selection = $state.raw(null);
 
 	/** @type {DocumentSchema} */
 	schema = $state.raw();
@@ -513,7 +513,7 @@ export default class Session {
 					focus_offset: current_index + 1
 				};
 			} else {
-				this.selection = undefined;
+				this.selection = null;
 			}
 		} else if (this.selection.type === 'node') {
 			// For node selections, we go up one level
@@ -528,10 +528,10 @@ export default class Session {
 					focus_offset: current_index + 1
 				};
 			} else {
-				this.selection = undefined;
+				this.selection = null;
 			}
 		} else {
-			this.selection = undefined;
+			this.selection = null;
 		}
 	}
 
