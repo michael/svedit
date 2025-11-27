@@ -151,14 +151,14 @@ export default class Transaction {
 	 */
 	active_annotation(type) {
 		if (this.selection?.type !== 'text') return undefined;
-		const { start, end } = get_selection_range(this.selection);
+		const range = get_selection_range(this.selection);
 		const annotated_text = this.get(this.selection.path);
 		const annotations = annotated_text.annotations;
 
 		const active_annotation = annotations.find(
 			/** @param {any} annotation */ (annotation) =>
-				annotation.start_offset <= start &&
-				annotation.end_offset >= end &&
+				annotation.start_offset <= range.start_offset &&
+				annotation.end_offset >= range.end_offset &&
 				(type ? this.get(annotation.node_id).type === type : true)
 		);
 		if (!active_annotation) return undefined;
@@ -455,7 +455,7 @@ export default class Transaction {
 	annotate_text(annotation_type, annotation_properties) {
 		if (this.selection.type !== 'text') return this;
 
-		const { start, end } = get_selection_range(this.selection);
+		const range = get_selection_range(this.selection);
 		const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const annotations = annotated_text.annotations;
 		const existing_annotation = this.active_annotation();
@@ -494,7 +494,11 @@ export default class Transaction {
 			};
 			this.create(new_annotation_node);
 			// If there's no existing annotation, add the new one
-			annotations.push({ start_offset: start, end_offset: end, node_id: new_annotation_node.id });
+			annotations.push({
+				start_offset: range.start_offset,
+				end_offset: range.end_offset,
+				node_id: new_annotation_node.id
+			});
 		}
 
 		// Update the annotated text
@@ -719,11 +723,12 @@ export default class Transaction {
 		}
 
 		const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-		const { start, end } = get_selection_range(this.selection);
+		const range = get_selection_range(this.selection);
 
 		// Transform the plain text string using character-based operations
 		const text = annotated_text.text;
-		annotated_text.text = char_slice(text, 0, start) + replaced_text + char_slice(text, end);
+		annotated_text.text =
+			char_slice(text, 0, range.start_offset) + replaced_text + char_slice(text, range.end_offset);
 
 		// Calculate the change in length
 		const delta = get_char_length(replaced_text);
@@ -734,12 +739,12 @@ export default class Transaction {
 			const node_id = annotation.node_id;
 
 			// Annotation is entirely before the insertion point
-			if (annotation_end <= start) {
+			if (annotation_end <= range.start_offset) {
 				return annotation;
 			}
 
 			// Annotation starts at the insertion point - extend it
-			if (annotation_start <= start && annotation_end >= start) {
+			if (annotation_start <= range.start_offset && annotation_end >= range.start_offset) {
 				return {
 					start_offset: annotation_start,
 					end_offset: annotation_end + delta,
@@ -748,7 +753,7 @@ export default class Transaction {
 			}
 
 			// Annotation is entirely after the insertion point - shift it
-			if (annotation_start >= start) {
+			if (annotation_start >= range.start_offset) {
 				return {
 					start_offset: annotation_start + delta,
 					end_offset: annotation_end + delta,
@@ -757,7 +762,7 @@ export default class Transaction {
 			}
 
 			// Insertion point is inside the annotation - extend the annotation
-			if (annotation_start < start && annotation_end > start) {
+			if (annotation_start < range.start_offset && annotation_end > range.start_offset) {
 				return {
 					start_offset: annotation_start,
 					end_offset: annotation_end + delta,
@@ -776,8 +781,8 @@ export default class Transaction {
 		const new_selection = {
 			type: /** @type {const} */ ('text'),
 			path: this.selection.path,
-			anchor_offset: start + get_char_length(replaced_text),
-			focus_offset: start + get_char_length(replaced_text)
+			anchor_offset: range.start_offset + get_char_length(replaced_text),
+			focus_offset: range.start_offset + get_char_length(replaced_text)
 		};
 		this.selection = new_selection;
 
@@ -793,8 +798,8 @@ export default class Transaction {
 					if (text_property_definition.node_types.includes(original_annotation_node.type)) {
 						const new_annotation_node_id = this.build(annotation.node_id, nodes);
 						return {
-							start_offset: start + annotation.start_offset,
-							end_offset: start + annotation.end_offset,
+							start_offset: range.start_offset + annotation.start_offset,
+							end_offset: range.start_offset + annotation.end_offset,
 							node_id: new_annotation_node_id
 						};
 					}

@@ -1,5 +1,5 @@
 /**
- * @import { Annotation, AnnotatedText } from './types.d.ts';
+ * @import { Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
  */
 
 /**
@@ -312,14 +312,17 @@ export function traverse(node_id, schema, nodes) {
 	return json;
 }
 
+/**
+ * Extracts the normalized range from a text or node selection.
+ * Returns start and end offsets in document order (start <= end), regardless of selection direction.
+ * @param {Selection} [selection] - The selection to extract the range from
+ * @returns {SelectionRange | null} The normalized selection range, or null if selection is null, undefined, or a property selection
+ */
 export function get_selection_range(selection) {
 	if (selection && selection.type !== 'property') {
-		const start = Math.min(selection.anchor_offset, selection.focus_offset);
-		const end = Math.max(selection.anchor_offset, selection.focus_offset);
 		return {
-			start,
-			end,
-			length: end - start
+			start_offset: Math.min(selection.anchor_offset, selection.focus_offset),
+			end_offset: Math.max(selection.anchor_offset, selection.focus_offset)
 		};
 	} else {
 		return null;
