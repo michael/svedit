@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document } from './types'
  */
 
 import { get_selection_range } from './utils.js';
@@ -196,8 +196,8 @@ export function validate_node(node, schema, all_nodes = {}) {
 /**
  * Gets a value from the document at the specified path.
  *
- * @param {object} schema - The document schema
- * @param {object} doc - The document containing nodes
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
  * @param {DocumentPath|string} path - Array path to the value, or a string node ID
  * @returns {any} The value at the specified path
  */
@@ -313,8 +313,8 @@ export function kind(schema, node) {
 /**
  * Inspects a path to get metadata about the value at that location.
  *
- * @param {object} schema - The document schema
- * @param {object} doc - The document containing nodes
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
  * @param {DocumentPath} path - The path to inspect
  * @returns {{kind: 'property'|'node', [key: string]: any}} Metadata about the path
  */
@@ -342,9 +342,9 @@ export function inspect(schema, doc, path) {
  * Applies an operation to a document and returns the new document.
  * Uses copy-on-write semantics.
  *
- * @param {object} doc - The document to apply the operation to
+ * @param {Document} doc - The document to apply the operation to
  * @param {Array} op - The operation to apply [type, ...args]
- * @returns {object} The new document with the operation applied
+ * @returns {Document} The new document with the operation applied
  */
 export function apply_op(doc, op) {
 	const [type, ...args] = op;
@@ -383,8 +383,8 @@ export function apply_op(doc, op) {
 /**
  * Counts how many times a node is referenced in the document.
  *
- * @param {object} schema - The document schema
- * @param {object} doc - The document containing nodes
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
  * @param {NodeId} node_id - The node ID to count references for
  * @returns {number} The number of references
  */
@@ -416,9 +416,9 @@ export function count_references(schema, doc, node_id) {
  * - Annotation contains the selection end
  * - Selection fully contains the annotation
  *
- * @param {object} schema - The document schema
- * @param {object} doc - The document containing nodes
- * @param {Selection} selection - The current text selection
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
+ * @param {Selection} [selection] - The current selection
  * @param {string} [annotation_type] - Optional annotation type to filter by
  * @returns {Annotation | null} The active annotation, or null if none found
  */
@@ -450,7 +450,7 @@ export function get_active_annotation(schema, doc, selection, annotation_type) {
  * Counts references to a node, excluding nodes marked for deletion.
  *
  * @param {DocumentSchema} schema - The document schema
- * @param {object} doc - The document containing nodes
+ * @param {Document} doc - The document containing nodes
  * @param {NodeId} target_node_id - The node ID to count references for
  * @param {Record<NodeId, boolean>} nodes_to_delete - Nodes marked for deletion
  * @returns {number} The number of references excluding deleted nodes
