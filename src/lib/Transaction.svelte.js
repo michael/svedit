@@ -672,7 +672,6 @@ export default class Transaction {
 
 		// Insert the new nodes
 		node_array.splice(start, 0, ...node_ids);
-
 		this.set(path, node_array);
 
 		this.selection = {

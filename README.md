@@ -212,9 +212,9 @@ const session_config = {
   // Functions that create and insert new nodes
   inserters: {
     text: (tr, content = {text: '', annotations: []}) => {
-      const id = nanoid();
-      tr.create_node(id, 'text', { content });
-      tr.insert_nodes([id]);
+      const text_id = nanoid();
+      tr.create({ id: text_id, type: 'text', content });
+      tr.insert_nodes([text_id]);
     }
   },
   
@@ -376,7 +376,7 @@ function insert_heading(tr) {
   
   // Create and insert a heading node
   const heading_id = tr.generate_id();
-  tr.create_node(heading_id, 'heading', { content: { text: '', annotations: [] } });
+  tr.create({ id: heading_id, type: 'heading', content: { text: '', annotations: [] } });
   tr.insert_nodes(selection.path, selection.anchor_offset, [heading_id]);
   
   return true;
