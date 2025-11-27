@@ -153,12 +153,12 @@
 
 	/* Dim the selection highlight when canvas loses native focus */
 	:global(.svedit-canvas:not(:focus)) .selection-highlight {
-		background: var(--editing-fill-color);
+		background: oklch(from var(--editing-fill-color) l 0.02 h / 0.3);
 	}
 
 	/* Make a collapsed cursor visible */
 	:global(.svedit-canvas:not(:focus)) .selection-highlight:empty {
 		background: none;
-		outline: 0.5px solid var(--editing-stroke-color);
+		outline: 0.5px solid oklch(from var(--editing-stroke-color) l 0.02 h / 0.3);
 	}
 </style>
