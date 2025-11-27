@@ -1,5 +1,5 @@
 /**
- * @import { NodeId, Selection, DocumentPath } from './types.d.js'
+ * @import { NodeId, Selection, DocumentPath, Annotation } from './types.d.js'
  */
 
 import {
@@ -17,7 +17,8 @@ import {
 	inspect as doc_inspect,
 	apply_op,
 	count_references_excluding_deleted,
-	validate_node
+	validate_node,
+	get_active_annotation
 } from './doc_utils.js';
 
 /**
@@ -63,7 +64,7 @@ export default class Transaction {
 	/**
 	 * Gets a value from the document at the specified path.
 	 *
-	 * @param {DocumentPath} path - The path to the value in the document
+	 * @param {DocumentPath|string} path - The path to the value in the document, or a string node ID
 	 * @returns {any} The value at the specified path
 	 */
 	get(path) {
@@ -144,30 +145,14 @@ export default class Transaction {
 	}
 
 	/**
-	 * Gets the currently active annotation at the selection, optionally filtered by type.
+	 * Returns the annotation object that is currently "under the cursor".
+	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
 	 *
-	 * @param {string} [type] - Optional annotation type to filter by
-	 * @returns {any} The active annotation or undefined
+	 * @param {string} [annotation_type] Optional annotation type to filter by
+	 * @returns {Annotation|null}
 	 */
-	active_annotation(type) {
-		if (this.selection?.type !== 'text') return undefined;
-		const range = get_selection_range(this.selection);
-		const annotated_text = this.get(this.selection.path);
-		const annotations = annotated_text.annotations;
-
-		const active_annotation = annotations.find(
-			/** @param {any} annotation */ (annotation) =>
-				annotation.start_offset <= range.start_offset &&
-				annotation.end_offset >= range.end_offset &&
-				(type ? this.get(annotation.node_id).type === type : true)
-		);
-		if (!active_annotation) return undefined;
-		const annotation_node = this.get(active_annotation.node_id);
-		return {
-			...active_annotation,
-			type: annotation_node.type,
-			node: annotation_node
-		};
+	active_annotation(annotation_type) {
+		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
 	}
 
 	/**
