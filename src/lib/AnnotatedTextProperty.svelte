@@ -18,16 +18,11 @@
 
 	// Get selection highlight range if not inside an annotation
 	let selection_highlight_range = $derived.by(() => {
-		if (!is_focused) return undefined;
-		if (svedit.session.active_annotation()) return undefined;
+		if (!is_focused) return null;
+		if (svedit.session.active_annotation()) return null;
 		const sel = svedit.session.selection;
-		if (!sel || sel.type !== 'text') return undefined;
-		const range = get_selection_range(sel);
-		if (!range) return undefined;
-		return {
-			start_offset: range.start,
-			end_offset: range.end
-		};
+		if (!sel || sel.type !== 'text') return null;
+		return get_selection_range(sel);
 	});
 
 	/**

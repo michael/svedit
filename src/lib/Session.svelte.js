@@ -17,11 +17,7 @@ import {
  *   DocumentPath,
  *   Selection,
  *   Annotation,
- *   PrimitiveType,
- *   NodeProperty,
- *   NodeArrayProperty,
  *   NodeKind,
- *   NodeSchema,
  *   DocumentSchema,
  *   DocumentNode,
  *   Document
@@ -450,16 +446,16 @@ export default class Session {
 	active_annotation(annotation_type) {
 		if (this.selection?.type !== 'text') return null;
 
-		const { start, end } = get_selection_range(this.selection);
+		const range = get_selection_range(this.selection);
 		const annotated_text = this.get(this.selection.path);
 		const annotations = annotated_text.annotations;
 
 		const active_annotation =
 			annotations.find(
 				({ start_offset, end_offset }) =>
-					(start_offset <= start && end_offset > start) ||
-					(start_offset < end && end_offset >= end) ||
-					(start_offset >= start && end_offset <= end)
+					(start_offset <= range.start_offset && end_offset > range.start_offset) ||
+					(start_offset < range.end_offset && end_offset >= range.end_offset) ||
+					(start_offset >= range.start_offset && end_offset <= range.end_offset)
 			) || null;
 
 		if (annotation_type && active_annotation) {

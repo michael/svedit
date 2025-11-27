@@ -49,17 +49,17 @@ export type PropertySelection = {
 };
 
 /**
+ * Union type for all possible selection types
+ */
+export type Selection = TextSelection | NodeSelection | PropertySelection;
+
+/**
  * Represents only the range (no direction and payload) of a NodeSelection or TextSelection
  */
 export type SelectionRange = {
 	start_offset: number;
 	end_offset: number;
 };
-
-/**
- * Union type for all possible selection types
- */
-export type Selection = TextSelection | NodeSelection | PropertySelection;
 
 // ===== SCHEMA TYPE DEFINITIONS =====
 
