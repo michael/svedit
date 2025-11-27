@@ -157,11 +157,90 @@ export type AnnotatedTextProperty = {
 };
 
 /**
+ * A property that stores a string value.
+ */
+export type StringProperty = {
+	type: 'string';
+	default?: string;
+};
+
+/**
+ * A property that stores a number value.
+ */
+export type NumberProperty = {
+	type: 'number';
+	default?: number;
+};
+
+/**
+ * A property that stores a boolean value.
+ */
+export type BooleanProperty = {
+	type: 'boolean';
+	default?: boolean;
+};
+
+/**
+ * A property that stores an integer value.
+ */
+export type IntegerProperty = {
+	type: 'integer';
+	default?: number;
+};
+
+/**
+ * A property that stores a datetime value.
+ */
+export type DatetimeProperty = {
+	type: 'datetime';
+	default?: string;
+};
+
+/**
+ * A property that stores an array of strings.
+ */
+export type StringArrayProperty = {
+	type: 'string_array';
+	default?: string[];
+};
+
+/**
+ * A property that stores an array of numbers.
+ */
+export type NumberArrayProperty = {
+	type: 'number_array';
+	default?: number[];
+};
+
+/**
+ * A property that stores an array of booleans.
+ */
+export type BooleanArrayProperty = {
+	type: 'boolean_array';
+	default?: boolean[];
+};
+
+/**
+ * A property that stores an array of integers.
+ */
+export type IntegerArrayProperty = {
+	type: 'integer_array';
+	default?: number[];
+};
+
+/**
  * A property that stores a primitive value (excluding annotated_text).
  */
-export type PrimitiveProperty = {
-	[K in Exclude<PrimitiveType, 'annotated_text'>]: { type: K };
-}[Exclude<PrimitiveType, 'annotated_text'>];
+export type PrimitiveProperty =
+	| StringProperty
+	| NumberProperty
+	| BooleanProperty
+	| IntegerProperty
+	| DatetimeProperty
+	| StringArrayProperty
+	| NumberArrayProperty
+	| BooleanArrayProperty
+	| IntegerArrayProperty;
 
 /**
  * A property that stores a reference to a single node.

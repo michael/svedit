@@ -1,5 +1,5 @@
 /**
- * @import { NodeId, Selection, DocumentPath, Annotation } from './types.d.js'
+ * @import { NodeId, Selection, Document, DocumentSchema, DocumentPath, Annotation } from './types.d.js'
  */
 
 import {
@@ -40,9 +40,9 @@ export default class Transaction {
 	/**
 	 * Creates a new Transaction with the given state.
 	 *
-	 * @param {object} schema - The document schema
-	 * @param {object} doc - The document state {document_id, nodes}
-	 * @param {Selection} selection - The current selection
+	 * @param {DocumentSchema} schema - The document schema
+	 * @param {Document} doc - The document state {document_id, nodes}
+	 * @param {Selection | null} selection - The current selection
 	 * @param {object} config - The document config (including generate_id)
 	 */
 	constructor(schema, doc, selection, config) {
