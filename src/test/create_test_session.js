@@ -123,7 +123,7 @@ const doc = {
 	}
 };
 
-const document_config = {
+const session_config = {
 	generate_id: nanoid,
 	system_components: {
 		NodeCursorTrap,
@@ -233,6 +233,6 @@ const document_config = {
 };
 
 export default function create_test_session() {
-	const session = new Session(document_schema, doc, { config: document_config });
+	const session = new Session(document_schema, doc, session_config);
 	return session;
 }

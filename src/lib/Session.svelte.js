@@ -30,7 +30,6 @@ const BATCH_WINDOW_MS = 1000; // 1 second
 /**
  * @typedef {Object} SessionOptions
  * @property {Selection} [selection] - Initial selection state
- * @property {any} [config] - Editor configuration
  */
 
 export default class Session {
@@ -62,6 +61,25 @@ export default class Session {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
+
+	/**
+	 * @param {DocumentSchema} schema - The document schema
+	 * @param {Document} doc - The document
+	 * @param {object} config - configuration object
+	 * @param {Object} [options]
+	 * @param {Selection} [options.selection] - Initial selection state
+	 */
+	constructor(schema, doc, config, options = {}) {
+		// Validate the schema first
+		validate_document_schema(schema);
+
+		this.schema = schema;
+		this.doc = doc;
+		this.config = config;
+
+		// Set selection after doc is initialized so validation can work properly
+		this.selection = options.selection ?? null;
+	}
 
 	/**
 	 * Gets the current selection
@@ -147,25 +165,6 @@ export default class Session {
 		} else {
 			throw new Error(`Unknown selection type: ${selection_type}`);
 		}
-	}
-
-	/**
-	 * @param {DocumentSchema} schema - The document schema
-	 * @param {Document} doc - The document
-	 * @param {SessionOptions} [options] - Optional configuration
-	 */
-	constructor(schema, doc, options = {}) {
-		const { selection, config } = options;
-
-		// Validate the schema first
-		validate_document_schema(schema);
-
-		this.schema = schema;
-		this.doc = doc;
-		this.config = config;
-
-		// Set selection after doc is initialized so validation can work properly
-		this.selection = selection;
 	}
 
 	/**

@@ -467,7 +467,7 @@ const doc = {
 };
 
 // App-specific config object, always available via doc.config for introspection
-const document_config = {
+const session_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
 	// Provide definitions/overrides for system native components,
@@ -823,7 +823,7 @@ const document_config = {
 };
 
 export default function create_demo_session() {
-	const session = new Session(document_schema, doc, { config: document_config });
+	const session = new Session(document_schema, doc, session_config);
 	// This makes sure that the document is in a valid state.
 	session.validate_doc();
 	return session;

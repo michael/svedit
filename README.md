@@ -6,11 +6,7 @@ Try the [demo](https://svedit.dev).
 
 ## Why Svedit?
 
-Because Svelte‘s reactivity system is **the perfect fit** for building super-lightweight content editing experiences.
-
-In fact, they're so lightweight, **your content is your editor** — no context switching between a backend and the live site.
-
-Svedit just gives you the gluing pieces around **defining a custom document model** and **mapping DOM selections** to the internal model and vice versa.
+Because Svelte‘s reactivity system is **the perfect fit** for building super-lightweight content editing experiences. In fact, they're so lightweight, **your content is your editor** — no context switching between a backend and the live site. Svedit just gives you the gluing pieces around **defining a custom document model** and **mapping DOM selections** to the internal model and vice versa.
 
 ## Getting started
 
@@ -203,7 +199,7 @@ const doc = {
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
 
 ```js
-const document_config = {
+const session_config = {
   // ID generator for creating new nodes
   generate_id: () => nanoid(),
   
@@ -212,9 +208,6 @@ const document_config = {
   
   // Map node types to Svelte components
   node_components: { Page, Text, Story, List, Button, ... },
-  
-  // App-specific: Number of layout variants per node type
-  node_layouts: { text: 4, story: 3, list: 5 },
   
   // Functions that create and insert new nodes
   inserters: {
@@ -257,7 +250,7 @@ Document content (`session.doc`) and selection (`session.selection`) are **immut
 ```js
 import { Session } from 'svedit';
 
-const session = new Session(schema, doc, { config });
+const session = new Session(schema, doc, config);
 ```
 
 ### Reading the graph
@@ -931,7 +924,7 @@ A simple list component that renders child items:
 Node components are registered in the document config's `node_components` map:
 
 ```js
-const document_config = {
+const session_config = {
   node_components: {
     Text,
     Story,
