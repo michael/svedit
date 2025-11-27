@@ -399,16 +399,27 @@ session.apply(tr);                          // Apply atomically
 
 ```js
 // Create a new node (must include all required properties from schema)
-tr.create({ id: 'para_1', type: 'paragraph', content: { text: '', annotations: [] } });
+tr.create({ id: 'paragraph_1', type: 'paragraph', content: { text: '', annotations: [] } });
 
 // Delete a node (cascades to unreferenced child nodes)
-tr.delete('node_id');
+tr.delete('paragraph_26');
 
 // Insert nodes at current node selection
-tr.insert_nodes(['node_1', 'node_2']);
+tr.insert_nodes(['paragraph_1', 'list_1']);
 
 // Build a subgraph from existing nodes (generates new IDs)
-const new_root_id = tr.build(source_node_id, source_nodes);
+const new_node_id = tr.build('the_list', {
+  first_item: {
+		id: 'first_item',
+		type: 'list_item',
+		content: node.content
+	}
+	the_list: {
+		id: 'the_list',
+		type: 'list',
+		list_items: ['first_item']
+	}
+});
 ```
 
 ### Text operations
@@ -479,7 +490,7 @@ class ToggleStrongCommand extends Command {
 
 #### Document command context
 
-Document-scoped commands receive a `context` object with access to the Svedit instance state:
+Document-scoped commands receive a `context` object with access to the Svedit instance's state:
 
 - `context.session` - The current session instance
 - `context.editable` - Whether the editor is in edit mode
@@ -512,7 +523,7 @@ execute() {
 
 #### Built-in document commands
 
-Svedit provides several core commands out of the box:
+Svedit provides several [core commands](src/lib/Command.svelte.js) out of the box:
 
 - `UndoCommand` - Undo the last change
 - `RedoCommand` - Redo the last undone change
@@ -585,17 +596,12 @@ The `disabled` property is automatically derived from `is_enabled()` on all comm
 Commands can access the DOM through the context or global APIs:
 
 ```js
-class CopyCommand extends Command {
-  is_enabled() {
-    return this.context.session.selection !== null;
-  }
-
-  async execute() {
-    const text = this.context.session.get_selected_plain_text();
-    await navigator.clipboard.writeText(text);
-    
-    // Access the editor canvas
-    this.context.canvas_el.classList.add('copy-feedback');
+class FocusNextSelectableCommand extends Command {
+  execute() {
+    const selectables = this.context.canvas_el.querySelectorAll('.svedit-selectable');
+    const next = selectables[0]; // Find next based on current selection
+    const path = next.closest('[data-path]').dataset.path.split('.');
+    this.context.session.selection = { type: 'text', path, anchor_offset: 0, focus_offset: 0 };
   }
 }
 ```
