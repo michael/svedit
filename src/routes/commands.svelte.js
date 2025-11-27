@@ -140,9 +140,9 @@ export class ToggleLinkCommand extends Command {
 
 	execute() {
 		const session = this.context.session;
-		const can_create_link = session.active_annotation('link');
+		const can_remove_link = session.active_annotation('link');
 
-		if (can_create_link) {
+		if (can_remove_link) {
 			// Delete link
 			session.apply(session.tr.annotate_text('link'));
 		} else {
