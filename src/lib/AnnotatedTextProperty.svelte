@@ -151,12 +151,13 @@
     outline: 1px solid var(--editing-stroke-color);
   }*/
 
-	.selection-highlight {
+	/* Dim the selection highlight when canvas loses native focus */
+	:global(.svedit-canvas:not(:focus)) .selection-highlight {
 		background: var(--editing-fill-color);
 	}
 
 	/* Make a collapsed cursor visible */
-	.selection-highlight:empty {
+	:global(.svedit-canvas:not(:focus)) .selection-highlight:empty {
 		background: none;
 		outline: 0.5px solid var(--editing-stroke-color);
 	}
