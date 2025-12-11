@@ -16,14 +16,32 @@
 		);
 	});
 
+	let plain_text = $derived(svedit.session.get(path).text);
+	let is_empty = $derived(
+		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
+	);
+
+	let is_collapsed = $derived(
+		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
+	);
+
 	// Get selection highlight range if not inside an annotation
 	let selection_highlight_range = $derived.by(() => {
+		if (is_collapsed) return null;
 		if (!is_focused) return null;
 		if (svedit.session.active_annotation()) return null;
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 		return get_selection_range(sel);
 	});
+
+	let fragments = $derived(
+		get_fragments(
+			svedit.session.get(path).text,
+			svedit.session.get(path).annotations,
+			selection_highlight_range
+		)
+	);
 
 	/**
 	 * Converts text with annotations into renderable fragments for display.
@@ -78,18 +96,6 @@
 
 		return fragments;
 	}
-
-	let fragments = $derived(
-		get_fragments(
-			svedit.session.get(path).text,
-			svedit.session.get(path).annotations,
-			selection_highlight_range
-		)
-	);
-	let plain_text = $derived(svedit.session.get(path).text);
-	let is_empty = $derived(
-		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
-	);
 </script>
 
 <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
