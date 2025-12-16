@@ -68,7 +68,9 @@
 	const key_mapper = getContext('key_mapper');
 
 	// Initialize commands and keymap on the session
-	session.initialize_commands(context);
+	$effect(() => {
+		session.initialize_commands(context);
+	});
 
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
