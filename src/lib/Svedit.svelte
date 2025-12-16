@@ -1012,10 +1012,7 @@ ${fallback_html}`;
 		// Check if it's a backward selection
 		// When range is provided, we can't detect backward selection from the range alone
 		// since ranges are always normalized (start before end)
-		const is_backward = dom_selection
-			? dom_selection.anchorNode === range.endContainer &&
-				dom_selection.anchorOffset === range.endOffset
-			: false;
+		const is_backward = dom_selection ? __is_dom_selection_backwards() : false;
 
 		// Swap offsets if it's a backward selection
 		if (is_backward) {
@@ -1163,8 +1160,6 @@ ${fallback_html}`;
 			`[data-path="${selection.path.join('.')}"][data-type="text"]`
 		);
 		const empty_text = session.get(selection.path).text.length === 0;
-
-		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
 		let current_offset = 0;
 		/** @type {HTMLElement | Text} */
@@ -1241,24 +1236,14 @@ ${fallback_html}`;
 
 		// Set the range if both start and end were found
 		if (anchor_node && focus_node) {
-			// Always set range in document order (start to end)
-			if (is_backward) {
-				range.setStart(focus_node, focus_node_offset);
-				range.setEnd(anchor_node, anchor_node_offset);
-			} else {
-				range.setStart(anchor_node, anchor_node_offset);
-				range.setEnd(focus_node, focus_node_offset);
-			}
-
 			dom_selection.removeAllRanges();
-			if (is_backward) {
-				// For backward selections, collapse to end and extend to start
-				range.collapse(false); // collapse to end
-				dom_selection.addRange(range);
-				dom_selection.extend(focus_node, focus_node_offset);
-			} else {
-				dom_selection.addRange(range);
-			}
+			// NOTE: Only using setBaseAndExtent() will preserve selection direction
+			dom_selection.setBaseAndExtent(
+				anchor_node,
+				anchor_node_offset,
+				focus_node,
+				focus_node_offset
+			);
 			el.focus(); // needed?
 
 			// Scroll the selection into view
