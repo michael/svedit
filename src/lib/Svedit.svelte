@@ -977,8 +977,8 @@ ${fallback_html}`;
 			}
 		}
 
-		let anchor_offset = 0;
-		let focus_offset = 0;
+		let start_offset = 0;
+		let end_offset = 0;
 		let current_offset = 0;
 
 		function processNode(node) {
@@ -988,12 +988,12 @@ ${fallback_html}`;
 				if (node === range.startContainer) {
 					// Convert UTF-16 offset to character offset
 					const char_start_offset = utf16_to_char_offset(nodeText, range.startOffset);
-					anchor_offset = current_offset + char_start_offset;
+					start_offset = current_offset + char_start_offset;
 				}
 				if (node === range.endContainer) {
 					// Convert UTF-16 offset to character offset
 					const char_end_offset = utf16_to_char_offset(nodeText, range.endOffset);
-					focus_offset = current_offset + char_end_offset;
+					end_offset = current_offset + char_end_offset;
 				}
 				current_offset += nodeCharLength;
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -1001,7 +1001,7 @@ ${fallback_html}`;
 					processNode(childNode);
 				}
 			}
-			return focus_offset !== 0;
+			return end_offset !== 0;
 		}
 
 		// Process nodes to find offsets
@@ -1014,16 +1014,15 @@ ${fallback_html}`;
 		// since ranges are always normalized (start before end)
 		const is_backward = dom_selection ? __is_dom_selection_backwards() : false;
 
-		// Swap offsets if it's a backward selection
-		if (is_backward) {
-			[anchor_offset, focus_offset] = [focus_offset, anchor_offset];
-		}
+		// Assign to anchor/focus based on direction
+		const anchor_offset = is_backward ? end_offset : start_offset;
+		const focus_offset = is_backward ? start_offset : end_offset;
 
 		return {
 			type: 'text',
 			path,
-			anchor_offset: anchor_offset,
-			focus_offset: focus_offset
+			anchor_offset,
+			focus_offset
 		};
 	}
 
