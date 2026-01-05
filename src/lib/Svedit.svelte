@@ -4,8 +4,7 @@
 		snake_to_pascal,
 		get_char_length,
 		utf16_to_char_offset,
-		char_to_utf16_offset,
-		get_char_at
+		char_to_utf16_offset
 	} from './utils.js';
 
 	/** @import {
@@ -951,31 +950,39 @@ ${fallback_html}`;
 		if (!path) return null;
 
 		// EDGE CASE 1B: Cursor after trailing <br> at end of text
+		//
+		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
+		// When the user places their cursor after this <br>, focusNode is the container
+		// element (not a text node), and normal processing would return position 0.
+		// We detect this and return text_length instead.
 		const text_content = session.get(path).text;
 		const text_length = get_char_length(text_content);
-		if (text_length > 0) {
-			const last_char = get_char_at(text_content, text_length - 1);
-			if (
-				focus_node === anchor_node &&
-				focus_node === focus_root &&
-				focus_root.dataset?.type === 'text' &&
-				!focus_root.classList.contains('empty') &&
-				last_char === '\n'
-			) {
-				const child_nodes = focus_root.childNodes;
+		const child_nodes = focus_root.childNodes;
 
-				if (
-					child_nodes.length > 0 &&
-					child_nodes[child_nodes.length - 1].nodeName === 'BR' &&
-					focus_offset_in_node >= child_nodes.length - 2
-				) {
-					return {
-						type: 'text',
-						path,
-						anchor_offset: text_length,
-						focus_offset: text_length
-					};
-				}
+		if (
+			focus_node === anchor_node &&
+			focus_node === focus_root &&
+			focus_root.dataset?.type === 'text' &&
+			!focus_root.classList.contains('empty')
+		) {
+			// Find the last non-comment child node (comments are inserted by Svelte)
+			let last_element_index = child_nodes.length - 1;
+			while (last_element_index >= 0 && child_nodes[last_element_index].nodeType === Node.COMMENT_NODE) {
+				last_element_index--;
+			}
+
+			// Check if cursor is at or after the trailing <br>
+			if (
+				last_element_index >= 0 &&
+				child_nodes[last_element_index].nodeName === 'BR' &&
+				focus_offset_in_node >= last_element_index
+			) {
+				return {
+					type: 'text',
+					path,
+					anchor_offset: text_length,
+					focus_offset: text_length
+				};
 			}
 		}
 
