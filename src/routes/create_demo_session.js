@@ -408,7 +408,7 @@ const doc = {
 			id: 'list_item_3',
 			type: 'list_item',
 			content: {
-				text: 'Works best in Chrome, as Svedit uses CSS Anchor Positioning for overlays.',
+				text: 'Works best in Chrome and Safari 26+, as Svedit uses CSS Anchor Positioning for overlays.',
 				annotations: []
 			}
 		},
