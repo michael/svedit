@@ -1316,6 +1316,7 @@ ${fallback_html}`;
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
 		contenteditable={editable ? 'true' : 'false'}
+		tabindex="-1"
 		{autocapitalize}
 		{spellcheck}
 		{...{
