@@ -1338,7 +1338,7 @@ ${fallback_html}`;
 	.svedit-canvas {
 		--layout-orientation: vertical;
 		caret-color: var(--editing-stroke-color);
-		caret-shape: block;
+		caret-shape: bar;
 		&:focus {
 			outline: none;
 		}
