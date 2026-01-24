@@ -20,6 +20,7 @@
 </script>
 
 <svelte:element
+	id={node.id}
 	this={tag}
 	class={css_class}
 	data-node-id={node.id}
