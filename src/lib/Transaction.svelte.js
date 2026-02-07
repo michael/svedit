@@ -727,8 +727,8 @@ export default class Transaction {
 				return annotation;
 			}
 
-			// Annotation starts at the insertion point - extend it
-			if (annotation_start <= range.start_offset && annotation_end >= range.start_offset) {
+			// Insertion point is inside the annotation (not at the start) - extend it
+			if (annotation_start < range.start_offset && annotation_end >= range.start_offset) {
 				return {
 					start_offset: annotation_start,
 					end_offset: annotation_end + delta,
