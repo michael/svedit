@@ -111,6 +111,7 @@
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}
+	class:editable={svedit.editable}
 	{placeholder}
 >
 	{#each fragments as fragment, index (index)}
@@ -156,6 +157,11 @@
     background: none;
     outline: 1px solid var(--editing-stroke-color);
   }*/
+
+	/* Disable text-transform when editable and focused so users see original text */
+	.text.editable.focused {
+		text-transform: none !important;
+	}
 
 	/* Dim the selection highlight when canvas loses native focus */
 	:global(.svedit-canvas:not(:focus)) .selection-highlight {
