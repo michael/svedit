@@ -423,7 +423,8 @@ ${fallback_html}`;
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
 	function oncopy(event, delete_selection = false) {
-		// Only handle copy events if focus is within the canvas
+		// Only handle copy events if editable and focus is within the canvas
+		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
 
 		event.preventDefault();
@@ -493,6 +494,7 @@ ${fallback_html}`;
 	}
 
 	function oncut(event) {
+		if (!editable) return;
 		oncopy(event, true);
 	}
 
@@ -563,7 +565,8 @@ ${fallback_html}`;
 	}
 
 	async function onpaste(event) {
-		// Only handle paste events if focus is within the canvas
+		// Only handle paste events if editable and focus is within the canvas
+		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
 		event.preventDefault();
 
