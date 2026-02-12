@@ -392,7 +392,7 @@ const doc = {
 			id: 'list_item_1',
 			type: 'list_item',
 			content: {
-				text: "It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
+				text: "It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
 				annotations: []
 			}
 		},
@@ -400,7 +400,7 @@ const doc = {
 			id: 'list_item_2',
 			type: 'list_item',
 			content: {
-				text: 'Copy and pasting from and to external sources is not yet supported, but soon will be.',
+				text: 'Copy and pasting from and to external sources is working in principle, but is only capturing plain text so far.',
 				annotations: []
 			}
 		},
@@ -408,7 +408,7 @@ const doc = {
 			id: 'list_item_3',
 			type: 'list_item',
 			content: {
-				text: 'Works best in Chrome and Safari 26+, as Svedit uses CSS Anchor Positioning for overlays.',
+				text: 'Works best in Chrome and Safari 26+ and Firefox 157+, as Svedit uses CSS Anchor Positioning for overlays.',
 				annotations: []
 			}
 		},
