@@ -26,7 +26,7 @@
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
-	style="anchor-name: --{path.join('-')};"
+	style="position: relative; anchor-name: --{path.join('-')};"
 >
 	{#if svedit.editable && is_first_node_array_child}
 		<NodeCursorTrap {path} type="position-zero-cursor-trap" />
@@ -36,9 +36,3 @@
 		<NodeCursorTrap {path} type="after-node-cursor-trap" />
 	{/if}
 </svelte:element>
-
-<style>
-	div {
-		position: relative;
-	}
-</style>
