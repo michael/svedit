@@ -80,6 +80,38 @@ If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can stil
 
 > **Common mistake:** A quote node with `content` + `author` properties might seem like `kind: 'text'` because both fields are editable text. But splitting a quote into two half-quotes doesn't make sense, and `join_text_node` hard-codes `node.content` — so Backspace in the `author` field would join the wrong property with the previous block and drop the author text. The correct kind is `'block'`.
 
+<details>
+<summary>Decision tree for choosing a node kind</summary>
+
+```mermaid
+flowchart TD
+    Start(["I need a new node type"])
+    Q1{"Is it inline formatting applied within text?"}
+    Q2{"Is it a top-level routable entry point?"}
+    Q3{"Is text the node's entire purpose?"}
+    Q4{"Does it have exactly one annotated_text property?"}
+    Q5{"Does pressing Enter to split into two nodes make sense?"}
+
+    KindAnnotation["kind: annotation e.g. bold, italic, link"]
+    KindDocument["kind: document e.g. page, article, event"]
+    KindBlock["kind: block e.g. image+caption, quote+author, list, nav, embed"]
+    KindText["kind: text e.g. paragraph, heading, list_item"]
+
+    Start --> Q1
+    Q1 -->|Yes| KindAnnotation
+    Q1 -->|No| Q2
+    Q2 -->|Yes| KindDocument
+    Q2 -->|No| Q3
+    Q3 -->|"No — it has non-text properties or children"| KindBlock
+    Q3 -->|Yes| Q4
+    Q4 -->|"No — multiple text properties"| KindBlock
+    Q4 -->|Yes| Q5
+    Q5 -->|"No — splitting doesn't make sense"| KindBlock
+    Q5 -->|Yes| KindText
+```
+
+</details>
+
 Properties of nodes can hold values:
 - `string`: A good old JavaScript string
 - `number`: Just like a number in JavaScript
