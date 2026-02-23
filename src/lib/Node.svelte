@@ -7,7 +7,7 @@
 	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
 
 	/** @type {NodeProps} */
-	let { path, children, tag = 'div', class: css_class } = $props();
+	let { path, children, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
 	// NOTE: When the next to last path segment is a node_array property, the node is wrapped in a node_array
 	let is_inside_node_array = $derived(
@@ -26,7 +26,8 @@
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
-	style="position: relative; anchor-name: --{path.join('-')};"
+	style="position: relative; anchor-name: --{path.join('-')};{style}"
+	{...rest}
 >
 	{#if svedit.editable && is_first_node_array_child}
 		<NodeCursorTrap {path} type="position-zero-cursor-trap" />

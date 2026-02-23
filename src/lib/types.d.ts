@@ -379,6 +379,8 @@ export type NodeProps = {
 	class?: string;
 	/** The type-specific content of the node */
 	children: Snippet;
+	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
+	[key: string]: any;
 };
 
 /**
