@@ -9,7 +9,7 @@
 	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
 
 	/** @type {NodeArrayPropertyProps} */
-	let { path, tag = 'div', class: css_class } = $props();
+	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
 	let nodes = $derived(
 		svedit.session
@@ -18,7 +18,7 @@
 	);
 </script>
 
-<svelte:element this={tag} class={css_class} data-type="node_array" data-path={path.join('.')}>
+<svelte:element this={tag} class={css_class} data-type="node_array" data-path={path.join('.')} style={style} {...rest}>
 	{#if nodes.length === 0 && svedit.editable}
 		<!--
 		Experimental: We'll let .empty-node-array act like a node, so the existing

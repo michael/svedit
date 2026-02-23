@@ -7,7 +7,7 @@
 	const svedit = getContext('svedit');
 
 	/** @type {AnnotatedTextPropertyProps} */
-	let { path, class: css_class, placeholder = '', tag = 'div' } = $props();
+	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
 
 	let is_focused = $derived.by(() => {
 		return (
@@ -107,12 +107,13 @@
 	this={tag}
 	data-type="text"
 	data-path={path.join('.')}
-	style="anchor-name: --{path.join('-')};"
+	style="anchor-name: --{path.join('-')};{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}
 	class:editable={svedit.editable}
 	{placeholder}
+	{...rest}
 >
 	{#each fragments as fragment, index (index)}
 		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span

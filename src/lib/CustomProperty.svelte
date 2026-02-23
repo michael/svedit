@@ -5,7 +5,7 @@
 	const svedit = getContext('svedit');
 
 	/** @type {CustomPropertyProps} */
-	let { path, tag = 'div', class: css_class, children } = $props();
+	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
 </script>
 
 <svelte:element
@@ -13,7 +13,8 @@
 	class={css_class}
 	data-type="property"
 	data-path={path.join('.')}
-	style="anchor-name: --{path.join('-')};"
+	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}"
+	{...rest}
 >
 	{#if svedit.editable}
 		<div class="cursor-trap">

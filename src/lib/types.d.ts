@@ -337,6 +337,8 @@ export type AnnotatedTextPropertyProps = {
 	class?: string;
 	/** A placeholder to be rendered for empty content */
 	placeholder?: string;
+	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
+	[key: string]: any;
 };
 
 /**
@@ -351,6 +353,8 @@ export type CustomPropertyProps = {
 	class?: string;
 	/** The content of the custom property (e.g. an image) */
 	children: Snippet;
+	/** Rest props to spread onto the rendered element */
+	[key: string]: any;
 };
 
 /**
@@ -361,10 +365,10 @@ export type NodeArrayPropertyProps = {
 	path: DocumentPath;
 	/** Optional custom HTML tag */
 	tag?: string;
-	/** Optional custom HTML tag */
-	tag?: string;
 	/** The `class` attribute on the container element */
 	class?: string;
+	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
+	[key: string]: any;
 };
 
 /**
@@ -384,19 +388,7 @@ export type NodeProps = {
 };
 
 /**
- * Props for the CustomProperty component
- */
-export type CustomPropertyProps = {
-	/** The full path to the property */
-	path: DocumentPath;
-	/** The `class` attribute on the content element */
-	class?: string;
-	/** The content of the custom property (e.g. an image) */
-	children: Snippet;
-};
-
-/**
- * Props for the CustomProperty component
+ * Props for the Svedit component
  */
 export type SveditProps = {
 	/** The session instance */
