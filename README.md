@@ -69,6 +69,17 @@ Each node has a `kind` that determines its behavior:
 - `text`: A node with editable text content (can be split and joined)
 - `annotation`: An inline annotation applied to text (bold, link, etc.)
 
+### Choosing between `text` and `block`
+
+`kind: 'text'` opts into the split/join system (`break_text_node`, `join_text_node`), which assumes:
+- The node has exactly **one** `annotated_text` property named **`content`**
+- Pressing Enter splits the node into two nodes of the same type
+- Pressing Backspace at position 0 joins it with the previous node
+
+If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can still have `annotated_text` properties with full editing support (typing, formatting, selection) — they just don't participate in split/join.
+
+> **Common mistake:** A quote node with `content` + `author` properties might seem like `kind: 'text'` because both fields are editable text. But splitting a quote into two half-quotes doesn't make sense, and `join_text_node` hard-codes `node.content` — so Backspace in the `author` field would join the wrong property with the previous block and drop the author text. The correct kind is `'block'`.
+
 Properties of nodes can hold values:
 - `string`: A good old JavaScript string
 - `number`: Just like a number in JavaScript
