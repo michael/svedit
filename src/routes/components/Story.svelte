@@ -66,7 +66,7 @@
 	}
 
 	.story :global(.buttons) {
-		--layout-orientation: horizontal;
+		--is-horizontal: 1;
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {

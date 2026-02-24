@@ -11,7 +11,7 @@
 	let active_link = $derived(active_link_path ? svedit.session.get(active_link_path) : null);
 	let cursor_insertion_point_key = $derived(get_cursor_insertion_point_key());
 
-	/** @type {Record<string, string>} Maps data-path → 'horizontal' | 'vertical' */
+	/** @type {Record<string, boolean>} Maps data-path → true when horizontal */
 	let orientation_cache = $state({});
 	let orientation_ready = $state(false); // Avoid first-frame gap misplacement before cache warmup.
 
@@ -21,13 +21,13 @@
 		svedit.session.doc;
 
 		function sync_orientation_cache() {
-			/** @type {Record<string, string>} */
+			/** @type {Record<string, boolean>} */
 			const cache = {};
 			for (const el of document.querySelectorAll('[data-type="node_array"]')) {
-				const orientation = getComputedStyle(el)
-					.getPropertyValue('--layout-orientation').trim();
-				if (orientation === 'horizontal') {
-					cache[/** @type {HTMLElement} */ (el).dataset.path] = 'horizontal';
+				const value = getComputedStyle(el)
+					.getPropertyValue('--is-horizontal').trim();
+				if (value === '1') {
+					cache[/** @type {HTMLElement} */ (el).dataset.path] = true;
 				}
 			}
 			orientation_cache = cache;
@@ -115,7 +115,7 @@
 	/**
 	 * Build all insertion points for every node array in the document,
 	 * including nested ones (e.g. image_grid_items inside an image_grid).
-	 * @returns {Array<{ key: string, path: Array<string|number>, offset: number, style: string }>}
+	 * @returns {Array<{ key: string, path: Array<string|number>, offset: number, style: string, is_horizontal: boolean }>}
 	 */
 	function build_all_insertion_points() {
 		if (!svedit.editable || !orientation_ready) return [];
@@ -128,7 +128,7 @@
 	 * Recursively walk a node's schema properties, emitting insertion points
 	 * for every node_array encountered and descending into child nodes.
 	 * @param {Array<string|number>} node_path
-	 * @param {Array<{ key: string, path: Array<string|number>, offset: number, style: string }>} targets
+	 * @param {Array<{ key: string, path: Array<string|number>, offset: number, style: string, is_horizontal: boolean }>} targets
 	 */
 	function collect_insertion_points(node_path, targets) {
 		const node = svedit.session.get(node_path);
@@ -142,7 +142,7 @@
 			const array_path = [...node_path, prop_name];
 			const node_ids = svedit.session.get(array_path);
 			if (!Array.isArray(node_ids)) continue;
-			const is_horizontal = orientation_cache[array_path.join('.')] === 'horizontal';
+			const is_horizontal = orientation_cache[array_path.join('.')] === true;
 
 			const count = node_ids.length;
 
@@ -153,7 +153,8 @@
 					key: `${array_path.join('.')}-gap-0`,
 					path: array_path,
 					offset: 0,
-					style: `top: anchor(${anchor} top); left: anchor(${anchor} left); bottom: anchor(${anchor} bottom); right: anchor(${anchor} right)`
+					style: `top: anchor(${anchor} top); left: anchor(${anchor} left); bottom: anchor(${anchor} bottom); right: anchor(${anchor} right)`,
+					is_horizontal
 				});
 				continue;
 			}
@@ -169,7 +170,8 @@
 					key: `${array_path.join('.')}-gap-${offset}`,
 					path: array_path,
 					offset,
-					style
+					style,
+					is_horizontal
 				});
 			}
 
@@ -422,6 +424,7 @@
 	<div
 		class="insertion-point"
 		class:is-active={gap.key === cursor_insertion_point_key}
+		class:is-horizontal={gap.is_horizontal}
 		class:is-first={gap.offset === 0}
 		class:is-middle={gap.offset > 0 && gap.offset < (svedit.session.get(gap.path)?.length ?? 0)}
 		class:is-last={gap.offset === (svedit.session.get(gap.path)?.length ?? 0)}
@@ -485,30 +488,28 @@
 	.insertion-caret::before {
 		content: '';
 		position: absolute;
-		background: var(--editing-stroke-color);
+		background: var(--caret-color, var(--editing-stroke-color));
+		/* Ensure the caret is visible on colored backgrounds */
+		box-shadow: 0 0 0 0.5px var(--caret-color-inverted, oklch(1 0 0 / 1));
 		border-radius: 1px;
 	}
 
-	/* Horizontal caret line for vertical (landscape) insertion points */
-	@container (orientation: landscape) {
-		.insertion-caret::before {
-			left: 8px; /* add some gap so the cursor doesn't touch e.g. the screen edges */
-			right: 8px;
-			top: 50%;
-			height: 2px;
-			transform: translateY(-0.5px);
-		}
+	/* Horizontal caret line for vertical layouts */
+	.insertion-point:not(.is-horizontal) > .insertion-caret::before {
+		left: 8px;
+		right: 8px;
+		top: 50%;
+		height: 2px;
+		transform: translateY(-0.5px);
 	}
 
-	/* Vertical caret line for horizontal (portrait) insertion points */
-	@container (orientation: portrait) {
-		.insertion-caret::before {
-			top: 8px; /* add some gap so the cursor doesn't touch e.g. the screen edges */
-			bottom: 8px;
-			left: 50%;
-			width: 2px;
-			transform: translateX(-0.5px);
-		}
+	/* Vertical caret line for horizontal layouts */
+	.insertion-point.is-horizontal > .insertion-caret::before {
+		top: 8px;
+		bottom: 8px;
+		left: 50%;
+		width: 2px;
+		transform: translateX(-0.5px);
 	}
 
 	/* Pause blink while pointer is held down */
@@ -588,14 +589,13 @@
 		background: oklch(from var(--gap-color) l c h / 0.02);
 		background-clip: content-box; */
 		/* DO NOT REMOVE THE OUTLINE. it's for debugging */
-		outline: 0.1px solid red;
+		/* outline: 0.1px solid red; */
 	}
 
 	.insertion-indicator {
 		position: absolute;
 		inset: 0;
-		/* Safari fix: keep container queries on this inset child, not the anchor parent. */
-		container-type: size;
+		container-type: size; /* needed for the small insertion-point size query */
 	}
 
 	/* Border+mask replaced repeating-gradient stacks that were unstable in Safari. */
@@ -603,8 +603,8 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: 0;
-		right: 0;
+		left: 6px; /* add some gap so the insertion-point visual doesn't touch e.g. the screen edges */
+		right: 6px;
 		border-top: 1px dashed var(--gap-color);
 		--gap-center: calc(var(--plus-s) / 2 + var(--plus-gap));
 		mask-image: linear-gradient(to right,
@@ -641,11 +641,11 @@
 		}
 	}
 
-	/* Vertical insertion point: switch line and mask direction */
-	@container (orientation: portrait) and ((width >= 48px) or (height >= 48px) or (width < 16px)) {
-		.insertion-indicator::before {
-			top: 0;
-			bottom: 0;
+	/* Horizontal layout: switch line and mask to vertical direction (skip small range for outline box variant) */
+	@container ((width >= 48px) or (height >= 48px) or (width < 16px)) {
+		.insertion-point.is-horizontal > .insertion-indicator::before {
+			top: 6px; /* add some gap so the insertion-point visual doesn't touch e.g. the screen edges */
+			bottom: 6px;
 			left: 50%;
 			right: auto;
 			width: 0;
