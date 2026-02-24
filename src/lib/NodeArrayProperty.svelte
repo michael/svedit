@@ -32,7 +32,7 @@
 			data-type="node"
 			style="anchor-name: --{[...path, 0].join(
 				'-'
-			)}; position: relative; min-height: 40px; min-width: 40px;"
+			)}; min-height: 40px; min-width: 24px;"
 		>
 			<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" />
 		</div>
