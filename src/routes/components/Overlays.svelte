@@ -132,15 +132,13 @@
 				continue;
 			}
 
-		const container_anchor = `--${array_path.join('-')}`;
-
-		for (let offset = 0; offset <= count; offset++) {
-			const prev = offset > 0 ? `--${[...array_path, offset - 1].join('-')}` : null;
-			const next = offset < count ? `--${[...array_path, offset].join('-')}` : null;
-			if (!prev && !next) continue;
-		const style = (prev && next)
-			? (is_horizontal ? build_row_gap_style(prev, next) : build_column_gap_style(prev, next))
-			: build_edge_gap_style(prev || next, !prev, is_horizontal, container_anchor);
+			for (let offset = 0; offset <= count; offset++) {
+				const prev = offset > 0 ? `--${[...array_path, offset - 1].join('-')}` : null;
+				const next = offset < count ? `--${[...array_path, offset].join('-')}` : null;
+				if (!prev && !next) continue;
+			const style = (prev && next)
+				? (is_horizontal ? build_row_gap_style(prev, next) : build_column_gap_style(prev, next))
+				: build_edge_gap_style(prev || next, !prev, is_horizontal);
 			targets.push({
 					key: `${array_path.join('.')}-gap-${offset}`,
 					path: array_path,
@@ -208,16 +206,10 @@
 	 * Edge insertion point (before-first or after-last). An EDGE_GAP_PX strip adjacent to
 	 * `anchor`, spanning its cross-axis extent. Orientation-aware: horizontal
 	 * strips for column layouts, vertical strips for row layouts.
-	 *
-	 * When a `container_anchor` is provided and the gap is after-last in a horizontal layout,
-	 * the gap extends to the container's far edge instead of using a fixed EDGE_GAP_PX width.
-	 * This makes the last insertion point fill the remaining row space naturally.
-	 * min-width still ensures a usable target when the last item is flush with the edge.
 	 * @param {string} anchor  @param {boolean} is_before  @param {boolean} is_horizontal
-	 * @param {string | null} [container_anchor]
 	 * @returns {string}
 	 */
-	function build_edge_gap_style(anchor, is_before, is_horizontal, container_anchor = null) {
+	function build_edge_gap_style(anchor, is_before, is_horizontal) {
 		const cross = is_horizontal
 			? [`top: anchor(${anchor} top)`, `bottom: anchor(${anchor} bottom)`]
 			: [`left: anchor(${anchor} left)`, `right: anchor(${anchor} right)`];
@@ -226,15 +218,10 @@
 			? (is_before ? ['right', 'left', 'left'] : ['left', 'right', 'right'])
 			: (is_before ? ['bottom', 'top', 'top'] : ['top', 'bottom', 'bottom']);
 
-		const use_container = container_anchor && !is_before && is_horizontal;
-		const far_value = use_container
-			? `anchor(${container_anchor} right)`
-			: `calc(anchor(${anchor} ${edge}) - ${EDGE_GAP_PX}px)`;
-
 		return [
 			...cross,
 			`${near}: anchor(${anchor} ${edge})`,
-			`${far}: ${far_value}`,
+			`${far}: calc(anchor(${anchor} ${edge}) - ${EDGE_GAP_PX}px)`,
 			`min-height: ${EDGE_GAP_PX}px`,
 			`min-width: ${EDGE_GAP_PX}px`
 		].join('; ');
@@ -571,7 +558,6 @@
 		cursor: pointer;
 		z-index: 1;
 		padding: 2px; /* add some gap so the insertion-point doesn't touch neighboring nodes */
-		/* outline: 0.1px solid red; */
 	}
 
 	.insertion-indicator {
@@ -638,24 +624,6 @@
 				transparent calc(50% - var(--gap-center)),
 				transparent calc(50% + var(--gap-center)),
 				black calc(50% + var(--gap-center)));
-		}
-	}
-
-	/* Last gap in horizontal layout fills remaining row space via container anchor.
-	   When wide (last item not at end of line), align visuals to the left edge
-	   so they sit adjacent to the last item instead of floating in the middle. */
-		 /* IMPORTANT: SYNC EDGE_GAP_PX here with the 24px value */
-	@container (width > 24px) {
-		.insertion-point.is-horizontal.is-last > .insertion-caret::before {
-			left: 0;
-		}
-
-		.insertion-point.is-horizontal.is-last > .insertion-indicator::before {
-			left: 0;
-		}
-		.insertion-point.is-horizontal.is-last > .insertion-indicator::after {
-			left: calc(var(--plus-s) / -2);
-			transform: translate(0, -50%);
 		}
 	}
 </style>
