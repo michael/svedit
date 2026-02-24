@@ -1128,12 +1128,13 @@ ${fallback_html}`;
 		if (node_array_el) {
 			node_array_el.focus();
 			// Scroll the selection into view
-			setTimeout(() => {
-				(is_backward ? focus_node : anchor_node).scrollIntoView({
-					block: 'nearest',
-					inline: 'nearest'
-				});
-			}, 0);
+			// setTimeout(() => {
+			// 	(is_backward ? focus_node : anchor_node).scrollIntoView({
+			// 		block: 'nearest',
+			// 		inline: 'nearest'
+			// 	});
+			// }, 0);
+			// DISABLED THIS: IT FEELS QUITE SURPRISING TO HAVE THE SELECTION SCROLLED INTO VIEW WHEN THE USER CLICKS ON A NODE.
 		} else {
 			console.log('No container element found!');
 		}

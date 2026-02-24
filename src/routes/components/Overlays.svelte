@@ -40,33 +40,6 @@
 
 	let insertion_points = $derived(build_all_insertion_points());
 
-	// Imperatively sync data-selected on node elements — O(changed) not O(all_nodes)
-	// $effect(() => {
-	// 	const sel = svedit.session.selection;
-	// 	const selected_paths = new Set();
-
-	// 	if (sel?.type === 'node' && sel.anchor_offset !== sel.focus_offset) {
-	// 		const start = Math.min(sel.anchor_offset, sel.focus_offset);
-	// 		const end = Math.max(sel.anchor_offset, sel.focus_offset);
-	// 		for (let i = start; i < end; i++) {
-	// 			selected_paths.add([...sel.path, i].join('.'));
-	// 		}
-	// 	}
-
-	// 	for (const el of document.querySelectorAll('[data-type="node"][data-selected]')) {
-	// 		if (!selected_paths.has(/** @type {HTMLElement} */ (el).dataset.path)) {
-	// 			el.removeAttribute('data-selected');
-	// 		} else {
-	// 			selected_paths.delete(/** @type {HTMLElement} */ (el).dataset.path);
-	// 		}
-	// 	}
-
-	// 	for (const path_str of selected_paths) {
-	// 		document.querySelector(`[data-type="node"][data-path="${path_str}"]`)
-	// 			?.setAttribute('data-selected', 'true');
-	// 	}
-	// });
-
 	/**
 	 * Key of the active insertion-point that should show the blinking cursor.
 	 * We track by key (not copied anchor styles) because rendering the cursor as
@@ -310,7 +283,7 @@
 			ancestor_paths.push({
 				path,
 				str: path.join('.'),
-				container_index: parseInt(gap.path[len], 10)
+				container_index: parseInt(String(gap.path[len]), 10)
 			});
 		}
 
@@ -585,11 +558,6 @@
 		cursor: pointer;
 		z-index: 1;
 		padding: 2px; /* add some gap so the insertion-point doesn't touch neighboring nodes */
-		/* border-radius: 9999px;
-		background: oklch(from var(--gap-color) l c h / 0.02);
-		background-clip: content-box; */
-		/* DO NOT REMOVE THE OUTLINE. it's for debugging */
-		/* outline: 0.1px solid red; */
 	}
 
 	.insertion-indicator {
