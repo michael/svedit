@@ -111,6 +111,13 @@
 		if (!schema?.properties) return;
 
 		for (const [prop_name, prop_def] of Object.entries(schema.properties)) {
+
+			// Recurse into single node properties (e.g. nav, footer) to find nested node_arrays 
+			if (prop_def.type === 'node') {
+				collect_insertion_points([...node_path, prop_name], targets);
+				continue;
+			}
+
 			if (prop_def.type !== 'node_array') continue;
 			const array_path = [...node_path, prop_name];
 			const node_ids = svedit.session.get(array_path);
@@ -237,13 +244,16 @@
 	/**
 	 * Trailing row gap: last insertion point in a horizontal layout.
 	 *
-	 * Uses the same centering math as build_row_gap_style: places both edges at
-	 * `center ± max(gap, min_size)/2` so the visual aligns with between-items gaps
-	 * regardless of whether the container has gap, margin, or zero spacing.
+	 * Provides two positioning modes selected via CSS multiplier tricks:
+	 * - Partial row: gap-centered insertion point (uses gap_L/gap_R offsets)
+	 * - Full row: fixed-width edge strip (EDGE_GAP_PX wide, no offsets)
 	 *
-	 * Detects full vs partial row via remaining space between last item and
-	 * container edge. Full rows fall back to a fixed EDGE_GAP_PX strip.
-	 * The multiplier trick selects between branches (same pattern as build_row_gap_style).
+	 * CRITICAL: Both left AND right must be conditional. The partial mode uses
+	 * gap-based centering offsets, while edge mode positions directly at the
+	 * last item's edge with a fixed width.
+	 *
+	 * Detection compares last item's distance from container edge to threshold.
+	 * Full row = remaining space < threshold (last item near container edge).
 	 *
 	 * gap_L / gap_R are the same column gap but expressed in opposite coordinate
 	 * systems (anchor() resolves from the left or right edge of the containing block
@@ -257,20 +267,35 @@
 		const gap_L = `(anchor(${ref_second} left) - anchor(${ref_first} right))`;
 		const gap_R = `(anchor(${ref_first} right) - anchor(${ref_second} left))`;
 
-		const left_value = `calc(anchor(${last} right) + ${gap_L} / 2 - max(${gap_L}, ${min_size}) / 2)`;
+		// Partial row: centered in gap after last item
+		const partial_left = `calc(anchor(${last} right) + ${gap_L} / 2 - max(${gap_L}, ${min_size}) / 2)`;
 		const partial_right = `calc(anchor(${last} right) - ${gap_R} / 2 - max(${gap_R}, ${min_size}) / 2)`;
+
+		// Full row: fixed-width edge strip
+		const edge_left = `anchor(${last} right)`;
 		const edge_right = `calc(anchor(${last} right) - ${EDGE_GAP_PX}px)`;
 
-		const remaining = `(anchor(${last} right) - anchor(${container} right))`;
+		// Detection: compare last item's position to container's right edge.
+		// Full row = last item near container edge (remaining < threshold).
+		// CRITICAL: anchor() resolves differently in left vs right properties,
+		// so we need separate formulas that give the same logical result.
 		const threshold = `max(${gap_R}, ${EDGE_GAP_PX}px)`;
-		const full_kill = `max(0px, ${threshold} - ${remaining}) * 999`;
-		const partial_kill = `max(0px, ${remaining} - ${threshold}) * 999`;
+
+		// For left property: remaining = container.right - last.right (both from CB's left)
+		const remaining_L = `(anchor(${container} right) - anchor(${last} right))`;
+		const full_row_L = `max(0px, ${threshold} - ${remaining_L}) * 999`;
+		const partial_row_L = `max(0px, ${remaining_L} - ${threshold}) * 999`;
+
+		// For right property: remaining = container.right - last.right (both from CB's right)
+		const remaining_R = `(anchor(${last} right) - anchor(${container} right))`;
+		const full_row_R = `max(0px, ${threshold} - ${remaining_R}) * 999`;
+		const partial_row_R = `max(0px, ${remaining_R} - ${threshold}) * 999`;
 
 		return [
 			`top: anchor(${last} top)`,
 			`bottom: anchor(${last} bottom)`,
-			`left: ${left_value}`,
-			`right: max(calc(${partial_right} - ${full_kill}), calc(${edge_right} - ${partial_kill}))`
+			`left: min(calc(${partial_left} + ${full_row_L}), calc(${edge_left} + ${partial_row_L}))`,
+			`right: max(calc(${partial_right} - ${full_row_R}), calc(${edge_right} - ${partial_row_R}))`
 		].join('; ');
 	}
 
@@ -605,6 +630,7 @@
 		cursor: pointer;
 		z-index: 1;
 		padding: 2px; /* add some gap so the insertion-point doesn't touch neighboring nodes */
+		outline: 1px solid red;
 	}
 
 	.insertion-indicator {
