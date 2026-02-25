@@ -2,7 +2,6 @@
 	import { getContext } from 'svelte';
 	import Icon from './Icon.svelte';
 
-	const EDGE_GAP_PX = 24;
 	const DRAG_THRESHOLD_PX = 4;
 
 	const svedit = getContext('svedit');
@@ -88,7 +87,7 @@
 	/**
 	 * Build all insertion points for every node array in the document,
 	 * including nested ones (e.g. image_grid_items inside an image_grid).
-	 * @returns {Array<{ key: string, path: Array<string|number>, offset: number, style: string, is_horizontal: boolean }>}
+	 * @returns {Array<{ key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean }>}
 	 */
 	function build_all_insertion_points() {
 		if (!svedit.editable || !orientation_ready) return [];
@@ -101,7 +100,7 @@
 	 * Recursively walk a node's schema properties, emitting insertion points
 	 * for every node_array encountered and descending into child nodes.
 	 * @param {Array<string|number>} node_path
-	 * @param {Array<{ key: string, path: Array<string|number>, offset: number, style: string, is_horizontal: boolean }>} targets
+	 * @param {Array<{ key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean }>} targets
 	 */
 	function collect_insertion_points(node_path, targets) {
 		const node = svedit.session.get(node_path);
@@ -126,18 +125,18 @@
 
 			const count = node_ids.length;
 
-			if (count === 0) {
-				// Empty arrays still need one full-size insertion target.
-				const anchor = `--${[...array_path, 0].join('-')}`;
-				targets.push({
-					key: `${array_path.join('.')}-gap-0`,
-					path: array_path,
-					offset: 0,
-					style: `top: anchor(${anchor} top); left: anchor(${anchor} left); bottom: anchor(${anchor} bottom); right: anchor(${anchor} right)`,
-					is_horizontal
-				});
-				continue;
-			}
+		if (count === 0) {
+			const anchor = `--${[...array_path, 0].join('-')}`;
+			targets.push({
+				key: `${array_path.join('.')}-gap-0`,
+				path: array_path,
+				offset: 0,
+				type: 'ip-empty',
+				vars: `--_a: ${anchor}`,
+				is_horizontal
+			});
+			continue;
+		}
 
 		const container_anchor = `--${array_path.join('-')}`;
 		const ref_first = is_horizontal && count >= 2 ? `--${[...array_path, 0].join('-')}` : null;
@@ -147,156 +146,32 @@
 			const prev = offset > 0 ? `--${[...array_path, offset - 1].join('-')}` : null;
 			const next = offset < count ? `--${[...array_path, offset].join('-')}` : null;
 			if (!prev && !next) continue;
-		const is_trailing_row = prev && !next && ref_first;
-		const style = (prev && next)
-			? (is_horizontal ? build_row_gap_style(prev, next) : build_column_gap_style(prev, next))
-			: is_trailing_row
-				? build_trailing_row_gap_style(prev, ref_first, ref_second, container_anchor)
-				: build_edge_gap_style(prev || next, !prev, is_horizontal);
-			targets.push({
-					key: `${array_path.join('.')}-gap-${offset}`,
-					path: array_path,
-					offset,
-					style,
-					is_horizontal
-				});
+
+			let type, vars;
+			if (prev && next) {
+				type = is_horizontal ? 'ip-row' : 'ip-col';
+				vars = `--_p: ${prev}; --_n: ${next}`;
+			} else if (prev && !next && ref_first) {
+				type = 'ip-trail';
+				vars = `--_l: ${prev}; --_f: ${ref_first}; --_s: ${ref_second}; --_c: ${container_anchor}`;
+			} else {
+				type = 'ip-edge';
+				vars = `--_a: ${prev || next}`;
 			}
+			targets.push({
+				key: `${array_path.join('.')}-gap-${offset}`,
+				path: array_path,
+				offset,
+				type,
+				vars,
+				is_horizontal
+			});
+		}
 
 			for (let i = 0; i < count; i++) {
 				collect_insertion_points([...array_path, i], targets);
 			}
 		}
-	}
-
-	/**
-	 * Column-layout insertion point between two siblings. The min() trick on both axes lets
-	 * CSS anchor positioning resolve the rectangle automatically.
-	 * 
-	 * To ensure the 8px min-height target stays centered even if the gap is smaller than 8px,
-	 * we use max() with the center point minus 4px (half the min-height).
-	 * If the distance is >8px, this value is smaller than `anchor(bottom)` and `anchor(top)`,
-	 * but if the distance is <8px, this `max` calculation prevents it from shrinking past
-	 * the center minus half of 8px, forcing it to stick out equally on both sides.
-	 * @param {string} prev  @param {string} next  @returns {string}
-	 */
-	function build_column_gap_style(prev, next) {
-		const center_y = `(anchor(${prev} bottom) + anchor(${next} top)) / 2`;
-		return [
-			`top: min(anchor(${prev} bottom), calc(${center_y} - var(--insertion-point-min-size, 8px) / 2))`,
-			`bottom: min(anchor(${next} top), calc(${center_y} - var(--insertion-point-min-size, 8px) / 2))`,
-			`left: min(anchor(${prev} right), anchor(${next} left))`,
-			`right: min(anchor(${prev} right), anchor(${next} left))`
-		].join('; ');
-	}
-
-	/**
-	 * Row-layout insertion point between two siblings. Spans prev's cross-axis extent from
-	 * prev's trailing edge to next's leading edge.
-	 *
-	 * When nodes are on the same line, the gap expands naturally to fill the space
-	 * between them. However, when the next node wraps to a new line, we want the gap
-	 * to cap at exactly EDGE_GAP_PX.
-	 *
-	 * CSS doesn't have "if wrapped" logic, so we use math multiplier tricks:
-	 * - is_wrapped: massive when prev_right > next_left, 0 otherwise.
-	 * - is_not_wrapped: massive when next_left >= prev_right, 0 otherwise.
-	 * 
-	 * These multipliers allow us to select centering + natural width when on the same line,
-	 * and a fixed right-extending block when wrapped to a new line.
-	 * @param {string} prev  @param {string} next  @returns {string}
-	 */
-	function build_row_gap_style(prev, next) {
-		const center_x = `(anchor(${prev} right) + anchor(${next} left)) / 2`;
-		const half_gap = `(var(--insertion-point-min-size, 8px) / 2)`;
-		return [
-			`top: anchor(${prev} top)`,
-			`bottom: anchor(${prev} bottom)`,
-			`left: min(anchor(${prev} right), calc(${center_x} - ${half_gap} + max(0px, anchor(${prev} right) - anchor(${next} left)) * 999))`,
-			`right: min(anchor(${next} left), calc(${center_x} - ${half_gap}), max(anchor(${prev} right) - ${EDGE_GAP_PX}px, anchor(${prev} right) - (anchor(${next} left) - anchor(${prev} right)) * 999))`
-		].join('; ');
-	}
-
-	/**
-	 * Edge insertion point (before-first or after-last). An EDGE_GAP_PX strip adjacent to
-	 * `anchor`, spanning its cross-axis extent. Orientation-aware: horizontal
-	 * strips for column layouts, vertical strips for row layouts.
-	 * @param {string} anchor  @param {boolean} is_before  @param {boolean} is_horizontal
-	 * @returns {string}
-	 */
-	function build_edge_gap_style(anchor, is_before, is_horizontal) {
-		const cross = is_horizontal
-			? [`top: anchor(${anchor} top)`, `bottom: anchor(${anchor} bottom)`]
-			: [`left: anchor(${anchor} left)`, `right: anchor(${anchor} right)`];
-
-		const [near, far, edge] = is_horizontal
-			? (is_before ? ['right', 'left', 'left'] : ['left', 'right', 'right'])
-			: (is_before ? ['bottom', 'top', 'top'] : ['top', 'bottom', 'bottom']);
-
-		return [
-			...cross,
-			`${near}: anchor(${anchor} ${edge})`,
-			`${far}: calc(anchor(${anchor} ${edge}) - ${EDGE_GAP_PX}px)`,
-			`min-height: ${EDGE_GAP_PX}px`,
-			`min-width: ${EDGE_GAP_PX}px`
-		].join('; ');
-	}
-
-	/**
-	 * Trailing row gap: last insertion point in a horizontal layout.
-	 *
-	 * Provides two positioning modes selected via CSS multiplier tricks:
-	 * - Partial row: gap-centered insertion point (uses gap_L/gap_R offsets)
-	 * - Full row: fixed-width edge strip (EDGE_GAP_PX wide, no offsets)
-	 *
-	 * CRITICAL: Both left AND right must be conditional. The partial mode uses
-	 * gap-based centering offsets, while edge mode positions directly at the
-	 * last item's edge with a fixed width.
-	 *
-	 * Detection compares last item's distance from container edge to threshold.
-	 * Full row = remaining space < threshold (last item near container edge).
-	 *
-	 * gap_L / gap_R are the same column gap but expressed in opposite coordinate
-	 * systems (anchor() resolves from the left or right edge of the containing block
-	 * depending on which inset property it appears in).
-	 * @param {string} last  @param {string} ref_first  @param {string} ref_second
-	 * @param {string} container
-	 * @returns {string}
-	 */
-	function build_trailing_row_gap_style(last, ref_first, ref_second, container) {
-		const min_size = `var(--insertion-point-min-size, 8px)`;
-		const gap_L = `(anchor(${ref_second} left) - anchor(${ref_first} right))`;
-		const gap_R = `(anchor(${ref_first} right) - anchor(${ref_second} left))`;
-
-		// Partial row: centered in gap after last item
-		const partial_left = `calc(anchor(${last} right) + ${gap_L} / 2 - max(${gap_L}, ${min_size}) / 2)`;
-		const partial_right = `calc(anchor(${last} right) - ${gap_R} / 2 - max(${gap_R}, ${min_size}) / 2)`;
-
-		// Full row: fixed-width edge strip
-		const edge_left = `anchor(${last} right)`;
-		const edge_right = `calc(anchor(${last} right) - ${EDGE_GAP_PX}px)`;
-
-		// Detection: compare last item's position to container's right edge.
-		// Full row = last item near container edge (remaining < threshold).
-		// CRITICAL: anchor() resolves differently in left vs right properties,
-		// so we need separate formulas that give the same logical result.
-		const threshold = `max(${gap_R}, ${EDGE_GAP_PX}px)`;
-
-		// For left property: remaining = container.right - last.right (both from CB's left)
-		const remaining_L = `(anchor(${container} right) - anchor(${last} right))`;
-		const full_row_L = `max(0px, ${threshold} - ${remaining_L}) * 999`;
-		const partial_row_L = `max(0px, ${remaining_L} - ${threshold}) * 999`;
-
-		// For right property: remaining = container.right - last.right (both from CB's right)
-		const remaining_R = `(anchor(${last} right) - anchor(${container} right))`;
-		const full_row_R = `max(0px, ${threshold} - ${remaining_R}) * 999`;
-		const partial_row_R = `max(0px, ${remaining_R} - ${threshold}) * 999`;
-
-		return [
-			`top: anchor(${last} top)`,
-			`bottom: anchor(${last} bottom)`,
-			`left: min(calc(${partial_left} + ${full_row_L}), calc(${edge_left} + ${partial_row_L}))`,
-			`right: max(calc(${partial_right} - ${full_row_R}), calc(${edge_right} - ${partial_row_R}))`
-		].join('; ');
 	}
 
 	/**
@@ -467,13 +342,13 @@
 
 {#each insertion_points as gap (gap.key)}
 	<div
-		class="insertion-point"
+		class="insertion-point {gap.type}"
 		class:is-active={gap.key === cursor_insertion_point_key}
 		class:is-horizontal={gap.is_horizontal}
 		class:is-first={gap.offset === 0}
 		class:is-middle={gap.offset > 0 && gap.offset < (svedit.session.get(gap.path)?.length ?? 0)}
 		class:is-last={gap.offset === (svedit.session.get(gap.path)?.length ?? 0)}
-		style={gap.style}
+		style={gap.vars}
 		onpointerdown={(e) => handle_insertion_point_pointerdown(e, gap)}
 		ondblclick={(e) => handle_insertion_point_dblclick(e, gap)}
 		role="none"
@@ -631,6 +506,186 @@
 		z-index: 1;
 		padding: 2px; /* add some gap so the insertion-point doesn't touch neighboring nodes */
 		outline: 1px solid red;
+	}
+
+	/*
+	 * Anchor-positioning rules for each insertion-point type.
+	 *
+	 * Instead of building massive inline style strings, each type class
+	 * defines the anchor() formulas once, referencing concise CSS custom
+	 * properties set as inline vars on each element:
+	 *
+	 *   --_a  anchor   (empty / edge)
+	 *   --_p  prev     (col / row gap)
+	 *   --_n  next     (col / row gap)
+	 *   --_l  last     (trailing row)
+	 *   --_f  first    (trailing row — reference item 0)
+	 *   --_s  second   (trailing row — reference item 1)
+	 *   --_c  container(trailing row)
+	 */
+
+	/* Empty array — cover the placeholder anchor entirely */
+	.ip-empty {
+		top: anchor(var(--_a) top);
+		left: anchor(var(--_a) left);
+		bottom: anchor(var(--_a) bottom);
+		right: anchor(var(--_a) right);
+	}
+
+	/*
+	 * Column gap — between two siblings in a vertical layout.
+	 * min() on top/bottom ensures an 8 px min-height centered on the midpoint.
+	 */
+	.ip-col {
+		top: min(
+			anchor(var(--_p) bottom),
+			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
+				- var(--insertion-point-min-size, 8px) / 2)
+		);
+		bottom: min(
+			anchor(var(--_n) top),
+			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
+				- var(--insertion-point-min-size, 8px) / 2)
+		);
+		left: min(anchor(var(--_p) right), anchor(var(--_n) left));
+		right: min(anchor(var(--_p) right), anchor(var(--_n) left));
+	}
+
+	/*
+	 * Row gap — between two siblings in a horizontal layout.
+	 * Uses * 999 multiplier tricks for wrap detection:
+	 *   same line  → centered between prev.right and next.left
+	 *   wrapped    → 24 px edge strip to the right of prev
+	 */
+	.ip-row {
+		--edge-gap: 24px;
+		top: anchor(var(--_p) top);
+		bottom: anchor(var(--_p) bottom);
+		left: min(
+			anchor(var(--_p) right),
+			calc(
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--insertion-point-min-size, 8px) / 2
+				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 999
+			)
+		);
+		right: min(
+			anchor(var(--_n) left),
+			calc(
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--insertion-point-min-size, 8px) / 2
+			),
+			max(
+				anchor(var(--_p) right) - var(--edge-gap),
+				anchor(var(--_p) right)
+					- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 999
+			)
+		);
+	}
+
+	/*
+	 * Edge gap — before-first or after-last element.
+	 * 24 px strip adjacent to the anchor, spanning its cross-axis.
+	 * The 4 variants (before/after × horizontal/vertical) are selected
+	 * by combining with .is-first/.is-last and .is-horizontal.
+	 */
+	.ip-edge {
+		--edge-gap: 24px;
+		min-height: var(--edge-gap);
+		min-width: var(--edge-gap);
+	}
+	.ip-edge.is-horizontal {
+		top: anchor(var(--_a) top);
+		bottom: anchor(var(--_a) bottom);
+	}
+	.ip-edge:not(.is-horizontal) {
+		left: anchor(var(--_a) left);
+		right: anchor(var(--_a) right);
+	}
+	.ip-edge.is-horizontal.is-first {
+		right: anchor(var(--_a) left);
+		left: calc(anchor(var(--_a) left) - var(--edge-gap));
+	}
+	.ip-edge.is-horizontal.is-last {
+		left: anchor(var(--_a) right);
+		right: calc(anchor(var(--_a) right) - var(--edge-gap));
+	}
+	.ip-edge:not(.is-horizontal).is-first {
+		bottom: anchor(var(--_a) top);
+		top: calc(anchor(var(--_a) top) - var(--edge-gap));
+	}
+	.ip-edge:not(.is-horizontal).is-last {
+		top: anchor(var(--_a) bottom);
+		bottom: calc(anchor(var(--_a) bottom) - var(--edge-gap));
+	}
+
+	/*
+	 * Trailing row gap — after the last item in a horizontal layout (≥ 2 items).
+	 *
+	 * Two modes selected via * 999 multiplier tricks:
+	 *   partial row → gap-centered insertion point (gap derived from items 0–1)
+	 *   full row    → 24 px edge strip flush to last item's trailing edge
+	 *
+	 * Detection: remaining space from last item to container edge vs threshold.
+	 * anchor() resolves differently in left vs right properties, so separate
+	 * formulas produce the same logical result in each coordinate system.
+	 */
+	.ip-trail {
+		--edge-gap: 24px;
+		top: anchor(var(--_l) top);
+		bottom: anchor(var(--_l) bottom);
+		left: min(
+			calc(
+				anchor(var(--_l) right)
+				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
+				- max(
+					(anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--insertion-point-min-size, 8px)
+				) / 2
+				+ max(0px,
+					max(
+						(anchor(var(--_f) right) - anchor(var(--_s) left)),
+						var(--edge-gap)
+					) - (anchor(var(--_c) right) - anchor(var(--_l) right))
+				) * 999
+			),
+			calc(
+				anchor(var(--_l) right)
+				+ max(0px,
+					(anchor(var(--_c) right) - anchor(var(--_l) right))
+					- max(
+						(anchor(var(--_f) right) - anchor(var(--_s) left)),
+						var(--edge-gap)
+					)
+				) * 999
+			)
+		);
+		right: max(
+			calc(
+				anchor(var(--_l) right)
+				- (anchor(var(--_f) right) - anchor(var(--_s) left)) / 2
+				- max(
+					(anchor(var(--_f) right) - anchor(var(--_s) left)),
+					var(--insertion-point-min-size, 8px)
+				) / 2
+				- max(0px,
+					max(
+						(anchor(var(--_f) right) - anchor(var(--_s) left)),
+						var(--edge-gap)
+					) - (anchor(var(--_l) right) - anchor(var(--_c) right))
+				) * 999
+			),
+			calc(
+				anchor(var(--_l) right) - var(--edge-gap)
+				- max(0px,
+					(anchor(var(--_l) right) - anchor(var(--_c) right))
+					- max(
+						(anchor(var(--_f) right) - anchor(var(--_s) left)),
+						var(--edge-gap)
+					)
+				) * 999
+			)
+		);
 	}
 
 	.insertion-indicator {
