@@ -17,8 +17,14 @@
 			.map(/** @param {string} node_id */ (node_id) => svedit.session.get(node_id))
 	);
 </script>
-
-<svelte:element this={tag} class={css_class} data-type="node_array" data-path={path.join('.')} style={style} {...rest}>
+<!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
+<svelte:element 
+	this={tag} 
+	class={css_class} 
+	data-type="node_array" 
+	data-path={path.join('.')} 
+	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
+>
 	{#if nodes.length === 0 && svedit.editable}
 		<!--
 		Experimental: We'll let .empty-node-array act like a node, so the existing
@@ -32,7 +38,7 @@
 			data-type="node"
 			style="anchor-name: --{[...path, 0].join(
 				'-'
-			)}; position: relative; min-height: 40px; min-width: 40px;"
+			)}; min-height: 40px; min-width: 24px;"
 		>
 			<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" />
 		</div>

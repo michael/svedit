@@ -14,4 +14,9 @@
 		padding: var(--s-10) var(--s-6);
 		counter-reset: listcounter;
 	}
+	.list :global(.list-node-array) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--s-4);
+	}
 </style>

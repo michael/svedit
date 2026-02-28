@@ -15,7 +15,7 @@
 		padding: var(--s-6);
 	}
 	.image-grid :global {
-		--layout-orientation: horizontal;
+		--is-horizontal: 1;
 
 		.image-grid-items {
 			padding: calc(var(--s-10) * 3) 0;
@@ -33,7 +33,7 @@
 
 		/* Mobile screens */
 		@media (max-width: 480px) {
-			--layout-orientation: vertical;
+			--is-horizontal: 0;
 			.image-grid-items {
 				grid-template-columns: repeat(1, 1fr);
 			}
