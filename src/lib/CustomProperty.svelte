@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { serialize_dom_path } from './dom_path.js';
 
 	/** @import { CustomPropertyProps } from './types.d.ts'; */
 	const svedit = getContext('svedit');
@@ -12,7 +13,7 @@
 	this={tag}
 	class={css_class}
 	data-type="property"
-	data-path={path.join('.')}
+	data-path={serialize_dom_path(path)}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}"
 	{...rest}
 >

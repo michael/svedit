@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { serialize_dom_path } from './dom_path.js';
 
 	/** @import { NodeProps } from './types.d.ts'; */
 
@@ -24,7 +25,7 @@
 	this={tag}
 	class={css_class}
 	data-node-id={node.id}
-	data-path={path.join('.')}
+	data-path={serialize_dom_path(path)}
 	data-type="node"
 	style="position: relative; anchor-name: --{path.join('-')};{style}"
 	{...rest}
