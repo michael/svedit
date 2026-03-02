@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { serialize_dom_path } from './dom_path.js';
 	import { char_slice, get_char_length, snake_to_pascal, get_selection_range } from './utils.js';
 
 	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
@@ -106,7 +107,7 @@
 <svelte:element
 	this={tag}
 	data-type="text"
-	data-path={path.join('.')}
+	data-path={serialize_dom_path(path)}
 	style="anchor-name: --{path.join('-')};{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}

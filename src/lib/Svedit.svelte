@@ -6,6 +6,7 @@
 		utf16_to_char_offset,
 		char_to_utf16_offset
 	} from './utils.js';
+	import { deserialize_dom_path, serialize_dom_path } from './dom_path.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -759,7 +760,7 @@ ${fallback_html}`;
 				console.log('No corresponding node found for after-node-cursor-trap');
 				return null;
 			}
-			const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
+			const node_path = /** @type {DocumentPath} */ (deserialize_dom_path(node.dataset.path));
 			const node_index = parseInt(String(node_path.at(-1)), 10);
 
 			return {
@@ -776,7 +777,7 @@ ${fallback_html}`;
 			const node_array_el = /** @type {HTMLElement} */ (
 				position_zero_cursor_trap.closest('[data-type="node_array"]')
 			);
-			const node_array_path = node_array_el.dataset.path.split('.');
+			const node_array_path = deserialize_dom_path(node_array_el.dataset.path);
 			return {
 				type: 'node',
 				path: node_array_path,
@@ -799,8 +800,8 @@ ${fallback_html}`;
 			return null;
 		}
 
-		let focus_root_path = focus_root.dataset.path.split('.');
-		let anchor_root_path = anchor_root.dataset.path.split('.');
+		let focus_root_path = deserialize_dom_path(focus_root.dataset.path);
+		let anchor_root_path = deserialize_dom_path(anchor_root.dataset.path);
 		let focus_node_depth = focus_root_path.length;
 		let anchor_node_depth = anchor_root_path.length;
 
@@ -808,22 +809,23 @@ ${fallback_html}`;
 		if (focus_root_path.length > anchor_root_path.length) {
 			focus_root = focus_root.parentElement.closest('[data-path][data-type="node"]');
 			if (!focus_root) return null;
-			focus_root_path = focus_root.dataset.path.split('.');
+			focus_root_path = deserialize_dom_path(focus_root.dataset.path);
 		} else if (anchor_root_path.length > focus_root_path.length) {
 			anchor_root = anchor_root.parentElement.closest('[data-path][data-type="node"]');
 			if (!anchor_root) return null;
-			anchor_root_path = anchor_root.dataset.path.split('.');
+			anchor_root_path = deserialize_dom_path(anchor_root.dataset.path);
 		}
 
-		const is_same_node_array =
-			focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
+		const focus_root_parent_path_key = serialize_dom_path(focus_root_path.slice(0, -1));
+		const anchor_root_parent_path_key = serialize_dom_path(anchor_root_path.slice(0, -1));
+		const is_same_node_array = focus_root_parent_path_key === anchor_root_parent_path_key;
 		if (!is_same_node_array) {
 			console.log('invalid selection, not same node_array');
 			return null;
 		}
 
-		let anchor_offset = parseInt(anchor_root_path.at(-1));
-		let focus_offset = parseInt(focus_root_path.at(-1));
+		let anchor_offset = parseInt(String(anchor_root_path.at(-1)), 10);
+		let focus_offset = parseInt(String(focus_root_path.at(-1)), 10);
 
 		// Check if it's a backwards selection
 		const is_backwards = __is_dom_selection_backwards();
@@ -885,7 +887,7 @@ ${fallback_html}`;
 		if (focus_root === anchor_root) {
 			return {
 				type: 'property',
-				path: focus_root.dataset.path.split('.')
+				path: deserialize_dom_path(focus_root.dataset.path)
 			};
 		}
 		return null;
@@ -948,7 +950,7 @@ ${fallback_html}`;
 			return null;
 		}
 
-		const path = focus_root.dataset.path.split('.');
+		const path = deserialize_dom_path(focus_root.dataset.path);
 
 		if (!path) return null;
 
@@ -1039,8 +1041,9 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
+		const node_array_path_key = serialize_dom_path(node_array_path);
 		const node_array_el = canvas_el.querySelector(
-			`[data-path="${node_array_path}"][data-type="node_array"]`
+			`[data-path="${node_array_path_key}"][data-type="node_array"]`
 		);
 		if (!node_array_el) return null;
 
@@ -1052,7 +1055,8 @@ ${fallback_html}`;
 
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
-		const node_array_path = selection.path.join('.');
+		const node_array_path = selection.path;
+		const node_array_path_key = serialize_dom_path(node_array_path);
 		let is_collapsed = selection.anchor_offset === selection.focus_offset;
 		let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
@@ -1123,7 +1127,7 @@ ${fallback_html}`;
 
 		// Ensure the node_array is focused
 		const node_array_el = canvas_el.querySelector(
-			`[data-path="${node_array_path}"][data-type="node_array"]`
+			`[data-path="${node_array_path_key}"][data-type="node_array"]`
 		);
 		if (node_array_el) {
 			node_array_el.focus();
@@ -1141,9 +1145,10 @@ ${fallback_html}`;
 
 	function __render_property_selection() {
 		const selection = session.selection;
+		const selection_path_key = serialize_dom_path(selection.path);
 		// The element that holds the property
 		const el = canvas_el.querySelector(
-			`[data-path="${selection.path.join('.')}"][data-type="property"]`
+			`[data-path="${selection_path_key}"][data-type="property"]`
 		);
 		const cursor_trap_selectable = el.querySelector('.svedit-selectable');
 		const range = window.document.createRange();
@@ -1166,9 +1171,10 @@ ${fallback_html}`;
 
 	function __render_text_selection() {
 		const selection = /** @type {any} */ (session.selection);
+		const selection_path_key = serialize_dom_path(selection.path);
 		// The element that holds the annotated string
 		const el = canvas_el.querySelector(
-			`[data-path="${selection.path.join('.')}"][data-type="text"]`
+			`[data-path="${selection_path_key}"][data-type="text"]`
 		);
 		const empty_text = session.get(selection.path).text.length === 0;
 		const dom_selection = window.getSelection();

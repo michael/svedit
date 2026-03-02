@@ -1,6 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
+	import { serialize_dom_path } from './dom_path.js';
 	import { snake_to_pascal } from './utils.js';
 
 	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
@@ -18,7 +19,14 @@
 	);
 </script>
 
-<svelte:element this={tag} class={css_class} data-type="node_array" data-path={path.join('.')} style={style} {...rest}>
+<svelte:element
+	this={tag}
+	class={css_class}
+	data-type="node_array"
+	data-path={serialize_dom_path(path)}
+	style={style}
+	{...rest}
+>
 	{#if nodes.length === 0 && svedit.editable}
 		<!--
 		Experimental: We'll let .empty-node-array act like a node, so the existing
@@ -28,7 +36,7 @@
 		-->
 		<div
 			class="node empty-node-array"
-			data-path={[...path, 0].join('.')}
+			data-path={serialize_dom_path([...path, 0])}
 			data-type="node"
 			style="anchor-name: --{[...path, 0].join(
 				'-'
