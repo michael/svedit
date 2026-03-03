@@ -991,6 +991,7 @@
 						var(--gap-min-size, 16px)
 					)
 				) / 2
+				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
 			),
 			/* Branch 2: snap to wrap-marker-width if space is tight. */
 			calc(
@@ -1000,6 +1001,12 @@
 					- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 					+ 0.5px
 				) * 9999
+			),
+			/* Branch 3: fixed wrap-marker-width when completely wrapped (ref_gap = 0).
+			   Explodes if there is a gap (ref_gap > 0). */
+			calc(
+				anchor(var(--_l) right) - var(--wrap-marker-width)
+				- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* container cap */
 			min(
@@ -1097,6 +1104,7 @@
 							var(--gap-min-size, 16px)
 						)
 					) / 2
+					- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
 				),
 				/* Branch 2: snap to wrap-marker-width if space is tight */
 				calc(
@@ -1106,6 +1114,12 @@
 						- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 						+ 0.5px
 					) * 9999
+				),
+				/* Branch 3: fixed wrap-marker-width when completely wrapped (ref_gap = 0).
+				   Explodes if there is a gap (ref_gap > 0). */
+				calc(
+					anchor(var(--_p) right) - var(--wrap-marker-width)
+					- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 				),
 				/* Branch 3: explodes (huge positive) if on same line, forcing outer min() to ignore this max() */
 				calc(
