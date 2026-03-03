@@ -375,6 +375,38 @@
 				if (el === origin_el) { over_origin = true; break; }
 			}
 
+			// Pass 0: dragging over gaps should also expand/collapse selection.
+			// This avoids requiring the pointer to cross node bodies.
+			const gap_data = get_gap_from_hit_elements(elements);
+			if (gap_data) {
+				const hovered_gap = gap_data.gap;
+				const hovered_path_str = hovered_gap.path.join('.');
+
+				if (hovered_path_str === array_path_str) {
+					svedit.session.selection = {
+						type: 'node',
+						path: gap.path,
+						anchor_offset: gap.offset,
+						focus_offset: hovered_gap.offset
+					};
+					return;
+				}
+
+				for (const ancestor of ancestor_paths) {
+					if (hovered_path_str !== ancestor.str) continue;
+					const sel_anchor = hovered_gap.offset > ancestor.container_index
+						? ancestor.container_index
+						: ancestor.container_index + 1;
+					svedit.session.selection = {
+						type: 'node',
+						path: ancestor.path,
+						anchor_offset: sel_anchor,
+						focus_offset: hovered_gap.offset
+					};
+					return;
+				}
+			}
+
 			let node_el = null;
 			let sel_path = gap.path;
 			let sel_anchor = gap.offset;
@@ -480,6 +512,19 @@
 		const gap = gaps[i] ?? null;
 		if (!gap) return null;
 		return { gap, gap_element };
+	}
+
+	/**
+	 * Resolve the first rendered gap from an elementsFromPoint() stack.
+	 * @param {Array<Element>} hit_elements
+	 * @returns {{ gap: { key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }, gap_element: HTMLElement } | null}
+	 */
+	function get_gap_from_hit_elements(hit_elements) {
+		for (const hit_element of hit_elements) {
+			const gap_data = get_gap_from_target(hit_element);
+			if (gap_data) return gap_data;
+		}
+		return null;
 	}
 
 	/**
