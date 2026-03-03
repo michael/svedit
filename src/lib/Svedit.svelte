@@ -1340,7 +1340,7 @@ ${fallback_html}`;
 
 <style>
 	.svedit-canvas {
-		--is-horizontal: 0;
+		--row: 0;
 		caret-color: var(--editing-stroke-color);
 		caret-shape: bar;
 		&:focus {

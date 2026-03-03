@@ -66,7 +66,7 @@
 	}
 
 	.story :global(.buttons) {
-		--is-horizontal: 1;
+		--row: 1;
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {
