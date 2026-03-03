@@ -928,6 +928,7 @@
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
 					var(--gap-min-size, 16px)
 				) / 2
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Edge clamp: minimum width guarantee at screen edge */
 			calc(100% - var(--edge-gap))
@@ -960,6 +961,7 @@
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
 					var(--gap-min-size, 16px)
 				) / 2
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Clamp 1: basic minimum width guarantee at screen edge */
 			calc(100% - var(--wrap-marker-width)),
@@ -1056,6 +1058,7 @@
 					var(--gap-min-size, 16px)
 				) / 2
 				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Clamp 1: basic minimum width guarantee at screen edge */
 			calc(100% - var(--wrap-marker-width)),
