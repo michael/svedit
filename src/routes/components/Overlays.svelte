@@ -18,6 +18,8 @@
 	/** @type {Record<string, boolean>} Maps visible node_array data-path → true */
 	let visible_array_paths = $state({});
 	let visible_arrays_ready = $state(false);
+	// Raw ref preserves object identity for cheap stale-path checks.
+	let visible_paths_doc = $state.raw(null);
 
 	$effect(() => {
 		// Re-run when the document changes (doc is $state.raw, new ref on every mutation)
@@ -49,6 +51,7 @@
 		if (!svedit.editable) {
 			visible_array_paths = {};
 			visible_arrays_ready = false;
+			visible_paths_doc = null;
 			return;
 		}
 
@@ -61,6 +64,8 @@
 				next_visible_paths[path] = true;
 			}
 			visible_array_paths = next_visible_paths;
+			// These DOM-derived paths belong to this exact doc snapshot.
+			visible_paths_doc = svedit.session.doc;
 			visible_arrays_ready = true;
 		}
 
@@ -166,6 +171,9 @@
 	 */
 	function build_all_gaps() {
 		if (!svedit.editable || !row_layout_ready || !visible_arrays_ready) return [];
+		// Skip gap computation while DOM-derived paths still belong to a previous doc snapshot.
+		// Prevents tearing errors (e.g. Enter inserts a node, doc updates before observer paths refresh).
+		if (visible_paths_doc !== svedit.session.doc) return [];
 		const targets = [];
 		for (const array_path_str of Object.keys(visible_array_paths)) {
 			if (!visible_array_paths[array_path_str]) continue;
@@ -1238,7 +1246,7 @@
 	/* } */
 
 	/* Debugging styles */
-	:global([data-type="node_array"]){
+	/* :global([data-type="node_array"]){
 		outline: 0.1px solid green;
 	}
 	.gap {
@@ -1247,6 +1255,6 @@
 	.gap-marker {
 		outline: 0.1px solid blue;
 		outline-offset: -2px;
-	}
+	} */
 
 </style>
