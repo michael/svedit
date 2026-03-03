@@ -4,7 +4,6 @@
 
 	const DRAG_THRESHOLD_PX = 4;
 	const VIEWPORT_OVERSCAN_PX = 600;
-	const PATH_INDEX_PATTERN = /^\d+$/;
 
 	const svedit = getContext('svedit');
 	let selected_node_paths = $derived(get_selected_node_paths());
@@ -183,31 +182,42 @@
 	}
 
 	/**
-	 * Convert a dot path string back to a session path.
+	 * Convert a data-path key back to a session path.
 	 *
-	 * Important:
-	 * A broad "all numeric segments -> number" conversion is incorrect here.
-	 * Node IDs are schema-level strings and can legally look numeric (e.g. "123").
-	 * If we coerce every numeric-looking segment, we can corrupt IDs and fail lookups.
+	 * We intentionally keep all segments as strings. Path structure should be derived
+	 * via session.inspect(path), not by positional or numeric coercion heuristics.
 	 *
-	 * We only coerce positions that are actual node_array indices in this path shape:
-	 * [node_id, prop, index, prop, index, ...]
-	 *
-	 * Example:
-	 * "123.body.0.image_grid_items" -> ["123", "body", 0, "image_grid_items"]
 	 * @param {string} path_key
 	 * @returns {Array<string|number>}
 	 */
 	function parse_path_key(path_key) {
-		return path_key
-			.split('.')
-			.map((segment, index) => {
-				// Segment positions 2, 4, 6, ... are node_array indices.
-				// Segment positions 0, 1, 3, 5, ... are IDs/properties and must stay strings.
-				const is_array_index_segment = index >= 2 && index % 2 === 0;
-				if (!is_array_index_segment) return segment;
-				return PATH_INDEX_PATTERN.test(segment) ? parseInt(segment, 10) : segment;
-			});
+		if (!path_key) return [];
+		return path_key.split('.');
+	}
+
+	/**
+	 * Parent-path extraction for "a.b.c" => "a.b".
+	 * @param {string} path_key
+	 * @returns {string}
+	 */
+	function get_parent_path_key(path_key) {
+		const delimiter_index = path_key.lastIndexOf('.');
+		if (delimiter_index < 0) return '';
+		return path_key.slice(0, delimiter_index);
+	}
+
+	/**
+	 * Parse the last path segment as an integer index.
+	 * @param {string} path_key
+	 * @returns {number | null}
+	 */
+	function get_terminal_path_index(path_key) {
+		const delimiter_index = path_key.lastIndexOf('.');
+		const index_segment =
+			delimiter_index < 0 ? path_key : path_key.slice(delimiter_index + 1);
+		if (!index_segment) return null;
+		const index_value = parseInt(index_segment, 10);
+		return Number.isNaN(index_value) ? null : index_value;
 	}
 
 	/**
@@ -217,6 +227,13 @@
 	 */
 	function append_array_gaps(array_path_str, targets) {
 		const array_path = parse_path_key(array_path_str);
+		let path_definition = null;
+		try {
+			path_definition = svedit.session.inspect(array_path);
+		} catch {
+			return;
+		}
+		if (path_definition.kind !== 'property' || path_definition.type !== 'node_array') return;
 		const node_ids = svedit.session.get(array_path);
 		if (!Array.isArray(node_ids)) return;
 
@@ -290,8 +307,14 @@
 			el.closest('[data-type="node"][data-path]')
 		);
 		while (node_el) {
-			const node_path = node_el.dataset.path.split('.');
-			const parent_path = node_path.slice(0, -1).join('.');
+			const node_path = node_el.dataset.path;
+			if (!node_path) {
+				node_el = /** @type {HTMLElement | null} */ (
+					node_el.parentElement?.closest('[data-type="node"][data-path]')
+				);
+				continue;
+			}
+			const parent_path = get_parent_path_key(node_path);
 			if (parent_path === array_path_str) return node_el;
 			node_el = /** @type {HTMLElement | null} */ (
 				node_el.parentElement?.closest('[data-type="node"][data-path]')
@@ -370,7 +393,8 @@
 					for (const ancestor of ancestor_paths) {
 						const candidate = find_closest_node_in_array(el, ancestor.str);
 						if (!candidate) continue;
-						const idx = parseInt(candidate.dataset.path.split('.').at(-1), 10);
+						const idx = get_terminal_path_index(candidate.dataset.path);
+						if (idx === null) continue;
 						if (idx === ancestor.container_index) break;
 						node_el = candidate;
 						sel_path = ancestor.path;
@@ -385,7 +409,8 @@
 
 			if (node_el) {
 				// Expand selection toward the node the pointer is over
-				const node_index = parseInt(node_el.dataset.path.split('.').at(-1), 10);
+				const node_index = get_terminal_path_index(node_el.dataset.path);
+				if (node_index === null) return;
 				svedit.session.selection = {
 					type: 'node',
 					path: sel_path,
@@ -1260,7 +1285,7 @@
 	/* } */
 
 	/* Debugging styles */
-	/* :global([data-type="node_array"]){
+	:global([data-type="node_array"]){
 		outline: 0.1px solid green;
 	}
 	.gap {
@@ -1269,6 +1294,6 @@
 	.gap-marker {
 		outline: 0.1px solid blue;
 		outline-offset: -2px;
-	} */
+	}
 
 </style>
