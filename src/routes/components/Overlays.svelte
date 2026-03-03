@@ -567,22 +567,20 @@
 		border-radius: 1px;
 	}
 
-	/* Horizontal caret line for vertical layouts.
-	   --_shift-y inherited from ip-edge positions; 0px for non-edge. */
+	/* Horizontal caret line for vertical layouts. */
 	.ip-marker:not(.is-horizontal) > .insertion-caret::before {
 		left: var(--marker-inset);
 		right: var(--marker-inset);
-		top: calc(50% + var(--_shift-y, 0px));
+		top: 50%;
 		height: 2px;
 		transform: translateY(-0.5px);
 	}
 
-	/* Vertical caret line for horizontal layouts.
-	   --_shift-x inherited from ip-edge positions; 0px for non-edge. */
+	/* Vertical caret line for horizontal layouts. */
 	.ip-marker.is-horizontal > .insertion-caret::before {
 		top: var(--marker-inset);
 		bottom: var(--marker-inset);
-		left: calc(50% + var(--_shift-x, 0px));
+		left: 50%;
 		width: 2px;
 		transform: translateX(-0.5px);
 	}
@@ -601,16 +599,13 @@
 
 	.insertion-point, .ip-marker {
 		--edge-gap: 24px;
+		--wrap-marker-width: var(--insertion-point-min-size, 8px);
 	}
 	/*
 	 * Edge gap — before-first or after-last element.
 	 * 24 px strip adjacent to the anchor, spanning its cross-axis.
 	 */
 	 .ip-edge {
-		/* Unsigned shift amount: half the difference between the edge-gap box
-		   and the min-size marker width. Used to nudge visuals toward the
-		   node boundary instead of dead-centering in the edge-gap box. */
-		--edge-visual-shift: calc((var(--edge-gap) - var(--insertion-point-min-size, 8px)) / 2);
 	}
 
 	/*
@@ -817,17 +812,6 @@
 				- var(--insertion-point-min-size, 8px) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 999
 			),
-			/* Wrapped line-end: offset by half the reference gap (gap between
-			   items 0 and 1) so the 50% marker line aligns with between-node
-			   markers. Uses max(ref_gap, min_size) to handle zero-gap layouts. */
-			calc(
-				anchor(var(--_p) right)
-				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
-				- max(
-					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
-				) / 2
-			),
 			/* Edge clamp: keep left ≤ CB width - edge-gap so the box has at
 			   least edge-gap width when right is clamped to 0 at screen edge */
 			calc(100% - var(--edge-gap))
@@ -881,6 +865,10 @@
 		min-height: var(--edge-gap);
 		min-width: var(--edge-gap);
 	}
+	.ip-marker.ip-edge {
+		min-height: var(--wrap-marker-width);
+		min-width: var(--wrap-marker-width);
+	}
 	.ip-edge.is-horizontal {
 		top: anchor(var(--_a) top);
 		bottom: anchor(var(--_a) bottom);
@@ -889,35 +877,27 @@
 		left: anchor(var(--_a) left);
 		right: anchor(var(--_a) right);
 	}
-	/* First horizontal edge: extends left of node, clamped to CB left.
-	   --_shift-x: positive → visuals shift rightward (toward content). */
+	/* First horizontal edge: extends left of node, clamped to CB left. */
 	.ip-edge.is-horizontal.is-first {
-		--_shift-x: var(--edge-visual-shift);
 		right: anchor(var(--_a) left);
 		left: max(0px, calc(anchor(var(--_a) left) - var(--edge-gap)));
 	}
 	/* Last horizontal edge: extends right of node, clamped to CB right.
-	   left is capped at 100% - edge-gap to guarantee minimum width.
-	   --_shift-x: negative → visuals shift leftward (toward content). */
+	   left is capped at 100% - edge-gap to guarantee minimum width. */
 	.ip-edge.is-horizontal.is-last {
-		--_shift-x: calc(-1 * var(--edge-visual-shift));
 		left: min(anchor(var(--_a) right), calc(100% - var(--edge-gap)));
 		right: max(0px, min(
 			anchor(var(--_c) right),
 			calc(anchor(var(--_a) right) - var(--edge-gap))
 		));
 	}
-	/* First vertical edge: extends above the first node.
-	   --_shift-y: positive → visuals shift downward (toward content). */
+	/* First vertical edge: extends above the first node. */
 	.ip-edge:not(.is-horizontal).is-first {
-		--_shift-y: var(--edge-visual-shift);
 		bottom: anchor(var(--_a) top);
 		top: calc(anchor(var(--_a) top) - var(--edge-gap));
 	}
-	/* Last vertical edge: extends below the last node.
-	   --_shift-y: negative → visuals shift upward (toward content). */
+	/* Last vertical edge: extends below the last node. */
 	.ip-edge:not(.is-horizontal).is-last {
-		--_shift-y: calc(-1 * var(--edge-visual-shift));
 		top: anchor(var(--_a) bottom);
 		bottom: calc(anchor(var(--_a) bottom) - var(--edge-gap));
 	}
@@ -969,8 +949,39 @@
 	     - centering formula: narrows the marker to ref-gap-aligned width
 	     - container cap: prevents excessive overflow beyond the array */
 	.ip-marker.ip-trail.is-last {
+		left: min(
+			/* Fallback: start at last.right */
+			anchor(var(--_l) right),
+			/* Centering offset: shift right by half ref_gap minus half
+			   max(ref_gap, min_size). Aligns the 50% marker line with
+			   between-node markers. ref_gap = item1.left - item0.right. */
+			calc(
+				anchor(var(--_l) right)
+				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
+				- max(
+					anchor(var(--_s) left) - anchor(var(--_f) right),
+					var(--insertion-point-min-size, 8px)
+				) / 2
+			),
+			/* Clamp 1: basic minimum width guarantee at screen edge */
+			calc(100% - var(--wrap-marker-width)),
+			/* Clamp 2: enforces ref_gap width, but explodes and gets ignored
+			   if space_available < ref_gap. */
+			calc(
+				100% - max(
+					anchor(var(--_s) left) - anchor(var(--_f) right),
+					var(--insertion-point-min-size, 8px)
+				)
+				+ max(0px,
+					(anchor(var(--_s) left) - anchor(var(--_f) right))
+					- (anchor(var(--_c) right) - anchor(var(--_l) right))
+					- 0.5px
+				) * 9999
+			)
+		);
 		right: max(
 			0px,
+			/* Branch 1: normal ref_gap width */
 			calc(
 				anchor(var(--_l) right)
 				- (
@@ -981,6 +992,16 @@
 					)
 				) / 2
 			),
+			/* Branch 2: snap to wrap-marker-width if space is tight. */
+			calc(
+				anchor(var(--_l) right) - var(--wrap-marker-width)
+				- max(0px, 
+					(anchor(var(--_l) right) - anchor(var(--_c) right))
+					- (anchor(var(--_f) right) - anchor(var(--_s) left))
+					+ 0.5px
+				) * 9999
+			),
+			/* container cap */
 			min(
 				anchor(var(--_c) right),
 				calc(anchor(var(--_l) right) - var(--edge-gap))
@@ -1010,10 +1031,51 @@
 	 * prevent the marker from extending past .svedit at screen edges.
 	 */
 
-	/* ip-row marker: same-line gaps keep full width; wrapped line-ends narrow
-	   to max(ref_gap, min_size) for visual alignment with between-node markers.
+	/* ip-row marker: same-line gaps keep full width; wrapped line-ends mirror ip-trail
+	   behavior, filling the inner gap width if space permits, or narrowing to
+	   wrap-marker-width at the screen edges.
 	   Outer max(0px, ...) prevents overflow past .svedit at screen edges. */
 	.ip-marker.ip-row {
+		left: min(
+			/* Fallback: start at prev.right (always valid) */
+			anchor(var(--_p) right),
+			/* Same-line: center between prev and next with min-size guarantee.
+			   max(0, prev.right - next.left) * 9999 explodes when wrapped
+			   (gap is positive → huge offset disqualifies this branch via min). */
+			calc(
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--insertion-point-min-size, 8px) / 2
+				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
+			),
+			/* Wrapped centering offset: shift right by half ref_gap minus half
+			   max(ref_gap, min_size). Aligns the 50% marker line with
+			   between-node markers. Explodes if on the same line. */
+			calc(
+				anchor(var(--_p) right)
+				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
+				- max(
+					anchor(var(--_s) left) - anchor(var(--_f) right),
+					var(--insertion-point-min-size, 8px)
+				) / 2
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+			),
+			/* Clamp 1: basic minimum width guarantee at screen edge */
+			calc(100% - var(--wrap-marker-width)),
+			/* Clamp 2: enforces ref_gap width, but explodes and gets ignored
+			   if space_available < ref_gap OR if on the same line. */
+			calc(
+				100% - max(
+					anchor(var(--_s) left) - anchor(var(--_f) right),
+					var(--insertion-point-min-size, 8px)
+				)
+				+ max(0px,
+					(anchor(var(--_s) left) - anchor(var(--_f) right))
+					- (anchor(var(--_c) right) - anchor(var(--_p) right))
+					- 0.5px
+				) * 9999
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+			)
+		);
 		right: max(0px, min(
 			/* Same-line: right at next.left (full width between nodes) */
 			anchor(var(--_n) left),
@@ -1022,11 +1084,9 @@
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
 				- var(--insertion-point-min-size, 8px) / 2
 			),
-			/* Wrapped: inner max() picks the most constrained value.
-			   - centering: narrows to ref-gap-aligned width
-			   - * 999: disqualifies this branch on same-line (huge negative)
-			   - container cap: prevents excessive overflow */
+			/* Wrapped: inner max() picks the most constrained value. */
 			max(
+				/* Branch 1: normal ref_gap width */
 				calc(
 					anchor(var(--_p) right)
 					- (
@@ -1037,10 +1097,21 @@
 						)
 					) / 2
 				),
+				/* Branch 2: snap to wrap-marker-width if space is tight */
+				calc(
+					anchor(var(--_p) right) - var(--wrap-marker-width)
+					- max(0px, 
+						(anchor(var(--_p) right) - anchor(var(--_c) right))
+						- (anchor(var(--_f) right) - anchor(var(--_s) left))
+						+ 0.5px
+					) * 9999
+				),
+				/* Branch 3: explodes (huge positive) if on same line, forcing outer min() to ignore this max() */
 				calc(
 					anchor(var(--_p) right)
-					- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 999
+					- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
 				),
+				/* container cap */
 				min(
 					anchor(var(--_c) right),
 					calc(anchor(var(--_p) right) - var(--edge-gap))
@@ -1050,41 +1121,39 @@
 	}
 
 
-	/* ip-edge horizontal last marker: single-item arrays have no ref items
-	   (--_f/--_s), so the marker is simply edge-gap wide, capped at container.
-	   0px prevents overflow past .svedit at the screen edge. */
+	/* 
+	 * ip-marker narrowing for edge gaps.
+	 * The hit area remains var(--edge-gap) wide, but the visual marker
+	 * shrinks to var(--wrap-marker-width) so it stays close to the node.
+	 */
+	.ip-marker.ip-edge.is-horizontal.is-first {
+		left: max(0px, calc(anchor(var(--_a) left) - var(--wrap-marker-width)));
+	}
 	.ip-marker.ip-edge.is-horizontal.is-last {
+		left: min(anchor(var(--_a) right), calc(100% - var(--wrap-marker-width)));
 		right: max(
 			0px,
-			calc(anchor(var(--_a) right) - var(--edge-gap)),
+			calc(anchor(var(--_a) right) - var(--wrap-marker-width)),
 			anchor(var(--_c) right)
 		);
 	}
-
-	/*
-	 * Edge visual shift is now handled via --_shift-x / --_shift-y custom
-	 * properties defined on the ip-edge position rules above. These are
-	 * signed: positive shifts toward content (is-first), negative shifts
-	 * toward content (is-last). Non-edge markers don't define them, so
-	 * the fallback of 0px keeps their visuals at 50%.
-	 *
-	 * The shift is consumed in the base ::before/::after rules below via
-	 * calc(50% + var(--_shift-x, 0px)) etc., eliminating the need for
-	 * separate ip-edge override selectors.
-	 */
+	.ip-marker.ip-edge:not(.is-horizontal).is-first {
+		top: calc(anchor(var(--_a) top) - var(--wrap-marker-width));
+	}
+	.ip-marker.ip-edge:not(.is-horizontal).is-last {
+		bottom: calc(anchor(var(--_a) bottom) - var(--wrap-marker-width));
+	}
 
 	/* Empty horizontal: caret at the left boundary */
 	.ip-marker.ip-empty.is-horizontal > .insertion-caret::before {
 		left: 0;
 	}
 
-	/* Dashed line marker (vertical-layout default: horizontal line).
-	   --_shift-y adjusts the line position for edge markers; falls back to
-	   0px for between-node markers (centered at 50%). */
+	/* Dashed line marker (vertical-layout default: horizontal line). */
 	.ip-marker:not(.is-active)::before {
 		content: '';
 		position: absolute;
-		top: calc(50% + var(--_shift-y, 0px));
+		top: 50%;
 		left: var(--marker-inset);
 		right: var(--marker-inset);
 		border-top: 1px dashed var(--gap-color);
@@ -1097,27 +1166,25 @@
 			black calc(50% + var(--gap-center)));
 	}
 
-	/* Centered plus symbol.
-	   --_shift-x/--_shift-y adjust for edge markers; 0px fallback for others. */
+	/* Centered plus symbol. */
 	.ip-marker:not(.is-active)::after {
 		content: '';
 		position: absolute;
 		width: var(--plus-s);
 		height: var(--plus-s);
-		top: calc(50% + var(--_shift-y, 0px));
-		left: calc(50% + var(--_shift-x, 0px));
+		top: 50%;
+		left: 50%;
 		transform: translate(-50%, -50%);
 		background:
 			linear-gradient(var(--gap-color), var(--gap-color)) center / 100% var(--plus-t) no-repeat,
 			linear-gradient(var(--gap-color), var(--gap-color)) center / var(--plus-t) 100% no-repeat;
 	}
 
-	/* Horizontal layout: vertical dashed line.
-	   --_shift-x adjusts for edge markers; 0px fallback centers the line. */
+	/* Horizontal layout: vertical dashed line. */
 	.ip-marker.is-horizontal:not(.is-active):not(.ip-empty)::before {
 		top: var(--marker-inset);
 		bottom: var(--marker-inset);
-		left: calc(50% + var(--_shift-x, 0px));
+		left: 50%;
 		right: auto;
 		width: 0;
 		border-top: none;
