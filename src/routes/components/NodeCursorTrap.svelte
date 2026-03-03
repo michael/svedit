@@ -22,10 +22,16 @@
 		overflow: visible;
 		outline: none;
 		pointer-events: none;
+		/*
+		 * Prevent a transient native caret paint while keyboard navigation moves
+		 * from text into this trap and the overlay caret takes over.
+		 */
+		caret-color: transparent;
 	}
 
 	.svedit-selectable {
 		pointer-events: none;
 		user-select: none;
+		caret-color: transparent;
 	}
 </style>
