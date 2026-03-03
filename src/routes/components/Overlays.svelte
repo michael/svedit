@@ -278,7 +278,7 @@
 				vars = `--_l:${prev};--_f:${ref_first};--_s:${ref_second};--_c:${container_anchor}`;
 			} else {
 				type = 'gap-edge';
-				vars = is_last && prev
+				vars = is_horizontal && is_last && prev
 					? `--_a:${prev};--_c:${container_anchor}`
 					: `--_a:${prev || next}`;
 			}
@@ -986,14 +986,10 @@
 		bottom: anchor(var(--_a) top);
 		top: max(0px, calc(anchor(var(--_a) top) - var(--edge-gap)));
 	}
-	/* Last vertical edge: extends below the last node, clamped to CB bottom.
-	   top is capped at 100% - edge-gap to guarantee minimum height. */
+	/* Last vertical edge: extends below the last node. */
 	.gap-edge:not(.row).last {
-		top: min(anchor(var(--_a) bottom), calc(100% - var(--edge-gap)));
-		bottom: max(0px, min(
-			anchor(var(--_c) bottom),
-			calc(anchor(var(--_a) bottom) - var(--edge-gap))
-		));
+		top: anchor(var(--_a) bottom);
+		bottom: calc(anchor(var(--_a) bottom) - var(--edge-gap));
 	}
 
 	/*
@@ -1252,12 +1248,7 @@
 		top: max(0px, calc(anchor(var(--_a) top) - var(--wrap-marker-width)));
 	}
 	.gap-marker.gap-edge:not(.row).last {
-		top: min(anchor(var(--_a) bottom), calc(100% - var(--wrap-marker-width)));
-		bottom: max(
-			0px,
-			calc(anchor(var(--_a) bottom) - var(--wrap-marker-width)),
-			anchor(var(--_c) bottom)
-		);
+		bottom: calc(anchor(var(--_a) bottom) - var(--wrap-marker-width));
 	}
 
 	/* Empty horizontal: caret at the left boundary */
