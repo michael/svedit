@@ -599,7 +599,7 @@
 
 	.insertion-point, .ip-marker {
 		--edge-gap: 24px;
-		--wrap-marker-width: var(--insertion-point-min-size, 8px);
+		--wrap-marker-width: var(--insertion-point-min-size, 16px);
 	}
 	/*
 	 * Edge gap — before-first or after-last element.
@@ -668,8 +668,8 @@
 		position: absolute;
 		/* hides if anchors haven't been laid out yet */
 		position-visibility: anchors-visible;
-		min-height: var(--insertion-point-min-size, 8px);
-		min-width: var(--insertion-point-min-size, 8px);
+		min-height: var(--insertion-point-min-size, 16px);
+		min-width: var(--insertion-point-min-size, 16px);
 		cursor: pointer;
 		z-index: 1;
 		padding: 2px; /* add some gap so the insertion-point doesn't touch neighboring nodes */
@@ -764,12 +764,12 @@
 		top: min(
 			anchor(var(--_p) bottom),
 			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--insertion-point-min-size, 8px) / 2)
+				- var(--insertion-point-min-size, 16px) / 2)
 		);
 		bottom: min(
 			anchor(var(--_n) top),
 			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--insertion-point-min-size, 8px) / 2)
+				- var(--insertion-point-min-size, 16px) / 2)
 		);
 		left: min(anchor(var(--_p) right), anchor(var(--_n) left));
 		right: min(anchor(var(--_p) right), anchor(var(--_n) left));
@@ -809,7 +809,7 @@
 			   (gap is positive → huge offset disqualifies this branch via min). */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--insertion-point-min-size, 8px) / 2
+				- var(--insertion-point-min-size, 16px) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 999
 			),
 			/* Edge clamp: keep left ≤ CB width - edge-gap so the box has at
@@ -822,7 +822,7 @@
 			/* Same-line centering from the right side */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--insertion-point-min-size, 8px) / 2
+				- var(--insertion-point-min-size, 16px) / 2
 			),
 			/* Wrapped: extends edge-gap past the container (large click target).
 			   The * 999 term locks this branch off when on the same line. */
@@ -928,7 +928,7 @@
 				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
 				- max(
 					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
+					var(--insertion-point-min-size, 16px)
 				) / 2
 			),
 			/* Edge clamp: minimum width guarantee at screen edge */
@@ -960,7 +960,7 @@
 				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
 				- max(
 					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
+					var(--insertion-point-min-size, 16px)
 				) / 2
 			),
 			/* Clamp 1: basic minimum width guarantee at screen edge */
@@ -970,7 +970,7 @@
 			calc(
 				100% - max(
 					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
+					var(--insertion-point-min-size, 16px)
 				)
 				+ max(0px,
 					(anchor(var(--_s) left) - anchor(var(--_f) right))
@@ -988,7 +988,7 @@
 					anchor(var(--_f) right) - anchor(var(--_s) left)
 					+ max(
 						anchor(var(--_f) right) - anchor(var(--_s) left),
-						var(--insertion-point-min-size, 8px)
+						var(--insertion-point-min-size, 16px)
 					)
 				) / 2
 			),
@@ -1044,7 +1044,7 @@
 			   (gap is positive → huge offset disqualifies this branch via min). */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--insertion-point-min-size, 8px) / 2
+				- var(--insertion-point-min-size, 16px) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
 			),
 			/* Wrapped centering offset: shift right by half ref_gap minus half
@@ -1055,7 +1055,7 @@
 				+ (anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
 				- max(
 					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
+					var(--insertion-point-min-size, 16px)
 				) / 2
 				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
 			),
@@ -1066,7 +1066,7 @@
 			calc(
 				100% - max(
 					anchor(var(--_s) left) - anchor(var(--_f) right),
-					var(--insertion-point-min-size, 8px)
+					var(--insertion-point-min-size, 16px)
 				)
 				+ max(0px,
 					(anchor(var(--_s) left) - anchor(var(--_f) right))
@@ -1082,7 +1082,7 @@
 			/* Same-line centering from the right side */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--insertion-point-min-size, 8px) / 2
+				- var(--insertion-point-min-size, 16px) / 2
 			),
 			/* Wrapped: inner max() picks the most constrained value. */
 			max(
@@ -1093,7 +1093,7 @@
 						anchor(var(--_f) right) - anchor(var(--_s) left)
 						+ max(
 							anchor(var(--_f) right) - anchor(var(--_s) left),
-							var(--insertion-point-min-size, 8px)
+							var(--insertion-point-min-size, 16px)
 						)
 					) / 2
 				),
