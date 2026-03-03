@@ -1232,6 +1232,8 @@
 			inset: 0px;
 			border: 1px dashed var(--gap-color);
 			border-radius: 3px;
+			mask-image: none;
+			transform: none;
 		}
 	/* } */
 
