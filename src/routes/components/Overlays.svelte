@@ -687,7 +687,7 @@
 		--gap-color: var(--stroke-color);
 		--plus-s: 6px;
 		--plus-t: 1px;
-		--plus-gap: 1px;
+		--plus-gap: 4px;
 		--marker-inset: 2px;
 		position: absolute;
 		position-visibility: anchors-visible;
@@ -1190,9 +1190,18 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		background:
-			linear-gradient(var(--gap-color), var(--gap-color)) center / 100% var(--plus-t) no-repeat,
-			linear-gradient(var(--gap-color), var(--gap-color)) center / var(--plus-t) 100% no-repeat;
+		background: var(--gap-color);
+		mask-image: 
+			linear-gradient(black, black),
+			linear-gradient(black, black);
+		mask-size:
+			100% var(--plus-t),
+			var(--plus-t) 100%;
+		mask-position: center;
+		mask-repeat: no-repeat;
+		/* Use mask-composite to combine the lines, preventing the background from
+		   drawing twice if it has opacity, though masking a solid background color
+		   already inherently prevents double-opacity overlap anyway. */
 	}
 
 	/* Horizontal layout: vertical dashed line. */
