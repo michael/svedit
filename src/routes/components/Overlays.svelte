@@ -307,8 +307,9 @@
 	 *
 	 * @param {PointerEvent} e
 	 * @param {{ path: Array<string|number>, offset: number }} gap
+	 * @param {HTMLElement} origin_element
 	 */
-	function handle_gap_pointerdown(e, gap) {
+	function handle_gap_pointerdown(e, gap, origin_element) {
 		e.preventDefault();
 
 		// Place a collapsed cursor at this gap immediately
@@ -321,7 +322,7 @@
 
 		const start_x = e.clientX;
 		const start_y = e.clientY;
-		const origin_el = e.currentTarget;
+		const origin_el = origin_element;
 		const array_path_str = gap.path.join('.');
 		let dragging = false;
 
@@ -430,17 +431,30 @@
 	}
 
 	/**
+	 * Find the closest gap element for delegated events.
+	 * @param {EventTarget | null} event_target
+	 * @returns {HTMLElement | null}
+	 */
+	function get_gap_element_from_target(event_target) {
+		const target = /** @type {Element | null} */ (event_target);
+		if (!target?.closest) return null;
+		return /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
+	}
+
+	/**
 	 * Resolve gap data from gap element dataset.
 	 * @param {EventTarget | null} event_target
-	 * @returns {{ key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean } | null}
+	 * @returns {{ gap: { key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }, gap_element: HTMLElement } | null}
 	 */
 	function get_gap_from_target(event_target) {
-		const target = /** @type {HTMLElement | null} */ (event_target);
-		const index_value = target?.dataset.index;
+		const gap_element = get_gap_element_from_target(event_target);
+		const index_value = gap_element?.dataset.index;
 		if (!index_value) return null;
 		const i = parseInt(index_value, 10);
 		if (Number.isNaN(i)) return null;
-		return gaps[i] ?? null;
+		const gap = gaps[i] ?? null;
+		if (!gap) return null;
+		return { gap, gap_element };
 	}
 
 	/**
@@ -448,21 +462,21 @@
 	 * @param {PointerEvent} e
 	 */
 	function on_gap_pointerdown(e) {
-		const gap = get_gap_from_target(e.currentTarget);
-		if (!gap) return;
-		handle_gap_pointerdown(e, gap);
+		const gap_data = get_gap_from_target(e.target);
+		if (!gap_data) return;
+		handle_gap_pointerdown(e, gap_data.gap, gap_data.gap_element);
 	}
 
 	/**
 	 * Double-click on an gap smoothly scrolls it into view.
 	 * @param {MouseEvent} e
-	 * @param {{ path: Array<string|number>, offset: number }} gap
+	 * @param {HTMLElement} gap_element
 	 */
-	function handle_gap_dblclick(e, gap) {
+	function handle_gap_dblclick(e, gap_element) {
 		e.preventDefault();
 		// Defensive: avoid bubbling into global dblclick/copy handlers.
 		e.stopPropagation();
-		/** @type {HTMLElement} */ (e.currentTarget).scrollIntoView({ behavior: 'smooth', block: 'center' });
+		gap_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 
 	/**
@@ -470,9 +484,9 @@
 	 * @param {MouseEvent} e
 	 */
 	function on_gap_dblclick(e) {
-		const gap = get_gap_from_target(e.currentTarget);
-		if (!gap) return;
-		handle_gap_dblclick(e, gap);
+		const gap_data = get_gap_from_target(e.target);
+		if (!gap_data) return;
+		handle_gap_dblclick(e, gap_data.gap_element);
 	}
 </script>
 
@@ -495,33 +509,33 @@
 	</div>
 {/if}
 
-{#each gaps as gap, i (gap.key)}
-	<div
-		class="gap {gap.type}"
-		data-index={i}
-		class:active={gap.key === cursor_gap_key}
-		class:row={gap.is_horizontal}
-		class:first={gap.is_first}
-		class:last={gap.is_last}
-		style={gap.vars}
-		onpointerdown={on_gap_pointerdown}
-		ondblclick={on_gap_dblclick}
-		role="none"
-	></div>
-	<div
-		class="gap-marker {gap.type}"
-		class:active={gap.key === cursor_gap_key}
-		class:row={gap.is_horizontal}
-		class:first={gap.is_first}
-		class:last={gap.is_last}
-		style={gap.vars}
-	>
-		{#if gap.key === cursor_gap_key}
-			<!-- Keep caret inside active gap to avoid fragile anchor chaining (Safari). -->
-			<div class="caret"></div>
-		{/if}
-	</div>
-{/each}
+<div class="gaps-layer" onpointerdown={on_gap_pointerdown} ondblclick={on_gap_dblclick} role="none">
+	{#each gaps as gap, i (gap.key)}
+		<div
+			class="gap {gap.type}"
+			data-index={i}
+			class:active={gap.key === cursor_gap_key}
+			class:row={gap.is_horizontal}
+			class:first={gap.is_first}
+			class:last={gap.is_last}
+			style={gap.vars}
+			role="none"
+		></div>
+		<div
+			class="gap-marker {gap.type}"
+			class:active={gap.key === cursor_gap_key}
+			class:row={gap.is_horizontal}
+			class:first={gap.is_first}
+			class:last={gap.is_last}
+			style={gap.vars}
+		>
+			{#if gap.key === cursor_gap_key}
+				<!-- Keep caret inside active gap to avoid fragile anchor chaining (Safari). -->
+				<div class="caret"></div>
+			{/if}
+		</div>
+	{/each}
+</div>
 
 <style>
 	.selected-node-overlay,
@@ -594,7 +608,7 @@
 	}
 
 	/* Pause blink while pointer is held down */
-	.gap:active > .caret {
+	.gap:active + .gap-marker > .caret {
 		animation: none;
 	}
 
