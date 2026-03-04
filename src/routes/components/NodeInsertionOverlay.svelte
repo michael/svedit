@@ -7,7 +7,6 @@
 	 *
 	 * This component builds viewport-aware insertion gaps, handles pointer-based
 	 * node selection updates, and renders insertion markers plus the active caret.
-	 * Keyboard caret landing zones are provided by `NodeCursorTrap.svelte`.
 	 */
 
 	// -----------------------------------------------------------------------------
