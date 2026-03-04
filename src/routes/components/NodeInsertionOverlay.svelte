@@ -539,27 +539,19 @@
 
 		function cleanup_drag_listeners() {
 			window.removeEventListener('pointermove', on_pointermove);
-			window.removeEventListener('pointerup', on_pointerup);
-			window.removeEventListener('pointercancel', on_pointercancel);
-			window.removeEventListener('blur', on_window_blur);
+			window.removeEventListener('pointerup', on_drag_end);
+			window.removeEventListener('pointercancel', on_drag_end);
+			window.removeEventListener('blur', on_drag_end);
 		}
 
-		function on_pointerup() {
-			cleanup_drag_listeners();
-		}
-
-		function on_pointercancel() {
-			cleanup_drag_listeners();
-		}
-
-		function on_window_blur() {
+		function on_drag_end() {
 			cleanup_drag_listeners();
 		}
 
 		window.addEventListener('pointermove', on_pointermove);
-		window.addEventListener('pointerup', on_pointerup);
-		window.addEventListener('pointercancel', on_pointercancel);
-		window.addEventListener('blur', on_window_blur);
+		window.addEventListener('pointerup', on_drag_end);
+		window.addEventListener('pointercancel', on_drag_end);
+		window.addEventListener('blur', on_drag_end);
 	}
 
 	// -----------------------------------------------------------------------------
