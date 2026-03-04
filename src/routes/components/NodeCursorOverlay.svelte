@@ -1,47 +1,135 @@
 <script>
 	import { getContext } from 'svelte';
 
+	// -----------------------------------------------------------------------------
+	// constants
+	// -----------------------------------------------------------------------------
+
 	const DRAG_THRESHOLD_PX = 4;
+	// Tuned to avoid visible gap pop-in during fast scroll while still culling most offscreen gaps.
 	const VIEWPORT_OVERSCAN_PX = 600;
 
-	const svedit = getContext('svedit');
-	let cursor_gap_key = $derived(get_cursor_gap_key());
+	const NODE_ARRAY_SELECTOR = '[data-type="node_array"][data-path]';
+	const NODE_ARRAY_LAYOUT_SELECTOR = '[data-type="node_array"]';
+	const NODE_SELECTOR = '[data-type="node"][data-path]';
 
-	/** @type {Record<string, boolean>} Maps data-path -> true when horizontal */
+	/**
+	 * @typedef {{
+	 *   key: string,
+	 *   path: Array<string|number>,
+	 *   offset: number,
+	 *   type: string,
+	 *   vars: string,
+	 *   is_horizontal: boolean,
+	 *   is_first: boolean,
+	 *   is_last: boolean
+	 * }} gap_t
+	 */
+
+	/**
+	 * @typedef {{
+	 *   gap: gap_t,
+	 *   gap_element: HTMLElement
+	 * }} gap_data_t
+	 */
+
+	// -----------------------------------------------------------------------------
+	// context and reactive state
+	// -----------------------------------------------------------------------------
+
+	const svedit = getContext('svedit');
+
+	/** @type {Record<string, boolean>} Maps data-path -> true when layout is horizontal. */
 	let row_layout_cache = $state({});
-	let row_layout_ready = $state(false); // Avoid first-frame gap misplacement before cache warmup.
-	/** @type {Record<string, boolean>} Maps visible node_array data-path -> true */
+	// Avoid first-frame gap misplacement until the row-layout cache is warmed up.
+	let row_layout_ready = $state(false);
+
+	/** @type {Record<string, boolean>} Maps visible node_array data-path -> true. */
 	let visible_array_paths = $state({});
 	let visible_arrays_ready = $state(false);
+
 	// Raw ref preserves object identity for cheap stale-path checks.
 	let visible_paths_doc = $state.raw(null);
 
+	let cursor_gap_key = $derived(get_cursor_gap_key());
+	let gaps = $derived(build_all_gaps());
+
+	// -----------------------------------------------------------------------------
+	// DOM synchronization helpers
+	// -----------------------------------------------------------------------------
+
+	function sync_row_layout_cache_from_dom() {
+		/** @type {Record<string, boolean>} */
+		const next_row_layout_cache = {};
+		for (const element of document.querySelectorAll(NODE_ARRAY_LAYOUT_SELECTOR)) {
+			const node_array_element = /** @type {HTMLElement} */ (element);
+			const path = node_array_element.dataset.path;
+			if (!path) continue;
+
+			const row_value = getComputedStyle(node_array_element)
+				.getPropertyValue('--row')
+				.trim();
+
+			if (row_value === '1') {
+				next_row_layout_cache[path] = true;
+			}
+		}
+		row_layout_cache = next_row_layout_cache;
+		row_layout_ready = true;
+	}
+
+	/**
+	 * @param {Set<string>} visible_path_set
+	 * @param {unknown} doc_snapshot
+	 * @returns {void}
+	 */
+	function sync_visible_array_paths(visible_path_set, doc_snapshot) {
+		/** @type {Record<string, boolean>} */
+		const next_visible_paths = {};
+		for (const path of visible_path_set) {
+			next_visible_paths[path] = true;
+		}
+		visible_array_paths = next_visible_paths;
+		// These DOM-derived paths belong to this exact doc snapshot.
+		visible_paths_doc = doc_snapshot;
+		visible_arrays_ready = true;
+	}
+
+	/**
+	 * @param {DOMRect} rect
+	 * @param {number} overscan_px
+	 * @returns {boolean}
+	 */
+	function is_rect_within_overscan(rect, overscan_px) {
+		return (
+			rect.bottom >= -overscan_px &&
+			rect.top <= window.innerHeight + overscan_px &&
+			rect.right >= -overscan_px &&
+			rect.left <= window.innerWidth + overscan_px
+		);
+	}
+
+	// -----------------------------------------------------------------------------
+	// reactive effects
+	// -----------------------------------------------------------------------------
+
 	$effect(() => {
-		// Re-run when the document changes (doc is $state.raw, new ref on every mutation)
-		// This fixes e.g. misplacement of gaps after copy and paste or move commands.
+		// Re-run when the document changes. Keeps row-layout direction cache in sync.
 		svedit.session.doc;
 
-		function sync_row_layout_cache() {
-			/** @type {Record<string, boolean>} */
-			const cache = {};
-			for (const el of document.querySelectorAll('[data-type="node_array"]')) {
-				const value = getComputedStyle(el)
-					.getPropertyValue('--row').trim();
-				if (value === '1') {
-					cache[/** @type {HTMLElement} */ (el).dataset.path] = true;
-				}
-			}
-			row_layout_cache = cache;
-			row_layout_ready = true;
-		}
-		sync_row_layout_cache();
-		window.addEventListener('resize', sync_row_layout_cache);
-		return () => window.removeEventListener('resize', sync_row_layout_cache);
+		sync_row_layout_cache_from_dom();
+		window.addEventListener('resize', sync_row_layout_cache_from_dom);
+
+		return () => {
+			window.removeEventListener('resize', sync_row_layout_cache_from_dom);
+		};
 	});
 
 	$effect(() => {
-		// Re-observe node_array elements whenever DOM structure changes.
-		svedit.session.doc;
+		// Keep viewport-near node_array paths in sync using IntersectionObserver.
+		// This effect is intentionally separate from row-layout caching because it owns
+		// a different subscription lifecycle and teardown (observer disconnect).
+		const doc_snapshot = svedit.session.doc;
 
 		if (!svedit.editable) {
 			visible_array_paths = {};
@@ -50,19 +138,8 @@
 			return;
 		}
 
+		visible_arrays_ready = false;
 		const visible_path_set = new Set();
-
-		function sync_visible_array_paths() {
-			/** @type {Record<string, boolean>} */
-			const next_visible_paths = {};
-			for (const path of visible_path_set) {
-				next_visible_paths[path] = true;
-			}
-			visible_array_paths = next_visible_paths;
-			// These DOM-derived paths belong to this exact doc snapshot.
-			visible_paths_doc = svedit.session.doc;
-			visible_arrays_ready = true;
-		}
 
 		/*
 		 * Viewport culling impact measured on a large benchmark document (~1.2k nodes):
@@ -76,6 +153,7 @@
 				for (const entry of entries) {
 					const path = /** @type {HTMLElement} */ (entry.target).dataset.path;
 					if (!path) continue;
+
 					if (entry.isIntersecting) {
 						if (!visible_path_set.has(path)) {
 							visible_path_set.add(path);
@@ -86,7 +164,7 @@
 					}
 				}
 				if (did_change) {
-					sync_visible_array_paths();
+					sync_visible_array_paths(visible_path_set, doc_snapshot);
 				}
 			},
 			{
@@ -95,27 +173,26 @@
 			}
 		);
 
-		for (const element of document.querySelectorAll('[data-type="node_array"][data-path]')) {
-			const path = /** @type {HTMLElement} */ (element).dataset.path;
+		for (const element of document.querySelectorAll(NODE_ARRAY_SELECTOR)) {
+			const node_array_element = /** @type {HTMLElement} */ (element);
+			const path = node_array_element.dataset.path;
 			if (!path) continue;
-			const rect = element.getBoundingClientRect();
-			const is_within_overscan = (
-				rect.bottom >= -VIEWPORT_OVERSCAN_PX &&
-				rect.top <= window.innerHeight + VIEWPORT_OVERSCAN_PX &&
-				rect.right >= -VIEWPORT_OVERSCAN_PX &&
-				rect.left <= window.innerWidth + VIEWPORT_OVERSCAN_PX
-			);
-			if (is_within_overscan) {
+
+			const rect = node_array_element.getBoundingClientRect();
+			if (is_rect_within_overscan(rect, VIEWPORT_OVERSCAN_PX)) {
 				visible_path_set.add(path);
 			}
-			observer.observe(element);
+
+			observer.observe(node_array_element);
 		}
 
-		sync_visible_array_paths();
+		sync_visible_array_paths(visible_path_set, doc_snapshot);
 		return () => observer.disconnect();
 	});
 
-	let gaps = $derived(build_all_gaps());
+	// -----------------------------------------------------------------------------
+	// selection and path helpers
+	// -----------------------------------------------------------------------------
 
 	/**
 	 * Key of the active gap that should show the blinking cursor.
@@ -132,13 +209,15 @@
 
 	/**
 	 * Build gaps only for viewport-near node arrays.
-	 * @returns {Array<{ key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }>}
+	 * @returns {Array<gap_t>}
 	 */
 	function build_all_gaps() {
 		if (!svedit.editable || !row_layout_ready || !visible_arrays_ready) return [];
 		// Skip gap computation while DOM-derived paths still belong to a previous doc snapshot.
 		// Prevents tearing errors (e.g. Enter inserts a node, doc updates before observer paths refresh).
 		if (visible_paths_doc !== svedit.session.doc) return [];
+
+		/** @type {Array<gap_t>} */
 		const targets = [];
 		for (const array_path_str of Object.keys(visible_array_paths)) {
 			if (!visible_array_paths[array_path_str]) continue;
@@ -154,7 +233,7 @@
 	 * via session.inspect(path), not by positional or numeric coercion heuristics.
 	 *
 	 * @param {string} path_key
-	 * @returns {Array<string|number>}
+	 * @returns {Array<string>}
 	 */
 	function parse_path_key(path_key) {
 		if (!path_key) return [];
@@ -182,6 +261,7 @@
 		const index_segment =
 			delimiter_index < 0 ? path_key : path_key.slice(delimiter_index + 1);
 		if (!index_segment) return null;
+
 		const index_value = parseInt(index_segment, 10);
 		return Number.isNaN(index_value) ? null : index_value;
 	}
@@ -189,7 +269,8 @@
 	/**
 	 * Emit gaps for a specific node_array path.
 	 * @param {string} array_path_str
-	 * @param {Array<{ key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }>} targets
+	 * @param {Array<gap_t>} targets
+	 * @returns {void}
 	 */
 	function append_array_gaps(array_path_str, targets) {
 		const array_path = parse_path_key(array_path_str);
@@ -265,43 +346,50 @@
 	 * Walk up the DOM from `el` to find the closest node element that belongs
 	 * to the given node_array path.
 	 * @param {Element} el
-	 * @param {string} array_path_str - dot-joined node_array path
+	 * @param {string} array_path_str
 	 * @returns {HTMLElement | null}
 	 */
 	function find_closest_node_in_array(el, array_path_str) {
 		let node_el = /** @type {HTMLElement | null} */ (
-			el.closest('[data-type="node"][data-path]')
+			el.closest(NODE_SELECTOR)
 		);
 		while (node_el) {
 			const node_path = node_el.dataset.path;
 			if (!node_path) {
 				node_el = /** @type {HTMLElement | null} */ (
-					node_el.parentElement?.closest('[data-type="node"][data-path]')
+					node_el.parentElement?.closest(NODE_SELECTOR)
 				);
 				continue;
 			}
 			const parent_path = get_parent_path_key(node_path);
 			if (parent_path === array_path_str) return node_el;
 			node_el = /** @type {HTMLElement | null} */ (
-				node_el.parentElement?.closest('[data-type="node"][data-path]')
+				node_el.parentElement?.closest(NODE_SELECTOR)
 			);
 		}
 		return null;
 	}
 
+	// -----------------------------------------------------------------------------
+	// pointer and mouse handlers
+	// -----------------------------------------------------------------------------
+
+	const PATH_SEGMENT_STEP = 2; // Path alternates [node_id, prop, ...], so parent walk steps by 2.
+	const MIN_ANCESTOR_PATH_SEGMENTS = 2; // Smallest ancestor path shape that can still address an array.
+
 	/**
-	 * Handle pointerdown on an gap. Sets a collapsed node cursor
-	 * immediately, then tracks pointer movement to support drag-selection
-	 * across multiple nodes.
+	 * Handle pointerdown on a gap. Sets a collapsed node cursor immediately,
+	 * then tracks pointer movement to support drag-selection across multiple nodes.
 	 *
 	 * @param {PointerEvent} e
-	 * @param {{ path: Array<string|number>, offset: number }} gap
+	 * @param {gap_t} gap
 	 * @param {HTMLElement} origin_element
+	 * @returns {void}
 	 */
 	function handle_gap_pointerdown(e, gap, origin_element) {
 		e.preventDefault();
 
-		// Place a collapsed cursor at this gap immediately
+		// Place a collapsed cursor at this gap immediately.
 		svedit.session.selection = {
 			type: 'node',
 			path: gap.path,
@@ -317,33 +405,45 @@
 
 		// Pre-compute ancestor array paths for cross-level escalation.
 		// Path format alternates [node_id, prop, child_index, prop, ...],
-		// so stripping 2 segments yields the parent array path.
+		// so stripping two segments yields the parent array path.
+		/** @type {Array<{ path: Array<string|number>, str: string, container_index: number }>} */
 		const ancestor_paths = [];
-		for (let len = gap.path.length - 2; len >= 2; len -= 2) {
+		for (
+			let len = gap.path.length - PATH_SEGMENT_STEP;
+			len >= MIN_ANCESTOR_PATH_SEGMENTS;
+			len -= PATH_SEGMENT_STEP
+		) {
+			const container_index = parseInt(String(gap.path[len]), 10);
+			if (Number.isNaN(container_index)) continue;
+
 			const path = gap.path.slice(0, len);
 			ancestor_paths.push({
 				path,
 				str: path.join('.'),
-				container_index: parseInt(String(gap.path[len]), 10)
+				container_index
 			});
 		}
 
 		function on_pointermove(/** @type {PointerEvent} */ e) {
-			// Ignore micro-movements to distinguish click from drag
+			// Ignore micro-movements to distinguish click from drag.
 			if (!dragging) {
-				if (Math.abs(e.clientX - start_x) + Math.abs(e.clientY - start_y) < DRAG_THRESHOLD_PX) return;
+				const pointer_delta = Math.abs(e.clientX - start_x) + Math.abs(e.clientY - start_y);
+				if (pointer_delta < DRAG_THRESHOLD_PX) return;
 				dragging = true;
 			}
 
-			const elements = document.elementsFromPoint(e.clientX, e.clientY);
+			const hit_elements = document.elementsFromPoint(e.clientX, e.clientY);
 			let over_origin = false;
-			for (const el of elements) {
-				if (el === origin_el) { over_origin = true; break; }
+			for (const hit_element of hit_elements) {
+				if (hit_element === origin_el) {
+					over_origin = true;
+					break;
+				}
 			}
 
 			// Pass 0: dragging over gaps should also expand/collapse selection.
 			// This avoids requiring the pointer to cross node bodies.
-			const gap_data = get_gap_from_hit_elements(elements);
+			const gap_data = get_gap_from_hit_elements(hit_elements);
 			if (gap_data) {
 				const hovered_gap = gap_data.gap;
 				const hovered_path_str = hovered_gap.path.join('.');
@@ -377,9 +477,9 @@
 			let sel_path = gap.path;
 			let sel_anchor = gap.offset;
 
-			// Pass 1: look for a node in the same array
-			for (const el of elements) {
-				node_el = find_closest_node_in_array(el, array_path_str);
+			// Pass 1: look for a node in the same array.
+			for (const hit_element of hit_elements) {
+				node_el = find_closest_node_in_array(hit_element, array_path_str);
 				if (node_el) break;
 			}
 
@@ -387,9 +487,9 @@
 			// Skip matches that resolve to the container itself - that just
 			// means the pointer is still inside it, not over a sibling.
 			if (!node_el) {
-				for (const el of elements) {
+				for (const hit_element of hit_elements) {
 					for (const ancestor of ancestor_paths) {
-						const candidate = find_closest_node_in_array(el, ancestor.str);
+						const candidate = find_closest_node_in_array(hit_element, ancestor.str);
 						if (!candidate) continue;
 						const idx = get_terminal_path_index(candidate.dataset.path);
 						if (idx === null) continue;
@@ -406,9 +506,10 @@
 			}
 
 			if (node_el) {
-				// Expand selection toward the node the pointer is over
+				// Expand selection toward the node the pointer is over.
 				const node_index = get_terminal_path_index(node_el.dataset.path);
 				if (node_index === null) return;
+
 				svedit.session.selection = {
 					type: 'node',
 					path: sel_path,
@@ -416,7 +517,7 @@
 					focus_offset: node_index >= sel_anchor ? node_index + 1 : node_index
 				};
 			} else if (over_origin) {
-				// Back over the starting gap - collapse selection (cancel drag)
+				// Back over the starting gap: collapse selection (cancel drag).
 				svedit.session.selection = {
 					type: 'node',
 					path: gap.path,
@@ -424,10 +525,16 @@
 					focus_offset: gap.offset
 				};
 			}
-			// Over unrelated gaps or empty space - keep current selection as-is
+			// Over unrelated gaps or empty space: keep current selection as-is.
 		}
 
-		// Cleanup drag listeners
+		function cleanup_drag_listeners() {
+			window.removeEventListener('pointermove', on_pointermove);
+			window.removeEventListener('pointerup', on_pointerup);
+			window.removeEventListener('pointercancel', on_pointercancel);
+			window.removeEventListener('blur', on_window_blur);
+		}
+
 		function on_pointerup() {
 			cleanup_drag_listeners();
 		}
@@ -440,18 +547,15 @@
 			cleanup_drag_listeners();
 		}
 
-		function cleanup_drag_listeners() {
-			window.removeEventListener('pointermove', on_pointermove);
-			window.removeEventListener('pointerup', on_pointerup);
-			window.removeEventListener('pointercancel', on_pointercancel);
-			window.removeEventListener('blur', on_window_blur);
-		}
-
 		window.addEventListener('pointermove', on_pointermove);
 		window.addEventListener('pointerup', on_pointerup);
 		window.addEventListener('pointercancel', on_pointercancel);
 		window.addEventListener('blur', on_window_blur);
 	}
+
+	// -----------------------------------------------------------------------------
+	// event target helpers
+	// -----------------------------------------------------------------------------
 
 	/**
 	 * Find the closest gap element for delegated events.
@@ -467,23 +571,26 @@
 	/**
 	 * Resolve gap data from gap element dataset.
 	 * @param {EventTarget | null} event_target
-	 * @returns {{ gap: { key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }, gap_element: HTMLElement } | null}
+	 * @returns {gap_data_t | null}
 	 */
 	function get_gap_from_target(event_target) {
 		const gap_element = get_gap_element_from_target(event_target);
 		const index_value = gap_element?.dataset.index;
 		if (!index_value) return null;
+
 		const i = parseInt(index_value, 10);
 		if (Number.isNaN(i)) return null;
+
 		const gap = gaps[i] ?? null;
 		if (!gap) return null;
+
 		return { gap, gap_element };
 	}
 
 	/**
 	 * Resolve the first rendered gap from an elementsFromPoint() stack.
 	 * @param {Array<Element>} hit_elements
-	 * @returns {{ gap: { key: string, path: Array<string|number>, offset: number, type: string, vars: string, is_horizontal: boolean, is_first: boolean, is_last: boolean }, gap_element: HTMLElement } | null}
+	 * @returns {gap_data_t | null}
 	 */
 	function get_gap_from_hit_elements(hit_elements) {
 		for (const hit_element of hit_elements) {
@@ -496,6 +603,7 @@
 	/**
 	 * Shared pointerdown handler for gaps.
 	 * @param {PointerEvent} e
+	 * @returns {void}
 	 */
 	function on_gap_pointerdown(e) {
 		const gap_data = get_gap_from_target(e.target);
@@ -504,9 +612,10 @@
 	}
 
 	/**
-	 * Double-click on an gap smoothly scrolls it into view.
+	 * Double-click on a gap smoothly scrolls it into view.
 	 * @param {MouseEvent} e
 	 * @param {HTMLElement} gap_element
+	 * @returns {void}
 	 */
 	function handle_gap_dblclick(e, gap_element) {
 		e.preventDefault();
@@ -518,6 +627,7 @@
 	/**
 	 * Shared double-click handler for gaps.
 	 * @param {MouseEvent} e
+	 * @returns {void}
 	 */
 	function on_gap_dblclick(e) {
 		const gap_data = get_gap_from_target(e.target);
@@ -617,52 +727,10 @@
 	 */
 	.gap {
 		/*
-		Design reasoning
-
-		Visual form - centered dashed line with a "+" symbol:
-
-		A single centered line produces far less visual noise than an outline or
-		filled region. Outlines create closed shapes that compete with content for
-		attention (Gestalt figure/ground); a line stays in the background.
-
-		A dashed stroke reads as "potential" or "draft" - the incompleteness
-		signals invitation (Zeigarnik effect: unfinished patterns draw the eye and
-		prompt action). Solid lines feel final and closed; dots are too subtle to
-		parse at a glance and read as decoration rather than affordance.
-
-		The "+" symbol leverages a near-universal affordance for "add / insert."
-		Centered on the line it reads as a single glyph, not a button, keeping
-		visual weight low while still communicating interactivity. Together, dash +
-		plus form a visual sentence: "something can go here."
-
-		Alignment with caret:
-
-		Both the insertion indicator and the blinking caret are centered on the same
-		axis. When the caret lands on an gap, it replaces the dashed line without
-		any layout shift - the transition feels like the point "activates" rather
-		than something new appearing. This continuity reduces cognitive load during
-		navigation (no saccade to a new position, no shape change to re-parse).
-
-		Spacing and containment:
-
-		A subtle inset (padding) makes the gap slightly narrower /
-		shorter than neighboring nodes. This margin of white-space signals that the
-		gap is a liminal zone - "between" content - rather than content itself.
-		The asymmetry provides a depth cue: it sits behind the nodes in the
-		visual hierarchy, reinforcing that content is primary and gaps are
-		secondary scaffolding.
-
-		Why NOT other approaches:
-
-		- Filled / colored backgrounds add visual noise and clash with node
-		  backgrounds, images, or custom user styles.
-		- Outline / border creates a rigid box that draws the eye more than the
-		  content it separates (figure/ground inversion).
-		- Tooltip-only (no visible indicator) fails discoverability - new users
-		  wouldn't know gaps are interactive at all.
-		- Icon button (floating "+" circle) introduces a new interactive element
-		  that needs hover/focus/active states, takes up space, and breaks the
-		  principle of the gap being a spatial concept rather than a widget.
+		 * Design goals:
+		 * - Keep insertion affordance subtle (dashed line + plus), so content stays primary.
+		 * - Keep marker and caret on the same axis to avoid visual jumps on activation.
+		 * - Keep a tiny inset so gaps read as "between content", not content containers.
 		*/
 		--gap-color: var(--stroke-color);
 		--plus-s: 6px;
@@ -762,7 +830,7 @@
 
 	/*
 	 * Column gap - between two siblings in a vertical layout.
-	 * min() on top/bottom ensures an 8 px min-height centered on the midpoint.
+	 * min() on top/bottom enforces var(--gap-min-size) around the midpoint.
 	 */
 	.gap-col {
 		top: min(
@@ -1127,7 +1195,7 @@
 					anchor(var(--_p) right) - var(--wrap-marker-width)
 					- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 				),
-				/* Branch 3: explodes (huge positive) if on same line, forcing outer min() to ignore this max() */
+				/* Branch 4: explodes (huge positive) if on same line, forcing outer min() to ignore this max() */
 				calc(
 					anchor(var(--_p) right)
 					- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
@@ -1223,9 +1291,7 @@
 			black calc(50% + var(--gap-center)));
 	}
 
-	/*
-	* For empty arrays: dashed outline for betterdiscoverability.
-	*/
+	/* For empty arrays: dashed outline for better discoverability. */
 	.gap-marker.gap-empty:not(.active)::before {
 		inset: 0px;
 		border: 1px dashed var(--gap-color);
