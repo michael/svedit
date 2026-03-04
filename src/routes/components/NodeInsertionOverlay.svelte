@@ -91,20 +91,6 @@
 		visible_arrays_ready = true;
 	}
 
-	/**
-	 * @param {DOMRect} rect
-	 * @param {number} overscan_px
-	 * @returns {boolean}
-	 */
-	function is_rect_within_overscan(rect, overscan_px) {
-		return (
-			rect.bottom >= -overscan_px &&
-			rect.top <= window.innerHeight + overscan_px &&
-			rect.right >= -overscan_px &&
-			rect.left <= window.innerWidth + overscan_px
-		);
-	}
-
 	// -----------------------------------------------------------------------------
 	// reactive effects
 	// -----------------------------------------------------------------------------
@@ -175,7 +161,12 @@
 			if (!path) continue;
 
 			const rect = node_array_element.getBoundingClientRect();
-			if (is_rect_within_overscan(rect, VIEWPORT_OVERSCAN_PX)) {
+			if (
+				rect.bottom >= -VIEWPORT_OVERSCAN_PX &&
+				rect.top <= window.innerHeight + VIEWPORT_OVERSCAN_PX &&
+				rect.right >= -VIEWPORT_OVERSCAN_PX &&
+				rect.left <= window.innerWidth + VIEWPORT_OVERSCAN_PX
+			) {
 				visible_path_set.add(path);
 			}
 
@@ -219,17 +210,6 @@
 			append_array_gaps(array_path_str, targets);
 		}
 		return targets;
-	}
-
-	/**
-	 * Parent-path extraction for "a.b.c" => "a.b".
-	 * @param {string} path_key
-	 * @returns {string}
-	 */
-	function get_parent_path_key(path_key) {
-		const delimiter_index = path_key.lastIndexOf('.');
-		if (delimiter_index < 0) return '';
-		return path_key.slice(0, delimiter_index);
 	}
 
 	/**
@@ -332,9 +312,10 @@
 	 */
 	function find_closest_node_in_array(el, array_path_str) {
 		let node_el = /** @type {HTMLElement | null} */ (el.closest(NODE_SELECTOR));
+		const prefix = array_path_str ? array_path_str + '.' : '';
 		while (node_el) {
 			const path = node_el.dataset.path;
-			if (path && get_parent_path_key(path) === array_path_str) return node_el;
+			if (path && path.startsWith(prefix) && path.indexOf('.', prefix.length) === -1) return node_el;
 			node_el = /** @type {HTMLElement | null} */ (node_el.parentElement?.closest(NODE_SELECTOR));
 		}
 		return null;
@@ -516,16 +497,8 @@
 		const target = /** @type {Element | null} */ (event_target);
 		if (!target?.closest) return null;
 		const gap_element = /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
-		const index_value = gap_element?.dataset.index;
-		if (!index_value) return null;
-
-		const i = parseInt(index_value, 10);
-		if (Number.isNaN(i)) return null;
-
-		const gap = gaps[i] ?? null;
-		if (!gap) return null;
-
-		return { gap, gap_element };
+		const gap = gaps[gap_element?.dataset.index];
+		return gap ? { gap, gap_element } : null;
 	}
 
 	/**
