@@ -18,7 +18,6 @@
 	const VIEWPORT_OVERSCAN_PX = 600;
 
 	const NODE_ARRAY_SELECTOR = '[data-type="node_array"][data-path]';
-	const NODE_ARRAY_LAYOUT_SELECTOR = '[data-type="node_array"]';
 	const NODE_SELECTOR = '[data-type="node"][data-path]';
 
 	/**
@@ -47,14 +46,11 @@
 
 	const svedit = getContext('svedit');
 
-	/** @type {Record<string, boolean>} Maps data-path -> true when layout uses row flow. */
-	let row_layout_cache = $state({});
-	// Avoid first-frame gap misplacement until the row-layout cache is warmed up.
-	let row_layout_ready = $state(false);
+	/** @type {Record<string, boolean> | null} Maps data-path -> true when layout uses row flow. Null until first DOM sync. */
+	let row_layout_cache = $state(null);
 
 	/** @type {Array<string>} Array of visible node_array data-paths. */
 	let visible_array_paths = $state([]);
-	let visible_arrays_ready = $state(false);
 
 	// Raw ref preserves object identity for cheap stale-path checks.
 	let visible_paths_doc = $state.raw(null);
@@ -69,14 +65,13 @@
 	function sync_row_layout_cache_from_dom() {
 		/** @type {Record<string, boolean>} */
 		const next_row_layout_cache = {};
-		for (const element of document.querySelectorAll(NODE_ARRAY_LAYOUT_SELECTOR)) {
+		for (const element of document.querySelectorAll(NODE_ARRAY_SELECTOR)) {
 			const el = /** @type {HTMLElement} */ (element);
 			if (el.dataset.path && getComputedStyle(el).getPropertyValue('--row').trim() === '1') {
 				next_row_layout_cache[el.dataset.path] = true;
 			}
 		}
 		row_layout_cache = next_row_layout_cache;
-		row_layout_ready = true;
 	}
 
 	/**
@@ -86,9 +81,7 @@
 	 */
 	function sync_visible_array_paths(visible_path_set, doc_snapshot) {
 		visible_array_paths = Array.from(visible_path_set);
-		// These DOM-derived paths belong to this exact doc snapshot.
 		visible_paths_doc = doc_snapshot;
-		visible_arrays_ready = true;
 	}
 
 	// -----------------------------------------------------------------------------
@@ -115,12 +108,10 @@
 
 		if (!svedit.editable) {
 			visible_array_paths = [];
-			visible_arrays_ready = false;
 			visible_paths_doc = null;
 			return;
 		}
 
-		visible_arrays_ready = false;
 		const visible_path_set = new Set();
 
 		/*
@@ -146,6 +137,7 @@
 					}
 				}
 				if (did_change) {
+					console.log('did_change', visible_path_set);
 					sync_visible_array_paths(visible_path_set, doc_snapshot);
 				}
 			},
@@ -199,7 +191,7 @@
 	 * @returns {Array<gap_t>}
 	 */
 	function build_all_gaps() {
-		if (!svedit.editable || !row_layout_ready || !visible_arrays_ready) return [];
+		if (!svedit.editable || !row_layout_cache) return [];
 		// Skip gap computation while DOM-derived paths still belong to a previous doc snapshot.
 		// Prevents tearing errors (e.g. Enter inserts a node, doc updates before observer paths refresh).
 		if (visible_paths_doc !== svedit.session.doc) return [];
@@ -264,7 +256,6 @@
 			return;
 		}
 
-		const container_anchor = anchor_prefix;
 		const ref_first = is_row && count >= 2 ? `${anchor_prefix}-0` : null;
 		const ref_second = is_row && count >= 2 ? `${anchor_prefix}-1` : null;
 
@@ -279,15 +270,15 @@
 			if (prev && next) {
 				type = is_row ? 'gap-row' : 'gap-col';
 				vars = is_row && ref_first
-					? `--_p:${prev};--_n:${next};--_f:${ref_first};--_s:${ref_second};--_c:${container_anchor}`
+					? `--_p:${prev};--_n:${next};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`
 					: `--_p:${prev};--_n:${next}`;
 			} else if (prev && !next && ref_first) {
 				type = 'gap-trail';
-				vars = `--_l:${prev};--_f:${ref_first};--_s:${ref_second};--_c:${container_anchor}`;
+				vars = `--_l:${prev};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`;
 			} else {
 				type = 'gap-edge';
 				vars = is_row && is_last && prev
-					? `--_a:${prev};--_c:${container_anchor}`
+					? `--_a:${prev};--_c:${anchor_prefix}`
 					: `--_a:${prev || next}`;
 			}
 			targets.push({
