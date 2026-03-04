@@ -800,6 +800,12 @@ The KeyMapper tries scopes from top to bottom, so push more specific keymaps las
 
 Selections are at the heart of Svedit. There are just three types of selections:
 
+### Terminology note
+
+- Use "node" as the domain term.
+- Use "node cursor" for a collapsed node selection.
+- Use "node cursor trap" for the DOM landing zone.
+
 1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed cursor at position 1 in a text property 'content'.
 
   ```js

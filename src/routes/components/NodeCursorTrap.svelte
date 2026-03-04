@@ -1,7 +1,7 @@
 <script>
 	/**
 	 * Minimal cursor trap: a zero-height DOM caret landing zone for keyboard
-	 * navigation. Visual cursor and gap click targets are handled by Overlays.svelte.
+	 * navigation. Visual cursor and gap click targets are handled by NodeCursorOverlay.svelte.
 	 */
 	let { path, type } = $props();
 
