@@ -1204,9 +1204,6 @@
 			var(--plus-t) 100%;
 		mask-position: center;
 		mask-repeat: no-repeat;
-		/* Use mask-composite to combine the lines, preventing the background from
-		   drawing twice if it has opacity, though masking a solid background color
-		   already inherently prevents double-opacity overlap anyway. */
 	}
 
 	/* Horizontal layout: vertical dashed line. */
@@ -1226,21 +1223,16 @@
 			black calc(50% + var(--gap-center)));
 	}
 
-	/* @container (width >= 16px) and (height >= 16px) and (width < 48px) and (height < 48px) { */
-		/*
-		 * Tiny empty arrays: dashed outline for discoverability.
-		 * Drawn on .gap::before (not .gap-marker) because the
-		 * @container query needs an ancestor with container-type: size,
-		 * and .gap is the only one that qualifies.
-		 */
-		.gap-marker.gap-empty:not(.active)::before {
-			inset: 0px;
-			border: 1px dashed var(--gap-color);
-			border-radius: 3px;
-			mask-image: none;
-			transform: none;
-		}
-	/* } */
+	/*
+	* For empty arrays: dashed outline for betterdiscoverability.
+	*/
+	.gap-marker.gap-empty:not(.active)::before {
+		inset: 0px;
+		border: 1px dashed var(--gap-color);
+		border-radius: 3px;
+		mask-image: none;
+		transform: none;
+	}
 
 	/* Debugging styles */
 	:global([data-type="node_array"]) {
