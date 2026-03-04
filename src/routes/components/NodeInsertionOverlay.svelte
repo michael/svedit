@@ -235,20 +235,6 @@
 	}
 
 	/**
-	 * Convert a data-path key back to a session path.
-	 *
-	 * We intentionally keep all segments as strings. Path structure should be derived
-	 * via session.inspect(path), not by positional or numeric coercion heuristics.
-	 *
-	 * @param {string} path_key
-	 * @returns {Array<string>}
-	 */
-	function parse_path_key(path_key) {
-		if (!path_key) return [];
-		return path_key.split('.');
-	}
-
-	/**
 	 * Parent-path extraction for "a.b.c" => "a.b".
 	 * @param {string} path_key
 	 * @returns {string}
@@ -281,7 +267,7 @@
 	 * @returns {void}
 	 */
 	function append_array_gaps(array_path_str, targets) {
-		const array_path = parse_path_key(array_path_str);
+		const array_path = array_path_str.split('.');
 		let path_definition = null;
 		try {
 			path_definition = svedit.session.inspect(array_path);
@@ -407,7 +393,6 @@
 
 		const start_x = e.clientX;
 		const start_y = e.clientY;
-		const origin_el = origin_element;
 		const array_path_str = gap.path.join('.');
 		let dragging = false;
 
@@ -441,13 +426,7 @@
 			}
 
 			const hit_elements = document.elementsFromPoint(e.clientX, e.clientY);
-			let over_origin = false;
-			for (const hit_element of hit_elements) {
-				if (hit_element === origin_el) {
-					over_origin = true;
-					break;
-				}
-			}
+			const over_origin = hit_elements.includes(origin_element);
 
 			// Pass 0: dragging over gaps should also expand/collapse selection.
 			// This avoids requiring the pointer to cross node bodies.
@@ -536,15 +515,11 @@
 			// Over unrelated gaps or empty space: keep current selection as-is.
 		}
 
-		function cleanup_drag_listeners() {
+		function on_drag_end() {
 			window.removeEventListener('pointermove', on_pointermove);
 			window.removeEventListener('pointerup', on_drag_end);
 			window.removeEventListener('pointercancel', on_drag_end);
 			window.removeEventListener('blur', on_drag_end);
-		}
-
-		function on_drag_end() {
-			cleanup_drag_listeners();
 		}
 
 		window.addEventListener('pointermove', on_pointermove);
@@ -558,23 +533,14 @@
 	// -----------------------------------------------------------------------------
 
 	/**
-	 * Find the closest gap element for delegated events.
-	 * @param {EventTarget | null} event_target
-	 * @returns {HTMLElement | null}
-	 */
-	function get_gap_element_from_target(event_target) {
-		const target = /** @type {Element | null} */ (event_target);
-		if (!target?.closest) return null;
-		return /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
-	}
-
-	/**
-	 * Resolve gap data from gap element dataset.
+	 * Resolve gap data from an event target by finding the closest gap element.
 	 * @param {EventTarget | null} event_target
 	 * @returns {gap_data_t | null}
 	 */
 	function get_gap_from_target(event_target) {
-		const gap_element = get_gap_element_from_target(event_target);
+		const target = /** @type {Element | null} */ (event_target);
+		if (!target?.closest) return null;
+		const gap_element = /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
 		const index_value = gap_element?.dataset.index;
 		if (!index_value) return null;
 
@@ -614,25 +580,14 @@
 	/**
 	 * Double-click on a gap smoothly scrolls it into view.
 	 * @param {MouseEvent} e
-	 * @param {HTMLElement} gap_element
-	 * @returns {void}
-	 */
-	function handle_gap_dblclick(e, gap_element) {
-		e.preventDefault();
-		// Defensive: avoid bubbling into global dblclick/copy handlers.
-		e.stopPropagation();
-		gap_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-	}
-
-	/**
-	 * Shared double-click handler for gaps.
-	 * @param {MouseEvent} e
 	 * @returns {void}
 	 */
 	function on_gap_dblclick(e) {
 		const gap_data = get_gap_from_target(e.target);
 		if (!gap_data) return;
-		handle_gap_dblclick(e, gap_data.gap_element);
+		e.preventDefault();
+		e.stopPropagation();
+		gap_data.gap_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 </script>
 
