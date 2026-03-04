@@ -52,8 +52,8 @@
 	// Avoid first-frame gap misplacement until the row-layout cache is warmed up.
 	let row_layout_ready = $state(false);
 
-	/** @type {Record<string, boolean>} Maps visible node_array data-path -> true. */
-	let visible_array_paths = $state({});
+	/** @type {Array<string>} Array of visible node_array data-paths. */
+	let visible_array_paths = $state([]);
 	let visible_arrays_ready = $state(false);
 
 	// Raw ref preserves object identity for cheap stale-path checks.
@@ -70,16 +70,9 @@
 		/** @type {Record<string, boolean>} */
 		const next_row_layout_cache = {};
 		for (const element of document.querySelectorAll(NODE_ARRAY_LAYOUT_SELECTOR)) {
-			const node_array_element = /** @type {HTMLElement} */ (element);
-			const path = node_array_element.dataset.path;
-			if (!path) continue;
-
-			const row_value = getComputedStyle(node_array_element)
-				.getPropertyValue('--row')
-				.trim();
-
-			if (row_value === '1') {
-				next_row_layout_cache[path] = true;
+			const el = /** @type {HTMLElement} */ (element);
+			if (el.dataset.path && getComputedStyle(el).getPropertyValue('--row').trim() === '1') {
+				next_row_layout_cache[el.dataset.path] = true;
 			}
 		}
 		row_layout_cache = next_row_layout_cache;
@@ -92,12 +85,7 @@
 	 * @returns {void}
 	 */
 	function sync_visible_array_paths(visible_path_set, doc_snapshot) {
-		/** @type {Record<string, boolean>} */
-		const next_visible_paths = {};
-		for (const path of visible_path_set) {
-			next_visible_paths[path] = true;
-		}
-		visible_array_paths = next_visible_paths;
+		visible_array_paths = Array.from(visible_path_set);
 		// These DOM-derived paths belong to this exact doc snapshot.
 		visible_paths_doc = doc_snapshot;
 		visible_arrays_ready = true;
@@ -140,7 +128,7 @@
 		const doc_snapshot = svedit.session.doc;
 
 		if (!svedit.editable) {
-			visible_array_paths = {};
+			visible_array_paths = [];
 			visible_arrays_ready = false;
 			visible_paths_doc = null;
 			return;
@@ -227,8 +215,7 @@
 
 		/** @type {Array<gap_t>} */
 		const targets = [];
-		for (const array_path_str of Object.keys(visible_array_paths)) {
-			if (!visible_array_paths[array_path_str]) continue;
+		for (const array_path_str of visible_array_paths) {
 			append_array_gaps(array_path_str, targets);
 		}
 		return targets;
@@ -344,22 +331,11 @@
 	 * @returns {HTMLElement | null}
 	 */
 	function find_closest_node_in_array(el, array_path_str) {
-		let node_el = /** @type {HTMLElement | null} */ (
-			el.closest(NODE_SELECTOR)
-		);
+		let node_el = /** @type {HTMLElement | null} */ (el.closest(NODE_SELECTOR));
 		while (node_el) {
-			const node_path = node_el.dataset.path;
-			if (!node_path) {
-				node_el = /** @type {HTMLElement | null} */ (
-					node_el.parentElement?.closest(NODE_SELECTOR)
-				);
-				continue;
-			}
-			const parent_path = get_parent_path_key(node_path);
-			if (parent_path === array_path_str) return node_el;
-			node_el = /** @type {HTMLElement | null} */ (
-				node_el.parentElement?.closest(NODE_SELECTOR)
-			);
+			const path = node_el.dataset.path;
+			if (path && get_parent_path_key(path) === array_path_str) return node_el;
+			node_el = /** @type {HTMLElement | null} */ (node_el.parentElement?.closest(NODE_SELECTOR));
 		}
 		return null;
 	}
