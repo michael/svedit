@@ -1,9 +1,9 @@
 <script>
 	import NodeSelectionOverlays from './NodeSelectionOverlays.svelte';
 	import LinkActionOverlay from './LinkActionOverlay.svelte';
-	import NodeCursorOverlay from './NodeCursorOverlay.svelte';
+	import NodeInsertionOverlay from './NodeInsertionOverlay.svelte';
 </script>
 
 <NodeSelectionOverlays />
 <LinkActionOverlay />
-<NodeCursorOverlay />
+<NodeInsertionOverlay />

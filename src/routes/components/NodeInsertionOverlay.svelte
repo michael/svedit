@@ -1,5 +1,14 @@
 <script>
 	import { getContext } from 'svelte';
+	import NodeInsertionCaret from './NodeInsertionCaret.svelte';
+
+	/**
+	 * Interactive insertion overlay for node-array editing.
+	 *
+	 * This component builds viewport-aware insertion gaps, handles pointer-based
+	 * node selection updates, and renders insertion markers plus the active caret.
+	 * Keyboard caret landing zones are provided by `NodeCursorTrap.svelte`.
+	 */
 
 	// -----------------------------------------------------------------------------
 	// constants
@@ -20,7 +29,7 @@
 	 *   offset: number,
 	 *   type: string,
 	 *   vars: string,
-	 *   is_horizontal: boolean,
+	 *   is_row: boolean,
 	 *   is_first: boolean,
 	 *   is_last: boolean
 	 * }} gap_t
@@ -39,7 +48,7 @@
 
 	const svedit = getContext('svedit');
 
-	/** @type {Record<string, boolean>} Maps data-path -> true when layout is horizontal. */
+	/** @type {Record<string, boolean>} Maps data-path -> true when layout uses row flow. */
 	let row_layout_cache = $state({});
 	// Avoid first-frame gap misplacement until the row-layout cache is warmed up.
 	let row_layout_ready = $state(false);
@@ -284,7 +293,7 @@
 		const node_ids = svedit.session.get(array_path);
 		if (!Array.isArray(node_ids)) return;
 
-		const is_horizontal = row_layout_cache[array_path_str] === true;
+		const is_row = row_layout_cache[array_path_str] === true;
 		const anchor_prefix = `--${array_path.join('-')}`;
 		const count = node_ids.length;
 
@@ -296,7 +305,7 @@
 				offset: 0,
 				type: 'gap-empty',
 				vars: `--_a:${anchor};--_c:${anchor_prefix}`,
-				is_horizontal,
+				is_row,
 				is_first: true,
 				is_last: true
 			});
@@ -304,8 +313,8 @@
 		}
 
 		const container_anchor = anchor_prefix;
-		const ref_first = is_horizontal && count >= 2 ? `${anchor_prefix}-0` : null;
-		const ref_second = is_horizontal && count >= 2 ? `${anchor_prefix}-1` : null;
+		const ref_first = is_row && count >= 2 ? `${anchor_prefix}-0` : null;
+		const ref_second = is_row && count >= 2 ? `${anchor_prefix}-1` : null;
 
 		for (let offset = 0; offset <= count; offset++) {
 			const prev = offset > 0 ? `${anchor_prefix}-${offset - 1}` : null;
@@ -316,8 +325,8 @@
 
 			let type, vars;
 			if (prev && next) {
-				type = is_horizontal ? 'gap-row' : 'gap-col';
-				vars = is_horizontal && ref_first
+				type = is_row ? 'gap-row' : 'gap-col';
+				vars = is_row && ref_first
 					? `--_p:${prev};--_n:${next};--_f:${ref_first};--_s:${ref_second};--_c:${container_anchor}`
 					: `--_p:${prev};--_n:${next}`;
 			} else if (prev && !next && ref_first) {
@@ -325,7 +334,7 @@
 				vars = `--_l:${prev};--_f:${ref_first};--_s:${ref_second};--_c:${container_anchor}`;
 			} else {
 				type = 'gap-edge';
-				vars = is_horizontal && is_last && prev
+				vars = is_row && is_last && prev
 					? `--_a:${prev};--_c:${container_anchor}`
 					: `--_a:${prev || next}`;
 			}
@@ -335,7 +344,7 @@
 				offset,
 				type,
 				vars,
-				is_horizontal,
+				is_row,
 				is_first,
 				is_last
 			});
@@ -642,7 +651,7 @@
 			class="gap {gap.type}"
 			data-index={i}
 			class:active={gap.key === cursor_gap_key}
-			class:row={gap.is_horizontal}
+			class:row={gap.is_row}
 			class:first={gap.is_first}
 			class:last={gap.is_last}
 			style={gap.vars}
@@ -651,76 +660,67 @@
 		<div
 			class="gap-marker {gap.type}"
 			class:active={gap.key === cursor_gap_key}
-			class:row={gap.is_horizontal}
+			class:row={gap.is_row}
 			class:first={gap.is_first}
 			class:last={gap.is_last}
 			style={gap.vars}
 		>
 			{#if gap.key === cursor_gap_key}
 				<!-- Keep caret inside active gap to avoid fragile anchor chaining (Safari). -->
-				<div class="caret"></div>
+				<NodeInsertionCaret is_row={gap.is_row} />
 			{/if}
 		</div>
 	{/each}
 </div>
 
 <style>
-	.caret {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		z-index: 20;
-		container-type: size;
-		animation: cursor-blink 1.1s ease-in-out infinite;
+	/*
+	 * Public customization tokens (set on an ancestor or this component):
+	 * --node-cursor-gap-color
+	 * --node-cursor-symbol-size
+	 * --node-cursor-symbol-stroke
+	 * --node-cursor-symbol-gap
+	 * --node-cursor-symbol-bg
+	 * --node-cursor-symbol-mask-image
+	 * --node-cursor-symbol-mask-size
+	 * --node-cursor-symbol-mask-position
+	 * --node-cursor-symbol-mask-repeat
+	 * --node-cursor-marker-inset
+	 * --node-cursor-edge-gap
+	 * --node-cursor-gap-min-size
+	 * --node-cursor-hit-padding
+	 * --node-cursor-marker-padding
+	 * --node-cursor-gap-z-index
+	 * --node-cursor-marker-z-index
+	 * --node-cursor-line-border
+	 * --node-cursor-empty-border
+	 * --node-cursor-empty-border-radius
+	 * --node-cursor-caret-bg
+	 * --node-cursor-caret-shadow
+	 * --node-cursor-caret-border
+	 * --node-cursor-caret-thickness
+	 * --node-cursor-caret-inset
+	 * --node-cursor-caret-radius
+	 * --node-cursor-caret-z-index
+	 * --node-cursor-caret-blink-duration
+	 * --node-cursor-caret-animation
+	 * --node-cursor-caret-row-inline-position
+	 */
+
+	/* Pause blink while pointer is held down. */
+	.gap:active + .gap-marker {
+		--node-cursor-caret-animation: none;
 	}
 
-	.caret::before {
-		content: '';
-		position: absolute;
-		background: var(--caret-color, var(--editing-stroke-color));
-		/* Ensure the caret is visible on colored backgrounds */
-		box-shadow: 0 0 0 0.5px var(--caret-color-inverted, oklch(1 0 0 / 1));
-		border-radius: 1px;
-	}
-
-	/* Horizontal caret line for vertical layouts. */
-	.gap-marker:not(.row) > .caret::before {
-		left: var(--marker-inset);
-		right: var(--marker-inset);
-		top: 50%;
-		height: 2px;
-		transform: translateY(-0.5px);
-	}
-
-	/* Vertical caret line for horizontal layouts. */
-	.gap-marker.row > .caret::before {
-		top: var(--marker-inset);
-		bottom: var(--marker-inset);
-		left: 50%;
-		width: 2px;
-		transform: translateX(-0.5px);
-	}
-
-	/* Pause blink while pointer is held down */
-	.gap:active + .gap-marker > .caret {
-		animation: none;
-	}
-
-	@keyframes cursor-blink {
-		0%, 60% { opacity: 1; }
-		68% { opacity: 0; }
-		88% { opacity: 0; }
-		100% { opacity: 1; }
+	/* Empty horizontal: caret at the left boundary. */
+	.gap-marker.gap-empty.row {
+		--node-cursor-caret-row-inline-position: 0px;
 	}
 
 	.gap, .gap-marker {
-		--edge-gap: 24px;
-		--wrap-marker-width: var(--gap-min-size, 16px);
+		--_eg: var(--node-cursor-edge-gap, 24px); /* Edge insertion hit size (before-first / after-last). */
+		--_gm: var(--node-cursor-gap-min-size, 16px); /* Minimum marker/gap size used in geometry math. */
 	}
-	/*
-	 * Edge gap - before-first or after-last element.
-	 * 24 px strip adjacent to the anchor, spanning its cross-axis.
-	 */
 
 	/*
 	 * Hit area element - handles pointer events, defines the clickable region.
@@ -728,23 +728,18 @@
 	.gap {
 		/*
 		 * Design goals:
-		 * - Keep insertion affordance subtle (dashed line + plus), so content stays primary.
+		 * - Keep insertion affordance subtle (dashed line + symbol), so content stays primary.
 		 * - Keep marker and caret on the same axis to avoid visual jumps on activation.
 		 * - Keep a tiny inset so gaps read as "between content", not content containers.
 		*/
-		--gap-color: var(--stroke-color);
-		--plus-s: 6px;
-		--plus-t: 1px;
-		--plus-gap: 1px;
-		--marker-inset: 2px;
 		position: absolute;
 		/* hides if anchors haven't been laid out yet */
 		position-visibility: anchors-visible;
-		min-height: var(--gap-min-size, 16px);
-		min-width: var(--gap-min-size, 16px);
+		min-height: var(--_gm);
+		min-width: var(--_gm);
 		cursor: pointer;
-		z-index: 1;
-		padding: 2px; /* add some gap so the gap doesn't touch neighboring nodes */
+		z-index: var(--node-cursor-gap-z-index, 1);
+		padding: var(--node-cursor-hit-padding, 2px); /* add some gap so the gap doesn't touch neighboring nodes */
 		container-type: size;
 	}
 
@@ -758,16 +753,11 @@
 	 * with between-node markers.
 	 */
 	.gap-marker {
-		--gap-color: var(--stroke-color);
-		--plus-s: 6px;
-		--plus-t: 1px;
-		--plus-gap: 4px;
-		--marker-inset: 2px;
 		position: absolute;
 		position-visibility: anchors-visible;
 		pointer-events: none;
-		z-index: 2;
-		padding: 2px;
+		z-index: var(--node-cursor-marker-z-index, 2);
+		padding: var(--node-cursor-marker-padding, 2px);
 	}
 
 	/*
@@ -775,7 +765,7 @@
 	 *
 	 * Architecture: each gap produces TWO sibling elements:
 	 *   .gap - the invisible click target (hit area)
-	 *   .gap-marker       - the visible dashed line + plus symbol
+	 *   .gap-marker       - the visible insertion marker (line + symbol)
 	 *
 	 * Both carry the type class (gap-empty, gap-col, gap-row, gap-edge, gap-trail),
 	 * so the base positioning rules below apply to both identically.
@@ -814,7 +804,7 @@
 	}
 	.gap-empty.row {
 		/* Ensure minimum edge-gap width even when the placeholder is narrow */
-		right: max(anchor(var(--_a) right), calc(anchor(var(--_a) left) - var(--edge-gap)));
+		right: max(anchor(var(--_a) right), calc(anchor(var(--_a) left) - var(--_eg)));
 	}
 
 	/* Hit area expands to fill the full container. Uses min() on each inset to
@@ -830,18 +820,18 @@
 
 	/*
 	 * Column gap - between two siblings in a vertical layout.
-	 * min() on top/bottom enforces var(--gap-min-size) around the midpoint.
+	 * min() on top/bottom enforces var(--_gm) around the midpoint.
 	 */
 	.gap-col {
 		top: min(
 			anchor(var(--_p) bottom),
 			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--gap-min-size, 16px) / 2)
+				- var(--_gm) / 2)
 		);
 		bottom: min(
 			anchor(var(--_n) top),
 			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--gap-min-size, 16px) / 2)
+				- var(--_gm) / 2)
 		);
 		left: min(anchor(var(--_p) right), anchor(var(--_n) left));
 		right: min(anchor(var(--_p) right), anchor(var(--_n) left));
@@ -881,12 +871,12 @@
 			   (gap is positive -> huge offset disqualifies this branch via min). */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--gap-min-size, 16px) / 2
+				- var(--_gm) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 999
 			),
 			/* Edge clamp: keep left <= CB width - edge-gap so the box has at
 			   least edge-gap width when right is clamped to 0 at screen edge */
-			calc(100% - var(--edge-gap))
+			calc(100% - var(--_eg))
 		);
 		right: max(0px, min(
 			/* Same-line: right edge at next.left */
@@ -894,14 +884,14 @@
 			/* Same-line centering from the right side */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--gap-min-size, 16px) / 2
+				- var(--_gm) / 2
 			),
 			/* Wrapped: extends edge-gap past the container (large click target).
 			   The * 999 term locks this branch off when on the same line. */
 			max(
 				min(
-					calc(anchor(var(--_c) right) - var(--edge-gap)),
-					calc(anchor(var(--_p) right) - var(--edge-gap))
+					calc(anchor(var(--_c) right) - var(--_eg)),
+					calc(anchor(var(--_p) right) - var(--_eg))
 				),
 				calc(
 					anchor(var(--_p) right)
@@ -914,7 +904,7 @@
 	/*
 	 * Edge gaps - before the first or after the last item in an array.
 	 *
-	 * These extend outward from the boundary node by --edge-gap. When the
+	 * These extend outward from the boundary node by --node-cursor-edge-gap. When the
 	 * array is flush with the screen edge (no padding), the outward extension
 	 * would be off-screen. Two CSS tricks fix this:
 	 *
@@ -934,12 +924,12 @@
 	 * inset, effectively shifting the box inward.
 	 */
 	.gap-edge {
-		min-height: var(--edge-gap);
-		min-width: var(--edge-gap);
+		min-height: var(--_eg);
+		min-width: var(--_eg);
 	}
 	.gap-marker.gap-edge {
-		min-height: var(--wrap-marker-width);
-		min-width: var(--wrap-marker-width);
+		min-height: var(--_gm);
+		min-width: var(--_gm);
 	}
 	.gap-edge.row {
 		top: anchor(var(--_a) top);
@@ -952,26 +942,26 @@
 	/* First horizontal edge: extends left of node, clamped to CB left. */
 	.gap-edge.row.first {
 		right: anchor(var(--_a) left);
-		left: max(0px, calc(anchor(var(--_a) left) - var(--edge-gap)));
+		left: max(0px, calc(anchor(var(--_a) left) - var(--_eg)));
 	}
 	/* Last horizontal edge: extends right of node, clamped to CB right.
 	   left is capped at 100% - edge-gap to guarantee minimum width. */
 	.gap-edge.row.last {
-		left: min(anchor(var(--_a) right), calc(100% - var(--edge-gap)));
+		left: min(anchor(var(--_a) right), calc(100% - var(--_eg)));
 		right: max(0px, min(
 			anchor(var(--_c) right),
-			calc(anchor(var(--_a) right) - var(--edge-gap))
+			calc(anchor(var(--_a) right) - var(--_eg))
 		));
 	}
 	/* First vertical edge: extends above the first node. */
 	.gap-edge:not(.row).first {
 		bottom: anchor(var(--_a) top);
-		top: max(0px, calc(anchor(var(--_a) top) - var(--edge-gap)));
+		top: max(0px, calc(anchor(var(--_a) top) - var(--_eg)));
 	}
 	/* Last vertical edge: extends below the last node. */
 	.gap-edge:not(.row).last {
 		top: anchor(var(--_a) bottom);
-		bottom: calc(anchor(var(--_a) bottom) - var(--edge-gap));
+		bottom: calc(anchor(var(--_a) bottom) - var(--_eg));
 	}
 
 	/*
@@ -1000,16 +990,16 @@
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
 				- max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-					var(--gap-min-size, 16px)
+					var(--_gm)
 				) / 2
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Edge clamp: minimum width guarantee at screen edge */
-			calc(100% - var(--edge-gap))
+			calc(100% - var(--_eg))
 		);
 		right: max(0px, min(
-			calc(anchor(var(--_c) right) - var(--edge-gap)),
-			calc(anchor(var(--_l) right) - var(--edge-gap))
+			calc(anchor(var(--_c) right) - var(--_eg)),
+			calc(anchor(var(--_l) right) - var(--_eg))
 		));
 	}
 
@@ -1033,18 +1023,18 @@
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
 				- max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-					var(--gap-min-size, 16px)
+					var(--_gm)
 				) / 2
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Clamp 1: basic minimum width guarantee at screen edge */
-			calc(100% - var(--wrap-marker-width)),
+			calc(100% - var(--_gm)),
 			/* Clamp 2: enforces ref_gap width, but explodes and gets ignored
 			   if space_available < ref_gap. */
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-					var(--gap-min-size, 16px)
+					var(--_gm)
 				)
 				+ max(0px,
 					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
@@ -1062,30 +1052,30 @@
 					max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
 					+ max(
 						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
-						var(--gap-min-size, 16px)
+						var(--_gm)
 					)
 				) / 2
 				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
 			),
-			/* Branch 2: snap to wrap-marker-width if space is tight. */
+			/* Branch 2: snap to gap-min-size if space is tight. */
 			calc(
-				anchor(var(--_l) right) - var(--wrap-marker-width)
+				anchor(var(--_l) right) - var(--_gm)
 				- max(0px,
 					(anchor(var(--_l) right) - anchor(var(--_c) right))
 					- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 					+ 0.5px
 				) * 9999
 			),
-			/* Branch 3: fixed wrap-marker-width when completely wrapped (ref_gap = 0).
+			/* Branch 3: fixed gap-min-size when completely wrapped (ref_gap = 0).
 			   Explodes if there is a gap (ref_gap > 0). */
 			calc(
-				anchor(var(--_l) right) - var(--wrap-marker-width)
+				anchor(var(--_l) right) - var(--_gm)
 				- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* container cap */
 			min(
 				anchor(var(--_c) right),
-				calc(anchor(var(--_l) right) - var(--edge-gap))
+				calc(anchor(var(--_l) right) - var(--_eg))
 			)
 		);
 	}
@@ -1114,7 +1104,7 @@
 
 	/* gap-row marker: same-line gaps keep full width; wrapped line-ends mirror gap-trail
 	   behavior, filling the inner gap width if space permits, or narrowing to
-	   wrap-marker-width at the screen edges.
+	   gap-min-size at the screen edges.
 	   Outer max(0px, ...) prevents overflow past .svedit at screen edges. */
 	.gap-marker.gap-row {
 		left: min(
@@ -1125,7 +1115,7 @@
 			   (gap is positive -> huge offset disqualifies this branch via min). */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--gap-min-size, 16px) / 2
+				- var(--_gm) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
 			),
 			/* Wrapped centering offset: shift right by half ref_gap minus half
@@ -1136,19 +1126,19 @@
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
 				- max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-					var(--gap-min-size, 16px)
+					var(--_gm)
 				) / 2
 				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
 			/* Clamp 1: basic minimum width guarantee at screen edge */
-			calc(100% - var(--wrap-marker-width)),
+			calc(100% - var(--_gm)),
 			/* Clamp 2: enforces ref_gap width, but explodes and gets ignored
 			   if space_available < ref_gap OR if on the same line. */
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-					var(--gap-min-size, 16px)
+					var(--_gm)
 				)
 				+ max(0px,
 					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
@@ -1164,7 +1154,7 @@
 			/* Same-line centering from the right side */
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-				- var(--gap-min-size, 16px) / 2
+				- var(--_gm) / 2
 			),
 			/* Wrapped: inner max() picks the most constrained value. */
 			max(
@@ -1175,24 +1165,24 @@
 						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
 						+ max(
 							max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
-							var(--gap-min-size, 16px)
+							var(--_gm)
 						)
 					) / 2
 					- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
 				),
-				/* Branch 2: snap to wrap-marker-width if space is tight */
+				/* Branch 2: snap to gap-min-size if space is tight */
 				calc(
-					anchor(var(--_p) right) - var(--wrap-marker-width)
+					anchor(var(--_p) right) - var(--_gm)
 					- max(0px,
 						(anchor(var(--_p) right) - anchor(var(--_c) right))
 						- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 						+ 0.5px
 					) * 9999
 				),
-				/* Branch 3: fixed wrap-marker-width when completely wrapped (ref_gap = 0).
+				/* Branch 3: fixed gap-min-size when completely wrapped (ref_gap = 0).
 				   Explodes if there is a gap (ref_gap > 0). */
 				calc(
-					anchor(var(--_p) right) - var(--wrap-marker-width)
+					anchor(var(--_p) right) - var(--_gm)
 					- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 				),
 				/* Branch 4: explodes (huge positive) if on same line, forcing outer min() to ignore this max() */
@@ -1203,7 +1193,7 @@
 				/* container cap */
 				min(
 					anchor(var(--_c) right),
-					calc(anchor(var(--_p) right) - var(--edge-gap))
+					calc(anchor(var(--_p) right) - var(--_eg))
 				)
 			)
 		));
@@ -1211,42 +1201,41 @@
 
 	/*
 	 * gap-marker narrowing for edge gaps.
-	 * The hit area remains var(--edge-gap) wide, but the visual marker
-	 * shrinks to var(--wrap-marker-width) so it stays close to the node.
+	 * The hit area remains var(--_eg) wide, but the visual marker
+	 * shrinks to var(--_gm) so it stays close to the node.
 	 */
 	.gap-marker.gap-edge.row.first {
-		left: max(0px, calc(anchor(var(--_a) left) - var(--wrap-marker-width)));
+		left: max(0px, calc(anchor(var(--_a) left) - var(--_gm)));
 	}
 	.gap-marker.gap-edge.row.last {
-		left: min(anchor(var(--_a) right), calc(100% - var(--wrap-marker-width)));
+		left: min(anchor(var(--_a) right), calc(100% - var(--_gm)));
 		right: max(
 			0px,
-			calc(anchor(var(--_a) right) - var(--wrap-marker-width)),
+			calc(anchor(var(--_a) right) - var(--_gm)),
 			anchor(var(--_c) right)
 		);
 	}
 	.gap-marker.gap-edge:not(.row).first {
-		top: max(0px, calc(anchor(var(--_a) top) - var(--wrap-marker-width)));
+		top: max(0px, calc(anchor(var(--_a) top) - var(--_gm)));
 	}
 	.gap-marker.gap-edge:not(.row).last {
-		bottom: calc(anchor(var(--_a) bottom) - var(--wrap-marker-width));
+		bottom: calc(anchor(var(--_a) bottom) - var(--_gm));
 	}
 
-	/* Empty horizontal: caret at the left boundary */
-	.gap-marker.gap-empty.row > .caret::before {
-		left: 0;
-	}
 
-	/* Dashed line marker (vertical-layout default: horizontal line). */
+	/* Marker for vertical layout (default is horizontal line). */
 	.gap-marker:not(.active)::before {
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: var(--marker-inset);
-		right: var(--marker-inset);
-		border-top: 1px dashed var(--gap-color);
+		left: var(--node-cursor-marker-inset, 2px);
+		right: var(--node-cursor-marker-inset, 2px);
+		border-top: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
 		transform: translateY(-0.5px);
-		--gap-center: calc(var(--plus-s) / 2 + var(--plus-gap));
+		--gap-center: calc(
+			var(--node-cursor-symbol-size, 6px) / 2
+			+ var(--node-cursor-symbol-gap, 4px)
+		);
 		mask-image: linear-gradient(to right,
 			black calc(50% - var(--gap-center)),
 			transparent calc(50% - var(--gap-center)),
@@ -1254,35 +1243,39 @@
 			black calc(50% + var(--gap-center)));
 	}
 
-	/* Centered plus symbol. */
+	/* Centered insertion symbol (default mask renders a plus). */
 	.gap-marker:not(.active)::after {
 		content: '';
 		position: absolute;
-		width: var(--plus-s);
-		height: var(--plus-s);
+		width: var(--node-cursor-symbol-size, 6px);
+		height: var(--node-cursor-symbol-size, 6px);
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		background: var(--gap-color);
-		mask-image:
+		background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--stroke-color)));
+		mask-image: var(
+			--node-cursor-symbol-mask-image,
 			linear-gradient(black, black),
-			linear-gradient(black, black);
-		mask-size:
-			100% var(--plus-t),
-			var(--plus-t) 100%;
-		mask-position: center;
-		mask-repeat: no-repeat;
+			linear-gradient(black, black)
+		);
+		mask-size: var(
+			--node-cursor-symbol-mask-size,
+			100% var(--node-cursor-symbol-stroke, 1px),
+			var(--node-cursor-symbol-stroke, 1px) 100%
+		);
+		mask-position: var(--node-cursor-symbol-mask-position, center);
+		mask-repeat: var(--node-cursor-symbol-mask-repeat, no-repeat);
 	}
 
-	/* Horizontal layout: vertical dashed line. */
+	/* Marker for row layout (default is vertical dashed line). */
 	.gap-marker.row:not(.active):not(.gap-empty)::before {
-		top: var(--marker-inset);
-		bottom: var(--marker-inset);
+		top: var(--node-cursor-marker-inset, 2px);
+		bottom: var(--node-cursor-marker-inset, 2px);
 		left: 50%;
 		right: auto;
 		width: 0;
 		border-top: none;
-		border-left: 1px dashed var(--gap-color);
+		border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
 		transform: translateX(-0.5px);
 		mask-image: linear-gradient(to bottom,
 			black calc(50% - var(--gap-center)),
@@ -1291,11 +1284,11 @@
 			black calc(50% + var(--gap-center)));
 	}
 
-	/* For empty arrays: dashed outline for better discoverability. */
+	/* Marker for empty arrays (default is dashed outline for better discoverability). */
 	.gap-marker.gap-empty:not(.active)::before {
 		inset: 0px;
-		border: 1px dashed var(--gap-color);
-		border-radius: 3px;
+		border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+		border-radius: var(--node-cursor-empty-border-radius, 3px);
 		mask-image: none;
 		transform: none;
 	}
