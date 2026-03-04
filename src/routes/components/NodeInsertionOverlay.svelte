@@ -491,17 +491,16 @@
 			// Over unrelated gaps or empty space: keep current selection as-is.
 		}
 
+		const controller = new AbortController();
 		function on_drag_end() {
-			window.removeEventListener('pointermove', on_pointermove);
-			window.removeEventListener('pointerup', on_drag_end);
-			window.removeEventListener('pointercancel', on_drag_end);
-			window.removeEventListener('blur', on_drag_end);
+			controller.abort();
 		}
 
-		window.addEventListener('pointermove', on_pointermove);
-		window.addEventListener('pointerup', on_drag_end);
-		window.addEventListener('pointercancel', on_drag_end);
-		window.addEventListener('blur', on_drag_end);
+		const opts = { signal: controller.signal };
+		window.addEventListener('pointermove', on_pointermove, opts);
+		window.addEventListener('pointerup', on_drag_end, opts);
+		window.addEventListener('pointercancel', on_drag_end, opts);
+		window.addEventListener('blur', on_drag_end, opts);
 	}
 
 	// -----------------------------------------------------------------------------
