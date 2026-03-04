@@ -137,7 +137,6 @@
 					}
 				}
 				if (did_change) {
-					console.log('did_change', visible_path_set);
 					sync_visible_array_paths(visible_path_set, doc_snapshot);
 				}
 			},
