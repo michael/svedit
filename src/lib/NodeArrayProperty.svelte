@@ -40,6 +40,9 @@
 				'-'
 			)}; min-height: 40px; min-width: 24px;"
 		></div>
+		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
+		     resolves anchor positioning against the shared containing block,
+		     not the placeholder which inherits .node positioning styles. -->
 		<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" empty />
 	{/if}
 	{#each nodes as node, index (index)}

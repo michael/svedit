@@ -35,8 +35,7 @@
 	let container = $derived(`--${array_path.join('-')}`);
 
 	let trap_style = $derived.by(() => {
-		let s = `anchor-name:${anchor_name}`;
-		s += `;--_pa:${self}`;
+		let s = `--_pa:${self}`;
 		s += `;--_s-t:anchor(${self} top)`;
 		s += `;--_s-b:anchor(${self} bottom)`;
 		s += `;--_s-l:anchor(${self} left)`;
@@ -63,7 +62,7 @@
 	data-type={type}
 	style={trap_style}
 >
-	<div class="svedit-selectable"><br /></div>
+	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
 </div>
 
 <style>

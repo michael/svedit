@@ -1080,12 +1080,15 @@ ${fallback_html}`;
 		if (is_collapsed) {
 			// Cursor position in between two nodes or at the very beginning/end of a node_array
 			// IMPORTANT: We need to look for direct children of anchor_node to find the right cursor trap.
-			const cursor_trap_el = anchor_node.querySelector(
-				selection.anchor_offset === 0
-					? ':scope > .position-zero-cursor-trap'
-					: ':scope > .after-node-cursor-trap'
-			);
+			const trap_selector = selection.anchor_offset === 0
+				? '.position-zero-cursor-trap'
+				: '.after-node-cursor-trap';
+			// In empty arrays the cursor trap is a sibling of the placeholder, not a child
+			const cursor_trap_el =
+				anchor_node.querySelector(`:scope > ${trap_selector}`) ??
+				anchor_node.parentElement?.querySelector(`:scope > ${trap_selector}`);
 
+			if (!cursor_trap_el) return;
 			range.setStart(cursor_trap_el, 1);
 			range.setEnd(cursor_trap_el, 1);
 			dom_selection.removeAllRanges();
