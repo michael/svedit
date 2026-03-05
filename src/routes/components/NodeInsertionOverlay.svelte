@@ -270,7 +270,7 @@
 			let type, vars;
 			if (prev && next) {
 				type = is_row ? 'gap-row' : 'gap-col';
-				vars = is_row && ref_first
+				vars = ref_first
 					? `--_p:${prev};--_n:${next};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`
 					: `--_p:${prev};--_n:${next}`;
 			} else if (prev && ref_first) {
@@ -317,9 +317,6 @@
 	// pointer and mouse handlers
 	// -----------------------------------------------------------------------------
 
-	const PATH_SEGMENT_STEP = 2; // Path alternates [node_id, prop, ...], so parent walk steps by 2.
-	const MIN_ANCESTOR_PATH_SEGMENTS = 2; // Smallest ancestor path shape that can still address an array.
-
 	/**
 	 * Pointerdown on a gap. Sets a collapsed node cursor immediately,
 	 * then tracks pointer movement to support drag-selection across multiple nodes.
@@ -351,9 +348,9 @@
 		/** @type {Array<{ path: Array<string|number>, str: string, container_index: number }>} */
 		const ancestor_paths = [];
 		for (
-			let len = gap.path.length - PATH_SEGMENT_STEP;
-			len >= MIN_ANCESTOR_PATH_SEGMENTS;
-			len -= PATH_SEGMENT_STEP
+			let len = gap.path.length - 2; // Path alternates [node_id, prop, ...], so parent walk steps by 2.
+			len >= 2; // 2 = Smallest ancestor path shape that can still address an array.
+			len -= 2
 		) {
 			const container_index = parseInt(String(gap.path[len]), 10);
 			if (Number.isNaN(container_index)) continue;
@@ -672,19 +669,13 @@
 	 * Column gap - between two siblings in a vertical layout.
 	 * min() on top/bottom enforces var(--_gm) around the midpoint.
 	 */
-	.gap-col {
-		top: min(
-			anchor(var(--_p) bottom),
-			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--_gm) / 2)
-		);
-		bottom: min(
-			anchor(var(--_n) top),
-			calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
-				- var(--_gm) / 2)
-		);
-		left: min(anchor(var(--_p) right), anchor(var(--_n) left));
-		right: min(anchor(var(--_p) right), anchor(var(--_n) left));
+	 .gap-col {
+		--_lr: min(anchor(var(--_p) right), anchor(var(--_n) left));
+		--_mid: calc((anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2 - var(--_gm) / 2);
+		top: min(anchor(var(--_p) bottom), var(--_mid));
+		bottom: min(anchor(var(--_n) top), var(--_mid));
+		left: var(--_lr);
+		right: var(--_lr);
 	}
 
 	/*
