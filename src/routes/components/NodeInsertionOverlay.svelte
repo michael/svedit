@@ -387,9 +387,12 @@
 
 			// Pass 0: dragging over gaps should also expand/collapse selection.
 			// This avoids requiring the pointer to cross node bodies.
-			const gap_data = get_gap_from_hit_elements(hit_elements);
-			if (gap_data) {
-				const hovered_gap = gap_data.gap;
+			let hovered_gap = null;
+			for (const el of hit_elements) {
+				hovered_gap = get_gap_from_target(el)?.gap;
+				if (hovered_gap) break;
+			}
+			if (hovered_gap) {
 				const hovered_path_str = hovered_gap.path.join('.');
 
 				if (hovered_path_str === array_path_str) {
@@ -499,19 +502,6 @@
 		const gap_element = /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
 		const gap = gaps[gap_element?.dataset.index];
 		return gap ? { gap, gap_element } : null;
-	}
-
-	/**
-	 * Resolve the first rendered gap from an elementsFromPoint() stack.
-	 * @param {Array<Element>} hit_elements
-	 * @returns {gap_data_t | null}
-	 */
-	function get_gap_from_hit_elements(hit_elements) {
-		for (const hit_element of hit_elements) {
-			const gap_data = get_gap_from_target(hit_element);
-			if (gap_data) return gap_data;
-		}
-		return null;
 	}
 
 	/**
