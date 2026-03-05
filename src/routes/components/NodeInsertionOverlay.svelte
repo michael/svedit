@@ -33,12 +33,6 @@
 	 * }} gap_t
 	 */
 
-	/**
-	 * @typedef {{
-	 *   gap: gap_t,
-	 *   gap_element: HTMLElement
-	 * }} gap_data_t
-	 */
 
 	// -----------------------------------------------------------------------------
 	// context and reactive state
@@ -46,8 +40,8 @@
 
 	const svedit = getContext('svedit');
 
-	/** @type {Record<string, boolean> | null} Maps data-path -> true when layout uses row flow. Null until first DOM sync. */
-	let row_layout_cache = $state(null);
+	/** @type {Record<string, boolean>} Maps data-path -> true when layout uses row flow. */
+	let row_layout_cache = $state({});
 
 	/** @type {Map<string, Set<number>>} Maps array_path → set of visible child indices. */
 	let visible_child_indices = $state.raw(new Map());
@@ -56,10 +50,9 @@
 	let visible_paths_doc = $state.raw(null);
 
 	let cursor_gap_key = $derived.by(() => {
-		const selection = svedit.session.selection;
-		if (!selection || selection.type !== 'node') return null;
-		if (selection.anchor_offset !== selection.focus_offset) return null;
-		return `${selection.path.join('.')}-gap-${selection.anchor_offset}`;
+		const s = svedit.session.selection;
+		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
+		return `${s.path.join('.')}-gap-${s.anchor_offset}`;
 	});
 	let gaps = $derived(build_all_gaps());
 
@@ -196,7 +189,7 @@
 	 * @returns {Array<gap_t>}
 	 */
 	function build_all_gaps() {
-		if (!svedit.editable || !row_layout_cache) return [];
+		if (!svedit.editable) return [];
 		// Skip gap computation while DOM-derived paths still belong to a previous doc snapshot.
 		// Prevents tearing errors (e.g. Enter inserts a node, doc updates before observer paths refresh).
 		if (visible_paths_doc !== svedit.session.doc) return [];
@@ -231,13 +224,12 @@
 	 */
 	function append_array_gaps(array_path_str, targets, visible_indices) {
 		const array_path = array_path_str.split('.');
-		let path_definition = null;
 		try {
-			path_definition = svedit.session.inspect(array_path);
+			const info = svedit.session.inspect(array_path);
+			if (info.kind !== 'property' || info.type !== 'node_array') return;
 		} catch {
 			return;
 		}
-		if (path_definition.kind !== 'property' || path_definition.type !== 'node_array') return;
 		const node_ids = svedit.session.get(array_path);
 		if (!Array.isArray(node_ids)) return;
 
@@ -281,7 +273,7 @@
 				vars = is_row && ref_first
 					? `--_p:${prev};--_n:${next};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`
 					: `--_p:${prev};--_n:${next}`;
-			} else if (prev && !next && ref_first) {
+			} else if (prev && ref_first) {
 				type = 'gap-trail';
 				vars = `--_l:${prev};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`;
 			} else {
@@ -367,11 +359,7 @@
 			if (Number.isNaN(container_index)) continue;
 
 			const path = gap.path.slice(0, len);
-			ancestor_paths.push({
-				path,
-				str: path.join('.'),
-				container_index
-			});
+			ancestor_paths.push({ path, str: path.join('.'), container_index });
 		}
 
 		function on_pointermove(/** @type {PointerEvent} */ e) {
@@ -383,7 +371,6 @@
 			}
 
 			const hit_elements = document.elementsFromPoint(e.clientX, e.clientY);
-			const over_origin = hit_elements.includes(origin_element);
 
 			// Pass 0: dragging over gaps should also expand/collapse selection.
 			// This avoids requiring the pointer to cross node bodies.
@@ -463,7 +450,7 @@
 					anchor_offset: sel_anchor,
 					focus_offset: node_index >= sel_anchor ? node_index + 1 : node_index
 				};
-			} else if (over_origin) {
+			} else if (hit_elements.includes(origin_element)) {
 				// Back over the starting gap: collapse selection (cancel drag).
 				svedit.session.selection = {
 					type: 'node',
@@ -476,15 +463,12 @@
 		}
 
 		const controller = new AbortController();
-		function on_drag_end() {
-			controller.abort();
-		}
-
+		const abort = () => controller.abort();
 		const opts = { signal: controller.signal };
 		window.addEventListener('pointermove', on_pointermove, opts);
-		window.addEventListener('pointerup', on_drag_end, opts);
-		window.addEventListener('pointercancel', on_drag_end, opts);
-		window.addEventListener('blur', on_drag_end, opts);
+		window.addEventListener('pointerup', abort, opts);
+		window.addEventListener('pointercancel', abort, opts);
+		window.addEventListener('blur', abort, opts);
 	}
 
 	// -----------------------------------------------------------------------------
@@ -494,7 +478,7 @@
 	/**
 	 * Resolve gap data from an event target by finding the closest gap element.
 	 * @param {EventTarget | null} event_target
-	 * @returns {gap_data_t | null}
+	 * @returns {{ gap: gap_t, gap_element: HTMLElement } | null}
 	 */
 	function get_gap_from_target(event_target) {
 		const target = /** @type {Element | null} */ (event_target);
