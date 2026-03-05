@@ -39,9 +39,8 @@
 			style="anchor-name: --{[...path, 0].join(
 				'-'
 			)}; min-height: 40px; min-width: 24px;"
-		>
-			<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" />
-		</div>
+		></div>
+		<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" empty />
 	{/if}
 	{#each nodes as node, index (index)}
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}

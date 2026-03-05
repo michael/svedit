@@ -14,8 +14,10 @@
 		path.length > 1 && svedit.session.inspect(path.slice(0, -1))?.type === 'node_array'
 	);
 	let node = $derived(svedit.session.get(path));
-	let is_first_node_array_child = $derived(
-		is_inside_node_array && parseInt(String(path.at(-1)), 10) === 0
+	let child_index = $derived(parseInt(String(path.at(-1)), 10));
+	let is_first_node_array_child = $derived(is_inside_node_array && child_index === 0);
+	let is_last_node_array_child = $derived(
+		is_inside_node_array && child_index === svedit.session.get(path.slice(0, -1)).length - 1
 	);
 </script>
 
@@ -26,7 +28,7 @@
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
-	style="position: relative; anchor-name: --{path.join('-')};{style}"
+	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
 	{#if svedit.editable && is_first_node_array_child}
@@ -34,6 +36,6 @@
 	{/if}
 	{@render children()}
 	{#if svedit.editable && is_inside_node_array}
-		<NodeCursorTrap {path} type="after-node-cursor-trap" />
+		<NodeCursorTrap {path} type="after-node-cursor-trap" last={is_last_node_array_child} />
 	{/if}
 </svelte:element>

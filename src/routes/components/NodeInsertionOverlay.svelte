@@ -3,17 +3,17 @@
 	import NodeInsertionCaret from './NodeInsertionCaret.svelte';
 
 	/**
-	 * Interactive insertion overlay for node-array editing.
+	 * Visual-only insertion overlay for node-array editing.
 	 *
-	 * This component builds viewport-aware insertion gaps, handles pointer-based
-	 * node selection updates, and renders insertion markers plus the active caret.
+	 * This component builds viewport-aware insertion gaps and renders insertion
+	 * markers plus the active caret. All pointer interaction is handled by the
+	 * cursor-trap hit areas inside the canvas (DOM selections drive everything).
 	 */
 
 	// -----------------------------------------------------------------------------
 	// constants
 	// -----------------------------------------------------------------------------
 
-	const DRAG_THRESHOLD_PX = 4;
 	// Tuned to avoid visible gap pop-in during fast scroll while still culling most offscreen gaps.
 	const VIEWPORT_OVERSCAN_PX = 600;
 
@@ -295,211 +295,9 @@
 		}
 	}
 
-	/**
-	 * Walk up the DOM from `el` to find the closest node element that belongs
-	 * to the given node_array path.
-	 * @param {Element} el
-	 * @param {string} array_path_str
-	 * @returns {HTMLElement | null}
-	 */
-	function find_closest_node_in_array(el, array_path_str) {
-		let node_el = /** @type {HTMLElement | null} */ (el.closest(NODE_SELECTOR));
-		const prefix = array_path_str ? array_path_str + '.' : '';
-		while (node_el) {
-			const path = node_el.dataset.path;
-			if (path && path.startsWith(prefix) && path.indexOf('.', prefix.length) === -1) return node_el;
-			node_el = /** @type {HTMLElement | null} */ (node_el.parentElement?.closest(NODE_SELECTOR));
-		}
-		return null;
-	}
-
-	// -----------------------------------------------------------------------------
-	// pointer and mouse handlers
-	// -----------------------------------------------------------------------------
-
-	/**
-	 * Pointerdown on a gap. Sets a collapsed node cursor immediately,
-	 * then tracks pointer movement to support drag-selection across multiple nodes.
-	 * @param {PointerEvent} e
-	 * @returns {void}
-	 */
-	function on_gap_pointerdown(e) {
-		const gap_data = get_gap_from_target(e.target);
-		if (!gap_data) return;
-		const { gap, gap_element: origin_element } = gap_data;
-		e.preventDefault();
-
-		// Place a collapsed cursor at this gap immediately.
-		svedit.session.selection = {
-			type: 'node',
-			path: gap.path,
-			anchor_offset: gap.offset,
-			focus_offset: gap.offset
-		};
-
-		const start_x = e.clientX;
-		const start_y = e.clientY;
-		const array_path_str = gap.path.join('.');
-		let dragging = false;
-
-		// Pre-compute ancestor array paths for cross-level escalation.
-		// Path format alternates [node_id, prop, child_index, prop, ...],
-		// so stripping two segments yields the parent array path.
-		/** @type {Array<{ path: Array<string|number>, str: string, container_index: number }>} */
-		const ancestor_paths = [];
-		for (
-			let len = gap.path.length - 2; // Path alternates [node_id, prop, ...], so parent walk steps by 2.
-			len >= 2; // 2 = Smallest ancestor path shape that can still address an array.
-			len -= 2
-		) {
-			const container_index = parseInt(String(gap.path[len]), 10);
-			if (Number.isNaN(container_index)) continue;
-
-			const path = gap.path.slice(0, len);
-			ancestor_paths.push({ path, str: path.join('.'), container_index });
-		}
-
-		function on_pointermove(/** @type {PointerEvent} */ e) {
-			// Ignore micro-movements to distinguish click from drag.
-			if (!dragging) {
-				const pointer_delta = Math.abs(e.clientX - start_x) + Math.abs(e.clientY - start_y);
-				if (pointer_delta < DRAG_THRESHOLD_PX) return;
-				dragging = true;
-			}
-
-			const hit_elements = document.elementsFromPoint(e.clientX, e.clientY);
-
-			// Pass 0: dragging over gaps should also expand/collapse selection.
-			// This avoids requiring the pointer to cross node bodies.
-			let hovered_gap = null;
-			for (const el of hit_elements) {
-				hovered_gap = get_gap_from_target(el)?.gap;
-				if (hovered_gap) break;
-			}
-			if (hovered_gap) {
-				const hovered_path_str = hovered_gap.path.join('.');
-
-				if (hovered_path_str === array_path_str) {
-					svedit.session.selection = {
-						type: 'node',
-						path: gap.path,
-						anchor_offset: gap.offset,
-						focus_offset: hovered_gap.offset
-					};
-					return;
-				}
-
-				for (const ancestor of ancestor_paths) {
-					if (hovered_path_str !== ancestor.str) continue;
-					const sel_anchor = hovered_gap.offset > ancestor.container_index
-						? ancestor.container_index
-						: ancestor.container_index + 1;
-					svedit.session.selection = {
-						type: 'node',
-						path: ancestor.path,
-						anchor_offset: sel_anchor,
-						focus_offset: hovered_gap.offset
-					};
-					return;
-				}
-			}
-
-			let node_el = null;
-			let sel_path = gap.path;
-			let sel_anchor = gap.offset;
-
-			// Pass 1: look for a node in the same array.
-			for (const hit_element of hit_elements) {
-				node_el = find_closest_node_in_array(hit_element, array_path_str);
-				if (node_el) break;
-			}
-
-			// Pass 2: try ancestor arrays only if same-level found nothing.
-			// Skip matches that resolve to the container itself - that just
-			// means the pointer is still inside it, not over a sibling.
-			if (!node_el) {
-				for (const hit_element of hit_elements) {
-					for (const ancestor of ancestor_paths) {
-						const candidate = find_closest_node_in_array(hit_element, ancestor.str);
-						if (!candidate) continue;
-						const idx = parse_node_path(candidate.dataset.path)?.child_index ?? null;
-						if (idx === null) continue;
-						if (idx === ancestor.container_index) break;
-						node_el = candidate;
-						sel_path = ancestor.path;
-						sel_anchor = idx > ancestor.container_index
-							? ancestor.container_index
-							: ancestor.container_index + 1;
-						break;
-					}
-					if (node_el) break;
-				}
-			}
-
-			if (node_el) {
-				// Expand selection toward the node the pointer is over.
-				const node_index = parse_node_path(node_el.dataset.path)?.child_index ?? null;
-				if (node_index === null) return;
-
-				svedit.session.selection = {
-					type: 'node',
-					path: sel_path,
-					anchor_offset: sel_anchor,
-					focus_offset: node_index >= sel_anchor ? node_index + 1 : node_index
-				};
-			} else if (hit_elements.includes(origin_element)) {
-				// Back over the starting gap: collapse selection (cancel drag).
-				svedit.session.selection = {
-					type: 'node',
-					path: gap.path,
-					anchor_offset: gap.offset,
-					focus_offset: gap.offset
-				};
-			}
-			// Over unrelated gaps or empty space: keep current selection as-is.
-		}
-
-		const controller = new AbortController();
-		const abort = () => controller.abort();
-		const opts = { signal: controller.signal };
-		window.addEventListener('pointermove', on_pointermove, opts);
-		window.addEventListener('pointerup', abort, opts);
-		window.addEventListener('pointercancel', abort, opts);
-		window.addEventListener('blur', abort, opts);
-	}
-
-	// -----------------------------------------------------------------------------
-	// event target helpers
-	// -----------------------------------------------------------------------------
-
-	/**
-	 * Resolve gap data from an event target by finding the closest gap element.
-	 * @param {EventTarget | null} event_target
-	 * @returns {{ gap: gap_t, gap_element: HTMLElement } | null}
-	 */
-	function get_gap_from_target(event_target) {
-		const target = /** @type {Element | null} */ (event_target);
-		if (!target?.closest) return null;
-		const gap_element = /** @type {HTMLElement | null} */ (target.closest('.gap[data-index]'));
-		const gap = gaps[gap_element?.dataset.index];
-		return gap ? { gap, gap_element } : null;
-	}
-
-	/**
-	 * Double-click on a gap smoothly scrolls it into view.
-	 * @param {MouseEvent} e
-	 * @returns {void}
-	 */
-	function on_gap_dblclick(e) {
-		const gap_data = get_gap_from_target(e.target);
-		if (!gap_data) return;
-		e.preventDefault();
-		e.stopPropagation();
-		gap_data.gap_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-	}
 </script>
 
-<div class="gaps-layer" onpointerdown={on_gap_pointerdown} ondblclick={on_gap_dblclick} role="none">
+<div class="gaps-layer" role="none">
 	{#each gaps as gap, i (gap.key)}
 		<div
 			class="gap {gap.type}"
@@ -558,8 +356,14 @@
 	 * --node-cursor-caret-row-inline-position
 	 */
 
-	/* Pause blink while pointer is held down. */
-	.gap:active + .gap-marker {
+	.gaps-layer {
+		pointer-events: none;
+	}
+
+	/* Suppress caret blink during active click on a cursor trap.
+	   :active bubbles from .svedit-selectable up to .svedit-canvas,
+	   then the ~ combinator reaches the sibling .gaps-layer. */
+	:global(.svedit-canvas:active) ~ .gaps-layer .gap-marker {
 		--node-cursor-caret-animation: none;
 	}
 
@@ -586,7 +390,6 @@
 	.gap {
 		min-height: var(--_gm);
 		min-width: var(--_gm);
-		cursor: pointer;
 		z-index: var(--node-cursor-gap-z-index, 1);
 		padding: var(--node-cursor-hit-padding, 2px); /* add some gap so the gap doesn't touch neighboring nodes */
 		container-type: size;
