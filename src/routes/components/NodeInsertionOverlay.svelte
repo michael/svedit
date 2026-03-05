@@ -590,21 +590,19 @@
 	.gap, .gap-marker {
 		--_eg: var(--node-cursor-edge-gap, 24px); /* Edge insertion hit size (before-first / after-last). */
 		--_gm: var(--node-cursor-gap-min-size, 16px); /* Minimum marker/gap size used in geometry math. */
+		position: absolute;
+		position-visibility: anchors-visible; /* hides if anchors haven't been laid out yet */
 	}
 
 	/*
 	 * Hit area element - handles pointer events, defines the clickable region.
+	 *
+	 * Design goals:
+	 * - Keep insertion affordance subtle (dashed line + symbol), so content stays primary.
+	 * - Keep marker and caret on the same axis to avoid visual jumps on activation.
+	 * - Keep a tiny inset so gaps read as "between content", not content containers.
 	 */
 	.gap {
-		/*
-		 * Design goals:
-		 * - Keep insertion affordance subtle (dashed line + symbol), so content stays primary.
-		 * - Keep marker and caret on the same axis to avoid visual jumps on activation.
-		 * - Keep a tiny inset so gaps read as "between content", not content containers.
-		*/
-		position: absolute;
-		/* hides if anchors haven't been laid out yet */
-		position-visibility: anchors-visible;
 		min-height: var(--_gm);
 		min-width: var(--_gm);
 		cursor: pointer;
@@ -623,8 +621,6 @@
 	 * with between-node markers.
 	 */
 	.gap-marker {
-		position: absolute;
-		position-visibility: anchors-visible;
 		pointer-events: none;
 		z-index: var(--node-cursor-marker-z-index, 2);
 		padding: var(--node-cursor-marker-padding, 2px);
@@ -1093,24 +1089,47 @@
 	}
 
 
-	/* Marker for vertical layout (default is horizontal line). */
+	/* Shared base for all marker lines. */
 	.gap-marker:not(.active)::before {
 		content: '';
 		position: absolute;
+		--gap-center: calc( var(--node-cursor-symbol-size, 6px) / 2 + var(--node-cursor-symbol-gap, 4px) );
+	}
+
+	/* Column layout marker (horizontal dashed line). */
+	.gap-marker:not(.active):not(.row):not(.gap-empty)::before {
 		top: 50%;
 		left: var(--node-cursor-marker-inset, 2px);
 		right: var(--node-cursor-marker-inset, 2px);
 		border-top: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
 		transform: translateY(-0.5px);
-		--gap-center: calc(
-			var(--node-cursor-symbol-size, 6px) / 2
-			+ var(--node-cursor-symbol-gap, 4px)
-		);
 		mask-image: linear-gradient(to right,
 			black calc(50% - var(--gap-center)),
 			transparent calc(50% - var(--gap-center)),
 			transparent calc(50% + var(--gap-center)),
 			black calc(50% + var(--gap-center)));
+	}
+
+	/* Row layout marker (vertical dashed line). */
+	.gap-marker.row:not(.active):not(.gap-empty)::before {
+		top: var(--node-cursor-marker-inset, 2px);
+		bottom: var(--node-cursor-marker-inset, 2px);
+		left: 50%;
+		width: 0;
+		border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+		transform: translateX(-0.5px);
+		mask-image: linear-gradient(to bottom,
+			black calc(50% - var(--gap-center)),
+			transparent calc(50% - var(--gap-center)),
+			transparent calc(50% + var(--gap-center)),
+			black calc(50% + var(--gap-center)));
+	}
+
+	/* Empty array marker (dashed outline for discoverability). */
+	.gap-marker.gap-empty:not(.active)::before {
+		inset: 0px;
+		border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+		border-radius: var(--node-cursor-empty-border-radius, 3px);
 	}
 
 	/* Centered insertion symbol (default mask renders a plus). */
@@ -1127,32 +1146,6 @@
 			linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
 			linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
 		);
-	}
-
-	/* Marker for row layout (default is vertical dashed line). */
-	.gap-marker.row:not(.active):not(.gap-empty)::before {
-		top: var(--node-cursor-marker-inset, 2px);
-		bottom: var(--node-cursor-marker-inset, 2px);
-		left: 50%;
-		right: auto;
-		width: 0;
-		border-top: none;
-		border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-		transform: translateX(-0.5px);
-		mask-image: linear-gradient(to bottom,
-			black calc(50% - var(--gap-center)),
-			transparent calc(50% - var(--gap-center)),
-			transparent calc(50% + var(--gap-center)),
-			black calc(50% + var(--gap-center)));
-	}
-
-	/* Marker for empty arrays (default is dashed outline for better discoverability). */
-	.gap-marker.gap-empty:not(.active)::before {
-		inset: 0px;
-		border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-		border-radius: var(--node-cursor-empty-border-radius, 3px);
-		mask-image: none;
-		transform: none;
 	}
 
 	/* Debugging styles — REMOVE ONLY BEFORE MERGING THE PR */
