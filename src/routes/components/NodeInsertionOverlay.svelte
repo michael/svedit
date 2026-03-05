@@ -662,15 +662,15 @@
 
 	/* Empty array - marker covers the placeholder, hit area fills the container.
 	   --_a is the placeholder element; --_c is the node-array container. */
-	.gap-empty {
+	.gap-marker.gap-empty {
 		top: anchor(var(--_a) top);
 		left: anchor(var(--_a) left);
 		bottom: anchor(var(--_a) bottom);
 		right: anchor(var(--_a) right);
-	}
-	.gap-empty.row {
-		/* Ensure minimum edge-gap width even when the placeholder is narrow */
-		right: max(anchor(var(--_a) right), calc(anchor(var(--_a) left) - var(--_eg)));
+		&.row {
+			/* Ensure minimum edge-gap width even when the placeholder is narrow */
+			right: max(anchor(var(--_a) right), calc(anchor(var(--_a) left) - var(--_eg)));
+		}
 	}
 
 	/* Hit area expands to fill the full container. Uses min() on each inset to
@@ -792,42 +792,38 @@
 	.gap-edge {
 		min-height: var(--_eg);
 		min-width: var(--_eg);
-	}
-	.gap-marker.gap-edge {
-		min-height: var(--_gm);
-		min-width: var(--_gm);
-	}
-	.gap-edge.row {
-		top: anchor(var(--_a) top);
-		bottom: anchor(var(--_a) bottom);
-	}
-	.gap-edge:not(.row) {
-		left: anchor(var(--_a) left);
-		right: anchor(var(--_a) right);
-	}
-	/* First horizontal edge: extends left of node, clamped to CB left. */
-	.gap-edge.row.first {
-		right: anchor(var(--_a) left);
-		left: max(0px, calc(anchor(var(--_a) left) - var(--_eg)));
-	}
-	/* Last horizontal edge: extends right of node, clamped to CB right.
-	   left is capped at 100% - edge-gap to guarantee minimum width. */
-	.gap-edge.row.last {
-		left: min(anchor(var(--_a) right), calc(100% - var(--_eg)));
-		right: max(0px, min(
-			anchor(var(--_c) right),
-			calc(anchor(var(--_a) right) - var(--_eg))
-		));
-	}
-	/* First vertical edge: extends above the first node. */
-	.gap-edge:not(.row).first {
-		bottom: anchor(var(--_a) top);
-		top: max(0px, calc(anchor(var(--_a) top) - var(--_eg)));
-	}
-	/* Last vertical edge: extends below the last node. */
-	.gap-edge:not(.row).last {
-		top: anchor(var(--_a) bottom);
-		bottom: calc(anchor(var(--_a) bottom) - var(--_eg));
+		&.row {
+			top: anchor(var(--_a) top);
+			bottom: anchor(var(--_a) bottom);
+			/* First horizontal edge: extends left of node, clamped to CB left. */
+			&.first {
+				right: anchor(var(--_a) left);
+				left: max(0px, calc(anchor(var(--_a) left) - var(--_eg)));
+			}
+			/* Last horizontal edge: extends right of node, clamped to CB right.
+			   left is capped at 100% - edge-gap to guarantee minimum width. */
+			&.last {
+				left: min(anchor(var(--_a) right), calc(100% - var(--_eg)));
+				right: max(0px, min(
+					anchor(var(--_c) right),
+					calc(anchor(var(--_a) right) - var(--_eg))
+				));
+			}
+		}
+		&:not(.row) {
+			left: anchor(var(--_a) left);
+			right: anchor(var(--_a) right);
+			/* First vertical edge: extends above the first node. */
+			&.first {
+				bottom: anchor(var(--_a) top);
+				top: max(0px, calc(anchor(var(--_a) top) - var(--_eg)));
+			}
+			/* Last vertical edge: extends below the last node. */
+			&.last {
+				top: anchor(var(--_a) bottom);
+				bottom: calc(anchor(var(--_a) bottom) - var(--_eg));
+			}
+		}
 	}
 
 	/*
@@ -877,7 +873,7 @@
 	     - 0px: edge clamp, prevents overflow past .svedit
 	     - centering formula: narrows the marker to ref-gap-aligned width
 	     - container cap: prevents excessive overflow beyond the array */
-	.gap-marker.gap-trail.last {
+	.gap-marker.gap-trail {
 		left: min(
 			/* Fallback: start at last.right */
 			anchor(var(--_l) right),
@@ -1070,82 +1066,84 @@
 	 * The hit area remains var(--_eg) wide, but the visual marker
 	 * shrinks to var(--_gm) so it stays close to the node.
 	 */
-	.gap-marker.gap-edge.row.first {
-		left: max(0px, calc(anchor(var(--_a) left) - var(--_gm)));
-	}
-	.gap-marker.gap-edge.row.last {
-		left: min(anchor(var(--_a) right), calc(100% - var(--_gm)));
-		right: max(
-			0px,
-			calc(anchor(var(--_a) right) - var(--_gm)),
-			anchor(var(--_c) right)
-		);
-	}
-	.gap-marker.gap-edge:not(.row).first {
-		top: max(0px, calc(anchor(var(--_a) top) - var(--_gm)));
-	}
-	.gap-marker.gap-edge:not(.row).last {
-		bottom: calc(anchor(var(--_a) bottom) - var(--_gm));
-	}
-
-
-	/* Shared base for all marker lines. */
-	.gap-marker:not(.active)::before {
-		content: '';
-		position: absolute;
-		--gap-center: calc( var(--node-cursor-symbol-size, 6px) / 2 + var(--node-cursor-symbol-gap, 4px) );
+	.gap-marker.gap-edge {
+		min-height: var(--_gm);
+		min-width: var(--_gm);
+		&.row.first {
+			left: max(0px, calc(anchor(var(--_a) left) - var(--_gm)));
+		}
+		&.row.last {
+			left: min(anchor(var(--_a) right), calc(100% - var(--_gm)));
+			right: max(
+				0px,
+				calc(anchor(var(--_a) right) - var(--_gm)),
+				anchor(var(--_c) right)
+			);
+		}
+		&:not(.row).first {
+			top: max(0px, calc(anchor(var(--_a) top) - var(--_gm)));
+		}
+		&:not(.row).last {
+			bottom: calc(anchor(var(--_a) bottom) - var(--_gm));
+		}
 	}
 
-	/* Column layout marker (horizontal dashed line). */
-	.gap-marker:not(.active):not(.row):not(.gap-empty)::before {
-		top: 50%;
-		left: var(--node-cursor-marker-inset, 2px);
-		right: var(--node-cursor-marker-inset, 2px);
-		border-top: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-		transform: translateY(-0.5px);
-		mask-image: linear-gradient(to right,
-			black calc(50% - var(--gap-center)),
-			transparent calc(50% - var(--gap-center)),
-			transparent calc(50% + var(--gap-center)),
-			black calc(50% + var(--gap-center)));
-	}
-
-	/* Row layout marker (vertical dashed line). */
-	.gap-marker.row:not(.active):not(.gap-empty)::before {
-		top: var(--node-cursor-marker-inset, 2px);
-		bottom: var(--node-cursor-marker-inset, 2px);
-		left: 50%;
-		width: 0;
-		border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-		transform: translateX(-0.5px);
-		mask-image: linear-gradient(to bottom,
-			black calc(50% - var(--gap-center)),
-			transparent calc(50% - var(--gap-center)),
-			transparent calc(50% + var(--gap-center)),
-			black calc(50% + var(--gap-center)));
-	}
-
-	/* Empty array marker (dashed outline for discoverability). */
-	.gap-marker.gap-empty:not(.active)::before {
-		inset: 0px;
-		border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-		border-radius: var(--node-cursor-empty-border-radius, 3px);
-	}
-
-	/* Centered insertion symbol (default mask renders a plus). */
-	.gap-marker:not(.active)::after {
-		content: '';
-		position: absolute;
-		width: var(--node-cursor-symbol-size, 6px);
-		height: var(--node-cursor-symbol-size, 6px);
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--stroke-color)));
-		mask: var(--node-cursor-symbol-mask,
-			linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
-			linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
-		);
+	/* Marker visuals (line + symbol). Hidden when active (caret replaces them). */
+	.gap-marker:not(.active) {
+		/* Shared base for all marker lines. */
+		&::before {
+			content: '';
+			position: absolute;
+			--gap-center: calc( var(--node-cursor-symbol-size, 6px) / 2 + var(--node-cursor-symbol-gap, 4px) );
+		}
+		/* Column layout marker (horizontal dashed line). */
+		&:not(.row):not(.gap-empty)::before {
+			top: 50%;
+			left: var(--node-cursor-marker-inset, 2px);
+			right: var(--node-cursor-marker-inset, 2px);
+			border-top: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+			transform: translateY(-0.5px);
+			mask-image: linear-gradient(to right,
+				black calc(50% - var(--gap-center)),
+				transparent calc(50% - var(--gap-center)),
+				transparent calc(50% + var(--gap-center)),
+				black calc(50% + var(--gap-center)));
+		}
+		/* Row layout marker (vertical dashed line). */
+		&.row:not(.gap-empty)::before {
+			top: var(--node-cursor-marker-inset, 2px);
+			bottom: var(--node-cursor-marker-inset, 2px);
+			left: 50%;
+			width: 0;
+			border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+			transform: translateX(-0.5px);
+			mask-image: linear-gradient(to bottom,
+				black calc(50% - var(--gap-center)),
+				transparent calc(50% - var(--gap-center)),
+				transparent calc(50% + var(--gap-center)),
+				black calc(50% + var(--gap-center)));
+		}
+		/* Empty array marker (dashed outline for discoverability). */
+		&.gap-empty::before {
+			inset: 0px;
+			border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+			border-radius: var(--node-cursor-empty-border-radius, 3px);
+		}
+		/* Centered insertion symbol (default mask renders a plus). */
+		&::after {
+			content: '';
+			position: absolute;
+			width: var(--node-cursor-symbol-size, 6px);
+			height: var(--node-cursor-symbol-size, 6px);
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--stroke-color)));
+			mask: var(--node-cursor-symbol-mask,
+				linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
+				linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
+			);
+		}
 	}
 
 	/* Debugging styles — REMOVE ONLY BEFORE MERGING THE PR */
