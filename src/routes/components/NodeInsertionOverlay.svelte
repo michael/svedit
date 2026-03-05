@@ -74,16 +74,6 @@
 		row_layout_cache = next_row_layout_cache;
 	}
 
-	/**
-	 * @param {Map<string, Set<number>>} index_map
-	 * @param {unknown} doc_snapshot
-	 * @returns {void}
-	 */
-	function sync_visible_state(index_map, doc_snapshot) {
-		visible_child_indices = new Map(index_map);
-		visible_paths_doc = doc_snapshot;
-	}
-
 	// -----------------------------------------------------------------------------
 	// reactive effects
 	// -----------------------------------------------------------------------------
@@ -128,11 +118,10 @@
 				for (const entry of entries) {
 					const path = /** @type {HTMLElement} */ (entry.target).dataset.path;
 					if (!path) continue;
-
-					const child_index = get_terminal_path_index(path);
-					if (child_index === null) continue;
 					const dot = path.lastIndexOf('.');
 					if (dot < 0) continue;
+					const child_index = parseInt(path.slice(dot + 1), 10);
+					if (Number.isNaN(child_index)) continue;
 					const array_path = path.slice(0, dot);
 
 					if (entry.isIntersecting) {
@@ -156,7 +145,8 @@
 					}
 				}
 				if (did_change) {
-					sync_visible_state(index_map, doc_snapshot);
+					visible_child_indices = new Map(index_map);
+					visible_paths_doc = doc_snapshot;
 				}
 			},
 			{
@@ -169,11 +159,10 @@
 			const node_element = /** @type {HTMLElement} */ (element);
 			const path = node_element.dataset.path;
 			if (!path) continue;
-
-			const child_index = get_terminal_path_index(path);
-			if (child_index === null) continue;
 			const dot = path.lastIndexOf('.');
 			if (dot < 0) continue;
+			const child_index = parseInt(path.slice(dot + 1), 10);
+			if (Number.isNaN(child_index)) continue;
 			const array_path = path.slice(0, dot);
 
 			const rect = node_element.getBoundingClientRect();
@@ -194,7 +183,8 @@
 			observer.observe(node_element);
 		}
 
-		sync_visible_state(index_map, doc_snapshot);
+		visible_child_indices = new Map(index_map);
+		visible_paths_doc = doc_snapshot;
 		return () => observer.disconnect();
 	});
 
@@ -298,7 +288,6 @@
 
 			const prev = offset > 0 ? `${anchor_prefix}-${offset - 1}` : null;
 			const next = offset < count ? `${anchor_prefix}-${offset}` : null;
-			if (!prev && !next) continue;
 			const is_first = offset === 0;
 			const is_last = offset === count;
 
