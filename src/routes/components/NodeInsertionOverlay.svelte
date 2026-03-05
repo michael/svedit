@@ -554,10 +554,7 @@
 	 * --node-cursor-symbol-stroke
 	 * --node-cursor-symbol-gap
 	 * --node-cursor-symbol-bg
-	 * --node-cursor-symbol-mask-image
-	 * --node-cursor-symbol-mask-size
-	 * --node-cursor-symbol-mask-position
-	 * --node-cursor-symbol-mask-repeat
+	 * --node-cursor-symbol-mask
 	 * --node-cursor-marker-inset
 	 * --node-cursor-edge-gap
 	 * --node-cursor-gap-min-size
@@ -1126,18 +1123,10 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--stroke-color)));
-		mask-image: var(
-			--node-cursor-symbol-mask-image,
-			linear-gradient(black, black),
-			linear-gradient(black, black)
+		mask: var(--node-cursor-symbol-mask,
+			linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
+			linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
 		);
-		mask-size: var(
-			--node-cursor-symbol-mask-size,
-			100% var(--node-cursor-symbol-stroke, 1px),
-			var(--node-cursor-symbol-stroke, 1px) 100%
-		);
-		mask-position: var(--node-cursor-symbol-mask-position, center);
-		mask-repeat: var(--node-cursor-symbol-mask-repeat, no-repeat);
 	}
 
 	/* Marker for row layout (default is vertical dashed line). */
