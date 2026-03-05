@@ -55,7 +55,12 @@
 	// Raw ref preserves object identity for cheap stale-path checks.
 	let visible_paths_doc = $state.raw(null);
 
-	let cursor_gap_key = $derived(get_cursor_gap_key());
+	let cursor_gap_key = $derived.by(() => {
+		const selection = svedit.session.selection;
+		if (!selection || selection.type !== 'node') return null;
+		if (selection.anchor_offset !== selection.focus_offset) return null;
+		return `${selection.path.join('.')}-gap-${selection.anchor_offset}`;
+	});
 	let gaps = $derived(build_all_gaps());
 
 	// -----------------------------------------------------------------------------
@@ -118,11 +123,9 @@
 				for (const entry of entries) {
 					const path = /** @type {HTMLElement} */ (entry.target).dataset.path;
 					if (!path) continue;
-					const dot = path.lastIndexOf('.');
-					if (dot < 0) continue;
-					const child_index = parseInt(path.slice(dot + 1), 10);
-					if (Number.isNaN(child_index)) continue;
-					const array_path = path.slice(0, dot);
+					const parsed = parse_node_path(path);
+					if (!parsed) continue;
+					const { array_path, child_index } = parsed;
 
 					if (entry.isIntersecting) {
 						let set = index_map.get(array_path);
@@ -157,13 +160,9 @@
 
 		for (const element of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_element = /** @type {HTMLElement} */ (element);
-			const path = node_element.dataset.path;
-			if (!path) continue;
-			const dot = path.lastIndexOf('.');
-			if (dot < 0) continue;
-			const child_index = parseInt(path.slice(dot + 1), 10);
-			if (Number.isNaN(child_index)) continue;
-			const array_path = path.slice(0, dot);
+			const parsed = parse_node_path(node_element.dataset.path);
+			if (!parsed) continue;
+			const { array_path, child_index } = parsed;
 
 			const rect = node_element.getBoundingClientRect();
 			if (
@@ -193,19 +192,6 @@
 	// -----------------------------------------------------------------------------
 
 	/**
-	 * Key of the active gap that should show the blinking cursor.
-	 * We track by key (not copied anchor styles) because rendering the cursor as
-	 * a child of the active gap is the most robust Safari behavior.
-	 * @returns {string | null}
-	 */
-	function get_cursor_gap_key() {
-		const selection = svedit.session.selection;
-		if (!selection || selection.type !== 'node') return null;
-		if (selection.anchor_offset !== selection.focus_offset) return null;
-		return `${selection.path.join('.')}-gap-${selection.anchor_offset}`;
-	}
-
-	/**
 	 * Build gaps only for viewport-near node arrays.
 	 * @returns {Array<gap_t>}
 	 */
@@ -224,18 +210,16 @@
 	}
 
 	/**
-	 * Parse the last path segment as an integer index.
-	 * @param {string} path_key
-	 * @returns {number | null}
+	 * Split a dot-separated node path into its parent array path and terminal child index.
+	 * @param {string} path
+	 * @returns {{ array_path: string, child_index: number } | null}
 	 */
-	function get_terminal_path_index(path_key) {
-		const delimiter_index = path_key.lastIndexOf('.');
-		const index_segment =
-			delimiter_index < 0 ? path_key : path_key.slice(delimiter_index + 1);
-		if (!index_segment) return null;
-
-		const index_value = parseInt(index_segment, 10);
-		return Number.isNaN(index_value) ? null : index_value;
+	function parse_node_path(path) {
+		const dot = path.lastIndexOf('.');
+		if (dot < 0) return null;
+		const child_index = parseInt(path.slice(dot + 1), 10);
+		if (Number.isNaN(child_index)) return null;
+		return { array_path: path.slice(0, dot), child_index };
 	}
 
 	/**
@@ -345,15 +329,15 @@
 	const MIN_ANCESTOR_PATH_SEGMENTS = 2; // Smallest ancestor path shape that can still address an array.
 
 	/**
-	 * Handle pointerdown on a gap. Sets a collapsed node cursor immediately,
+	 * Pointerdown on a gap. Sets a collapsed node cursor immediately,
 	 * then tracks pointer movement to support drag-selection across multiple nodes.
-	 *
 	 * @param {PointerEvent} e
-	 * @param {gap_t} gap
-	 * @param {HTMLElement} origin_element
 	 * @returns {void}
 	 */
-	function handle_gap_pointerdown(e, gap, origin_element) {
+	function on_gap_pointerdown(e) {
+		const gap_data = get_gap_from_target(e.target);
+		if (!gap_data) return;
+		const { gap, gap_element: origin_element } = gap_data;
 		e.preventDefault();
 
 		// Place a collapsed cursor at this gap immediately.
@@ -451,7 +435,7 @@
 					for (const ancestor of ancestor_paths) {
 						const candidate = find_closest_node_in_array(hit_element, ancestor.str);
 						if (!candidate) continue;
-						const idx = get_terminal_path_index(candidate.dataset.path);
+						const idx = parse_node_path(candidate.dataset.path)?.child_index ?? null;
 						if (idx === null) continue;
 						if (idx === ancestor.container_index) break;
 						node_el = candidate;
@@ -467,7 +451,7 @@
 
 			if (node_el) {
 				// Expand selection toward the node the pointer is over.
-				const node_index = get_terminal_path_index(node_el.dataset.path);
+				const node_index = parse_node_path(node_el.dataset.path)?.child_index ?? null;
 				if (node_index === null) return;
 
 				svedit.session.selection = {
@@ -528,17 +512,6 @@
 			if (gap_data) return gap_data;
 		}
 		return null;
-	}
-
-	/**
-	 * Shared pointerdown handler for gaps.
-	 * @param {PointerEvent} e
-	 * @returns {void}
-	 */
-	function on_gap_pointerdown(e) {
-		const gap_data = get_gap_from_target(e.target);
-		if (!gap_data) return;
-		handle_gap_pointerdown(e, gap_data.gap, gap_data.gap_element);
 	}
 
 	/**
@@ -1203,7 +1176,7 @@
 		transform: none;
 	}
 
-	/* Debugging styles */
+	/* Debugging styles — REMOVE ONLY BEFORE MERGING THE PR */
 	:global([data-type="node_array"]) {
 		outline: 0.1px solid green;
 	}
