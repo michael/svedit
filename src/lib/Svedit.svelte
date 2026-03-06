@@ -1,4 +1,5 @@
 <script>
+	import { dev } from '$app/environment';
 	import { getContext, setContext } from 'svelte';
 	import {
 		snake_to_pascal,
@@ -6,6 +7,7 @@
 		utf16_to_char_offset,
 		char_to_utf16_offset
 	} from './utils.js';
+	import { insert_default_node } from './transforms.svelte.js';
 
 	/** @import {
 	 *   SveditProps,
@@ -122,6 +124,44 @@
 			return;
 		}
 
+		// Type-to-create: typing at a collapsed node cursor creates a default block
+		// and inserts the character into it.
+		if (
+			event.inputType === 'insertText' &&
+			event.data &&
+			session.selection?.type === 'node' &&
+			session.selection.anchor_offset === session.selection.focus_offset
+		) {
+			const tr = session.tr;
+			if (insert_default_node(tr)) {
+				// If the inserter left a node selection (e.g., for block nodes with
+				// multiple properties), select the first annotated_text property
+				if (tr.selection.type === 'node') {
+					const node_index = tr.selection.focus_offset - 1;
+					const node = tr.get([...tr.selection.path, node_index]);
+					if (node) {
+						const node_props = session.schema[node.type]?.properties;
+						const first_text_prop = node_props
+							&& Object.entries(node_props)
+								.find(([_, def]) => def.type === 'annotated_text');
+						if (first_text_prop) {
+							tr.set_selection({
+								type: 'text',
+								path: [...tr.selection.path, node_index, first_text_prop[0]],
+								anchor_offset: 0,
+								focus_offset: 0
+							});
+						}
+					}
+				}
+				tr.insert_text(event.data);
+				session.apply(tr, { batch: true });
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
+
 		if (event.inputType === 'formatBold' && session.selection?.type === 'text') {
 			session.apply(session.tr.annotate_text('strong'));
 			event.preventDefault();
@@ -193,7 +233,7 @@
 	 * @param {CompositionEvent} event
 	 */
 	function oncompositionstart(event) {
-		console.log('DEBUG: oncompositionstart', event.data);
+		if (dev) console.log('DEBUG: oncompositionstart', event.data);
 		if (session.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
 			window.getSelection()?.removeAllRanges();
@@ -217,7 +257,7 @@
 	 * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
 	 */
 	function oncompositionend(event) {
-		console.log('DEBUG: oncompositionend, insert:', event.data, event);
+		if (dev) console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (canvas_el?.contains(document.activeElement) && session.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
@@ -234,7 +274,7 @@
 			// where the user had no text selection at the start of composition.
 			if (before_composition_selection) {
 				session.selection = before_composition_selection;
-				console.log('event.data', event.data);
+				if (dev) console.log('event.data', event.data);
 				const tr = session.tr;
 				tr.insert_text(event.data);
 				session.apply(tr);
@@ -426,33 +466,35 @@ ${fallback_html}`;
 		// Only handle copy events if editable and focus is within the canvas
 		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
+		if (!session.selection) return;
+
+		// Skip copy for collapsed node selections (nothing to copy)
+		if (
+			session.selection.type === 'node' &&
+			session.selection.anchor_offset === session.selection.focus_offset
+		) return;
 
 		event.preventDefault();
 		event.stopPropagation();
 
 		let plain_text, annotated_text, html;
 
-		if (session.selection?.type === 'text') {
+		if (session.selection.type === 'text') {
 			plain_text = session.get_selected_plain_text();
 			annotated_text = session.get_selected_annotated_text();
 			const fallback_html = `<span>${annotated_text.text}</span>`;
 
-			console.log('Text copy:', {
-				annotated_text,
-				plain_text,
-				html
-			});
+			if (dev) console.log('Text copy:', { annotated_text, plain_text, html });
 
 			html = create_svedit_html_format(annotated_text, fallback_html);
-		} else if (session.selection?.type === 'node') {
+		} else if (session.selection.type === 'node') {
 			const selected_nodes = session.get_selected_nodes();
 			const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
 
 			const json_data = { nodes, main_nodes };
 
-			console.log('Node copy:', {
-				selected_nodes,
-				nodes,
+			if (dev) console.log('Node copy:', {
+				selected_nodes, nodes,
 				total_nodes: Object.keys(nodes).length,
 				operation: delete_selection ? 'cut' : 'copy'
 			});
@@ -465,7 +507,7 @@ ${fallback_html}`;
 			html = create_svedit_html_format(json_data, fallback_html);
 			// Generate plain text representation
 			plain_text = export_plain_text(selected_node_objects);
-		} else if (session.selection?.type === 'property') {
+		} else if (session.selection.type === 'property') {
 			const property_definition = session.inspect(session.selection.path);
 			const value = session.get(session.selection.path);
 			const json_data = {
@@ -474,7 +516,7 @@ ${fallback_html}`;
 				type: property_definition.type,
 				value
 			};
-			console.log('Property copy:', json_data);
+			if (dev) console.log('Property copy:', json_data);
 			html = create_svedit_html_format(json_data, `<span>${value}</span>`);
 			plain_text = String(value);
 		}
@@ -483,7 +525,7 @@ ${fallback_html}`;
 		try {
 			event.clipboardData?.setData('text/plain', plain_text || '');
 			event.clipboardData?.setData('text/html', html || '');
-			console.log('Data copied to clipboard successfully');
+			if (dev) console.log('Data copied to clipboard successfully');
 		} catch (err) {
 			console.error('Failed to copy data: ', err);
 		}
@@ -591,7 +633,6 @@ ${fallback_html}`;
 
 		if (pasted_images.length > 0) {
 			pasted_json = await session.config.handle_image_paste(session, pasted_images);
-			console.log('pasted_json_after_image_paste', pasted_json);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
 			// handled inside handle_image_paste already.
 			if (!pasted_json) return;
@@ -640,9 +681,6 @@ ${fallback_html}`;
 			}
 		}
 
-		console.log('plain_text', plain_text);
-		console.log('pasted_json', pasted_json);
-
 		if (pasted_json?.main_nodes && session.selection?.type === 'node') {
 			// Paste nodes at a node selection
 			try_node_paste(pasted_json);
@@ -686,8 +724,6 @@ ${fallback_html}`;
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
 			session.apply(session.tr.insert_text(plain_text.trim()));
-		} else {
-			console.log('Could not paste.');
 		}
 	}
 
