@@ -270,29 +270,25 @@
 
 			const is_first = offset === 0;
 			const is_last = offset === count;
-			const has_prev = offset > 0;
-			const has_next = offset < count;
 			const ct_anchor = offset === 0
 				? `${ct_prefix}-0-position-zero-cursor-trap`
 				: `${ct_prefix}-${offset - 1}-after-node-cursor-trap`;
 
 			let type, vars;
-			if (has_prev && has_next) {
-				if (is_row) {
-					type = 'gap-row';
-					vars = `--_ct:${ct_anchor};--_f:${ref_first};--_s:${ref_second};--_n:${anchor_prefix}-${offset};--_c:${anchor_prefix}`;
-				} else {
-					type = 'gap-col';
-					vars = `--_ct:${ct_anchor}`;
-				}
-			} else if (has_prev && ref_first) {
-				type = 'gap-trail';
-				vars = `--_ct:${ct_anchor};--_f:${ref_first};--_s:${ref_second};--_c:${anchor_prefix}`;
+			if (!is_first && is_row && count >= 2) {
+				type = 'gap-row';
+				const p_anchor = `${anchor_prefix}-${offset - 1}`;
+				const n_anchor = is_last ? ct_anchor : `${anchor_prefix}-${offset}`;
+				vars = `--_ct:${ct_anchor};--_p:${p_anchor};--_f:${ref_first};--_s:${ref_second};--_n:${n_anchor};--_c:${anchor_prefix}`;
+			} else if (!is_first && !is_last) {
+				type = 'gap-col';
+				vars = `--_ct:${ct_anchor}`;
 			} else {
 				type = 'gap-edge';
+				const adjacent = is_first ? `${anchor_prefix}-0` : `${anchor_prefix}-${count - 1}`;
 				vars = is_row && is_last
-					? `--_ct:${ct_anchor};--_c:${anchor_prefix}`
-					: `--_ct:${ct_anchor}`;
+					? `--_ct:${ct_anchor};--_a:${adjacent};--_c:${anchor_prefix}`
+					: `--_ct:${ct_anchor};--_a:${adjacent}`;
 			}
 			targets.push({
 				key: `${array_path_str}-gap-${offset}`,
@@ -406,85 +402,177 @@
 	}
 
 	/*
-	 * Row gap narrowing (shared by gap-row and gap-trail).
+	 * Row gap marker: same-line gaps keep full width; wrapped line-ends
+	 * narrow to max(ref_gap, gm) for visual alignment.
 	 *
-	 * Narrows the marker to max(ref_gap, gm) so the 50% dashed-line
-	 * aligns with between-node markers. For same-line row gaps the
-	 * cursor trap already equals max(ref_gap, gm), so max() is a no-op.
+	 * Uses --_p (previous node) and --_n (next node) directly instead of
+	 * --_ct (cursor trap), because the trap's left can be clamped by its
+	 * 100% - edge-gap rule near screen boundaries.
 	 *
 	 * In right-edge coordinates:
 	 *   ref_gap = anchor(--_f right) - anchor(--_s left)
 	 *           = second.left - first.right  (positive value)
 	 */
-	.gap-marker.gap-row,
-	.gap-marker.gap-trail {
-		right: max(
-			0px,
-			calc(anchor(var(--_ct) left) - max(
-				max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
-				var(--_gm)
-			)),
-		min(
-			anchor(var(--_c) right),
-			calc(anchor(var(--_ct) left) - var(--_gm))
-		)
-		);
-	}
-
-	/* gap-row left: centering offset for wrapped gaps, with * 9999 explosion
-	   to disable centering when same-line (next.left > ct.left). */
 	.gap-marker.gap-row {
 		left: min(
-			anchor(var(--_ct) left),
+			anchor(var(--_p) right),
 			calc(
-				anchor(var(--_ct) left)
-				+ max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--_gm) / 2
+				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
+			),
+			calc(
+				anchor(var(--_p) right)
+				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
 				- max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
 					var(--_gm)
 				) / 2
-				+ max(0px, anchor(var(--_n) left) - anchor(var(--_ct) left)) * 9999
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
-			calc(100% - var(--_gm))
+			calc(100% - var(--_gm)),
+			calc(
+				100% - max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
+				)
+				+ max(0px,
+					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
+					- (anchor(var(--_c) right) - anchor(var(--_p) right))
+					- 0.5px
+				) * 9999
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+			)
 		);
+		right: max(0px, min(
+			anchor(var(--_n) left),
+			calc(
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--_gm) / 2
+			),
+			max(
+				calc(
+					anchor(var(--_p) right)
+					- (
+						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
+						+ max(
+							max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
+							var(--_gm)
+						)
+					) / 2
+					- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
+				),
+				calc(
+					anchor(var(--_p) right) - var(--_gm)
+					- max(0px,
+						(anchor(var(--_p) right) - anchor(var(--_c) right))
+						- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
+						+ 0.5px
+					) * 9999
+				),
+				calc(
+					anchor(var(--_p) right) - var(--_gm)
+					- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+				),
+				calc(
+					anchor(var(--_p) right)
+					- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+				),
+				min(
+					anchor(var(--_c) right),
+					calc(anchor(var(--_p) right) - var(--_eg))
+				)
+			)
+		));
 	}
 
-	/* gap-trail left: always wrapped, so centering offset always applies. */
-	.gap-marker.gap-trail {
+	/* Trailing gap (last offset in a row): --_n = --_ct (self-ref) so the
+	   same-line detection in the base rule fails. Override with --_p based
+	   positioning (--_p = last node, same as old --_l). */
+	.gap-marker.gap-row.last {
 		left: min(
-			anchor(var(--_ct) left),
+			anchor(var(--_p) right),
 			calc(
-				anchor(var(--_ct) left)
-				+ max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) / 2
+				anchor(var(--_p) right)
+				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
 				- max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
 					var(--_gm)
 				) / 2
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 			),
-			calc(100% - var(--_gm))
+			calc(100% - var(--_gm)),
+			calc(
+				100% - max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
+				)
+				+ max(0px,
+					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
+					- (anchor(var(--_c) right) - anchor(var(--_p) right))
+					- 0.5px
+				) * 9999
+			)
+		);
+		right: max(
+			0px,
+			calc(
+				anchor(var(--_p) right)
+				- (
+					max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
+					+ max(
+						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
+						var(--_gm)
+					)
+				) / 2
+				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
+			),
+			calc(
+				anchor(var(--_p) right) - var(--_gm)
+				- max(0px,
+					(anchor(var(--_p) right) - anchor(var(--_c) right))
+					- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
+					+ 0.5px
+				) * 9999
+			),
+			calc(
+				anchor(var(--_p) right) - var(--_gm)
+				- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+			),
+			min(
+				anchor(var(--_c) right),
+				calc(anchor(var(--_p) right) - var(--_eg))
+			)
 		);
 	}
 
-	/* Edge gap markers: narrowed from edge-gap to gap-min-size. */
+	/* Edge gap markers: narrowed from edge-gap to gap-min-size.
+	   Anchors to the adjacent NODE (--_a) rather than the cursor trap,
+	   because the trap's min-width/min-height can expand it past the
+	   node edge near screen boundaries. */
 	.gap-marker.gap-edge {
 		min-height: var(--_gm);
 		min-width: var(--_gm);
 		&.row.first {
-			left: max(0px, calc(anchor(var(--_ct) right) - var(--_gm)));
+			right: anchor(var(--_a) left);
+			left: max(0px, calc(anchor(var(--_a) left) - var(--_gm)));
 		}
 		&.row.last {
-			left: min(anchor(var(--_ct) left), calc(100% - var(--_gm)));
+			left: min(anchor(var(--_a) right), calc(100% - var(--_gm)));
 			right: max(
 				0px,
-				calc(anchor(var(--_ct) left) - var(--_gm)),
+				calc(anchor(var(--_a) right) - var(--_gm)),
 				anchor(var(--_c) right)
 			);
 		}
 		&:not(.row).first {
-			top: max(0px, calc(anchor(var(--_ct) bottom) - var(--_gm)));
+			bottom: anchor(var(--_a) top);
+			top: max(0px, calc(anchor(var(--_a) top) - var(--_gm)));
 		}
 		&:not(.row).last {
-			bottom: calc(anchor(var(--_ct) top) - var(--_gm));
+			top: anchor(var(--_a) bottom);
+			bottom: calc(anchor(var(--_a) bottom) - var(--_gm));
 		}
 	}
 

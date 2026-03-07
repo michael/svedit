@@ -31,8 +31,8 @@
 	let array_path = $derived(path.slice(0, -1));
 
 	let self = $derived(`--${path.join('-')}`);
-	let next = $derived(`--${[...array_path, index + 1].join('-')}`);
 	let container = $derived(`--${array_path.join('-')}`);
+	let next = $derived(`${container}-${index + 1}`);
 
 	let trap_style = $derived.by(() => {
 		let s = `--_pa:${self}`;
@@ -129,8 +129,8 @@
 	/* ------------------------------------------------------------------ */
 	/* Row layout overrides (--row: 1 on ancestor)                         */
 	/*                                                                     */
-	/* Replicates NodeInsertionOverlay's .gap-row, .gap-edge.row, and      */
-	/* .gap-trail hit area positioning. Uses the * 999 multiplier trick    */
+	/* Replicates NodeInsertionOverlay's .gap-row and .gap-edge.row         */
+	/* hit area positioning. Uses the * 999 multiplier trick               */
 	/* from the overlay for wrap detection in CSS grids.                    */
 	/* ------------------------------------------------------------------ */
 
@@ -172,7 +172,7 @@
 		}
 
 		/* After last node in row: extends edge-gap past container.
-		   Mirrors .gap-trail / .gap-edge.row.last hit area. */
+		   Mirrors .gap-row (trailing) / .gap-edge.row.last hit area. */
 		.after-node-cursor-trap.last .svedit-selectable {
 			top: var(--_s-t);
 			bottom: var(--_s-b);
