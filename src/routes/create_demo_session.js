@@ -21,6 +21,7 @@ import nanoid from './nanoid.js';
 
 // System components
 import NodeCursorTrap from './components/NodeCursorTrap.svelte';
+import NodeInsertionMarkers from './components/NodeInsertionMarkers.svelte';
 import Overlays from './components/Overlays.svelte';
 
 // Node components
@@ -474,6 +475,7 @@ const session_config = {
 	// such as NodeCursorTrap or Overlays
 	system_components: {
 		NodeCursorTrap,
+		NodeInsertionMarkers,
 		Overlays
 	},
 	// Registry of components for each node type

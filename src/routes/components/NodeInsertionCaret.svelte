@@ -3,15 +3,13 @@
 	 * Visual insertion caret rendered inside the active insertion marker.
 	 *
 	 * This component is presentation-only. It reads styling tokens for
-	 * color/shape/animation and switches orientation for row vs column flow.
+	 * color/shape/animation and switches orientation via
+	 * @container style(--row: 1) — the --row variable is inherited from
+	 * the parent node_array container.
 	 */
-	let { 
-		/** @type {boolean} Whether the caret is in a row or column flow. */
-		is_row = false 
-	} = $props();
 </script>
 
-<div class="caret" class:row={is_row} role="none"></div>
+<div class="caret" role="none"></div>
 
 <style>
 	@keyframes node-cursor-caret-blink {
@@ -37,14 +35,13 @@
 		content: '';
 		position: absolute;
 		background: var(--node-cursor-caret-bg, var(--editing-stroke-color));
-		/* Broad design token so consumers can replace the entire treatment at once. */
 		box-shadow: var(--node-cursor-caret-shadow, 0 0 0 0.5px oklch(1 0 0 / 1));
 		border: var(--node-cursor-caret-border, none);
 		border-radius: var(--node-cursor-caret-radius, 1px);
 	}
 
-	/* Horizontal caret line for vertical layouts. */
-	.caret:not(.row)::before {
+	/* Horizontal caret line (column default). */
+	.caret::before {
 		left: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
 		right: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
 		top: 50%;
@@ -52,12 +49,16 @@
 		transform: translateY(-0.5px);
 	}
 
-	/* Vertical caret line for horizontal layouts. */
-	.caret.row::before {
-		top: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
-		bottom: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
-		left: var(--node-cursor-caret-row-inline-position, 50%);
-		width: var(--node-cursor-caret-thickness, 2px);
-		transform: translateX(-0.5px);
+	/* Vertical caret line (row override). */
+	@container style(--row: 1) {
+		.caret::before {
+			top: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
+			bottom: var(--node-cursor-caret-inset, var(--node-cursor-marker-inset, 2px));
+			left: var(--node-cursor-caret-row-inline-position, 50%);
+			right: auto;
+			height: auto;
+			width: var(--node-cursor-caret-thickness, 2px);
+			transform: translateX(-0.5px);
+		}
 	}
 </style>

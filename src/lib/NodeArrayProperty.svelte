@@ -7,6 +7,7 @@
 
 	const svedit = getContext('svedit');
 	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
+	let NodeInsertionMarkers = $derived(svedit.session.config.system_components.NodeInsertionMarkers);
 
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
@@ -53,4 +54,7 @@
 			<UnknownNode path={[...path, index]} />
 		{/if}
 	{/each}
+	{#if svedit.editable && NodeInsertionMarkers}
+		<NodeInsertionMarkers {path} />
+	{/if}
 </svelte:element>

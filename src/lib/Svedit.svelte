@@ -36,6 +36,9 @@
 	let is_composing = $state(false);
 	let before_composition_selection = null;
 
+	/** @type {{ gaps_by_path: Map<string, Array>, cursor_gap_key: string|null }|null} Set once by NodeInsertionOverlay, read by NodeInsertionMarkers via reactive getters. */
+	let _insertion_gap_data = $state.raw(null);
+
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
 
@@ -57,6 +60,12 @@
 		},
 		get canvas_el() {
 			return canvas_el;
+		},
+		get insertion_gap_data() {
+			return _insertion_gap_data;
+		},
+		set insertion_gap_data(v) {
+			_insertion_gap_data = v;
 		},
 		focus_canvas
 	};
@@ -1309,6 +1318,9 @@ ${fallback_html}`;
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
+	<!-- Overlays must be before canvas so data-only overlays (NodeInsertionOverlay) initialize
+	     first, making gap data available before NodeInsertionMarkers render. Prevents re-rendering/ flickering. -->
+	<Overlays />
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
@@ -1337,7 +1349,6 @@ ${fallback_html}`;
 	>
 		<RootComponent {path} />
 	</div>
-	<Overlays />
 </div>
 
 <style>
