@@ -26,6 +26,16 @@
 	 */
 	let { path, type, empty = false, last = false } = $props();
 
+	// ALTERNATIVE APPROACH: FOR FIREFOX THAT DOES NOT SUPPORT STYLE CONTAINER QUERIES
+	// let trap_el;
+	// let is_row = $state(false);
+
+	// $effect(() => {
+	// 	if (trap_el) {
+	// 		is_row = getComputedStyle(trap_el).getPropertyValue('--row').trim() === '1';
+	// 	}
+	// });
+
 	let anchor_name = $derived(`--ct-${path.join('-')}-${type}`);
 	let index = $derived(parseInt(String(path.at(-1)), 10));
 	let array_path = $derived(path.slice(0, -1));
@@ -64,6 +74,19 @@
 >
 	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
 </div>
+
+<!-- ALTERNATIVE APPROACH: FOR FIREFOX THAT DOES NOT SUPPORT STYLE CONTAINER QUERIES -->
+<!-- <div
+	bind:this={trap_el}
+	class="cursor-trap {type}"
+	class:empty
+	class:last
+	class:row={is_row}
+	data-type={type}
+	style={trap_style}
+>
+	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
+</div> -->
 
 <style>
 	.cursor-trap {
@@ -127,13 +150,17 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* Row layout overrides (--row: 1 on ancestor)                         */
-	/*                                                                     */
-	/* Replicates NodeInsertionOverlay's .gap-row and .gap-edge.row         */
-	/* hit area positioning. Uses the * 999 multiplier trick               */
-	/* from the overlay for wrap detection in CSS grids.                    */
+	/* Row layout overrides (--row: 1 on ancestor)                        */
+	/*                                                                    */
+	/* Replicates NodeInsertionOverlay's .gap-row and .gap-edge.row       */
+	/* hit area positioning. Uses the * 999 multiplier trick              */
+	/* from the overlay for wrap detection in CSS grids.                  */
+	/*                                                                    */
+	/* NOTE: Firefox does not support style container queries.            */
 	/* ------------------------------------------------------------------ */
 
+
+	/* TO MAKE IT WORK IN FIREFOX DO NOT USE container but class .row instead */
 	@container style(--row: 1) {
 		/* Between two siblings in row layout.
 		   Same-line: centered between self.right and next.left.
