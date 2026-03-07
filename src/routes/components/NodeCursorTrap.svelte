@@ -199,7 +199,7 @@
 
 	/* IMPORTANT DO NOT REMOVE THESE DEBUGGING STYLES */
 	.svedit-selectable {
-		outline: 1px solid rgb(238, 0, 255);
+		outline: 0.1px solid rgba(238, 0, 255, 0.5);
 		outline-offset: -1px;
 	}
 	/* IMPORTANT DO NOT REMOVE THESE DEBUGGING STYLES */

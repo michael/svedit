@@ -110,10 +110,7 @@
 
 					if (entry.isIntersecting) {
 						let set = index_map.get(array_path);
-						if (!set) {
-							set = new Set();
-							index_map.set(array_path, set);
-						}
+						if (!set) index_map.set(array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity -- plain Set inside $state.raw, not reactive
 						if (!set.has(child_index)) {
 							set.add(child_index);
 							did_change = true;
@@ -133,10 +130,7 @@
 					visible_paths_doc = doc_snapshot;
 				}
 			},
-			{
-				root: null,
-				rootMargin: `${VIEWPORT_OVERSCAN_PX}px`
-			}
+		{ rootMargin: `${VIEWPORT_OVERSCAN_PX}px` }
 		);
 
 		for (const element of document.querySelectorAll(NODE_SELECTOR)) {
@@ -153,10 +147,7 @@
 				rect.left <= window.innerWidth + VIEWPORT_OVERSCAN_PX
 			) {
 				let set = index_map.get(array_path);
-				if (!set) {
-					set = new Set();
-					index_map.set(array_path, set);
-				}
+				if (!set) index_map.set(array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity -- plain Set inside $state.raw, not reactive
 				set.add(child_index);
 			}
 
@@ -225,7 +216,7 @@
 	 *
 	 * @param {string} array_path_str
 	 * @param {Array<gap_t>} targets
-	 * @param {Set<number> | null} visible_indices - visible child indices, or null for empty arrays
+	 * @param {Set<number>} visible_indices - visible child indices
 	 * @returns {void}
 	 */
 	function append_array_gaps(array_path_str, targets, visible_indices) {
@@ -262,11 +253,9 @@
 		const ref_second = is_row && count >= 2 ? `${anchor_prefix}-1` : null;
 
 		for (let offset = 0; offset <= count; offset++) {
-			if (visible_indices) {
-				const prev_visible = offset > 0 && visible_indices.has(offset - 1);
-				const next_visible = offset < count && visible_indices.has(offset);
-				if (!prev_visible && !next_visible) continue;
-			}
+			const prev_visible = offset > 0 && visible_indices.has(offset - 1);
+			const next_visible = offset < count && visible_indices.has(offset);
+			if (!prev_visible && !next_visible) continue;
 
 			const is_first = offset === 0;
 			const is_last = offset === count;
