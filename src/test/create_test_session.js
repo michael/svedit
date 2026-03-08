@@ -5,6 +5,7 @@ import nanoid from '../routes/nanoid.js';
 // System components
 import Overlays from '../routes/components/Overlays.svelte';
 import NodeCursorTrap from '../routes/components/NodeCursorTrap.svelte';
+import NodeInsertionMarkers from '../routes/components/NodeInsertionMarkers.svelte';
 
 // Node components
 import Page from '../routes/components/Page.svelte';
@@ -127,6 +128,7 @@ const session_config = {
 	generate_id: nanoid,
 	system_components: {
 		NodeCursorTrap,
+		NodeInsertionMarkers,
 		Overlays
 	},
 	node_components: {

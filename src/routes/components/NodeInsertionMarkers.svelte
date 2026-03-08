@@ -6,8 +6,8 @@
 	 * Renders insertion gap markers for a single node_array.
 	 *
 	 * Lives inside NodeArrayProperty so it inherits the --row CSS variable.
-	 * Uses @container style(--row: 1) for row/column orientation (same
-	 * pattern as NodeCursorTrap.svelte).
+	 * Uses var(--row, 0) with the * 99999 multiplier trick to switch between
+	 * column and row positioning/visuals in pure CSS — no container queries.
 	 *
 	 * Gap data is produced by NodeInsertionOverlay and published to the
 	 * svedit context. This component reads and renders it.
@@ -64,18 +64,21 @@
 	 * --node-cursor-caret-blink-duration
 	 * --node-cursor-caret-animation
 	 * --node-cursor-caret-row-inline-position
+	 *
+	 * Row/column detection uses var(--row, 0) with the * 99999 multiplier
+	 * trick throughout. Shorthand:
+	 *   --_R: var(--row, 0)              (1 when row, 0 when column)
+	 *   --_C: calc(1 - var(--row, 0))    (1 when column, 0 when row)
+	 *
+	 * Inside min(): + var(--_X) * 99999px makes a branch huge → min ignores it.
+	 * Inside max(): + var(--_X) * -99999px makes a branch tiny → max ignores it.
+	 * Nested min/max inherit the outermost convention: if the root is min(),
+	 * all branches (even inside inner max()) use + 99999px to disable.
 	 */
 
 	/* Suppress caret blink during active click on a cursor trap. */
 	:global(.svedit-canvas:active) .gap-marker {
 		--node-cursor-caret-animation: none;
-	}
-
-	/* Empty horizontal: caret at the left boundary. */
-	@container style(--row: 1) {
-		.gap-marker.gap-empty {
-			--node-cursor-caret-row-inline-position: 0px;
-		}
 	}
 
 	/*
@@ -92,6 +95,8 @@
 	.gap-marker {
 		--_eg: var(--node-cursor-edge-gap, 24px);
 		--_gm: var(--node-cursor-gap-min-size, 16px);
+		--_R: var(--row, 0);
+		--_C: calc(1 - var(--row, 0));
 		position: absolute;
 		position-visibility: anchors-visible;
 		pointer-events: none;
@@ -108,61 +113,70 @@
 	/* --------------------------------------------------------------------- */
 
 	.gap-marker.gap-empty {
+		--node-cursor-caret-row-inline-position: calc(var(--_R) * 0px + var(--_C) * 50%);
 		top: anchor(var(--_a) top);
 		left: anchor(var(--_a) left);
 		bottom: anchor(var(--_a) bottom);
-		right: anchor(var(--_a) right);
-	}
-
-	@container style(--row: 1) {
-		.gap-marker.gap-empty {
-			right: max(anchor(var(--_a) right), calc(anchor(var(--_a) left) - var(--_eg)));
-		}
+		right: max(
+			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
+			calc(anchor(var(--_a) right) + var(--_C) * -99999px),
+			calc(anchor(var(--_a) left) - var(--_eg) + var(--_C) * -99999px)
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Mid gap (between two nodes) — column layout is just the cursor trap   */
-	/* anchor (base rule). Row layout uses complex narrowing logic.           */
+	/* Mid gap (between two nodes) — column uses cursor trap anchor (base    */
+	/* rule). Row uses complex narrowing logic. The row branches all get     */
+	/* + var(--_C) * 99999px so they're ignored in column layout.            */
 	/* --------------------------------------------------------------------- */
 
-	@container style(--row: 1) {
-		.gap-marker.gap-mid {
-			left: min(
-				anchor(var(--_p) right),
-				calc(
-					(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
-					- var(--_gm) / 2
-					+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
-				),
-				calc(
-					anchor(var(--_p) right)
-					+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
-					- max(
-						max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-						var(--_gm)
-					) / 2
-					+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
-					+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
-				),
-				calc(100% - var(--_gm)),
-				calc(
-					100% - max(
-						max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-						var(--_gm)
-					)
-					+ max(0px,
-						(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
-						- (anchor(var(--_c) right) - anchor(var(--_p) right))
-						- 0.5px
-					) * 9999
-					+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+	.gap-marker.gap-mid {
+		left: min(
+			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_p) right) + var(--_C) * 99999px),
+			calc(
+				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
+				- var(--_gm) / 2
+				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
+				+ var(--_C) * 99999px
+			),
+			calc(
+				anchor(var(--_p) right)
+				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
+				- max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
+				) / 2
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+				+ var(--_C) * 99999px
+			),
+			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			calc(
+				100% - max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
 				)
-			);
-			right: max(0px, min(
-				anchor(var(--_n) left),
+				+ max(0px,
+					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
+					- (anchor(var(--_c) right) - anchor(var(--_p) right))
+					- 0.5px
+				) * 9999
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+				+ var(--_C) * 99999px
+			)
+		);
+		right: max(
+			calc(0px + var(--_C) * -99999px),
+			min(
+				calc(anchor(var(--_ct) right) + var(--_R) * 99999px),
+				calc(
+					anchor(var(--_n) left) + var(--_C) * 99999px
+				),
 				calc(
 					(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
 					- var(--_gm) / 2
+					+ var(--_C) * 99999px
 				),
 				max(
 					calc(
@@ -175,6 +189,7 @@
 							)
 						) / 2
 						- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
+						+ var(--_C) * 99999px
 					),
 					calc(
 						anchor(var(--_p) right) - var(--_gm)
@@ -183,22 +198,25 @@
 							- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 							+ 0.5px
 						) * 9999
+						+ var(--_C) * 99999px
 					),
 					calc(
 						anchor(var(--_p) right) - var(--_gm)
 						- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+						+ var(--_C) * 99999px
 					),
 					calc(
 						anchor(var(--_p) right)
 						- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
+						+ var(--_C) * 99999px
 					),
 					min(
-						anchor(var(--_c) right),
-						calc(anchor(var(--_p) right) - var(--_eg))
+						calc(anchor(var(--_c) right) + var(--_C) * 99999px),
+						calc(anchor(var(--_p) right) - var(--_eg) + var(--_C) * 99999px)
 					)
 				)
-			));
-		}
+			)
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -210,101 +228,117 @@
 		min-width: var(--_gm);
 	}
 
-	/* Column edge: first (above first node) */
+	/* Edge first: column = above first node, row = left of first node */
 	.gap-edge.first {
-		bottom: anchor(var(--_a) top);
-		top: max(0px, calc(anchor(var(--_a) top) - var(--_gm)));
+		top: min(
+			calc(anchor(var(--_ct) top) + var(--_C) * 99999px),
+			calc(max(0px, calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
+		);
+		bottom: min(
+			calc(anchor(var(--_ct) bottom) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) top) + var(--_R) * 99999px)
+		);
+		left: min(
+			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(max(0px, calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
+		);
+		right: min(
+			calc(anchor(var(--_ct) right) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_C) * 99999px)
+		);
 	}
 
-	/* Column edge: last (below last node) */
+	/* Edge last: column = below last node, row = right of last node */
 	.gap-edge.last {
-		top: anchor(var(--_a) bottom);
-		bottom: calc(anchor(var(--_a) bottom) - var(--_gm));
-	}
-
-	/* Row edge overrides */
-	@container style(--row: 1) {
-		.gap-edge.first {
-			top: anchor(var(--_ct) top);
-			bottom: anchor(var(--_ct) bottom);
-			right: anchor(var(--_a) left);
-			left: max(0px, calc(anchor(var(--_a) left) - var(--_gm)));
-		}
-
-		.gap-edge.last {
-			top: anchor(var(--_ct) top);
-			bottom: anchor(var(--_ct) bottom);
-			left: min(anchor(var(--_a) right), calc(100% - var(--_gm)));
-			right: max(
-				0px,
-				calc(anchor(var(--_a) right) - var(--_gm)),
-				anchor(var(--_c) right)
-			);
-		}
+		top: min(
+			calc(anchor(var(--_ct) top) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) bottom) + var(--_R) * 99999px)
+		);
+		bottom: min(
+			calc(anchor(var(--_ct) bottom) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) bottom) - var(--_gm) + var(--_R) * 99999px)
+		);
+		left: min(
+			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
+			calc(100% - var(--_gm) + var(--_C) * 99999px)
+		);
+		right: max(
+			calc(0px + var(--_C) * -99999px),
+			calc(anchor(var(--_ct) right) + var(--_R) * -99999px),
+			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -99999px),
+			calc(anchor(var(--_c) right) + var(--_C) * -99999px)
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Trailing gap (last offset in a row) — same as gap-row.last in old CSS */
-	/* Uses --_a (adjacent = last node) for positioning.                     */
+	/* Trailing gap in row with 2+ items: complex narrowing using --_f/--_s  */
+	/* Overrides .gap-edge.last — must re-include col branch for both left   */
+	/* (min: + 99999px to disable) and right (max: * -99999px to disable).   */
 	/* --------------------------------------------------------------------- */
 
-	@container style(--row: 1) {
-		.gap-marker.gap-edge.last.pair {
-			left: min(
-				anchor(var(--_a) right),
-				calc(
-					anchor(var(--_a) right)
-					+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
-					- max(
-						max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
-						var(--_gm)
-					) / 2
-					+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
-				),
-				calc(100% - var(--_gm)),
-				calc(
-					100% - max(
-						max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+	.gap-marker.gap-edge.last.pair {
+		left: min(
+			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
+			calc(
+				anchor(var(--_a) right)
+				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
+				- max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
+				) / 2
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+				+ var(--_C) * 99999px
+			),
+			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			calc(
+				100% - max(
+					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
+					var(--_gm)
+				)
+				+ max(0px,
+					(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
+					- (anchor(var(--_c) right) - anchor(var(--_a) right))
+					- 0.5px
+				) * 9999
+				+ var(--_C) * 99999px
+			)
+		);
+		right: max(
+			calc(anchor(var(--_ct) right) + var(--_R) * -99999px),
+			calc(0px + var(--_C) * -99999px),
+			calc(
+				anchor(var(--_a) right)
+				- (
+					max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
+					+ max(
+						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
 						var(--_gm)
 					)
-					+ max(0px,
-						(max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)))
-						- (anchor(var(--_c) right) - anchor(var(--_a) right))
-						- 0.5px
-					) * 9999
-				)
-			);
-			right: max(
-				0px,
-				calc(
-					anchor(var(--_a) right)
-					- (
-						max(0px, anchor(var(--_f) right) - anchor(var(--_s) left))
-						+ max(
-							max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)),
-							var(--_gm)
-						)
-					) / 2
-					- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
-				),
-				calc(
-					anchor(var(--_a) right) - var(--_gm)
-					- max(0px,
-						(anchor(var(--_a) right) - anchor(var(--_c) right))
-						- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
-						+ 0.5px
-					) * 9999
-				),
-				calc(
-					anchor(var(--_a) right) - var(--_gm)
-					- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
-				),
-				min(
-					anchor(var(--_c) right),
-					calc(anchor(var(--_a) right) - var(--_eg))
-				)
-			);
-		}
+				) / 2
+				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
+				+ var(--_C) * -99999px
+			),
+			calc(
+				anchor(var(--_a) right) - var(--_gm)
+				- max(0px,
+					(anchor(var(--_a) right) - anchor(var(--_c) right))
+					- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
+					+ 0.5px
+				) * 9999
+				+ var(--_C) * -99999px
+			),
+			calc(
+				anchor(var(--_a) right) - var(--_gm)
+				- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+				+ var(--_C) * -99999px
+			),
+			min(
+				calc(anchor(var(--_c) right) + var(--_C) * -99999px),
+				calc(anchor(var(--_a) right) - var(--_eg) + var(--_C) * -99999px)
+			)
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -318,18 +352,38 @@
 			--gap-center: calc( var(--node-cursor-symbol-size, 6px) / 2 + var(--node-cursor-symbol-gap, 4px) );
 		}
 
-		/* Column layout marker (horizontal dashed line). */
+		/* Dashed line: horizontal (column) or vertical (row).
+		   Column: top=50% bottom=50% → zero height, border-top is the line.
+		   Row: left=50% right=50% → zero width, border-left is the line.
+		   No explicit height/width — inset pairs control dimensions. */
 		&:not(.gap-empty)::before {
-			top: 50%;
-			left: var(--node-cursor-marker-inset, 2px);
-			right: var(--node-cursor-marker-inset, 2px);
-			border-top: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-			transform: translateY(-0.5px);
-			mask-image: linear-gradient(to right,
-				black calc(50% - var(--gap-center)),
-				transparent calc(50% - var(--gap-center)),
-				transparent calc(50% + var(--gap-center)),
-				black calc(50% + var(--gap-center)));
+			--_mi: var(--node-cursor-marker-inset, 2px);
+			top: min(
+				calc(50% + var(--_R) * 99999px),
+				calc(var(--_mi) + var(--_C) * 99999px)
+			);
+			bottom: min(
+				calc(50% + var(--_R) * 99999px),
+				calc(var(--_mi) + var(--_C) * 99999px)
+			);
+			left: min(
+				calc(var(--_mi) + var(--_R) * 99999px),
+				calc(50% + var(--_C) * 99999px)
+			);
+			right: min(
+				calc(var(--_mi) + var(--_R) * 99999px),
+				calc(50% + var(--_C) * 99999px)
+			);
+			border-top: calc(var(--_C) * 1px) dashed var(--node-cursor-gap-color, var(--stroke-color));
+			border-left: calc(var(--_R) * 1px) dashed var(--node-cursor-gap-color, var(--stroke-color));
+			transform:
+				translateY(calc(var(--_C) * -0.5px))
+				translateX(calc(var(--_R) * -0.5px));
+			mask-image: radial-gradient(
+				circle at center,
+				transparent calc(var(--gap-center) - 0.5px),
+				black var(--gap-center)
+			);
 		}
 
 		/* Empty array marker (dashed outline for discoverability). */
@@ -353,25 +407,6 @@
 				linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
 				linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
 			);
-		}
-	}
-
-	/* Row layout marker override (vertical dashed line). */
-	@container style(--row: 1) {
-		.gap-marker:not(.active):not(.gap-empty)::before {
-			top: var(--node-cursor-marker-inset, 2px);
-			bottom: var(--node-cursor-marker-inset, 2px);
-			left: 50%;
-			right: auto;
-			width: 0;
-			border-top: none;
-			border-left: var(--node-cursor-line-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
-			transform: translateX(-0.5px);
-			mask-image: linear-gradient(to bottom,
-				black calc(50% - var(--gap-center)),
-				transparent calc(50% - var(--gap-center)),
-				transparent calc(50% + var(--gap-center)),
-				black calc(50% + var(--gap-center)));
 		}
 	}
 
