@@ -1,30 +1,27 @@
 <script>
 	import { getContext } from 'svelte';
+	// Uncomment to enable IntersectionObserver visibility culling:
+	// import { create_visibility_culler } from './visibility_culling.svelte.js';
 
 	/**
 	 * Data-only gap computation for node-array editing.
 	 *
-	 * Computes insertion gap markers for all visible node arrays and publishes
+	 * Computes insertion gap markers for all node arrays and publishes
 	 * the results to the svedit context via reactive getters. Rendering is
 	 * handled by NodeInsertionMarkers.svelte inside each NodeArrayProperty.
 	 *
 	 * This component has no DOM output.
+	 *
+	 * Visibility culling (IntersectionObserver) is opt-in: import and
+	 * activate `create_visibility_culler` to only compute gaps for
+	 * node arrays near the viewport.
 	 */
 
-	// -----------------------------------------------------------------------------
-	// constants
-	// -----------------------------------------------------------------------------
-
-	/** Set to false to disable IntersectionObserver culling (renders gaps for all node arrays). */
-	const ENABLE_VISIBILITY_CULLING = false;
-	const VIEWPORT_OVERSCAN_PX = 600;
-	const NODE_SELECTOR = '[data-type="node"][data-path]';
-
-	// -----------------------------------------------------------------------------
-	// context and reactive state
-	// -----------------------------------------------------------------------------
-
 	const svedit = getContext('svedit');
+
+	// Uncomment to enable IntersectionObserver visibility culling:
+	// const culler = create_visibility_culler(svedit);
+	const culler = null;
 
 	let cursor_gap_key = $derived.by(() => {
 		const s = svedit.session.selection;
@@ -32,19 +29,7 @@
 		return `${s.path.join('.')}-gap-${s.anchor_offset}`;
 	});
 
-	/**
-	 * When culling is enabled, maps array_path → set of visible child indices.
-	 * Populated by IntersectionObserver. Unused when culling is off.
-	 * @type {Map<string, Set<number>>}
-	 */
-	let visible_child_indices = $state.raw(new Map());
-	let visible_paths_doc = $state.raw(null);
-
 	let gaps_by_path = $derived(build_all_gaps());
-
-	// -----------------------------------------------------------------------------
-	// expose reactive data to markers (no $effect — direct signal chain)
-	// -----------------------------------------------------------------------------
 
 	svedit.insertion_gap_data = {
 		get gaps_by_path() { return gaps_by_path; },
@@ -52,96 +37,8 @@
 	};
 
 	// -----------------------------------------------------------------------------
-	// visibility culling (IntersectionObserver) — only when enabled
-	// -----------------------------------------------------------------------------
-
-	if (ENABLE_VISIBILITY_CULLING) {
-		$effect(() => {
-			const doc_snapshot = svedit.session.doc;
-
-			if (!svedit.editable) {
-				visible_child_indices = new Map();
-				visible_paths_doc = null;
-				return;
-			}
-
-			/** @type {Map<string, Set<number>>} */
-			const index_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity -- plain Map, never assigned to reactive state directly
-
-			const observer = new IntersectionObserver(
-				(entries) => {
-					let did_change = false;
-					for (const entry of entries) {
-						const path = /** @type {HTMLElement} */ (entry.target).dataset.path;
-						if (!path) continue;
-						const parsed = parse_node_path(path);
-						if (!parsed) continue;
-
-						if (entry.isIntersecting) {
-							let set = index_map.get(parsed.array_path);
-							if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
-							if (!set.has(parsed.child_index)) {
-								set.add(parsed.child_index);
-								did_change = true;
-							}
-						} else {
-							const set = index_map.get(parsed.array_path);
-							if (set && set.delete(parsed.child_index)) {
-								did_change = true;
-								if (set.size === 0) index_map.delete(parsed.array_path);
-							}
-						}
-					}
-					if (did_change) {
-						visible_child_indices = new Map(index_map);
-						visible_paths_doc = doc_snapshot;
-					}
-				},
-				{ rootMargin: `${VIEWPORT_OVERSCAN_PX}px` }
-			);
-
-			for (const el of document.querySelectorAll(NODE_SELECTOR)) {
-				const node_el = /** @type {HTMLElement} */ (el);
-				const parsed = parse_node_path(node_el.dataset.path);
-				if (!parsed) continue;
-
-				const rect = node_el.getBoundingClientRect();
-				if (
-					rect.bottom >= -VIEWPORT_OVERSCAN_PX &&
-					rect.top <= window.innerHeight + VIEWPORT_OVERSCAN_PX &&
-					rect.right >= -VIEWPORT_OVERSCAN_PX &&
-					rect.left <= window.innerWidth + VIEWPORT_OVERSCAN_PX
-				) {
-					let set = index_map.get(parsed.array_path);
-					if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
-					set.add(parsed.child_index);
-				}
-
-				observer.observe(node_el);
-			}
-
-			visible_child_indices = new Map(index_map);
-			visible_paths_doc = doc_snapshot;
-			return () => observer.disconnect();
-		});
-	}
-
-	// -----------------------------------------------------------------------------
 	// helpers
 	// -----------------------------------------------------------------------------
-
-	/**
-	 * Split "root.prop.0" into { array_path: "root.prop", child_index: 0 }.
-	 * @param {string} path
-	 * @returns {{ array_path: string, child_index: number } | null}
-	 */
-	function parse_node_path(path) {
-		const dot = path.lastIndexOf('.');
-		if (dot < 0) return null;
-		const child_index = parseInt(path.slice(dot + 1), 10);
-		if (Number.isNaN(child_index)) return null;
-		return { array_path: path.slice(0, dot), child_index };
-	}
 
 	/**
 	 * Walk the document model to collect all node_array paths and their child counts.
@@ -205,15 +102,15 @@
 		/** @type {Map<string, Array<gap_t>>} */
 		const by_path = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
-		if (ENABLE_VISIBILITY_CULLING) {
-			if (visible_paths_doc !== svedit.session.doc) return by_path;
-			for (const [path_str, indices] of visible_child_indices) {
-				const gaps = build_array_gaps(path_str, indices);
+		if (culler) {
+			if (culler.doc_snapshot !== svedit.session.doc) return by_path;
+			for (const [path_str, indices] of culler.visible_child_indices) {
+				const gaps = build_array_gaps_culled(path_str, indices);
 				if (gaps.length > 0) by_path.set(path_str, gaps);
 			}
 		} else {
 			for (const [path_str, count] of collect_all_node_arrays()) {
-				const gaps = build_array_gaps_all(path_str, count);
+				const gaps = build_array_gaps(path_str, count);
 				if (gaps.length > 0) by_path.set(path_str, gaps);
 			}
 		}
@@ -222,12 +119,12 @@
 	}
 
 	/**
-	 * Build gaps for a node_array, only for visible indices (culled path).
+	 * Build gaps for a node_array using visibility filter (culled path).
 	 * @param {string} array_path_str
 	 * @param {Set<number>} visible_indices
 	 * @returns {Array<gap_t>}
 	 */
-	function build_array_gaps(array_path_str, visible_indices) {
+	function build_array_gaps_culled(array_path_str, visible_indices) {
 		const array_path = array_path_str.split('.');
 		try {
 			const info = svedit.session.inspect(array_path);
@@ -249,7 +146,7 @@
 	 * @param {number} count
 	 * @returns {Array<gap_t>}
 	 */
-	function build_array_gaps_all(array_path_str, count) {
+	function build_array_gaps(array_path_str, count) {
 		return emit_gaps(array_path_str, array_path_str.split('.'), count, () => true);
 	}
 

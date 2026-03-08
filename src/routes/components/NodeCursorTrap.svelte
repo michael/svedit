@@ -154,7 +154,7 @@
 			calc(var(--_s-t) + var(--_C) * 99999px)
 		);
 		bottom: min(
-			calc(0px + var(--_R) * 99999px),
+			calc(var(--_s-b) - var(--_eg) + var(--_R) * 99999px),
 			calc(var(--_s-b) + var(--_C) * 99999px)
 		);
 		left: min(
