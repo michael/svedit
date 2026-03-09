@@ -412,12 +412,12 @@
 		}
 	}
 
-	/* Debugging styles — REMOVE ONLY BEFORE MERGING THE PR */
-	:global([data-type="node_array"]) {
+	/* Debugging styles  */
+	/* :global([data-type="node_array"]) {
 		outline: 0.1px solid green;
 	}
 	.gap-marker {
 		outline: 0.1px solid blue;
 		outline-offset: -2px;
-	}
+	} */
 </style>

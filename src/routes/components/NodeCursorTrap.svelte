@@ -220,10 +220,9 @@
 		right: min(var(--_s-r), var(--_c-r));
 	}
 
-	/* IMPORTANT DO NOT REMOVE THESE DEBUGGING STYLES */
-	.svedit-selectable {
+	/* Debugging styles  */
+	/* .svedit-selectable {
 		outline: 0.1px solid rgba(238, 0, 255, 0.5);
 		outline-offset: -1px;
-	}
-	/* IMPORTANT DO NOT REMOVE THESE DEBUGGING STYLES */
+	} */
 </style>
