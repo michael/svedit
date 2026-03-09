@@ -15,6 +15,7 @@
 		counter-reset: listcounter;
 	}
 	.list :global(.list-node-array) {
+		--row: 0;
 		display: flex;
 		flex-direction: column;
 		gap: var(--s-4);

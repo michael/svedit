@@ -67,6 +67,9 @@
 
 	.story :global(.buttons) {
 		--row: 1;
+		@media (max-width: 380px) {
+			--row: 0;
+		}
 	}
 
 	.story :global(.buttons.empty .node.empty-node-array) {

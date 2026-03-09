@@ -3,7 +3,7 @@
 	 * Visual insertion caret rendered inside the active insertion marker.
 	 *
 	 * This component is presentation-only. It reads styling tokens for
-	 * color/shape/animation and switches orientation via var(--row, 0)
+	 * color/shape/animation and switches orientation via var(--row, 1)
 	 * with the * 99999 multiplier trick — works in all browsers.
 	 */
 </script>
@@ -19,8 +19,7 @@
 	}
 
 	.caret {
-		--_R: var(--row, 0);
-		--_C: calc(1 - var(--row, 0));
+		--col: calc(1 - var(--row, 1));
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
@@ -47,23 +46,23 @@
 		 * No explicit height/width — inset pairs control dimensions.
 		 */
 		top: min(
-			calc(50% + var(--_R) * 99999px),
-			calc(var(--_ci) + var(--_C) * 99999px)
+			calc(50% + var(--row) * 99999px),
+			calc(var(--_ci) + var(--col) * 99999px)
 		);
 		bottom: min(
-			calc(50% - var(--_ct) + var(--_R) * 99999px),
-			calc(var(--_ci) + var(--_C) * 99999px)
+			calc(50% - var(--_ct) + var(--row) * 99999px),
+			calc(var(--_ci) + var(--col) * 99999px)
 		);
 		left: min(
-			calc(var(--_ci) + var(--_R) * 99999px),
-			calc(var(--_cp) + var(--_C) * 99999px)
+			calc(var(--_ci) + var(--row) * 99999px),
+			calc(var(--_cp) + var(--col) * 99999px)
 		);
 		right: min(
-			calc(var(--_ci) + var(--_R) * 99999px),
-			calc(100% - var(--_cp) - var(--_ct) + var(--_C) * 99999px)
+			calc(var(--_ci) + var(--row) * 99999px),
+			calc(100% - var(--_cp) - var(--_ct) + var(--col) * 99999px)
 		);
 		transform:
-			translateY(calc(var(--_C) * -0.5px))
-			translateX(calc(var(--_R) * -0.5px));
+			translateY(calc(var(--col) * -0.5px))
+			translateX(calc(var(--row) * -0.5px));
 	}
 </style>
