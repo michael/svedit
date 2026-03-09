@@ -9,15 +9,23 @@
 	/** @type {NodeProps} */
 	let { path, children, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
-	// NOTE: When the next to last path segment is a node_array property, the node is wrapped in a node_array
-	let is_inside_node_array = $derived(
-		path.length > 1 && svedit.session.inspect(path.slice(0, -1))?.type === 'node_array'
-	);
 	let node = $derived(svedit.session.get(path));
+
+	// NodeArrayProperty sets this context — its presence means we're in a node_array.
+	// Using context avoids expensive session.inspect() and session.get() calls
+	// that would create O(N) reactive subscriptions to the parent array.
+	const node_array_meta = getContext('node_array_meta');
+	const is_inside_node_array = !!node_array_meta;
 	let child_index = $derived(parseInt(String(path.at(-1)), 10));
 	let is_first_node_array_child = $derived(is_inside_node_array && child_index === 0);
 	let is_last_node_array_child = $derived(
-		is_inside_node_array && child_index === svedit.session.get(path.slice(0, -1)).length - 1
+		is_inside_node_array && child_index === node_array_meta.length - 1
+	);
+
+	// Reads the culler's debounced version counter via Set.has() lookup.
+	// Keeps only limited number of cursor traps in the DOM regardless of document size.
+	let is_near_viewport = $derived(
+		svedit.is_near_viewport?.(path) ?? true
 	);
 </script>
 
@@ -31,11 +39,11 @@
 	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
-	{#if svedit.editable && is_first_node_array_child}
+	{#if svedit.editable && is_first_node_array_child && is_near_viewport}
 		<NodeCursorTrap {path} type="position-zero-cursor-trap" />
 	{/if}
 	{@render children()}
-	{#if svedit.editable && is_inside_node_array}
+	{#if svedit.editable && is_inside_node_array && is_near_viewport}
 		<NodeCursorTrap {path} type="after-node-cursor-trap" last={is_last_node_array_child} />
 	{/if}
 </svelte:element>

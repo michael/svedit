@@ -17,7 +17,9 @@
 
 	const svedit = getContext('svedit');
 	let path_str = $derived(path.join('.'));
-	let my_gaps = $derived(svedit.insertion_gap_data?.gaps_by_path?.get(path_str) ?? []);
+	// Per-path signal: only re-evaluates when THIS path's gaps change.
+	let gap_signal = $derived(svedit.insertion_gap_data?.get_gaps(path_str));
+	let my_gaps = $derived(gap_signal?.gaps ?? []);
 	let cursor_gap_key = $derived(svedit.insertion_gap_data?.cursor_gap_key);
 </script>
 

@@ -42,7 +42,7 @@ import Link from './components/Link.svelte';
 const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
 const TITLE_ANNOTATIONS = ['emphasis', 'highlight'];
 
-const document_schema = define_document_schema({
+export const document_schema = define_document_schema({
 	page: {
 		kind: 'document',
 		properties: {
@@ -468,7 +468,7 @@ const doc = {
 };
 
 // App-specific config object, always available via doc.config for introspection
-const session_config = {
+export const session_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
 	// Provide definitions/overrides for system native components,

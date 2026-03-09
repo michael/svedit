@@ -20,33 +20,14 @@
 	 */
 	let { path, type, empty = false, last = false } = $props();
 
-	let anchor_name = $derived(`--ct-${path.join('-')}-${type}`);
-	let index = $derived(parseInt(String(path.at(-1)), 10));
-	let array_path = $derived(path.slice(0, -1));
-
-	let self = $derived(`--${path.join('-')}`);
-	let container = $derived(`--${array_path.join('-')}`);
-	let next = $derived(`${container}-${index + 1}`);
-
 	let trap_style = $derived.by(() => {
-		let s = `--_pa:${self}`;
-		s += `;--_s-t:anchor(${self} top)`;
-		s += `;--_s-b:anchor(${self} bottom)`;
-		s += `;--_s-l:anchor(${self} left)`;
-		s += `;--_s-r:anchor(${self} right)`;
-		if (type === 'after-node-cursor-trap' && !last) {
-			s += `;--_n-t:anchor(${next} top)`;
-			s += `;--_n-l:anchor(${next} left)`;
-			s += `;--_c-r:anchor(${container} right)`;
-		}
-		if (last || empty) {
-			s += `;--_c-t:anchor(${container} top)`;
-			s += `;--_c-b:anchor(${container} bottom)`;
-			s += `;--_c-l:anchor(${container} left)`;
-			s += `;--_c-r:anchor(${container} right)`;
-		}
-		return s;
+		const p = path.join('-');
+		const arr = path.slice(0, -1).join('-');
+		const idx = parseInt(String(path.at(-1)), 10);
+		return `--_pa:--${p};--_next:--${arr}-${idx + 1};--_container:--${arr}`;
 	});
+
+	let anchor_name = $derived(`--ct-${path.join('-')}-${type}`);
 </script>
 
 <div
@@ -67,6 +48,30 @@
 		outline: none;
 		pointer-events: none;
 		caret-color: transparent;
+	}
+
+	/*
+	 * Anchor references resolved from CSS variable names passed via
+	 * inline style (--_pa, --_next, --_container). Same pattern as
+	 * NodeInsertionMarkers — keeps JS minimal and anchor() in CSS.
+	 */
+	.cursor-trap {
+		--_s-t: anchor(var(--_pa) top);
+		--_s-b: anchor(var(--_pa) bottom);
+		--_s-l: anchor(var(--_pa) left);
+		--_s-r: anchor(var(--_pa) right);
+	}
+	.after-node-cursor-trap:not(.last) {
+		--_n-t: anchor(var(--_next) top);
+		--_n-l: anchor(var(--_next) left);
+		--_c-r: anchor(var(--_container) right);
+	}
+	.after-node-cursor-trap.last,
+	.position-zero-cursor-trap.empty {
+		--_c-t: anchor(var(--_container) top);
+		--_c-b: anchor(var(--_container) bottom);
+		--_c-l: anchor(var(--_container) left);
+		--_c-r: anchor(var(--_container) right);
 	}
 
 	.svedit-selectable {

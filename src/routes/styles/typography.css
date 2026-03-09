@@ -3,14 +3,14 @@
 	src: url('/fonts/JetBrainsMono-Italic[wght].woff2') format('woff2');
 	font-weight: 100 800;
 	font-style: italic;
-	font-display: fallback;
+	font-display: swap; /* Do not use 'fallback', causes FOIT: flash of invisible text. */
 }
 @font-face {
 	font-family: 'JetBrains Mono';
 	src: url('/fonts/JetBrainsMono[wght].woff2') format('woff2');
 	font-weight: 100 800;
 	font-style: normal;
-	font-display: fallback;
+	font-display: swap; /* Do not use 'fallback', causes FOIT: flash of invisible text. */
 }
 
 :root {
