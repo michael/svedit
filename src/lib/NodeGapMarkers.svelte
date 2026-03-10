@@ -56,16 +56,16 @@
 	 * --node-cursor-line-border
 	 * --node-cursor-empty-border
 	 * --node-cursor-empty-border-radius
-	 * --node-cursor-caret-bg
-	 * --node-cursor-caret-shadow
-	 * --node-cursor-caret-border
-	 * --node-cursor-caret-thickness
-	 * --node-cursor-caret-inset
-	 * --node-cursor-caret-radius
-	 * --node-cursor-caret-z-index
-	 * --node-cursor-caret-blink-duration
-	 * --node-cursor-caret-animation
-	 * --node-cursor-caret-row-inline-position
+	 * --node-cursor-bg
+	 * --node-cursor-shadow
+	 * --node-cursor-border
+	 * --node-cursor-thickness
+	 * --node-cursor-inset
+	 * --node-cursor-radius
+	 * --node-cursor-z-index
+	 * --node-cursor-blink-duration
+	 * --node-cursor-animation
+	 * --node-cursor-row-inline-position
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick throughout. Shorthand:
@@ -80,7 +80,7 @@
 
 	/* Suppress caret blink during active click on a node gap. */
 	:global(.svedit-canvas:active) .gap-marker {
-		--node-cursor-caret-animation: none;
+		--node-cursor-animation: none;
 	}
 
 	/*
@@ -115,7 +115,7 @@
 	/* --------------------------------------------------------------------- */
 
 	.gap-marker.gap-empty {
-		--node-cursor-caret-row-inline-position: calc(var(--_R) * 0px + var(--_C) * 50%);
+		--node-cursor-row-inline-position: calc(var(--_R) * 0px + var(--_C) * 50%);
 		top: anchor(var(--_a) top);
 		left: anchor(var(--_a) left);
 		bottom: anchor(var(--_a) bottom);
