@@ -246,8 +246,8 @@ const session_config = {
   // ID generator for creating new nodes
   generate_id: () => nanoid(),
   
-  // System components (NodeCursorTrap, Overlays) 
-  system_components: { NodeCursorTrap, Overlays },
+  // User-land overlays and optional system component overrides
+  system_components: { Overlays },
   
   // Map node types to Svelte components
   node_components: { Page, Text, Story, List, Button, ... },
@@ -273,7 +273,7 @@ const session_config = {
 
 - **`generate_id`** - Function that generates unique IDs for new nodes
 - **`node_components`** - Maps each node type from your schema to a Svelte component
-- **`system_components`** - Provides custom NodeCursorTrap and Overlays components
+- **`system_components`** - User-land overlays and optional overrides for NodeGap, NodeGapMarkers, NodeSelectionMarkers
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events
@@ -804,7 +804,7 @@ Selections are at the heart of Svedit. There are just three types of selections:
 
 - Use "node" as the domain term.
 - Use "node cursor" for a collapsed node selection.
-- Use "node cursor trap" for the DOM landing zone.
+- Use "node gap" for the DOM landing zone between nodes.
 
 1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed cursor at position 1 in a text property 'content'.
 
@@ -995,7 +995,7 @@ The key in this map corresponds to the node's `type` property in the schema. Not
 ## Mastering contenteditable
 
 Svedit relies on the contenteditable attribute to make elements editable. The below example shows you
-a simplified version of the markup of `<NodeCursorTrap>` and why it is implemented the way it is.
+a simplified version of the markup of `<NodeGap>` and why it is implemented the way it is.
 
 ```html
 <div contenteditable="true">
@@ -1009,16 +1009,16 @@ a simplified version of the markup of `<NodeCursorTrap>` and why it is implement
       Using <wbr> will make it only addressable for ArrowLeft and ArrowRight, but not ArrowUp and ArrowDown.
       And using <span></span> will not make it addressable at all.
 
-      Svedit uses this behavior for node-cursor-traps, and when an
+      Svedit uses this behavior for node gaps, and when an
       <AnnotatedTextProperty> is empty.
     -->
-    <div class="cursor-trap"><br></div>
+    <div class="node-gap"><br></div>
     <!--
       If you create a contenteditable="false" island, there needs to be some content in it,
       otherwise it will create two additional cursor positions. One before, and another one
       after the island.
 
-      The Svedit demo uses this technique in `<NodeCursorTrap>` to create a node-cursor
+      The Svedit demo uses this technique in `<NodeGap>` to create a node-cursor
       visualization, that doesn't mess with the contenteditable cursor positions.
     -->
     <div contenteditable="false" class="node-cursor">&ZeroWidthSpace;</div>

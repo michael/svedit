@@ -32,9 +32,9 @@ describe('Svedit.svelte', () => {
 		expect(dom_selection.type).toBe('Caret');
 
 		// @ts-ignore
-		expect(dom_selection.anchorNode.classList.contains('cursor-trap')).toBe(true);
+		expect(dom_selection.anchorNode.classList.contains('node-gap')).toBe(true);
 		// @ts-ignore
-		expect(dom_selection.focusNode.classList.contains('cursor-trap')).toBe(true);
+		expect(dom_selection.focusNode.classList.contains('node-gap')).toBe(true);
 	});
 
 	it('should map property selection to DOM', async () => {

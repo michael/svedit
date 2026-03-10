@@ -1,10 +1,11 @@
 <script>
 	import { getContext } from 'svelte';
+	import DefaultNodeGap from './NodeGap.svelte';
 
 	/** @import { NodeProps } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
-	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
+	let NodeGap = $derived(svedit.session.config.system_components?.NodeGap ?? DefaultNodeGap);
 
 	/** @type {NodeProps} */
 	let { path, children, tag = 'div', class: css_class, style = '', ...rest } = $props();
@@ -23,7 +24,7 @@
 	);
 
 	// Reads the culler's debounced version counter via Set.has() lookup.
-	// Keeps only limited number of cursor traps in the DOM regardless of document size.
+	// Keeps only limited number of node gaps in the DOM regardless of document size.
 	let is_near_viewport = $derived(
 		svedit.is_near_viewport?.(path) ?? true
 	);
@@ -40,10 +41,10 @@
 	{...rest}
 >
 	{#if svedit.editable && is_first_node_array_child && is_near_viewport}
-		<NodeCursorTrap {path} type="position-zero-cursor-trap" />
+		<NodeGap {path} type="gap-before" />
 	{/if}
 	{@render children()}
 	{#if svedit.editable && is_inside_node_array && is_near_viewport}
-		<NodeCursorTrap {path} type="after-node-cursor-trap" last={is_last_node_array_child} />
+		<NodeGap {path} type="gap-after" last={is_last_node_array_child} />
 	{/if}
 </svelte:element>

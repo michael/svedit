@@ -19,7 +19,8 @@
 	}
 
 	.caret {
-		--col: calc(1 - var(--row, 1));
+		--_R: var(--row, 1);
+		--_C: calc(1 - var(--row, 1));
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
@@ -46,23 +47,23 @@
 		 * No explicit height/width — inset pairs control dimensions.
 		 */
 		top: min(
-			calc(50% + var(--row) * 99999px),
-			calc(var(--_ci) + var(--col) * 99999px)
+			calc(50% + var(--_R) * 99999px),
+			calc(var(--_ci) + var(--_C) * 99999px)
 		);
 		bottom: min(
-			calc(50% - var(--_ct) + var(--row) * 99999px),
-			calc(var(--_ci) + var(--col) * 99999px)
+			calc(50% - var(--_ct) + var(--_R) * 99999px),
+			calc(var(--_ci) + var(--_C) * 99999px)
 		);
 		left: min(
-			calc(var(--_ci) + var(--row) * 99999px),
-			calc(var(--_cp) + var(--col) * 99999px)
+			calc(var(--_ci) + var(--_R) * 99999px),
+			calc(var(--_cp) + var(--_C) * 99999px)
 		);
 		right: min(
-			calc(var(--_ci) + var(--row) * 99999px),
-			calc(100% - var(--_cp) - var(--_ct) + var(--col) * 99999px)
+			calc(var(--_ci) + var(--_R) * 99999px),
+			calc(100% - var(--_cp) - var(--_ct) + var(--_C) * 99999px)
 		);
 		transform:
-			translateY(calc(var(--col) * -0.5px))
-			translateX(calc(var(--row) * -0.5px));
+			translateY(calc(var(--_C) * -0.5px))
+			translateX(calc(var(--_R) * -0.5px));
 	}
 </style>

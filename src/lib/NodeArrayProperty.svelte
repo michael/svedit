@@ -2,12 +2,14 @@
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
 	import { snake_to_pascal } from './utils.js';
+	import DefaultNodeGap from './NodeGap.svelte';
+	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
 	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
-	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
-	let NodeInsertionMarkers = $derived(svedit.session.config.system_components.NodeInsertionMarkers);
+	let NodeGap = $derived(svedit.session.config.system_components?.NodeGap ?? DefaultNodeGap);
+	let NodeGapMarkers = $derived(svedit.session.config.system_components?.NodeGapMarkers ?? DefaultNodeGapMarkers);
 
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
@@ -50,7 +52,7 @@
 		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
 		     resolves anchor positioning against the shared containing block,
 		     not the placeholder which inherits .node positioning styles. -->
-		<NodeCursorTrap path={[...path, 0]} type="position-zero-cursor-trap" empty />
+		<NodeGap path={[...path, 0]} type="gap-before" empty />
 	{/if}
 	{#each nodes as node, index (index)}
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
@@ -60,7 +62,7 @@
 			<UnknownNode path={[...path, index]} />
 		{/if}
 	{/each}
-	{#if svedit.editable && NodeInsertionMarkers}
-		<NodeInsertionMarkers {path} />
+	{#if svedit.editable && NodeGapMarkers}
+		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>

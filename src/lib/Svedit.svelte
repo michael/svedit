@@ -6,6 +6,8 @@
 		utf16_to_char_offset,
 		char_to_utf16_offset
 	} from './utils.js';
+	import { create_gap_computation } from './node_gap_computation.svelte.js';
+	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 
 	/** @import {
 	 *   SveditProps,
@@ -30,14 +32,13 @@
 
 	let canvas_el;
 	let root_node = $derived(session.get(path));
-	let Overlays = $derived(session.config.system_components.Overlays);
+	let Overlays = $derived(session.config.system_components?.Overlays);
+	let NodeSelectionMarkers = $derived(session.config.system_components?.NodeSelectionMarkers ?? DefaultNodeSelectionMarkers);
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
 	let is_composing = $state(false);
 	let before_composition_selection = null;
 
-	/** @type {{ gaps_by_path: Map<string, Array>, cursor_gap_key: string|null }|null} Set once by NodeInsertionOverlay, read by NodeInsertionMarkers via reactive getters. */
-	let _insertion_gap_data = $state.raw(null);
 
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
@@ -61,16 +62,11 @@
 		get canvas_el() {
 			return canvas_el;
 		},
-		get insertion_gap_data() {
-			return _insertion_gap_data;
-		},
-		set insertion_gap_data(v) {
-			_insertion_gap_data = v;
-		},
 		focus_canvas
 	};
 
 	setContext('svedit', context);
+	create_gap_computation(context);
 
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
@@ -758,14 +754,14 @@ ${fallback_html}`;
 		if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
 		if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
-		// EDGE CASE: Let's first check if we are in a cursor trap for node cursors
-		let after_node_cursor_trap =
-			focus_node && focus_node?.closest('[data-type="after-node-cursor-trap"]');
-		if (after_node_cursor_trap && focus_node === anchor_node) {
-			// Find the node that this cursor trap belongs to
-			let node = /** @type {HTMLElement} */ (after_node_cursor_trap.closest('[data-type="node"]'));
+		// EDGE CASE: Let's first check if we are in a node gap for node cursors
+		let gap_after_el =
+			focus_node && focus_node?.closest('[data-type="gap-after"]');
+		if (gap_after_el && focus_node === anchor_node) {
+			// Find the node that this gap belongs to
+			let node = /** @type {HTMLElement} */ (gap_after_el.closest('[data-type="node"]'));
 			if (!node) {
-				console.log('No corresponding node found for after-node-cursor-trap');
+				console.log('No corresponding node found for gap-after');
 				return null;
 			}
 			const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
@@ -779,11 +775,11 @@ ${fallback_html}`;
 			};
 		}
 
-		// EDGE CASE: Let's check if we are in a position-zero-cursor-trap for node_arrays.
-		let position_zero_cursor_trap = focus_node.closest('[data-type="position-zero-cursor-trap"]');
-		if (position_zero_cursor_trap && focus_node === anchor_node) {
+		// EDGE CASE: Let's check if we are in a gap-before for node_arrays.
+		let gap_before_el = focus_node.closest('[data-type="gap-before"]');
+		if (gap_before_el && focus_node === anchor_node) {
 			const node_array_el = /** @type {HTMLElement} */ (
-				position_zero_cursor_trap.closest('[data-type="node_array"]')
+				gap_before_el.closest('[data-type="node_array"]')
 			);
 			const node_array_path = node_array_el.dataset.path.split('.');
 			return {
@@ -842,19 +838,19 @@ ${fallback_html}`;
 			focus_offset += 1;
 		}
 
-		// EDGE CASE: Exclude first node when anchor_node is an afer-node-cursor-trap
+		// EDGE CASE: Exclude first node when anchor_node is a gap-after
 		// in a non-collapsed forward selection
 		if (
-			anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
+			anchor_node.parentElement?.dataset.type === 'gap-after' &&
 			!is_backwards &&
 			anchor_offset !== focus_offset
 		) {
 			anchor_offset += 1;
 		}
-		// EDGE CASE: Exclude first node when focus_node is an afer-node-cursor-trap
+		// EDGE CASE: Exclude first node when focus_node is a gap-after
 		// in a non-collapsed backward selection
 		else if (
-			focus_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
+			focus_node.parentElement?.dataset.type === 'gap-after' &&
 			is_backwards &&
 			anchor_offset !== focus_offset &&
 			// EDGE CASE: Only do correction when drag started from a deeper or equally deep anchor node
@@ -1088,18 +1084,18 @@ ${fallback_html}`;
 
 		if (is_collapsed) {
 			// Cursor position in between two nodes or at the very beginning/end of a node_array
-			// IMPORTANT: We need to look for direct children of anchor_node to find the right cursor trap.
-			const trap_selector = selection.anchor_offset === 0
-				? '.position-zero-cursor-trap'
-				: '.after-node-cursor-trap';
-			// In empty arrays the cursor trap is a sibling of the placeholder, not a child
-			const cursor_trap_el =
-				anchor_node.querySelector(`:scope > ${trap_selector}`) ??
-				anchor_node.parentElement?.querySelector(`:scope > ${trap_selector}`);
+			// IMPORTANT: We need to look for direct children of anchor_node to find the right node gap.
+			const gap_selector = selection.anchor_offset === 0
+				? '.gap-before'
+				: '.gap-after';
+			// In empty arrays the node gap is a sibling of the placeholder, not a child
+			const gap_el =
+				anchor_node.querySelector(`:scope > ${gap_selector}`) ??
+				anchor_node.parentElement?.querySelector(`:scope > ${gap_selector}`);
 
-			if (!cursor_trap_el) return;
-			range.setStart(cursor_trap_el, 1);
-			range.setEnd(cursor_trap_el, 1);
+			if (!gap_el) return;
+			range.setStart(gap_el, 1);
+			range.setEnd(gap_el, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
 		} else {
@@ -1157,12 +1153,12 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
-		const cursor_trap_selectable = el.querySelector('.svedit-selectable');
+		const gap_selectable = el.querySelector('.svedit-selectable');
 		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
 
-		// Select the entire cursor trap element contents and collapse to start
-		range.selectNodeContents(cursor_trap_selectable);
+		// Select the entire gap element contents and collapse to start
+		range.selectNodeContents(gap_selectable);
 		range.collapse(true); // Collapse to start position
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
@@ -1318,9 +1314,9 @@ ${fallback_html}`;
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
-	<!-- Overlays must be before canvas so data-only overlays (NodeInsertionOverlay) initialize
-	     first, making gap data available before NodeInsertionMarkers render. Prevents re-rendering/ flickering. -->
-	<Overlays />
+	<!-- Overlays must be before canvas so they initialize first. -->
+	<NodeSelectionMarkers />
+	{#if Overlays}<Overlays />{/if}
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
@@ -1370,7 +1366,7 @@ ${fallback_html}`;
 		}
 	}
 
-	/* When the cursor is in a cursor-trap we never want to see the caret */
+	/* When the cursor is in a node gap we never want to see the caret */
 	.svedit-canvas.node-cursor,
 	.svedit-canvas.property-selection {
 		caret-color: transparent;

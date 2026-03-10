@@ -1,9 +1,6 @@
 <script>
-	import NodeSelectionOverlays from './NodeSelectionOverlays.svelte';
 	import LinkActionOverlay from './LinkActionOverlay.svelte';
-	import NodeInsertionOverlay from './NodeInsertionOverlay.svelte';
 </script>
 
-<NodeSelectionOverlays />
+<!-- a place to add your custom overlays, e.g. editing tools for links, images, annotations, formatting, etc. -->
 <LinkActionOverlay />
-<NodeInsertionOverlay />

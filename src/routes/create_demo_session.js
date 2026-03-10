@@ -20,8 +20,6 @@ import {
 import nanoid from './nanoid.js';
 
 // System components
-import NodeCursorTrap from './components/NodeCursorTrap.svelte';
-import NodeInsertionMarkers from './components/NodeInsertionMarkers.svelte';
 import Overlays from './components/Overlays.svelte';
 
 // Node components
@@ -471,11 +469,9 @@ const doc = {
 export const session_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
-	// Provide definitions/overrides for system native components,
-	// such as NodeCursorTrap or Overlays
+	// Provide overrides for system components (NodeGap, NodeGapMarkers,
+	// NodeSelectionMarkers) or user-land overlays (link previews, etc.)
 	system_components: {
-		NodeCursorTrap,
-		NodeInsertionMarkers,
 		Overlays
 	},
 	// Registry of components for each node type
