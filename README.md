@@ -1034,6 +1034,7 @@ Further things to consider:
 - Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
 - Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
+- Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensure `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to child element of Node.
 
 ## Full API docs?
 
