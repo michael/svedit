@@ -8,6 +8,7 @@
 	} from './utils.js';
 	import { create_gap_computation } from './node_gap_computation.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
+	import './styles/svedit-colors.css';
 
 	/** @import {
 	 *   SveditProps,
@@ -1349,7 +1350,7 @@ ${fallback_html}`;
 
 <style>
 	.svedit-canvas {
-		caret-color: var(--editing-stroke-color);
+		caret-color: var(--svedit-editing-stroke);
 		caret-shape: bar;
 		&:focus {
 			outline: none;
@@ -1357,7 +1358,7 @@ ${fallback_html}`;
 	}
 
 	.svedit-canvas :global(::selection) {
-		background: var(--editing-fill-color);
+		background: var(--svedit-editing-fill);
 	}
 
 	@media not (pointer: coarse) {

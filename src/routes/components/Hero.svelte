@@ -8,42 +8,40 @@
 	let has_image = $derived(node.image && node.image.trim() !== '');
 </script>
 
-<Node {path}>
-	<div
-		class="hero mx-auto w-full"
-		class:has-image={has_image}
-		style={has_image ? `background-image: url(${node.image});` : ''}
-	>
-		{#if has_image}
-			<div class="hero-overlay"></div>
-		{/if}
-		<div class="hero-content">
-			<AnnotatedTextProperty
-				class="hero-title"
-				path={[...path, 'title']}
-				placeholder="A hero is the prominent, top-most section of a webpage"
-			/>
-			<AnnotatedTextProperty
-				class="hero-subtitle"
-				path={[...path, 'description']}
-				placeholder="It should be accompanied by a short description."
-			/>
-			<div class="github-button-wrapper" contenteditable="false">
-				<a
-					class="github-button"
-					href="https://github.com/michael/svedit"
-					data-color-scheme="no-preference: light; light: light; dark: dark;"
-					data-size="large"
-					data-show-count="true"
-					aria-label="Star michael/svedit on GitHub">Star</a
-				>
-			</div>
+<Node 
+	{path}
+	class="hero mx-auto w-full {has_image ? 'has-image' : ''}"
+	style={has_image ? `background-image: url(${node.image});` : ''}
+>
+	{#if has_image}
+		<div class="hero-overlay"></div>
+	{/if}
+	<div class="hero-content">
+		<AnnotatedTextProperty
+			class="hero-title"
+			path={[...path, 'title']}
+			placeholder="A hero is the prominent, top-most section of a webpage"
+		/>
+		<AnnotatedTextProperty
+			class="hero-subtitle"
+			path={[...path, 'description']}
+			placeholder="It should be accompanied by a short description."
+		/>
+		<div class="github-button-wrapper" contenteditable="false">
+			<a
+				class="github-button"
+				href="https://github.com/michael/svedit"
+				data-color-scheme="no-preference: light; light: light; dark: dark;"
+				data-size="large"
+				data-show-count="true"
+				aria-label="Star michael/svedit on GitHub">Star</a
+			>
 		</div>
 	</div>
 </Node>
 
 <style>
-	.hero {
+	:global(.hero) {
 		margin-bottom: var(--s-10);
 		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
 		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
@@ -57,8 +55,8 @@
 		position: relative;
 		background: linear-gradient(
 			135deg,
-			var(--primary-fill-color),
-			color-mix(in srgb, var(--primary-fill-color) 80%, white)
+			var(--app-primary-fill),
+			color-mix(in srgb, var(--app-primary-fill) 80%, white)
 		);
 	}
 
@@ -90,7 +88,7 @@
 		z-index: 2;
 	}
 
-	.hero :global(.hero-title) {
+	:global(.hero .hero-title) {
 		font-size: 3rem;
 		font-weight: 700;
 		line-height: 1.2;
@@ -99,7 +97,7 @@
 		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 	}
 
-	.hero :global(.hero-subtitle) {
+	:global(.hero .hero-subtitle) {
 		font-size: 1.7rem;
 		line-height: 1.6;
 		opacity: 0.8;
@@ -110,33 +108,33 @@
 		margin: 0 auto;
 	}
 
-	.hero.has-image :global(.hero-title) {
+	:global(.hero.has-image .hero-title) {
 		color: white;
 		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 	}
 
-	.hero.has-image :global(.hero-subtitle) {
+	:global(.hero.has-image .hero-subtitle) {
 		color: white;
 		opacity: 0.9;
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 	}
 
 	@media (max-width: 768px) {
-		.hero :global(.hero-title) {
+		:global(.hero .hero-title) {
 			font-size: 2.5rem;
 		}
 
-		.hero :global(.hero-subtitle) {
+		:global(.hero .hero-subtitle) {
 			font-size: 1.125rem;
 		}
 	}
 
 	@media (max-width: 480px) {
-		.hero :global(.hero-title) {
+		:global(.hero .hero-title) {
 			font-size: 2rem;
 		}
 
-		.hero :global(.hero-subtitle) {
+		:global(.hero .hero-subtitle) {
 			font-size: 1rem;
 		}
 	}

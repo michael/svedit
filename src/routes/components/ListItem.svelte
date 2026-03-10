@@ -40,7 +40,7 @@
 		top: 1em;
 		font-size: 1em;
 		content: counter(listcounter, var(--list-style));
-		color: var(--primary-fill-color);
+		color: var(--app-primary-fill);
 	}
 
 	/* CSS Counter initiation */

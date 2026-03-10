@@ -280,8 +280,8 @@
 		font-weight: 700;
 		display: block;
 		text-decoration: none;
-		background: var(--editing-stroke-color);
-		color: var(--canvas-fill-color);
+		background: var(--svedit-editing-stroke);
+		color: var(--app-canvas-fill);
 		padding: var(--s-1) var(--s-8);
 	}
 
@@ -290,14 +290,14 @@
 	}
 
 	.toggle-editable:hover {
-		background: var(--editing-stroke-color);
-		color: var(--canvas-fill-color);
+		background: var(--svedit-editing-stroke);
+		color: var(--app-canvas-fill);
 		opacity: 0.9;
 	}
 
 	.editor-toolbar {
-		color: var(--primary-text-color);
-		background-color: var(--canvas-fill-color);
+		color: var(--app-primary-text);
+		background-color: var(--app-canvas-fill);
 		width: fit-content;
 		position: fixed;
 		bottom: var(--s-4);
@@ -317,11 +317,11 @@
 			text-wrap: nowrap;
 			height: 100%;
 			min-height: 44px;
-			--icon-color: var(--primary-text-color);
+			--icon-color: var(--app-primary-text);
 			position: relative;
 			&.active {
-				color: var(--editing-stroke-color);
-				--icon-color: var(--editing-stroke-color);
+				color: var(--svedit-editing-stroke);
+				--icon-color: var(--svedit-editing-stroke);
 			}
 		}
 
@@ -340,22 +340,22 @@
 
 			input {
 				padding: var(--s-1) var(--s-2);
-				border: 1px solid var(--stroke-color);
+				border: 1px solid var(--app-stroke);
 				border-radius: var(--s-1);
-				background: var(--canvas-fill-color);
-				color: var(--primary-text-color);
+				background: var(--app-canvas-fill);
+				color: var(--app-primary-text);
 				font-size: 14px;
 				width: 200px;
 
 				&:focus {
 					outline: none;
-					border-color: var(--editing-stroke-color);
+					border-color: var(--svedit-editing-stroke);
 				}
 			}
 		}
 
 		hr {
-			background-color: var(--stroke-color);
+			background-color: var(--app-stroke);
 			width: 1px;
 			height: 100%;
 			border: none;

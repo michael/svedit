@@ -108,7 +108,7 @@ i,
 button {
 	border-radius: 9999px;
 	font-size: calc(var(--base-size) / var(--scale-ratio));
-	background-color: var(--canvas-fill-color);
+	background-color: var(--app-canvas-fill);
 	font-weight: 400;
 	padding-inline: var(--s-3);
 	min-height: 44px;
@@ -129,7 +129,7 @@ button {
 		cursor: not-allowed;
 	}
 	&:not(:disabled):hover {
-		background-color: oklch(from var(--canvas-fill-color) calc(l - 0.05) c h);
+		background-color: oklch(from var(--app-canvas-fill) calc(l - 0.05) c h);
 	}
 	&.small {
 		min-height: 36px;
@@ -155,6 +155,6 @@ button {
 
 a {
 	text-decoration: underline;
-	color: var(--primary-text-color);
+	color: var(--app-primary-text);
 	text-underline-offset: 0.3em;
 }

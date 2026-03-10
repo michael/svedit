@@ -383,8 +383,8 @@
 				calc(var(--_mi) + var(--_R) * 99999px),
 				calc(50% + var(--_C) * 99999px)
 			);
-			border-top: calc(var(--_C) * 1px) dashed var(--node-cursor-gap-color, var(--stroke-color));
-			border-left: calc(var(--_R) * 1px) dashed var(--node-cursor-gap-color, var(--stroke-color));
+			border-top: calc(var(--_C) * 1px) dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke));
+			border-left: calc(var(--_R) * 1px) dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke));
 			transform:
 				translateY(calc(var(--_C) * -0.5px))
 				translateX(calc(var(--_R) * -0.5px));
@@ -398,7 +398,7 @@
 		/* Empty array marker (dashed outline for discoverability). */
 		&.gap-empty::before {
 			inset: 0px;
-			border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--stroke-color)));
+			border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke)));
 			border-radius: var(--node-cursor-empty-border-radius, 3px);
 		}
 
@@ -411,7 +411,7 @@
 			top: 50%;
 			left: 50%;
 			transform: translate(-50%, -50%);
-			background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--stroke-color)));
+			background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--svedit-canvas-stroke)));
 			mask: var(--node-cursor-symbol-mask,
 				linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
 				linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat

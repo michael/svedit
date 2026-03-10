@@ -44,8 +44,8 @@
 		display: block;
 		padding: var(--s-2);
 		border-radius: var(--s-2);
-		color: var(--primary-text-color);
-		--icon-color: var(--primary-text-color);
+		color: var(--app-primary-text);
+		--icon-color: var(--app-primary-text);
 		box-shadow: var(--shadow-2);
 	}
 </style>

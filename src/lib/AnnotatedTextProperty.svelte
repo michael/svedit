@@ -156,7 +156,7 @@
 
 	/*.text.focused {
     background: none;
-    outline: 1px solid var(--editing-stroke-color);
+    outline: 1px solid var(--svedit-editing-stroke);
   }*/
 
 	/* Disable text-transform when editable and focused so users see original text */
@@ -165,13 +165,13 @@
 	}
 
 	/* Dim the selection highlight when canvas loses native focus */
-	:global(.svedit-canvas:not(:focus)) .selection-highlight {
-		background: oklch(from var(--editing-fill-color) l 0.02 h / 0.3);
+	:global(.svedit-canvas:not(:focus-within)) .selection-highlight {
+		background: oklch(from var(--svedit-editing-fill) l 0 h / alpha);
 	}
 
 	/* Make a collapsed cursor visible */
-	:global(.svedit-canvas:not(:focus)) .selection-highlight:empty {
+	:global(.svedit-canvas:not(:focus-within)) .selection-highlight:empty {
 		background: none;
-		outline: 0.5px solid oklch(from var(--editing-stroke-color) l 0.02 h / 0.3);
+		outline: 0.5px solid oklch(from var(--svedit-editing-stroke) l 0 h / alpha);
 	}
 </style>

@@ -37,8 +37,10 @@
 		--_cp: var(--node-cursor-row-inline-position, 50%);
 		content: '';
 		position: absolute;
-		background: var(--node-cursor-bg, var(--editing-stroke-color));
-		box-shadow: var(--node-cursor-shadow, 0 0 0 0.5px oklch(1 0 0 / 1));
+		background: var(--node-cursor-bg, var(--svedit-editing-stroke));
+		/* Increase the visibility of the cursor by contrasting it with a box shadow that's the inverted brightness of the current text color. */
+		/* Component developers must set their background color and text color on the node itself, not a child element, for this to work. */
+		box-shadow: var(--node-cursor-shadow, 0 0 0 0.5px oklch(from currentColor calc(1 - l) c h));
 		border: var(--node-cursor-border, none);
 		border-radius: var(--node-cursor-radius, 1px);
 		/*

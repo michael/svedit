@@ -36,8 +36,8 @@
 	.selected-node-overlay,
 	.selected-property-overlay {
 		position: absolute;
-		background: var(--editing-fill-color);
-		border: 1px solid var(--editing-stroke-color);
+		background: var(--svedit-editing-fill);
+		border: 1px solid var(--svedit-editing-stroke);
 		border-radius: 2px;
 		top: anchor(top);
 		left: anchor(left);
