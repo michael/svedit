@@ -108,6 +108,7 @@
 		left: anchor(var(--_ct) left);
 		bottom: anchor(var(--_ct) bottom);
 		right: anchor(var(--_ct) right);
+		margin: 0 !important; /* prevent unwanted margin from parent elements */
 	}
 
 	/* --------------------------------------------------------------------- */
