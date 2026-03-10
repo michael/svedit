@@ -1060,6 +1060,7 @@ ${fallback_html}`;
 		const node_array_path = selection.path.join('.');
 		let is_collapsed = selection.anchor_offset === selection.focus_offset;
 		let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
+		let scroll_target = null;
 
 		// We need to translate the cusor offset to node offsets now
 		let anchor_node_offset, focus_node_offset;
@@ -1098,6 +1099,7 @@ ${fallback_html}`;
 			range.setEnd(gap_el, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
+			scroll_target = gap_el.querySelector('.svedit-selectable') ?? gap_el;
 		} else {
 			// Expanded selection (one or more nodes are fully selectd)
 			if (is_backward) {
@@ -1114,6 +1116,9 @@ ${fallback_html}`;
 				dom_selection.addRange(range);
 				// Phew, this was a hard nut to crack. But with that code the direction can be reversed.
 				dom_selection.setBaseAndExtent(anchor_node_selectable, 1, focus_node_selectable, 1);
+				// Scroll to the leading edge (focus side) gap
+				const focus_gap = focus_node.querySelector(`:scope > .gap-before`);
+				scroll_target = focus_gap?.querySelector('.svedit-selectable') ?? focus_node;
 			} else {
 				// Use the first selectable you find
 				const anchor_node_selectable = [...anchor_node.querySelectorAll('.svedit-selectable')].at(
@@ -1126,6 +1131,9 @@ ${fallback_html}`;
 				range.setEnd(focus_node_selectable, 1);
 				dom_selection.removeAllRanges();
 				dom_selection.addRange(range);
+				// Scroll to the leading edge (anchor side) gap
+				const anchor_gap = anchor_node.querySelector(`:scope > .gap-before`);
+				scroll_target = anchor_gap?.querySelector('.svedit-selectable') ?? anchor_node;
 			}
 		}
 
@@ -1135,13 +1143,15 @@ ${fallback_html}`;
 		);
 		if (node_array_el) {
 			node_array_el.focus();
-			// Scroll the selection into view
-			setTimeout(() => {
-				(is_backward ? focus_node : anchor_node).scrollIntoView({
-					block: 'nearest',
-					inline: 'nearest'
-				});
-			}, 0);
+			// Scroll the gap element (where the caret blinks) into view
+			if (scroll_target) {
+				setTimeout(() => {
+					scroll_target.scrollIntoView({
+						block: 'nearest',
+						inline: 'nearest'
+					});
+				}, 0);
+			}
 		} else {
 			console.log('No container element found!');
 		}
