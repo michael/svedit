@@ -13,7 +13,6 @@
 <style>
 	:global {
 		.body-node-array {
-			--row: 0;
 			display: grid;
 			grid-template-columns: 1fr;
 		}
