@@ -323,6 +323,9 @@ function create_visibility_culler(svedit) {
 	function is_near_viewport(path) {
 		if (path.length < 3) return true;
 		void version;
+		// Content under non-tracked arrays is always visible — only the main body array is large enough to cull.
+		const parent_array = `${path[0]}.${path[1]}`;
+		if (!index_map.has(parent_array)) return true;
 		const root_key = `${path[0]}.${path[1]}.${path[2]}`;
 		return visible_roots.has(root_key);
 	}
@@ -442,12 +445,29 @@ export function create_gap_computation(svedit) {
 			}
 		}
 
+		// Walk the document root's `node` type properties (e.g. page.nav,
+		// page.footer) which aren't children of any node_array and thus
+		// aren't reached by the culler's visible_child_indices traversal.
+		const doc_id = svedit.session.document_id;
+		const doc_node = svedit.session.doc.nodes[doc_id];
+		if (doc_node) {
+			const doc_type_def = svedit.session.schema[doc_node.type];
+			if (doc_type_def?.properties) {
+				for (const [prop_name, prop_def] of Object.entries(doc_type_def.properties)) {
+					if (prop_def.type === 'node' && doc_node[prop_name]) {
+						collect_node_gaps(`${doc_id}.${prop_name}`, doc_node[prop_name], by_path);
+					}
+				}
+			}
+		}
+
 		return by_path;
 	}
 
 	/**
 	 * Walk a visible node's schema to find nested node_arrays and add
-	 * full (unculled) gaps for them. Recurses into nested children.
+	 * full (unculled) gaps for them. Recurses into node_array children
+	 * and single node references (e.g. page.nav, page.footer).
 	 * @param {string} array_path_str
 	 * @param {number} child_index
 	 * @param {Map<string, Array<gap_t>>} by_path
@@ -457,27 +477,38 @@ export function create_gap_computation(svedit) {
 		const node_ids = svedit.session.get(array_path);
 		if (!Array.isArray(node_ids) || child_index >= node_ids.length) return;
 
-		const node_id = node_ids[child_index];
+		collect_node_gaps(`${array_path_str}.${child_index}`, node_ids[child_index], by_path);
+	}
+
+	/**
+	 * Walk a single node's properties for node_arrays and node refs.
+	 * @param {string} node_path_str
+	 * @param {string} node_id
+	 * @param {Map<string, Array<gap_t>>} by_path
+	 */
+	function collect_node_gaps(node_path_str, node_id, by_path) {
 		const node = svedit.session.doc.nodes[node_id];
 		if (!node) return;
 
 		const type_def = svedit.session.schema[node.type];
 		if (!type_def?.properties) return;
 
-		const node_path_str = `${array_path_str}.${child_index}`;
-
 		for (const [prop_name, prop_def] of Object.entries(type_def.properties)) {
-			if (prop_def.type !== 'node_array') continue;
+			const prop_path_str = `${node_path_str}.${prop_name}`;
 
-			const nested_path_str = `${node_path_str}.${prop_name}`;
-			if (by_path.has(nested_path_str)) continue;
+			if (prop_def.type === 'node') {
+				const ref_id = node[prop_name];
+				if (ref_id) collect_node_gaps(prop_path_str, ref_id, by_path);
+			} else if (prop_def.type === 'node_array') {
+				if (by_path.has(prop_path_str)) continue;
 
-			const ids = node[prop_name] || [];
-			const gaps = emit_gaps(nested_path_str, nested_path_str.split('.'), ids.length, () => true);
-			if (gaps.length > 0) by_path.set(nested_path_str, gaps);
+				const ids = node[prop_name] || [];
+				const gaps = emit_gaps(prop_path_str, prop_path_str.split('.'), ids.length, () => true);
+				if (gaps.length > 0) by_path.set(prop_path_str, gaps);
 
-			for (let i = 0; i < ids.length; i++) {
-				collect_nested_array_gaps(nested_path_str, i, by_path);
+				for (let i = 0; i < ids.length; i++) {
+					collect_node_gaps(`${prop_path_str}.${i}`, ids[i], by_path);
+				}
 			}
 		}
 	}
