@@ -1031,7 +1031,9 @@ Further things to consider:
 - If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
 - `<AnnotatedTextProperty>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
 - Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
+- Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
+- Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
 
 ## Full API docs?
 
