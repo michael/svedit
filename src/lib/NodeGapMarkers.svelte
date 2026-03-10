@@ -84,14 +84,21 @@
 	}
 
 	/*
-	 * Base marker positioning — anchors to the node gap's .svedit-selectable.
+	 * Base marker positioning.
+	 *
+	 * Each subclass (gap-empty, gap-mid, gap-edge) provides its own
+	 * top/left/bottom/right anchored to NODE elements directly — never
+	 * to the NodeGap .svedit-selectable. This avoids chained anchor
+	 * positioning (marker → selectable → node) which fails in some
+	 * layouts.
 	 *
 	 * Anchor CSS custom properties (set via inline style on each element):
-	 *   --_ct  node gap (.svedit-selectable anchor-name)
-	 *   --_a   placeholder element (empty arrays only)
+	 *   --_ct  node gap (.svedit-selectable anchor-name, unused by markers)
+	 *   --_a   adjacent node (edge gaps) or placeholder (empty arrays)
+	 *   --_p   previous node (mid gaps)
+	 *   --_n   next node (mid gaps, row same-line vs wrap detection)
 	 *   --_f   reference item 0 (row gap narrowing)
 	 *   --_s   reference item 1 (row gap narrowing)
-	 *   --_n   next node (row same-line vs wrap detection)
 	 *   --_c   node-array container (edge row.last cap)
 	 */
 	.gap-marker {
@@ -104,10 +111,6 @@
 		pointer-events: none;
 		z-index: var(--node-cursor-marker-z-index, 2);
 		padding: var(--node-cursor-marker-padding, 2px);
-		top: anchor(var(--_ct) top);
-		left: anchor(var(--_ct) left);
-		bottom: anchor(var(--_ct) bottom);
-		right: anchor(var(--_ct) right);
 		margin: 0 !important; /* prevent unwanted margin from parent elements */
 	}
 
@@ -128,14 +131,35 @@
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Mid gap (between two nodes) — column uses node gap anchor (base    */
-	/* rule). Row uses complex narrowing logic. The row branches all get     */
-	/* + var(--_C) * 99999px so they're ignored in column layout.            */
+	/* Mid gap (between two nodes) — anchors directly to --_p and --_n.     */
+	/* Column: spans from prev bottom to next top, with a centering branch  */
+	/* that guarantees at least --_gm height when the gap is too small.     */
+	/* Row: spans prev node. Row left/right use complex narrowing logic;    */
+	/* row branches all get + var(--_C) * 99999px so they're ignored in     */
+	/* column layout.                                                        */
 	/* --------------------------------------------------------------------- */
 
 	.gap-marker.gap-mid {
+		top: min(
+			calc(anchor(var(--_p) bottom) + var(--_R) * 99999px),
+			calc(
+				(anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
+				- var(--_gm) / 2
+				+ var(--_R) * 99999px
+			),
+			calc(anchor(var(--_p) top) + var(--_C) * 99999px)
+		);
+		bottom: min(
+			calc(anchor(var(--_n) top) + var(--_R) * 99999px),
+			calc(
+				(anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
+				- var(--_gm) / 2
+				+ var(--_R) * 99999px
+			),
+			calc(anchor(var(--_p) bottom) + var(--_C) * 99999px)
+		);
 		left: min(
-			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_p) left) + var(--_R) * 99999px),
 			calc(anchor(var(--_p) right) + var(--_C) * 99999px),
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
@@ -175,7 +199,7 @@
 		right: max(
 			calc(0px + var(--_C) * -99999px),
 			min(
-				calc(anchor(var(--_ct) right) + var(--_R) * 99999px),
+				calc(anchor(var(--_p) right) + var(--_R) * 99999px),
 				calc(
 					anchor(var(--_n) left) + var(--_C) * 99999px
 				),
@@ -239,19 +263,19 @@
 	/* Edge first: column = above first node, row = left of first node */
 	.gap-edge.first {
 		top: min(
-			calc(anchor(var(--_ct) top) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
 			calc(max(0px, calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
 		);
 		bottom: min(
-			calc(anchor(var(--_ct) bottom) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
 			calc(anchor(var(--_a) top) + var(--_R) * 99999px)
 		);
 		left: min(
-			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
 			calc(max(0px, calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
 		);
 		right: min(
-			calc(anchor(var(--_ct) right) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) right) + var(--_R) * 99999px),
 			calc(anchor(var(--_a) left) + var(--_C) * 99999px)
 		);
 	}
@@ -259,21 +283,21 @@
 	/* Edge last: column = below last node, row = right of last node */
 	.gap-edge.last {
 		top: min(
-			calc(anchor(var(--_ct) top) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
 			calc(anchor(var(--_a) bottom) + var(--_R) * 99999px)
 		);
 		bottom: min(
-			calc(anchor(var(--_ct) bottom) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
 			calc(anchor(var(--_a) bottom) - var(--_gm) + var(--_R) * 99999px)
 		);
 		left: min(
-			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
 			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
 			calc(100% - var(--_gm) + var(--_C) * 99999px)
 		);
 		right: max(
 			calc(0px + var(--_C) * -99999px),
-			calc(anchor(var(--_ct) right) + var(--_R) * -99999px),
+			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
 			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -99999px),
 			calc(anchor(var(--_c) right) + var(--_C) * -99999px)
 		);
@@ -288,7 +312,7 @@
 	/* Purpose of this + 0.5px: disable for zero-gap grids (see .gap-mid comment). */
 	.gap-marker.gap-edge.last.pair {
 		left: min(
-			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
 			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
 			calc(
 				anchor(var(--_a) right)
@@ -316,7 +340,7 @@
 			)
 		);
 		right: max(
-			calc(anchor(var(--_ct) right) + var(--_R) * -99999px),
+			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
 			calc(0px + var(--_C) * -99999px),
 			calc(
 				anchor(var(--_a) right)
@@ -427,6 +451,6 @@
 	}
 	.gap-marker {
 		outline: 0.1px solid blue;
-		outline-offset: -2px;
+		outline-offset: 0.5px;
 	}
 </style>
