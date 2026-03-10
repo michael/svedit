@@ -255,6 +255,9 @@ function create_visibility_culler(svedit) {
 		});
 
 		setup_observation(io);
+		// Sync doc_snapshot here — the $effect.pre bridge (line ~309) won't
+		// re-run because doc didn't change, only editable did.
+		doc_snapshot = svedit.session.doc;
 		version = ++_ver;
 
 		const canvas = svedit.canvas_el || document.querySelector('.svedit-canvas');
