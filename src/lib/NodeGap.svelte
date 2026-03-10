@@ -1,6 +1,6 @@
 <script>
 	/**
-	 * Invisible keyboard cursor trap and gap hit area.
+	 * Invisible keyboard cursor selectable and gap hit area.
 	 *
 	 * This element serves two purposes:
 	 * 1. A zero-height in-flow landing zone for keyboard caret navigation
@@ -20,7 +20,7 @@
 	 */
 	let { path, type, empty = false, last = false } = $props();
 
-	let trap_style = $derived.by(() => {
+	let gap_style = $derived.by(() => {
 		const p = path.join('-');
 		const arr = path.slice(0, -1).join('-');
 		const idx = parseInt(String(path.at(-1)), 10);
@@ -35,7 +35,7 @@
 	class:empty
 	class:last
 	data-type={type}
-	style={trap_style}
+	style={gap_style}
 >
 	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
 </div>
