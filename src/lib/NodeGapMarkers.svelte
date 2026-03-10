@@ -284,11 +284,11 @@
 	/* (min: + 99999px to disable) and right (max: * -99999px to disable).   */
 	/* --------------------------------------------------------------------- */
 
+	/* Purpose of this + 0.5px: disable for zero-gap grids (see .gap-mid comment). */
 	.gap-marker.gap-edge.last.pair {
 		left: min(
 			calc(anchor(var(--_ct) left) + var(--_R) * 99999px),
 			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
-			/* + 0.5px: disable for zero-gap grids (see .gap-mid comment). */
 			calc(
 				anchor(var(--_a) right)
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
@@ -296,7 +296,8 @@
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
 					var(--_gm)
 				) / 2
-				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left) + 0.5px) * 9999
+				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
+				+ max(0px, anchor(var(--_a) right) - anchor(var(--_c) right) + 0.5px) * 9999
 				+ var(--_C) * 99999px
 			),
 			calc(100% - var(--_gm) + var(--_C) * 99999px),
@@ -316,7 +317,6 @@
 		right: max(
 			calc(anchor(var(--_ct) right) + var(--_R) * -99999px),
 			calc(0px + var(--_C) * -99999px),
-			/* + 0.5px: disable for zero-gap grids (see .gap-mid comment). */
 			calc(
 				anchor(var(--_a) right)
 				- (
@@ -326,7 +326,8 @@
 						var(--_gm)
 					)
 				) / 2
-				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right) + 0.5px) * 9999
+				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
+				- max(0px, anchor(var(--_c) right) - anchor(var(--_a) right) + 0.5px) * 9999
 				+ var(--_C) * -99999px
 			),
 			calc(
@@ -420,11 +421,11 @@
 	}
 
 	/* Debugging styles  */
-	/* :global([data-type="node_array"]) {
+	:global([data-type="node_array"]) {
 		outline: 0.1px solid green;
 	}
 	.gap-marker {
 		outline: 0.1px solid blue;
 		outline-offset: -2px;
-	} */
+	}
 </style>
