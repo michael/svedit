@@ -58,11 +58,8 @@
 	/* ------------------------------------------------------------------ */
 
 	.node-gap:not(.positioned) .svedit-selectable {
-		position: static;
-		width: 0;
-		height: 0;
-		overflow: hidden;
-		pointer-events: none;
+		content-visibility: hidden;
+	  contain-intrinsic-size: 0 0;
 	}
 
 	/* ------------------------------------------------------------------ */
