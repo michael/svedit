@@ -60,6 +60,11 @@
 	.node-gap:not(.positioned) .svedit-selectable {
 		content-visibility: hidden;
 	  contain-intrinsic-size: 0 0;
+		position: static;
+		pointer-events: none;
+		width: 0;
+		height: 0;
+		overflow: clip;
 	}
 
 	/* ------------------------------------------------------------------ */
