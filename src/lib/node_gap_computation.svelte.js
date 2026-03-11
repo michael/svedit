@@ -1,25 +1,34 @@
 /**
- * Gap computation and culling setup for node-array insertion markers.
- * Called once from Svedit.svelte during init.
+ * Gap computation and viewport-aware positioning for node-array
+ * insertion markers. Called once from Svedit.svelte during init.
  *
  * @module
  */
 
 /**
- * IntersectionObserver-based visibility culling for node arrays.
+ * IntersectionObserver-based viewport tracking for node arrays.
  *
  * ## Why this exists
  *
- * Without culling, every node in the document produces insertion gap
- * markers (via NodeGapMarkers) and CSS-anchor-positioned node gaps
- * (via NodeGap). Both are expensive: gap markers grow at
- * O(N) with document size, and each node gap triggers layout work
- * for its anchor positioning. At ~200+ nodes, this causes noticeable
- * frame drops during scroll and resize; at 500+ it's unusable.
+ * CSS anchor positioning is O(N) — the browser must resolve anchor()
+ * functions for every positioned element on layout. Gap markers
+ * (NodeGapMarkers) also grow at O(N). At ~200+ nodes this causes
+ * noticeable frame drops during scroll and resize; at 500+ it's
+ * unusable.
  *
- * Culling solves this by tracking which root-level nodes are within
- * or near the viewport, so only ~10–20 nodes (regardless of document
- * size) participate in gap computation and node gap rendering.
+ * ## Design principle: structurally stable DOM
+ *
+ * NodeGap elements are **always present** in the DOM when editable,
+ * regardless of viewport position. This guarantees:
+ * - Selection anchors survive scrolling (no DOM removal mid-drag)
+ * - scrollTo can always target gap elements
+ * - ui = f(doc_state, editable_state) — no viewport-driven DOM changes
+ *
+ * The viewport tracker drives **lazy positioning**: only near-viewport
+ * gaps receive CSS anchor positioning (via NodeGap's `positioned`
+ * prop). Off-viewport gaps remain as zero-size static elements with
+ * no layout cost. Gap markers (NodeGapMarkers) are only computed for
+ * visible indices.
  *
  * ## Architecture
  *
@@ -41,7 +50,7 @@
  * ## Reactivity strategy
  *
  * A single debounced **version counter** drives both node gap
- * visibility (`is_near_viewport`) and gap marker computation
+ * positioning (`is_near_viewport`) and gap marker computation
  * (`visible_child_indices`). A plain `Set<string>` tracks which root
  * keys are near the viewport; `is_near_viewport` reads `version`
  * (reactive dependency) then does a non-reactive `Set.has()` lookup.
@@ -57,10 +66,10 @@
 
 /**
  * Overscan margin around the viewport (px). Nodes within this distance
- * of the viewport are pre-tracked so overlays are ready before they
- * scroll into view. 500px provides enough buffer for fast scrolling
- * (~8000px/s) while adding only 3 extra gap markers vs e.g. 250px — no
- * measurable FPS impact at ≤1000 nodes.
+ * of the viewport get anchor positioning activated and gap markers
+ * computed. 500px provides enough buffer for fast scrolling (~8000px/s)
+ * while adding only 3 extra gap markers vs e.g. 250px — no measurable
+ * FPS impact at ≤1000 nodes.
  *
  * Tested values: 250 / 500 / 1000 / 2000. Higher values increase
  * gap marker count and degrade scroll FPS at 6000+ nodes.
@@ -312,10 +321,12 @@ function create_visibility_culler(svedit) {
 	});
 
 	/**
-	 * Viewport proximity check. Reads `version` (debounced 30ms) then
-	 * does a non-reactive Set.has() lookup. On initial mount, version
-	 * is bumped immediately (no debounce) so overlays appear in the
-	 * first paint.
+	 * Viewport proximity check driving lazy anchor positioning.
+	 * NodeGap elements are always in the DOM; this determines whether
+	 * the expensive CSS anchor positioning is activated (positioned
+	 * prop). Reads `version` (debounced 20ms) then does a non-reactive
+	 * Set.has() lookup. On initial mount, version is bumped immediately
+	 * (no debounce) so overlays appear in the first paint.
 	 *
 	 * @param {Array<string|number>} path
 	 * @returns {boolean}

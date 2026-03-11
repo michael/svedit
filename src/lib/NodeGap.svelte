@@ -2,14 +2,16 @@
 	/**
 	 * Invisible keyboard cursor selectable and gap hit area.
 	 *
-	 * This element serves two purposes:
-	 * 1. A zero-height in-flow landing zone for keyboard caret navigation
-	 * 2. An absolutely-positioned hit area covering the inter-node gap,
-	 *    enabling native DOM selection on click/drag (pointer events)
+	 * Always present in the DOM when editable (stable structure for
+	 * selection anchoring, scrollTo, etc.). Anchor positioning is
+	 * activated lazily via the `positioned` prop — only gaps near the
+	 * viewport pay the layout cost of anchor() resolution. Off-screen
+	 * gaps are zero-size static elements with no layout cost.
 	 *
-	 * Anchor positioning sizes the hit area to match the inter-node gap,
-	 * replicating the geometry of NodeGapMarkers.svelte's gap
-	 * elements (the hit areas, not the markers).
+	 * `position-visibility: anchors-visible` does NOT skip anchor
+	 * resolution — the browser resolves all anchor() then hides the
+	 * result. The `.positioned` class toggle is required to prevent
+	 * O(N) anchor resolution on every layout pass.
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
@@ -18,7 +20,7 @@
 	 * containing block is a higher ancestor that contains all sibling
 	 * nodes, making cross-sibling anchor references valid.
 	 */
-	let { path, type, empty = false, last = false } = $props();
+	let { path, type, empty = false, last = false, positioned = true } = $props();
 
 	let gap_style = $derived.by(() => {
 		const p = path.join('-');
@@ -34,6 +36,7 @@
 	class="node-gap {type}"
 	class:empty
 	class:last
+	class:positioned
 	data-type={type}
 	style={gap_style}
 >
@@ -50,31 +53,47 @@
 		caret-color: transparent;
 	}
 
+	/* ------------------------------------------------------------------ */
+	/* Un-positioned: minimal in-DOM presence, no anchor resolution        */
+	/* ------------------------------------------------------------------ */
+
+	.node-gap:not(.positioned) .svedit-selectable {
+		position: static;
+		width: 0;
+		height: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Positioned: full anchor layout                                      */
+	/* ------------------------------------------------------------------ */
+
 	/*
 	 * Anchor references resolved from CSS variable names passed via
 	 * inline style (--_pa, --_next, --_container). Same pattern as
 	 * NodeGapMarkers — keeps JS minimal and anchor() in CSS.
 	 */
-	.node-gap {
+	.node-gap.positioned {
 		--_s-t: anchor(var(--_pa) top);
 		--_s-b: anchor(var(--_pa) bottom);
 		--_s-l: anchor(var(--_pa) left);
 		--_s-r: anchor(var(--_pa) right);
 	}
-	.gap-after:not(.last) {
+	.positioned.gap-after:not(.last) {
 		--_n-t: anchor(var(--_next) top);
 		--_n-l: anchor(var(--_next) left);
 		--_c-r: anchor(var(--_container) right);
 	}
-	.gap-after.last,
-	.gap-before.empty {
+	.positioned.gap-after.last,
+	.positioned.gap-before.empty {
 		--_c-t: anchor(var(--_container) top);
 		--_c-b: anchor(var(--_container) bottom);
 		--_c-l: anchor(var(--_container) left);
 		--_c-r: anchor(var(--_container) right);
 	}
 
-	.svedit-selectable {
+	.positioned .svedit-selectable {
 		--_eg: var(--node-cursor-edge-gap, 24px);
 		--_gm: var(--node-cursor-gap-min-size, 16px);
 		--_R: var(--row, 1);
@@ -99,7 +118,7 @@
 	/* ------------------------------------------------------------------ */
 
 	/* Between two siblings: col centers vertically, row centers horizontally */
-	.gap-after:not(.last) .svedit-selectable {
+	.positioned.gap-after:not(.last) .svedit-selectable {
 		--_mid: calc((var(--_s-b) + var(--_n-t)) / 2 - var(--_gm) / 2);
 		top: min(
 			calc(var(--_s-b) + var(--_R) * 99999px),
@@ -153,7 +172,7 @@
 	}
 
 	/* After last node: col extends down, row extends right */
-	.gap-after.last .svedit-selectable {
+	.positioned.gap-after.last .svedit-selectable {
 		top: min(
 			calc(var(--_s-b) + var(--_R) * 99999px),
 			calc(var(--_s-t) + var(--_C) * 99999px)
@@ -185,7 +204,7 @@
 	}
 
 	/* Before first node: col extends up, row extends left */
-	.gap-before:not(.empty) .svedit-selectable {
+	.positioned.gap-before:not(.empty) .svedit-selectable {
 		top: min(
 			calc(
 				max(0px, var(--_s-t) - var(--_eg))
@@ -213,7 +232,7 @@
 	}
 
 	/* Empty array: spans the outermost edges of placeholder and container. */
-	.gap-before.empty .svedit-selectable {
+	.positioned.gap-before.empty .svedit-selectable {
 		top: min(var(--_s-t), var(--_c-t));
 		bottom: min(var(--_s-b), var(--_c-b));
 		left: min(var(--_s-l), var(--_c-l));
@@ -221,7 +240,7 @@
 	}
 
 	/* Debugging styles  */
-	.svedit-selectable {
+	.positioned .svedit-selectable {
 		outline: 0.1px solid rgba(238, 0, 255, 0.5);
 		outline-offset: -0.5px;
 	}

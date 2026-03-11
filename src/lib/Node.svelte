@@ -23,8 +23,9 @@
 		is_inside_node_array && child_index === node_array_meta.length - 1
 	);
 
-	// Reads the culler's debounced version counter via Set.has() lookup.
-	// Keeps only limited number of node gaps in the DOM regardless of document size.
+	// Drives lazy anchor positioning for node gaps. Gaps are always in the
+	// DOM (stable structure for selection), but only anchor-positioned when
+	// near the viewport to avoid O(N) layout cost.
 	let is_near_viewport = $derived(
 		svedit.is_near_viewport?.(path) ?? true
 	);
@@ -40,12 +41,12 @@
 	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
-	{#if svedit.editable && is_first_node_array_child && is_near_viewport}
-		<NodeGap {path} type="gap-before" />
+	{#if svedit.editable && is_first_node_array_child}
+		<NodeGap {path} type="gap-before" positioned={is_near_viewport} />
 	{/if}
 	{@render children()}
-	{#if svedit.editable && is_inside_node_array && is_near_viewport}
-		<NodeGap {path} type="gap-after" last={is_last_node_array_child} />
+	{#if svedit.editable && is_inside_node_array}
+		<NodeGap {path} type="gap-after" last={is_last_node_array_child} positioned={is_near_viewport} />
 	{/if}
 </svelte:element>
 
