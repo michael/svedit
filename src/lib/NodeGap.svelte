@@ -240,8 +240,8 @@
 	}
 
 	/* Debugging styles  */
-	.positioned .svedit-selectable {
+	/* .positioned .svedit-selectable {
 		outline: 0.1px solid rgba(238, 0, 255, 0.5);
 		outline-offset: -0.5px;
-	}
+	} */
 </style>
