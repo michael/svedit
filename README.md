@@ -35,7 +35,7 @@ Now make it your own. The next thing you probably want to do is define your own 
 
 **Simplicity over completeness:** Svedit doesn't guess what your app needs or offer ready-made blocks. Instead, we keep the core lean and provide carefully crafted examples showing how to build anything on top — without compromising flexibility.
 
-**White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node cursor blinks.
+**White-box library:** We expose the internals of the library to allow you to customize and extend it to your needs. That means a little bit more work upfront, but in return lets you control "everything" — the toolbar, the overlays, or how fast the node caret blinks.
 
 **Chromeless canvas:** Svedit keeps the editing canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
 
@@ -311,7 +311,7 @@ session.kind(node)                      // => 'text', 'block', or 'annotation'
 ```js
 session.selection                       // Current selection (text, node, or property)
 session.selected_node                   // The currently selected node (derived)
-session.active_annotation('strong')     // Check if annotation is active at cursor
+session.active_annotation('strong')     // Check if annotation is active at caret
 session.can_insert('paragraph')         // Check if node type can be inserted
 session.available_annotation_types      // Annotation types allowed at current selection (derived)
 ```
@@ -376,7 +376,7 @@ Transforms are pure functions that modify a transaction. They encapsulate common
 Transforms take a transaction (`tr`) as their parameter and return `true` if successful or `false` if the transform cannot be applied (e.g., wrong selection type or invalid state).
 
 ```js
-// Example: break a text node at the cursor
+// Example: break a text node at the caret
 import { break_text_node } from 'svedit';
 
 const tr = session.tr;
@@ -390,7 +390,7 @@ if (success) {
 
 Svedit provides several core transforms in [`src/lib/transforms.svelte.js`](src/lib/transforms.svelte.js):
 
-- `break_text_node(tr)` - Split a text node at the cursor position
+- `break_text_node(tr)` - Split a text node at the caret position
 - `join_text_node(tr)` - Join current text node with the previous one
 - `insert_default_node(tr)` - Insert a new node at the current selection
 
@@ -468,7 +468,7 @@ const new_node_id = tr.build('the_list', {
 ### Text operations
 
 ```js
-// Insert text at cursor (replaces selection if expanded)
+// Insert text at caret (replaces selection if expanded)
 tr.insert_text('Hello');
 
 // Toggle annotation on selected text
@@ -573,9 +573,9 @@ Svedit provides several [core commands](src/lib/Command.svelte.js) out of the bo
 - `SelectParentCommand` - Select the parent of the current selection
 - `ToggleAnnotationCommand` - Toggle text annotations (bold, italic, etc.)
 - `AddNewLineCommand` - Insert newline character in text
-- `BreakTextNodeCommand` - Split text node at cursor
+- `BreakTextNodeCommand` - Split text node at caret
 - `SelectAllCommand` - Progressively expand selection
-- `InsertDefaultNodeCommand` - Insert a new node at cursor
+- `InsertDefaultNodeCommand` - Insert a new node at caret
 
 #### Using document commands
 
@@ -803,10 +803,10 @@ Selections are at the heart of Svedit. There are just three types of selections:
 ### Terminology note
 
 - Use "node" as the domain term.
-- Use "node cursor" for a collapsed node selection.
+- Use "node caret" for a collapsed node selection.
 - Use "node gap" for the DOM landing zone between nodes.
 
-1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed cursor at position 1 in a text property 'content'.
+1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed caret at position 1 in a text property 'content'.
 
   ```js
   {
@@ -877,7 +877,7 @@ A typical node component follows this pattern:
 
 Every node component must wrap its content in the `<Node>` component. This wrapper:
 - Registers the node with the editor
-- Handles selection and cursor behavior
+- Handles selection and caret behavior
 - Provides the foundation for editing interactions
 
 ### Property components
@@ -1001,9 +1001,9 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
 <div contenteditable="true">
   <div class="some-wrapper">
     <!--
-      Putting a <br> tag into a div gives you a single addressable cursor position.
+      Putting a <br> tag into a div gives you a single addressable caret position.
 
-      Adding a &ZeroWidthSpace; (or any character) here will lead to 2 cursor
+      Adding a &ZeroWidthSpace; (or any character) here will lead to 2 caret
       positions (one before, and one after the character)
 
       Using <wbr> will make it only addressable for ArrowLeft and ArrowRight, but not ArrowUp and ArrowDown.
@@ -1015,13 +1015,13 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
     <div class="node-gap"><br></div>
     <!--
       If you create a contenteditable="false" island, there needs to be some content in it,
-      otherwise it will create two additional cursor positions. One before, and another one
+      otherwise it will create two additional caret positions. One before, and another one
       after the island.
 
-      The Svedit demo uses this technique in `<NodeGap>` to create a node-cursor
-      visualization, that doesn't mess with the contenteditable cursor positions.
+      The Svedit demo uses this technique in `<NodeGap>` to create a node-caret
+      visualization, that doesn't mess with the contenteditable caret positions.
     -->
-    <div contenteditable="false" class="node-cursor">&ZeroWidthSpace;</div>
+    <div contenteditable="false" class="node-caret">&ZeroWidthSpace;</div>
   </div>
 </div>
 ```

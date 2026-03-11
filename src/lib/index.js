@@ -6,7 +6,7 @@ export { default as Node } from './Node.svelte';
 export { default as NodeArrayProperty } from './NodeArrayProperty.svelte';
 export { default as NodeGap } from './NodeGap.svelte';
 export { default as NodeGapMarkers } from './NodeGapMarkers.svelte';
-export { default as NodeCursor } from './NodeCursor.svelte';
+export { default as NodeCaret } from './NodeCaret.svelte';
 export { default as NodeSelectionMarkers } from './NodeSelectionMarkers.svelte';
 
 // Core classes and utilities

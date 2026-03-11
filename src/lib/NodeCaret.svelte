@@ -11,7 +11,7 @@
 <div class="caret" role="none"></div>
 
 <style>
-	@keyframes node-cursor-blink {
+	@keyframes node-caret-blink {
 		0%, 60% { opacity: 1; }
 		68% { opacity: 0; }
 		88% { opacity: 0; }
@@ -24,25 +24,25 @@
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
-		z-index: var(--node-cursor-z-index, 20);
+		z-index: var(--node-caret-z-index, 20);
 		animation: var(
-			--node-cursor-animation,
-			node-cursor-blink var(--node-cursor-blink-duration, 1.1s) ease-in-out infinite
+			--node-caret-animation,
+			node-caret-blink var(--node-caret-blink-duration, 1.1s) ease-in-out infinite
 		);
 	}
 
 	.caret::before {
-		--_ci: var(--node-cursor-inset, var(--node-cursor-marker-inset, 2px));
-		--_ct: var(--node-cursor-thickness, 2px);
-		--_cp: var(--node-cursor-row-inline-position, 50%);
+		--_ci: var(--node-caret-inset, var(--node-caret-marker-inset, 2px));
+		--_ct: var(--node-caret-thickness, 2px);
+		--_cp: var(--node-caret-row-inline-position, 50%);
 		content: '';
 		position: absolute;
-		background: var(--node-cursor-bg, var(--svedit-editing-stroke));
-		/* Increase the visibility of the cursor by contrasting it with a box shadow that's the inverted brightness of the current text color. */
+		background: var(--node-caret-bg, var(--svedit-editing-stroke));
+		/* Increase the visibility of the caret by contrasting it with a box shadow that's the inverted brightness of the current text color. */
 		/* Component developers must set their background color and text color on the node itself, not a child element, for this to work. */
-		box-shadow: var(--node-cursor-shadow, 0 0 0 0.5px oklch(from currentColor calc(1 - l) c h));
-		border: var(--node-cursor-border, none);
-		border-radius: var(--node-cursor-radius, 1px);
+		box-shadow: var(--node-caret-shadow, 0 0 0 0.5px oklch(from currentColor calc(1 - l) c h));
+		border: var(--node-caret-border, none);
+		border-radius: var(--node-caret-radius, 1px);
 		/*
 		 * Column: horizontal line at 50% — top=50%, bottom=50%-thickness.
 		 * Row: vertical line at --_cp — left=cp, right=100%-cp-thickness.

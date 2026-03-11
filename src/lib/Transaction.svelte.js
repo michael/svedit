@@ -145,7 +145,7 @@ export default class Transaction {
 	}
 
 	/**
-	 * Returns the annotation object that is currently "under the cursor".
+	 * Returns the annotation object that is currently "under the caret".
 	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
 	 *
 	 * @param {string} [annotation_type] Optional annotation type to filter by
@@ -653,7 +653,7 @@ export default class Transaction {
 	insert_nodes(node_ids) {
 		if (this.selection.type !== 'node') return this;
 
-		// Unless cursor is collapsed, delete the selected nodes as a first step
+		// Unless caret is collapsed, delete the selected nodes as a first step
 		if (this.selection.anchor_offset !== this.selection.focus_offset) {
 			this.delete_selection();
 		}
@@ -771,7 +771,7 @@ export default class Transaction {
 		this.selection = new_selection;
 
 		// Now we apply annotations if there are any, but only if there's no active annotation
-		// at the current collapsed cursor
+		// at the current collapsed caret
 		if (!this.active_annotation() && annotations.length > 0) {
 			const new_annotations = annotations
 				.map((annotation) => {

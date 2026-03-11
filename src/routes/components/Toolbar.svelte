@@ -65,15 +65,15 @@
 		}
 	}
 
-	// Check if we have a collapsed node selection (node cursor)
-	let is_node_cursor = $derived(
+	// Check if we have a collapsed node selection (node caret)
+	let is_node_caret = $derived(
 		session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset
 	);
 
 	// Get allowed node_types for current node_array
 	let allowed_node_types = $derived.by(() => {
-		if (!is_node_cursor) return [];
+		if (!is_node_caret) return [];
 
 		const node_array_path = session.selection.path;
 		const node_array_node = session.get(node_array_path.slice(0, -1)); // Get the parent node
@@ -92,7 +92,7 @@
 
 	// Function to insert node (always inserts paragraph for now, ignoring node_type)
 	function insert_node(node_type) {
-		if (!is_node_cursor) return;
+		if (!is_node_caret) return;
 		const tr = session.tr;
 		session.config.inserters[node_type](tr);
 		session.apply(tr);
@@ -238,7 +238,7 @@
 		{/each}
 	{/if}
 
-	{#if is_node_cursor && allowed_node_types.length > 0}
+	{#if is_node_caret && allowed_node_types.length > 0}
 		<hr />
 		{#each allowed_node_types as node_type (node_type)}
 			<button title={`Add ${snake_to_human(node_type)}`} onclick={() => insert_node(node_type)}>

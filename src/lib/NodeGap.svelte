@@ -1,6 +1,6 @@
 <script>
 	/**
-	 * Invisible keyboard cursor selectable and gap hit area.
+	 * Invisible keyboard caret selectable and gap hit area.
 	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
@@ -96,8 +96,8 @@
 	}
 
 	.positioned .svedit-selectable {
-		--_eg: var(--node-cursor-edge-gap, 24px);
-		--_gm: var(--node-cursor-gap-min-size, 16px);
+		--_eg: var(--node-caret-edge-gap, 24px);
+		--_gm: var(--node-caret-gap-min-size, 16px);
 		--_R: var(--row, 1);
 		--_C: calc(1 - var(--row, 1));
 		user-select: none;
@@ -105,7 +105,7 @@
 		position: absolute;
 		position-anchor: var(--_pa);
 		position-visibility: anchors-visible;
-		z-index: var(--node-cursor-gap-z-index, 1);
+		z-index: var(--node-caret-gap-z-index, 1);
 		cursor: pointer;
 	}
 

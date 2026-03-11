@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import NodeCursor from './NodeCursor.svelte';
+	import NodeCaret from './NodeCaret.svelte';
 
 	/**
 	 * Renders insertion gap markers for a single node_array.
@@ -20,21 +20,21 @@
 	// Per-path signal: only re-evaluates when THIS path's gaps change.
 	let gap_signal = $derived(svedit.insertion_gap_data?.get_gaps(path_str));
 	let my_gaps = $derived(gap_signal?.gaps ?? []);
-	let cursor_gap_key = $derived(svedit.insertion_gap_data?.cursor_gap_key);
+	let caret_gap_key = $derived(svedit.insertion_gap_data?.caret_gap_key);
 </script>
 
 {#each my_gaps as gap (gap.key)}
 	<div
 		class="gap-marker {gap.type}"
-		class:active={gap.key === cursor_gap_key}
+		class:active={gap.key === caret_gap_key}
 		class:first={gap.is_first}
 		class:last={gap.is_last}
 		class:pair={gap.has_pair}
 		style={gap.vars}
 		contenteditable="false"
 	>
-		{#if gap.key === cursor_gap_key}
-			<NodeCursor />
+		{#if gap.key === caret_gap_key}
+			<NodeCaret />
 		{/if}
 	</div>
 {/each}
@@ -42,30 +42,30 @@
 <style>
 	/*
 	 * Public customization tokens (set on an ancestor or this component):
-	 * --node-cursor-gap-color
-	 * --node-cursor-symbol-size
-	 * --node-cursor-symbol-stroke
-	 * --node-cursor-symbol-gap
-	 * --node-cursor-symbol-bg
-	 * --node-cursor-symbol-mask
-	 * --node-cursor-marker-inset
-	 * --node-cursor-edge-gap
-	 * --node-cursor-gap-min-size
-	 * --node-cursor-marker-padding
-	 * --node-cursor-marker-z-index
-	 * --node-cursor-line-border
-	 * --node-cursor-empty-border
-	 * --node-cursor-empty-border-radius
-	 * --node-cursor-bg
-	 * --node-cursor-shadow
-	 * --node-cursor-border
-	 * --node-cursor-thickness
-	 * --node-cursor-inset
-	 * --node-cursor-radius
-	 * --node-cursor-z-index
-	 * --node-cursor-blink-duration
-	 * --node-cursor-animation
-	 * --node-cursor-row-inline-position
+	 * --node-caret-gap-color
+	 * --node-caret-symbol-size
+	 * --node-caret-symbol-stroke
+	 * --node-caret-symbol-gap
+	 * --node-caret-symbol-bg
+	 * --node-caret-symbol-mask
+	 * --node-caret-marker-inset
+	 * --node-caret-edge-gap
+	 * --node-caret-gap-min-size
+	 * --node-caret-marker-padding
+	 * --node-caret-marker-z-index
+	 * --node-caret-line-border
+	 * --node-caret-empty-border
+	 * --node-caret-empty-border-radius
+	 * --node-caret-bg
+	 * --node-caret-shadow
+	 * --node-caret-border
+	 * --node-caret-thickness
+	 * --node-caret-inset
+	 * --node-caret-radius
+	 * --node-caret-z-index
+	 * --node-caret-blink-duration
+	 * --node-caret-animation
+	 * --node-caret-row-inline-position
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick throughout. Shorthand:
@@ -80,7 +80,7 @@
 
 	/* Suppress caret blink during active click on a node gap. */
 	:global(.svedit-canvas:active) .gap-marker {
-		--node-cursor-animation: none;
+		--node-caret-animation: none;
 	}
 
 	/*
@@ -102,15 +102,15 @@
 	 *   --_c   node-array container (edge row.last cap)
 	 */
 	.gap-marker {
-		--_eg: var(--node-cursor-edge-gap, 24px);
-		--_gm: var(--node-cursor-gap-min-size, 16px);
+		--_eg: var(--node-caret-edge-gap, 24px);
+		--_gm: var(--node-caret-gap-min-size, 16px);
 		--_R: var(--row, 1);
 		--_C: calc(1 - var(--row, 1));
 		position: absolute;
 		position-visibility: anchors-visible;
 		pointer-events: none;
-		z-index: var(--node-cursor-marker-z-index, 2);
-		padding: var(--node-cursor-marker-padding, 2px);
+		z-index: var(--node-caret-marker-z-index, 2);
+		padding: var(--node-caret-marker-padding, 2px);
 		margin: 0 !important; /* prevent unwanted margin from parent elements */
 	}
 
@@ -119,7 +119,7 @@
 	/* --------------------------------------------------------------------- */
 
 	.gap-marker.gap-empty {
-		--node-cursor-row-inline-position: calc(var(--_R) * 0px + var(--_C) * 50%);
+		--node-caret-row-inline-position: calc(var(--_R) * 0px + var(--_C) * 50%);
 		top: anchor(var(--_a) top);
 		left: anchor(var(--_a) left);
 		bottom: anchor(var(--_a) bottom);
@@ -384,7 +384,7 @@
 		&::before {
 			content: '';
 			position: absolute;
-			--gap-center: calc( var(--node-cursor-symbol-size, 6px) / 2 + var(--node-cursor-symbol-gap, 4px) );
+			--gap-center: calc( var(--node-caret-symbol-size, 6px) / 2 + var(--node-caret-symbol-gap, 4px) );
 		}
 
 		/* Dashed line: horizontal (column) or vertical (row).
@@ -392,7 +392,7 @@
 		   Row: left=50% right=50% → zero width, border-left is the line.
 		   No explicit height/width — inset pairs control dimensions. */
 		&:not(.gap-empty)::before {
-			--_mi: var(--node-cursor-marker-inset, 2px);
+			--_mi: var(--node-caret-marker-inset, 2px);
 			top: min(
 				calc(50% + var(--_R) * 99999px),
 				calc(var(--_mi) + var(--_C) * 99999px)
@@ -409,8 +409,8 @@
 				calc(var(--_mi) + var(--_R) * 99999px),
 				calc(50% + var(--_C) * 99999px)
 			);
-			border-top: calc(var(--_C) * 1px) dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke));
-			border-left: calc(var(--_R) * 1px) dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke));
+			border-top: calc(var(--_C) * 1px) dashed var(--node-caret-gap-color, var(--svedit-canvas-stroke));
+			border-left: calc(var(--_R) * 1px) dashed var(--node-caret-gap-color, var(--svedit-canvas-stroke));
 			transform:
 				translateY(calc(var(--_C) * -0.5px))
 				translateX(calc(var(--_R) * -0.5px));
@@ -424,23 +424,23 @@
 		/* Empty array marker (dashed outline for discoverability). */
 		&.gap-empty::before {
 			inset: 0px;
-			border: var(--node-cursor-empty-border, 1px dashed var(--node-cursor-gap-color, var(--svedit-canvas-stroke)));
-			border-radius: var(--node-cursor-empty-border-radius, 3px);
+			border: var(--node-caret-empty-border, 1px dashed var(--node-caret-gap-color, var(--svedit-canvas-stroke)));
+			border-radius: var(--node-caret-empty-border-radius, 3px);
 		}
 
 		/* Centered insertion symbol (default mask renders a plus). */
 		&::after {
 			content: '';
 			position: absolute;
-			width: var(--node-cursor-symbol-size, 6px);
-			height: var(--node-cursor-symbol-size, 6px);
+			width: var(--node-caret-symbol-size, 6px);
+			height: var(--node-caret-symbol-size, 6px);
 			top: 50%;
 			left: 50%;
 			transform: translate(-50%, -50%);
-			background: var(--node-cursor-symbol-bg, var(--node-cursor-gap-color, var(--svedit-canvas-stroke)));
-			mask: var(--node-cursor-symbol-mask,
-				linear-gradient(black, black) center / 100% var(--node-cursor-symbol-stroke, 1px) no-repeat,
-				linear-gradient(black, black) center / var(--node-cursor-symbol-stroke, 1px) 100% no-repeat
+			background: var(--node-caret-symbol-bg, var(--node-caret-gap-color, var(--svedit-canvas-stroke)));
+			mask: var(--node-caret-symbol-mask,
+				linear-gradient(black, black) center / 100% var(--node-caret-symbol-stroke, 1px) no-repeat,
+				linear-gradient(black, black) center / var(--node-caret-symbol-stroke, 1px) 100% no-repeat
 			);
 		}
 	}

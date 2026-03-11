@@ -360,7 +360,7 @@ export function create_gap_computation(svedit) {
 
 	svedit.is_near_viewport = culler.is_near_viewport;
 
-	let cursor_gap_key = $derived.by(() => {
+	let caret_gap_key = $derived.by(() => {
 		const s = svedit.session.selection;
 		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
 		return `${s.path.join('.')}-gap-${s.anchor_offset}`;
@@ -409,7 +409,7 @@ export function create_gap_computation(svedit) {
 
 	svedit.insertion_gap_data = {
 		get_gaps: get_or_create_gap_signal,
-		get cursor_gap_key() { return cursor_gap_key; }
+		get caret_gap_key() { return caret_gap_key; }
 	};
 
 	// -----------------------------------------------------------------------------

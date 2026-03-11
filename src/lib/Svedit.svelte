@@ -508,7 +508,7 @@ ${fallback_html}`;
 	 * Attempts to paste JSON data as a node at the current selection.
 	 *
 	 * @param {string|object} pasted_json - The JSON data to paste, either as a string or parsed object
-	 * @param {Selection} [selection] - Optional selection (node cursor) where the payload should be pasted
+	 * @param {Selection} [selection] - Optional selection (node caret) where the payload should be pasted
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
@@ -561,9 +561,9 @@ ${fallback_html}`;
 			return true;
 		} else {
 			if (tr.selection.path.length >= 2) {
-				const next_node_insert_cursor = session.get_next_node_insert_cursor(tr.selection);
-				if (next_node_insert_cursor) {
-					try_node_paste(pasted_json, next_node_insert_cursor);
+				const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
+				if (next_node_insert_caret) {
+					try_node_paste(pasted_json, next_node_insert_caret);
 				}
 			}
 		}
@@ -680,15 +680,15 @@ ${fallback_html}`;
 			pasted_json?.main_nodes?.length === 1 &&
 			session.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
 		) {
-			// Paste a single text node, at a text cursor
+			// Paste a single text node, at a text caret
 			const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
 			session.apply(
 				session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
 			);
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
-			// Paste nodes at a text or property selection by finding the next valid insert cursor
-			const next_node_insert_cursor = session.get_next_node_insert_cursor(session.selection);
-			try_node_paste(pasted_json, next_node_insert_cursor);
+			// Paste nodes at a text or property selection by finding the next valid insert caret
+			const next_node_insert_caret = session.get_next_node_insert_caret(session.selection);
+			try_node_paste(pasted_json, next_node_insert_caret);
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
 			session.apply(session.tr.insert_text(plain_text.trim()));
@@ -755,7 +755,7 @@ ${fallback_html}`;
 		if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
 		if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
-		// EDGE CASE: Let's first check if we are in a node gap for node cursors
+		// EDGE CASE: Let's first check if we are in a node gap for node carets
 		let gap_after_el =
 			focus_node && focus_node?.closest('[data-type="gap-after"]');
 		if (gap_after_el && focus_node === anchor_node) {
@@ -937,7 +937,7 @@ ${fallback_html}`;
 		let focus_root, anchor_root;
 
 		if (focus_node === anchor_node && focus_node.dataset?.type === 'text') {
-			// EDGE CASE 1: Either text node is empty (only a <br> is present), or cursor is after a <br> at the very end of the text node
+			// EDGE CASE 1: Either text node is empty (only a <br> is present), or caret is after a <br> at the very end of the text node
 			focus_root = anchor_root = focus_node;
 		} else {
 			focus_root = /** @type {HTMLElement} */ (
@@ -958,10 +958,10 @@ ${fallback_html}`;
 
 		if (!path) return null;
 
-		// EDGE CASE 1B: Cursor after trailing <br> at end of text
+		// EDGE CASE 1B: Caret after trailing <br> at end of text
 		//
 		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
-		// When the user places their cursor after this <br>, focusNode is the container
+		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
 		// We detect this and return text_length instead.
 		const text_content = session.get(path).text;
@@ -980,7 +980,7 @@ ${fallback_html}`;
 				last_element_index--;
 			}
 
-			// Check if cursor is at or after the trailing <br>
+			// Check if caret is at or after the trailing <br>
 			if (
 				last_element_index >= 0 &&
 				child_nodes[last_element_index].nodeName === 'BR' &&
@@ -1084,7 +1084,7 @@ ${fallback_html}`;
 		const range = window.document.createRange();
 
 		if (is_collapsed) {
-			// Cursor position in between two nodes or at the very beginning/end of a node_array
+			// Caret position in between two nodes or at the very beginning/end of a node_array
 			// IMPORTANT: We need to look for direct children of anchor_node to find the right node gap.
 			const gap_selector = selection.anchor_offset === 0
 				? '.gap-before'
@@ -1242,7 +1242,7 @@ ${fallback_html}`;
 		// EDGE CASE: When text is empty, we need to set a different DOM selection
 		if (start_offset === end_offset && start_offset === 0 && empty_text) {
 			// Markup for empty text looks like this `<div data-type="text"><br></div>`.
-			// And the correct cursor position is after the <br> element.
+			// And the correct caret position is after the <br> element.
 			anchor_node = el;
 			anchor_node_offset = 1;
 			focus_node = el;
@@ -1321,7 +1321,7 @@ ${fallback_html}`;
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
-		class:node-cursor={session.selection?.type === 'node' &&
+		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
 		bind:this={canvas_el}
@@ -1371,8 +1371,8 @@ ${fallback_html}`;
 		}
 	}
 
-	/* When the cursor is in a node gap we never want to see the caret */
-	.svedit-canvas.node-cursor,
+	/* When the caret is in a node gap we never want to see the caret */
+	.svedit-canvas.node-caret,
 	.svedit-canvas.property-selection {
 		caret-color: transparent;
 	}

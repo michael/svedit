@@ -410,9 +410,9 @@ export default class Session {
 		}
 
 		// No insert position found yet, and root not reached, try one level up if possible
-		let next_node_insert_cursor = this.get_next_node_insert_cursor(selection);
-		if (!next_node_insert_cursor) return false;
-		return this.can_insert(node_type, next_node_insert_cursor);
+		let next_node_insert_caret = this.get_next_node_insert_caret(selection);
+		if (!next_node_insert_caret) return false;
+		return this.can_insert(node_type, next_node_insert_caret);
 	}
 
 	/**
@@ -421,7 +421,7 @@ export default class Session {
 	 * @param {Selection} [selection] - Reference selection
 	 * @returns {Selection} True if the paste operation was successful, false otherwise
 	 */
-	get_next_node_insert_cursor(selection = this.selection) {
+	get_next_node_insert_caret(selection = this.selection) {
 		// There's no parent path to insert into
 		if (!selection || selection.path.length <= 2) {
 			return null;

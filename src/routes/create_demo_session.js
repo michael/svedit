@@ -241,7 +241,7 @@ const doc = {
 			type: 'text',
 			layout: 1,
 			content: {
-				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
+				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
 				annotations: []
 			}
 		},
@@ -352,10 +352,10 @@ const doc = {
 			id: 'story_4',
 			type: 'story',
 			layout: 2,
-			image: '/images/node-cursors.svg',
-			title: { text: 'Node cursors', annotations: [] },
+			image: '/images/node-carets.svg',
+			title: { text: 'Node carets', annotations: [] },
 			description: {
-				text: 'They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.',
+				text: 'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
 				annotations: []
 			},
 			buttons: []
@@ -504,7 +504,7 @@ export const session_config = {
 			return null;
 		} else {
 			const pasted_json = { main_nodes: [], nodes: {} };
-			// When cursor inside an image grid we want to insert an image_grid_item
+			// When caret inside an image grid we want to insert an image_grid_item
 			// otherwise we want to insert a story, as that is the only body node,
 			// that can carry an image.
 			let target_node_type;
@@ -797,8 +797,8 @@ export const session_config = {
 		const keymap = define_keymap({
 			'meta+a,ctrl+a': [commands.select_all],
 			enter: [commands.break_text_node, commands.insert_default_node],
-			// In case of a node cursor, fall back to inserting a default node. This is needed
-			// because on iOS selecting a node cursor triggers auto capitalization (shift pressed)
+			// In case of a node caret, fall back to inserting a default node. This is needed
+			// because on iOS selecting a node caret triggers auto capitalization (shift pressed)
 			'shift+enter': [commands.add_new_line, commands.insert_default_node],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
