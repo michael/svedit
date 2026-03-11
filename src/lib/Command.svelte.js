@@ -120,13 +120,13 @@ export class ToggleAnnotationCommand extends Command {
 	is_enabled() {
 		const { session, editable } = this.context;
 		const has_annotation = session.active_annotation(this.node_type);
-		const no_annotation_and_cursor_not_collapsed =
+		const no_annotation_and_caret_not_collapsed =
 			!session.active_annotation() && !is_selection_collapsed(session.selection);
 
 		return (
 			editable &&
 			session.selection?.type === 'text' &&
-			(has_annotation || no_annotation_and_cursor_not_collapsed)
+			(has_annotation || no_annotation_and_caret_not_collapsed)
 		);
 	}
 
@@ -136,7 +136,7 @@ export class ToggleAnnotationCommand extends Command {
 }
 
 /**
- * Command that adds a new line character at the current cursor position.
+ * Command that adds a new line character at the current caret position.
  * Only works in text selections where newlines are allowed.
  * Disabled on mobile browsers where Shift+Enter has different behavior.
  */
@@ -159,7 +159,7 @@ export class AddNewLineCommand extends Command {
 }
 
 /**
- * Command that breaks a text node at the cursor position.
+ * Command that breaks a text node at the caret position.
  * Creates a new node and splits the content between the current and new node.
  * Only works in text selections.
  */
@@ -293,7 +293,7 @@ export class SelectAllCommand extends Command {
 }
 
 /**
- * Command that inserts a default node at the current cursor position.
+ * Command that inserts a default node at the current caret position.
  * Only works when a collapsed node selection is active.
  */
 export class InsertDefaultNodeCommand extends Command {

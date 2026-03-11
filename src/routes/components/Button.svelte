@@ -22,14 +22,14 @@
 		display: block;
 		text-decoration: none;
 		border-radius: var(--s-2);
-		background: var(--primary-fill-color);
-		color: var(--canvas-fill-color);
+		background: var(--app-primary-fill);
+		color: var(--app-canvas-fill);
 		padding: var(--s-2) var(--s-4);
 	}
 
 	.button:hover {
-		background: var(--primary-fill-color);
-		color: var(--canvas-fill-color);
+		background: var(--app-primary-fill);
+		color: var(--app-canvas-fill);
 		opacity: 0.8;
 	}
 </style>

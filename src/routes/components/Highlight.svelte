@@ -9,7 +9,7 @@
 
 <style>
 	mark {
-		background: var(--primary-fill-color);
+		background: var(--app-primary-fill);
 		color: white;
 	}
 </style>

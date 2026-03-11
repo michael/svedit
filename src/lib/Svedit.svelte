@@ -6,6 +6,9 @@
 		utf16_to_char_offset,
 		char_to_utf16_offset
 	} from './utils.js';
+	import { create_gap_computation } from './node_gap_computation.svelte.js';
+	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
+	import './styles/svedit-colors.css';
 
 	/** @import {
 	 *   SveditProps,
@@ -30,11 +33,13 @@
 
 	let canvas_el;
 	let root_node = $derived(session.get(path));
-	let Overlays = $derived(session.config.system_components.Overlays);
+	let Overlays = $derived(session.config.system_components?.Overlays);
+	let NodeSelectionMarkers = $derived(session.config.system_components?.NodeSelectionMarkers ?? DefaultNodeSelectionMarkers);
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
 	let is_composing = $state(false);
 	let before_composition_selection = null;
+
 
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
@@ -62,6 +67,7 @@
 	};
 
 	setContext('svedit', context);
+	create_gap_computation(context);
 
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
@@ -502,7 +508,7 @@ ${fallback_html}`;
 	 * Attempts to paste JSON data as a node at the current selection.
 	 *
 	 * @param {string|object} pasted_json - The JSON data to paste, either as a string or parsed object
-	 * @param {Selection} [selection] - Optional selection (node cursor) where the payload should be pasted
+	 * @param {Selection} [selection] - Optional selection (node caret) where the payload should be pasted
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
@@ -555,9 +561,9 @@ ${fallback_html}`;
 			return true;
 		} else {
 			if (tr.selection.path.length >= 2) {
-				const next_node_insert_cursor = session.get_next_node_insert_cursor(tr.selection);
-				if (next_node_insert_cursor) {
-					try_node_paste(pasted_json, next_node_insert_cursor);
+				const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
+				if (next_node_insert_caret) {
+					try_node_paste(pasted_json, next_node_insert_caret);
 				}
 			}
 		}
@@ -674,15 +680,15 @@ ${fallback_html}`;
 			pasted_json?.main_nodes?.length === 1 &&
 			session.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
 		) {
-			// Paste a single text node, at a text cursor
+			// Paste a single text node, at a text caret
 			const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
 			session.apply(
 				session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
 			);
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
-			// Paste nodes at a text or property selection by finding the next valid insert cursor
-			const next_node_insert_cursor = session.get_next_node_insert_cursor(session.selection);
-			try_node_paste(pasted_json, next_node_insert_cursor);
+			// Paste nodes at a text or property selection by finding the next valid insert caret
+			const next_node_insert_caret = session.get_next_node_insert_caret(session.selection);
+			try_node_paste(pasted_json, next_node_insert_caret);
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
 			session.apply(session.tr.insert_text(plain_text.trim()));
@@ -749,14 +755,14 @@ ${fallback_html}`;
 		if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
 		if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
-		// EDGE CASE: Let's first check if we are in a cursor trap for node cursors
-		let after_node_cursor_trap =
-			focus_node && focus_node?.closest('[data-type="after-node-cursor-trap"]');
-		if (after_node_cursor_trap && focus_node === anchor_node) {
-			// Find the node that this cursor trap belongs to
-			let node = /** @type {HTMLElement} */ (after_node_cursor_trap.closest('[data-type="node"]'));
+		// EDGE CASE: Let's first check if we are in a node gap for node carets
+		let gap_after_el =
+			focus_node && focus_node?.closest('[data-type="gap-after"]');
+		if (gap_after_el && focus_node === anchor_node) {
+			// Find the node that this gap belongs to
+			let node = /** @type {HTMLElement} */ (gap_after_el.closest('[data-type="node"]'));
 			if (!node) {
-				console.log('No corresponding node found for after-node-cursor-trap');
+				console.log('No corresponding node found for gap-after');
 				return null;
 			}
 			const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
@@ -770,11 +776,11 @@ ${fallback_html}`;
 			};
 		}
 
-		// EDGE CASE: Let's check if we are in a position-zero-cursor-trap for node_arrays.
-		let position_zero_cursor_trap = focus_node.closest('[data-type="position-zero-cursor-trap"]');
-		if (position_zero_cursor_trap && focus_node === anchor_node) {
+		// EDGE CASE: Let's check if we are in a gap-before for node_arrays.
+		let gap_before_el = focus_node.closest('[data-type="gap-before"]');
+		if (gap_before_el && focus_node === anchor_node) {
 			const node_array_el = /** @type {HTMLElement} */ (
-				position_zero_cursor_trap.closest('[data-type="node_array"]')
+				gap_before_el.closest('[data-type="node_array"]')
 			);
 			const node_array_path = node_array_el.dataset.path.split('.');
 			return {
@@ -833,19 +839,19 @@ ${fallback_html}`;
 			focus_offset += 1;
 		}
 
-		// EDGE CASE: Exclude first node when anchor_node is an afer-node-cursor-trap
+		// EDGE CASE: Exclude first node when anchor_node is a gap-after
 		// in a non-collapsed forward selection
 		if (
-			anchor_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
+			anchor_node.parentElement?.dataset.type === 'gap-after' &&
 			!is_backwards &&
 			anchor_offset !== focus_offset
 		) {
 			anchor_offset += 1;
 		}
-		// EDGE CASE: Exclude first node when focus_node is an afer-node-cursor-trap
+		// EDGE CASE: Exclude first node when focus_node is a gap-after
 		// in a non-collapsed backward selection
 		else if (
-			focus_node.parentElement?.dataset.type === 'after-node-cursor-trap' &&
+			focus_node.parentElement?.dataset.type === 'gap-after' &&
 			is_backwards &&
 			anchor_offset !== focus_offset &&
 			// EDGE CASE: Only do correction when drag started from a deeper or equally deep anchor node
@@ -931,7 +937,7 @@ ${fallback_html}`;
 		let focus_root, anchor_root;
 
 		if (focus_node === anchor_node && focus_node.dataset?.type === 'text') {
-			// EDGE CASE 1: Either text node is empty (only a <br> is present), or cursor is after a <br> at the very end of the text node
+			// EDGE CASE 1: Either text node is empty (only a <br> is present), or caret is after a <br> at the very end of the text node
 			focus_root = anchor_root = focus_node;
 		} else {
 			focus_root = /** @type {HTMLElement} */ (
@@ -952,10 +958,10 @@ ${fallback_html}`;
 
 		if (!path) return null;
 
-		// EDGE CASE 1B: Cursor after trailing <br> at end of text
+		// EDGE CASE 1B: Caret after trailing <br> at end of text
 		//
 		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
-		// When the user places their cursor after this <br>, focusNode is the container
+		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
 		// We detect this and return text_length instead.
 		const text_content = session.get(path).text;
@@ -974,7 +980,7 @@ ${fallback_html}`;
 				last_element_index--;
 			}
 
-			// Check if cursor is at or after the trailing <br>
+			// Check if caret is at or after the trailing <br>
 			if (
 				last_element_index >= 0 &&
 				child_nodes[last_element_index].nodeName === 'BR' &&
@@ -1078,16 +1084,19 @@ ${fallback_html}`;
 		const range = window.document.createRange();
 
 		if (is_collapsed) {
-			// Cursor position in between two nodes or at the very beginning/end of a node_array
-			// IMPORTANT: We need to look for direct children of anchor_node to find the right cursor trap.
-			const cursor_trap_el = anchor_node.querySelector(
-				selection.anchor_offset === 0
-					? ':scope > .position-zero-cursor-trap'
-					: ':scope > .after-node-cursor-trap'
-			);
+			// Caret position in between two nodes or at the very beginning/end of a node_array
+			// IMPORTANT: We need to look for direct children of anchor_node to find the right node gap.
+			const gap_selector = selection.anchor_offset === 0
+				? '.gap-before'
+				: '.gap-after';
+			// In empty arrays the node gap is a sibling of the placeholder, not a child
+			const gap_el =
+				anchor_node.querySelector(`:scope > ${gap_selector}`) ??
+				anchor_node.parentElement?.querySelector(`:scope > ${gap_selector}`);
 
-			range.setStart(cursor_trap_el, 1);
-			range.setEnd(cursor_trap_el, 1);
+			if (!gap_el) return;
+			range.setStart(gap_el, 1);
+			range.setEnd(gap_el, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
 		} else {
@@ -1145,12 +1154,12 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
-		const cursor_trap_selectable = el.querySelector('.svedit-selectable');
+		const gap_selectable = el.querySelector('.svedit-selectable');
 		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
 
-		// Select the entire cursor trap element contents and collapse to start
-		range.selectNodeContents(cursor_trap_selectable);
+		// Select the entire gap element contents and collapse to start
+		range.selectNodeContents(gap_selectable);
 		range.collapse(true); // Collapse to start position
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
@@ -1233,7 +1242,7 @@ ${fallback_html}`;
 		// EDGE CASE: When text is empty, we need to set a different DOM selection
 		if (start_offset === end_offset && start_offset === 0 && empty_text) {
 			// Markup for empty text looks like this `<div data-type="text"><br></div>`.
-			// And the correct cursor position is after the <br> element.
+			// And the correct caret position is after the <br> element.
 			anchor_node = el;
 			anchor_node_offset = 1;
 			focus_node = el;
@@ -1306,10 +1315,13 @@ ${fallback_html}`;
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
+	<!-- Overlays must be before canvas so they initialize first. -->
+	<NodeSelectionMarkers />
+	{#if Overlays}<Overlays />{/if}
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
-		class:node-cursor={session.selection?.type === 'node' &&
+		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
 		bind:this={canvas_el}
@@ -1334,21 +1346,23 @@ ${fallback_html}`;
 	>
 		<RootComponent {path} />
 	</div>
-	<Overlays />
 </div>
 
 <style>
 	.svedit-canvas {
-		--layout-orientation: vertical;
-		caret-color: var(--editing-stroke-color);
+		caret-color: var(--svedit-editing-stroke);
 		caret-shape: bar;
+		/* Default to vertical/ column flow with: --row: 0; (the most common case)
+		Prevents silent failures when developers forget to set the row property in their top level node component. 
+		TODO: Warn developers in dev mode via console if they forget to set the --row property and use a different flow.*/
+		--row: 0;
 		&:focus {
 			outline: none;
 		}
 	}
 
 	.svedit-canvas :global(::selection) {
-		background: var(--editing-fill-color);
+		background: var(--svedit-editing-fill);
 	}
 
 	@media not (pointer: coarse) {
@@ -1357,8 +1371,8 @@ ${fallback_html}`;
 		}
 	}
 
-	/* When the cursor is in a cursor-trap we never want to see the caret */
-	.svedit-canvas.node-cursor,
+	/* When the caret is in a node gap we never want to see the caret */
+	.svedit-canvas.node-caret,
 	.svedit-canvas.property-selection {
 		caret-color: transparent;
 	}

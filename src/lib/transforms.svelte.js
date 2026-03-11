@@ -40,7 +40,7 @@ export function break_text_node(tr) {
 		focus_offset: parseInt(tr.selection.path.at(-2), 10) + 1
 	};
 
-	// TODO: Only use default_node_type when cursor is at the end of
+	// TODO: Only use default_node_type when caret is at the end of
 	const node_array_property_definition =
 		tr.schema[node_array_node.type].properties[node_array_prop];
 	const target_node_type = get_default_node_type(node_array_property_definition);
@@ -103,8 +103,8 @@ export function join_text_node(tr) {
 	const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
 	const joined_text = join_annotated_text(predecessor_node.content, node.content);
 
-	// Calculate cursor position based on original predecessor content length
-	const cursor_position = get_char_length(predecessor_node.content.text);
+	// Calculate caret position based on original predecessor content length
+	const caret_position = get_char_length(predecessor_node.content.text);
 
 	// First set the joined content on the predecessor node (preserves annotations)
 	tr.set([predecessor_node.id, 'content'], joined_text);
@@ -119,12 +119,12 @@ export function join_text_node(tr) {
 
 	tr.delete_selection();
 
-	// Finally set the cursor position at the join point using the pre-calculated position
+	// Finally set the caret position at the join point using the pre-calculated position
 	tr.set_selection({
 		type: 'text',
 		path: [...previous_text_path, 'content'],
-		anchor_offset: cursor_position,
-		focus_offset: cursor_position
+		anchor_offset: caret_position,
+		focus_offset: caret_position
 	});
 	return true;
 }

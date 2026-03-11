@@ -19,6 +19,7 @@ export function is_mobile_browser() {
 	);
 }
 
+// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️ 
 /**
  * Detect if the current browser is Chrome on desktop
  * @returns {boolean} true if Chrome desktop browser, false otherwise
@@ -52,6 +53,8 @@ export function get_char_length(str) {
 	return [...segmenter.segment(str)].length;
 }
 
+
+// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️ 
 /**
  * Get a single character at the specified position (accounting for multi-byte characters)
  *

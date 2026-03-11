@@ -20,7 +20,6 @@ import {
 import nanoid from './nanoid.js';
 
 // System components
-import NodeCursorTrap from './components/NodeCursorTrap.svelte';
 import Overlays from './components/Overlays.svelte';
 
 // Node components
@@ -41,7 +40,7 @@ import Link from './components/Link.svelte';
 const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
 const TITLE_ANNOTATIONS = ['emphasis', 'highlight'];
 
-const document_schema = define_document_schema({
+export const document_schema = define_document_schema({
 	page: {
 		kind: 'document',
 		properties: {
@@ -242,7 +241,7 @@ const doc = {
 			type: 'text',
 			layout: 1,
 			content: {
-				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and cursor positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
+				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
 				annotations: []
 			}
 		},
@@ -353,10 +352,10 @@ const doc = {
 			id: 'story_4',
 			type: 'story',
 			layout: 2,
-			image: '/images/node-cursors.svg',
-			title: { text: 'Node cursors', annotations: [] },
+			image: '/images/node-carets.svg',
+			title: { text: 'Node carets', annotations: [] },
 			description: {
-				text: 'They work just like text cursors, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the cursor.',
+				text: 'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
 				annotations: []
 			},
 			buttons: []
@@ -467,13 +466,12 @@ const doc = {
 };
 
 // App-specific config object, always available via doc.config for introspection
-const session_config = {
+export const session_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
-	// Provide definitions/overrides for system native components,
-	// such as NodeCursorTrap or Overlays
+	// Provide overrides for system components (NodeGap, NodeGapMarkers,
+	// NodeSelectionMarkers) or user-land overlays (link previews, etc.)
 	system_components: {
-		NodeCursorTrap,
 		Overlays
 	},
 	// Registry of components for each node type
@@ -506,7 +504,7 @@ const session_config = {
 			return null;
 		} else {
 			const pasted_json = { main_nodes: [], nodes: {} };
-			// When cursor inside an image grid we want to insert an image_grid_item
+			// When caret inside an image grid we want to insert an image_grid_item
 			// otherwise we want to insert a story, as that is the only body node,
 			// that can carry an image.
 			let target_node_type;
@@ -799,8 +797,8 @@ const session_config = {
 		const keymap = define_keymap({
 			'meta+a,ctrl+a': [commands.select_all],
 			enter: [commands.break_text_node, commands.insert_default_node],
-			// In case of a node cursor, fall back to inserting a default node. This is needed
-			// because on iOS selecting a node cursor triggers auto capitalization (shift pressed)
+			// In case of a node caret, fall back to inserting a default node. This is needed
+			// because on iOS selecting a node caret triggers auto capitalization (shift pressed)
 			'shift+enter': [commands.add_new_line, commands.insert_default_node],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],

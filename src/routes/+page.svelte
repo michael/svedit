@@ -98,7 +98,7 @@
 		height: 12lh;
 		overflow-y: auto;
 		color: white;
-		background: var(--primary-fill-color);
+		background: var(--app-primary-fill);
 		font-size: 12px;
 	}
 </style>

@@ -17,7 +17,7 @@
 	{...rest}
 >
 	{#if svedit.editable}
-		<div class="cursor-trap">
+		<div class="property-selectable">
 			<div class="svedit-selectable"><br /></div>
 		</div>
 	{/if}
@@ -29,7 +29,7 @@
 	[data-type='property'] {
 		position: relative;
 	}
-	.cursor-trap {
+	.property-selectable {
 		position: absolute;
 		top: 0;
 		left: 0;

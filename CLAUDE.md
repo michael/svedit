@@ -1,3 +1,8 @@
+---
+description: 
+alwaysApply: false
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -84,6 +89,7 @@ Svedit is a rich content editor template built with Svelte 5 that uses a graph-b
 **Key Components:**
 - `Svedit.svelte` - Main editor component with event handling and selection management
 - `NodeArrayProperty.svelte` - Renders containers that hold sequences of nodes
+- `Node.svelte` - Wrapper component for document nodes that handles node gap placement and viewport culling
 - `AnnotatedTextProperty.svelte` - Handles annotated text rendering and editing
 - Node components (`Story`, `List`, etc.) - Render specific content types
 

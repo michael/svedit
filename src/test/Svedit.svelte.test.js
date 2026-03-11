@@ -7,12 +7,12 @@ import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
-	it('should map node cursor to DOM', async () => {
+	it('should map node caret to DOM', async () => {
 		const session = create_test_session();
 
 		/* const { container } = */ render(SveditTest, { session });
 
-		// Now set node cursor between first and second node
+		// Now set node caret between first and second node
 		session.selection = {
 			type: 'node',
 			path: [session.doc.document_id, 'body'],
@@ -32,9 +32,9 @@ describe('Svedit.svelte', () => {
 		expect(dom_selection.type).toBe('Caret');
 
 		// @ts-ignore
-		expect(dom_selection.anchorNode.classList.contains('cursor-trap')).toBe(true);
+		expect(dom_selection.anchorNode.classList.contains('node-gap')).toBe(true);
 		// @ts-ignore
-		expect(dom_selection.focusNode.classList.contains('cursor-trap')).toBe(true);
+		expect(dom_selection.focusNode.classList.contains('node-gap')).toBe(true);
 	});
 
 	it('should map property selection to DOM', async () => {
@@ -426,7 +426,7 @@ describe('Svedit.svelte', () => {
 			expect(final_body).toEqual([text_id, 'story_1', 'story_1', 'list_1']);
 		});
 
-		it('should join two text nodes and position cursor at end of joined text', () => {
+		it('should join two text nodes and position caret at end of joined text', () => {
 			const session = create_test_session();
 
 			// Create two text nodes

@@ -65,15 +65,15 @@
 		}
 	}
 
-	// Check if we have a collapsed node selection (node cursor)
-	let is_node_cursor = $derived(
+	// Check if we have a collapsed node selection (node caret)
+	let is_node_caret = $derived(
 		session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset
 	);
 
 	// Get allowed node_types for current node_array
 	let allowed_node_types = $derived.by(() => {
-		if (!is_node_cursor) return [];
+		if (!is_node_caret) return [];
 
 		const node_array_path = session.selection.path;
 		const node_array_node = session.get(node_array_path.slice(0, -1)); // Get the parent node
@@ -92,7 +92,7 @@
 
 	// Function to insert node (always inserts paragraph for now, ignoring node_type)
 	function insert_node(node_type) {
-		if (!is_node_cursor) return;
+		if (!is_node_caret) return;
 		const tr = session.tr;
 		session.config.inserters[node_type](tr);
 		session.apply(tr);
@@ -238,7 +238,7 @@
 		{/each}
 	{/if}
 
-	{#if is_node_cursor && allowed_node_types.length > 0}
+	{#if is_node_caret && allowed_node_types.length > 0}
 		<hr />
 		{#each allowed_node_types as node_type (node_type)}
 			<button title={`Add ${snake_to_human(node_type)}`} onclick={() => insert_node(node_type)}>
@@ -280,8 +280,8 @@
 		font-weight: 700;
 		display: block;
 		text-decoration: none;
-		background: var(--editing-stroke-color);
-		color: var(--canvas-fill-color);
+		background: var(--svedit-editing-stroke);
+		color: var(--app-canvas-fill);
 		padding: var(--s-1) var(--s-8);
 	}
 
@@ -290,14 +290,14 @@
 	}
 
 	.toggle-editable:hover {
-		background: var(--editing-stroke-color);
-		color: var(--canvas-fill-color);
+		background: var(--svedit-editing-stroke);
+		color: var(--app-canvas-fill);
 		opacity: 0.9;
 	}
 
 	.editor-toolbar {
-		color: var(--primary-text-color);
-		background-color: var(--canvas-fill-color);
+		color: var(--app-primary-text);
+		background-color: var(--app-canvas-fill);
 		width: fit-content;
 		position: fixed;
 		bottom: var(--s-4);
@@ -317,11 +317,11 @@
 			text-wrap: nowrap;
 			height: 100%;
 			min-height: 44px;
-			--icon-color: var(--primary-text-color);
+			--icon-color: var(--app-primary-text);
 			position: relative;
 			&.active {
-				color: var(--editing-stroke-color);
-				--icon-color: var(--editing-stroke-color);
+				color: var(--svedit-editing-stroke);
+				--icon-color: var(--svedit-editing-stroke);
 			}
 		}
 
@@ -340,22 +340,22 @@
 
 			input {
 				padding: var(--s-1) var(--s-2);
-				border: 1px solid var(--stroke-color);
+				border: 1px solid var(--app-stroke);
 				border-radius: var(--s-1);
-				background: var(--canvas-fill-color);
-				color: var(--primary-text-color);
+				background: var(--app-canvas-fill);
+				color: var(--app-primary-text);
 				font-size: 14px;
 				width: 200px;
 
 				&:focus {
 					outline: none;
-					border-color: var(--editing-stroke-color);
+					border-color: var(--svedit-editing-stroke);
 				}
 			}
 		}
 
 		hr {
-			background-color: var(--stroke-color);
+			background-color: var(--app-stroke);
 			width: 1px;
 			height: 100%;
 			border: none;

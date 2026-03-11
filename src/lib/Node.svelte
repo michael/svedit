@@ -1,21 +1,33 @@
 <script>
 	import { getContext } from 'svelte';
+	import DefaultNodeGap from './NodeGap.svelte';
 
 	/** @import { NodeProps } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
-	let NodeCursorTrap = $derived(svedit.session.config.system_components.NodeCursorTrap);
+	let NodeGap = $derived(svedit.session.config.system_components?.NodeGap ?? DefaultNodeGap);
 
 	/** @type {NodeProps} */
 	let { path, children, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
-	// NOTE: When the next to last path segment is a node_array property, the node is wrapped in a node_array
-	let is_inside_node_array = $derived(
-		path.length > 1 && svedit.session.inspect(path.slice(0, -1))?.type === 'node_array'
-	);
 	let node = $derived(svedit.session.get(path));
-	let is_first_node_array_child = $derived(
-		is_inside_node_array && parseInt(String(path.at(-1)), 10) === 0
+
+	// NodeArrayProperty sets this context — its presence means we're in a node_array.
+	// Using context avoids expensive session.inspect() and session.get() calls
+	// that would create O(N) reactive subscriptions to the parent array.
+	const node_array_meta = getContext('node_array_meta');
+	const is_inside_node_array = !!node_array_meta;
+	let child_index = $derived(parseInt(String(path.at(-1)), 10));
+	let is_first_node_array_child = $derived(is_inside_node_array && child_index === 0);
+	let is_last_node_array_child = $derived(
+		is_inside_node_array && child_index === node_array_meta.length - 1
+	);
+
+	// Drives lazy anchor positioning for node gaps. Gaps are always in the
+	// DOM (stable structure for selection), but only anchor-positioned when
+	// near the viewport to avoid O(N) layout cost.
+	let is_near_viewport = $derived(
+		svedit.is_near_viewport?.(path) ?? true
 	);
 </script>
 
@@ -26,14 +38,22 @@
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
-	style="position: relative; anchor-name: --{path.join('-')};{style}"
+	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
 	{#if svedit.editable && is_first_node_array_child}
-		<NodeCursorTrap {path} type="position-zero-cursor-trap" />
+		<NodeGap {path} type="gap-before" positioned={is_near_viewport} />
 	{/if}
 	{@render children()}
 	{#if svedit.editable && is_inside_node_array}
-		<NodeCursorTrap {path} type="after-node-cursor-trap" />
+		<NodeGap {path} type="gap-after" last={is_last_node_array_child} positioned={is_near_viewport} />
 	{/if}
 </svelte:element>
+
+<style>
+	[data-type='node'] {
+		/** any other position than static will break the anchor positioning of node gaps and node gap-marker */
+		/* For developers who need to position their node with `position: absolute` or `position: relative`, they need to wrap their node in a div */
+		position: static !important;
+	}
+</style>

@@ -52,7 +52,7 @@
 		opacity: 0.7;
 		border-radius: var(--s-2);
 		padding: var(--s-4);
-		background: var(--canvas-fill-color);
+		background: var(--app-canvas-fill);
 	}
 
 	.image-grid-item :global(.image-wrapper) {
