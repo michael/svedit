@@ -8,6 +8,7 @@
 	} from './utils.js';
 	import { create_gap_computation } from './node_gap_computation.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
+	import SelectionHighlight from './SelectionHighlight.svelte';
 	import './styles/svedit-colors.css';
 
 	/** @import {
@@ -1317,6 +1318,7 @@ ${fallback_html}`;
 <div class="svedit">
 	<!-- Overlays must be before canvas so they initialize first. -->
 	<NodeSelectionMarkers />
+	<SelectionHighlight />
 	{#if Overlays}<Overlays />{/if}
 	<div
 		class="svedit-canvas {css_class}"

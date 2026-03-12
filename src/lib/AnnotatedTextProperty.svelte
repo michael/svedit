@@ -1,8 +1,8 @@
 <script>
 	import { getContext } from 'svelte';
-	import { char_slice, get_char_length, snake_to_pascal, get_selection_range } from './utils.js';
+	import { char_slice, get_char_length, snake_to_pascal } from './utils.js';
 
-	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
+	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
@@ -21,25 +21,10 @@
 		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
 	);
 
-	let is_collapsed = $derived(
-		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
-	);
-
-	// Get selection highlight range if not inside an annotation
-	let selection_highlight_range = $derived.by(() => {
-		if (is_collapsed) return null;
-		if (!is_focused) return null;
-		if (svedit.session.active_annotation()) return null;
-		const sel = svedit.session.selection;
-		if (!sel || sel.type !== 'text') return null;
-		return get_selection_range(sel);
-	});
-
 	let fragments = $derived(
 		get_fragments(
 			svedit.session.get(path).text,
-			svedit.session.get(path).annotations,
-			selection_highlight_range
+			svedit.session.get(path).annotations
 		)
 	);
 
@@ -47,46 +32,34 @@
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
 	 * @param {Array<Annotation>} annotations - Array of annotations
-	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
-	function get_fragments(text, annotations, selection_highlight_range) {
+	function get_fragments(text, annotations) {
 		/** @type {Array<Fragment>} */
 		let fragments = [];
 		let last_index = 0;
 
-		// Merge annotations with selection highlight and sort by start offset
-		const ranges = [
-			...annotations,
-			...(selection_highlight_range ? [selection_highlight_range] : [])
-		].sort((a, b) => a.start_offset - b.start_offset);
+		// Sort annotations by start_offset
+		const sorted_annotations = [...annotations].sort((a, b) => a.start_offset - b.start_offset);
 
-		for (const range of ranges) {
-			// Add text before this range
-			if (range.start_offset > last_index) {
-				fragments.push(char_slice(text, last_index, range.start_offset));
+		for (const annotation of sorted_annotations) {
+			// Add text before this annotation
+			if (annotation.start_offset > last_index) {
+				fragments.push(char_slice(text, last_index, annotation.start_offset));
 			}
 
-			const content = char_slice(text, range.start_offset, range.end_offset);
+			const content = char_slice(text, annotation.start_offset, annotation.end_offset);
+			const node = svedit.session.get(annotation.node_id);
+			if (!node) throw new Error(`Node not found for annotation ${annotation.node_id}`);
 
-			if ('node_id' in range) {
-				const node = svedit.session.get(range.node_id);
-				if (!node) throw new Error(`Node not found for annotation ${range.node_id}`);
+			fragments.push({
+				type: 'annotation',
+				node,
+				content,
+				annotation_index: annotations.indexOf(annotation)
+			});
 
-				fragments.push({
-					type: 'annotation',
-					node,
-					content,
-					annotation_index: annotations.indexOf(/** @type {Annotation} */ (range))
-				});
-			} else {
-				fragments.push({
-					type: 'selection_highlight',
-					content
-				});
-			}
-
-			last_index = range.end_offset;
+			last_index = annotation.end_offset;
 		}
 
 		// Add any remaining text
@@ -116,10 +89,7 @@
 	{...rest}
 >
 	{#each fragments as fragment, index (index)}
-		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
-				class="selection-highlight"
-				style="anchor-name: --selection-highlight;">{fragment.content}</span
-			>{:else if fragment.type === 'annotation'}
+		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'annotation'}
 			{@const AnnotationComponent =
 				svedit.session.config.node_components[snake_to_pascal(fragment.node.type)]}
 			<AnnotationComponent
@@ -153,16 +123,5 @@
 	/* Disable text-transform when editable and focused so users see original text */
 	.text.editable.focused {
 		text-transform: none !important;
-	}
-
-	/* Dim the selection highlight when canvas loses native focus */
-	:global(.svedit-canvas:not(:focus-within)) .selection-highlight {
-		background: oklch(from var(--svedit-editing-fill) l 0 h / alpha);
-	}
-
-	/* Make a collapsed caret visible */
-	:global(.svedit-canvas:not(:focus-within)) .selection-highlight:empty {
-		background: none;
-		outline: 0.5px solid oklch(from var(--svedit-editing-stroke) l 0 h / alpha);
 	}
 </style>
