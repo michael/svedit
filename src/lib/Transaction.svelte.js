@@ -662,14 +662,7 @@ export default class Transaction {
 		const path = this.selection.path;
 		const node_array = [...this.get(path)];
 
-		// Get the start and end indices for the selection
 		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-
-		if (start !== end) {
-			// Remove the selected nodes from the node_array
-			node_array.splice(start, end - start);
-		}
 
 		// Insert the new nodes
 		node_array.splice(start, 0, ...node_ids);
