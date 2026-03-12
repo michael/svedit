@@ -110,10 +110,12 @@ Properties of nodes can hold values:
 - `number`: Just like a number in JavaScript
 - `integer`: A number for which Number.isInteger(number) returns true
 - `boolean`: true or false
-- `string_array`: An array of good old JavaScript strings
-- `integer_array`: An array of integers
+- `datetime`: A date/time string parseable by `Date.parse()`
+- `string_array`: An array of strings
 - `number_array`: An array of numbers
-- `annotated_text`: a plain text string, but with annotations (bold, italic, link etc.)
+- `integer_array`: An array of integers
+- `boolean_array`: An array of booleans
+- `annotated_text`: A plain text string with annotations (bold, italic, link etc.). Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
 
 Or references:
 - `node`: References a single node (e.g. an image node can reference a global asset node)
@@ -1054,9 +1056,9 @@ Further things to consider:
 - Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
 - Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensure `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to child element of Node.
 
-## Full API docs?
+## Beyond the README
 
-Not yet. Please just [read the code](./src) for now. It's only a couple of files with less than 3000 LOC in total. The files in `routes` are considered example code (copy them and adapt them to your needs), while files in `lib` are considered library code. Read them to understand the API and what's happening behind the scenes.
+The source code is compact and readable — less than 3000 LOC across a handful of files. We encourage you to explore it. The files in [`src/lib`](./src/lib) are the library code, while the files in [`src/routes`](./src/routes) are example code you can copy and adapt to your needs.
 
 ## Developing Svedit
 
