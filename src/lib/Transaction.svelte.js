@@ -745,16 +745,6 @@ export default class Transaction {
 					node_id
 				};
 			}
-
-			// Insertion point is inside the annotation - extend the annotation
-			if (annotation_start < range.start_offset && annotation_end > range.start_offset) {
-				return {
-					start_offset: annotation_start,
-					end_offset: annotation_end + delta,
-					node_id
-				};
-			}
-
 			return annotation;
 		});
 
