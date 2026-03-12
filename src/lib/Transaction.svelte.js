@@ -336,6 +336,7 @@ export default class Transaction {
 		const previous_value = this.get(id);
 		if (!previous_value) {
 			console.warn(`Deletion of node ${id} skipped, as it does not exist.`);
+			return this;
 		}
 		// Get nodes referenced by this node BEFORE deleting it.
 		const referenced_nodes = this.get_referenced_nodes(id);
