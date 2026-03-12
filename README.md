@@ -11,26 +11,18 @@ Because Svelte‘s reactivity system is **the perfect fit** for building super-l
 
 ## Getting started
 
-Clone the bare-bones `hello-svedit` repository:
+The fastest way to get started is to clone the `hello-svedit` template and turn it into your own project:
 
 ```bash
 git clone https://github.com/michael/hello-svedit
 cd hello-svedit
-```
-
-Install dependencies:
-
-```bash
 npm install
-```
-
-And run the development server:
-
-```bash
 npm run dev
 ```
 
 Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
+
+You can also install Svedit into an existing SvelteKit project with `npm install svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
 
 ## Principles
 
