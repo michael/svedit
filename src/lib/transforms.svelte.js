@@ -14,13 +14,11 @@ export function break_text_node(tr) {
 	const node = tr.get(selection.path.slice(0, -1));
 	if (tr.kind(node) !== 'text') return false;
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
-	// console.log('is_inside_node_array', is_inside_node_array);
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 	const node_array_prop = selection.path.at(-3);
-	// console.log('node_array_prop', node_array_prop);
 	// Get the node that owns the node_array property (e.g. a page.body)
 	const node_array_node = tr.get(selection.path.slice(0, -3));
-	// console.log('node_array_node', $state.snapshot(node_array_node));
+
 
 	// Delete selection unless collapsed
 	if (selection.anchor_offset !== selection.focus_offset) {
@@ -67,7 +65,6 @@ export function join_text_node(tr) {
 	const node = tr.get(selection.path.slice(0, -1));
 	if (tr.kind(node) !== 'text') return false;
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
-	// console.log('is_inside_node_array', is_inside_node_array);
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
 	const node_index = parseInt(tr.selection.path.at(-2), 10);
