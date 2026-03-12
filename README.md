@@ -289,7 +289,9 @@ const session_config = {
 
 - **`generate_id`** - Function that generates unique IDs for new nodes
 - **`node_components`** - Maps each node type from your schema to a Svelte component
-- **`system_components`** - User-land overlays and optional overrides for NodeGap, NodeGapMarkers, NodeSelectionMarkers
+- **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
+  - `Overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
+  - `NodeGap`, `NodeGapMarkers`, `NodeSelectionMarkers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events
