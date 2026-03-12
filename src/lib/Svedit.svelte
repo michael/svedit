@@ -225,7 +225,7 @@
 	function oncompositionend(event) {
 		console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
-		if (canvas_el?.contains(document.activeElement) && session.selection?.type === 'text') {
+		if (session.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
 			// of finishing a composition. For instance, the user might have selected a different
 			// part of the text while composing.
