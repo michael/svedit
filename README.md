@@ -226,8 +226,7 @@ const doc = {
     },
     paragraph_1: {
       id: 'paragraph_1',
-      type: 'text',
-      layout: 1,
+      type: 'paragraph',
       content: { text: 'Hello world.', annotations: [] }
     },
     list_item_1: {
