@@ -135,13 +135,21 @@ const document_schema = {
   paragraph: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_text', allow_newlines: true }
+      content: {
+        type: 'annotated_text',
+        node_types: ['strong', 'emphasis', 'link'],
+        allow_newlines: true
+      }
     }
   },
   list_item: {
     kind: 'text',
     properties: {
-      content: { type: 'annotated_text', allow_newlines: true },
+      content: {
+        type: 'annotated_text',
+        node_types: ['strong', 'emphasis', 'link'],
+        allow_newlines: true
+      },
     }
   },
   list: {
@@ -170,9 +178,25 @@ const document_schema = {
       url: { type: 'string' },
       label: { type: 'string' },
     }
+  },
+  strong: {
+    kind: 'annotation',
+    properties: {}
+  },
+  emphasis: {
+    kind: 'annotation',
+    properties: {}
+  },
+  link: {
+    kind: 'annotation',
+    properties: {
+      href: { type: 'string' }
+    }
   }
 };
 ```
+
+Annotation types are defined as nodes with `kind: 'annotation'`. Simple annotations like `strong` and `emphasis` have no properties, while annotations like `link` can carry data (e.g. `href`). Each `annotated_text` property specifies which annotation types are allowed via `node_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles).
 
 ## Document
 
