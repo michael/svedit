@@ -436,7 +436,7 @@ function insert_heading(tr) {
   // Create and insert a heading node
   const heading_id = tr.generate_id();
   tr.create({ id: heading_id, type: 'heading', content: { text: '', annotations: [] } });
-  tr.insert_nodes(selection.path, selection.anchor_offset, [heading_id]);
+  tr.insert_nodes([heading_id]);
   
   return true;
 }
