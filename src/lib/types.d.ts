@@ -93,59 +93,53 @@ export type PrimitiveType = ScalarType | ArrayType | RichType;
  */
 export type PropertyType = PrimitiveType | ReferenceType;
 
-/**
- * Document schema primitive types - all possible property types in document schemas.
- */
-export type DocumentSchemaPrimitive =
-	| 'string'
-	| 'number'
-	| 'boolean'
-	| 'integer'
-	| 'datetime'
-	| 'string_array'
-	| 'number_array'
-	| 'boolean_array'
-	| 'integer_array'
-	| 'annotated_text'
-	| 'node'
-	| 'node_array';
-
-/**
- * Maps document schema types to their JavaScript runtime types.
- */
-export type DocumentSchemaValueToJs<T> = T extends 'string'
-	? string
-	: T extends 'number'
-		? number
-		: T extends 'boolean'
-			? boolean
-			: T extends 'integer'
-				? number
-				: T extends 'datetime'
-					? string
-					: T extends 'string_array'
-						? Array<string>
-						: T extends 'number_array'
-							? Array<number>
-							: T extends 'boolean_array'
-								? Array<boolean>
-								: T extends 'integer_array'
-									? Array<number>
-									: T extends 'annotated_text'
-										? AnnotatedText
-										: T extends 'node'
-											? string
-											: T extends 'node_array'
-												? Array<string>
-												: never;
-
-/**
- * Converts a document node schema definition to its inferred JS type.
- * Handles the {type: "..."} wrapper structure used in document schemas.
- */
-export type DocumentNodeToJs<S extends NodeSchema> = { id: string; type: string } & {
-	[K in keyof S['properties']]: DocumentSchemaValueToJs<S['properties'][K]['type']>;
-};
+// TODO: We may later want more sophisticated type inference, so that typing
+// e.g. `session.get('image')` auto-completes the node's properties based on
+// the schema definition. The types below are a starting point for that.
+//
+// export type DocumentSchemaPrimitive =
+// 	| 'string'
+// 	| 'number'
+// 	| 'boolean'
+// 	| 'integer'
+// 	| 'datetime'
+// 	| 'string_array'
+// 	| 'number_array'
+// 	| 'boolean_array'
+// 	| 'integer_array'
+// 	| 'annotated_text'
+// 	| 'node'
+// 	| 'node_array';
+//
+// export type DocumentSchemaValueToJs<T> = T extends 'string'
+// 	? string
+// 	: T extends 'number'
+// 		? number
+// 		: T extends 'boolean'
+// 			? boolean
+// 			: T extends 'integer'
+// 				? number
+// 				: T extends 'datetime'
+// 					? string
+// 					: T extends 'string_array'
+// 						? Array<string>
+// 						: T extends 'number_array'
+// 							? Array<number>
+// 							: T extends 'boolean_array'
+// 								? Array<boolean>
+// 								: T extends 'integer_array'
+// 									? Array<number>
+// 									: T extends 'annotated_text'
+// 										? AnnotatedText
+// 										: T extends 'node'
+// 											? string
+// 											: T extends 'node_array'
+// 												? Array<string>
+// 												: never;
+//
+// export type DocumentNodeToJs<S extends NodeSchema> = { id: string; type: string } & {
+// 	[K in keyof S['properties']]: DocumentSchemaValueToJs<S['properties'][K]['type']>;
+// };
 
 /**
  * A property that stores an annotated text with required allow_newlines setting.
