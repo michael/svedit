@@ -699,19 +699,19 @@ ${fallback_html}`;
 
 	function render_selection() {
 		const selection = /** @type {Selection} */ (session.selection);
-		let prev_selection =
-			__get_property_selection_from_dom() ||
-			__get_text_selection_from_dom() ||
-			__get_node_selection_from_dom();
 
 		if (!selection) {
-			// No model selection -> just leave things as they are'
+			// No model selection -> just leave things as they are
 			let dom_selection = window.getSelection();
 			dom_selection.removeAllRanges();
 			return;
 		}
 
 		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
+		let prev_selection =
+			__get_property_selection_from_dom() ||
+			__get_text_selection_from_dom() ||
+			__get_node_selection_from_dom();
 		if (
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
