@@ -646,8 +646,8 @@ ${fallback_html}`;
 			}
 		}
 
-		console.log('plain_text', plain_text);
-		console.log('pasted_json', pasted_json);
+		// console.log('plain_text', plain_text);
+		// console.log('pasted_json', pasted_json);
 
 		if (pasted_json?.main_nodes && session.selection?.type === 'node') {
 			// Paste nodes at a node selection
@@ -1353,7 +1353,7 @@ ${fallback_html}`;
 		caret-color: var(--svedit-editing-stroke);
 		caret-shape: bar;
 		/* Default to vertical/ column flow with: --row: 0; (the most common case)
-		Prevents silent failures when developers forget to set the row property in their top level node component. 
+		Prevents silent failures when developers forget to set the row property in their top level node component.
 		TODO: Warn developers in dev mode via console if they forget to set the --row property and use a different flow.*/
 		--row: 0;
 		&:focus {

@@ -2,6 +2,8 @@
  * @import { Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
  */
 
+const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
+
 /**
  * Detect if the current browser is on a mobile device
  * @returns {boolean} true if mobile browser, false otherwise
@@ -49,8 +51,7 @@ export function is_chrome_desktop_browser() {
  * get_char_length('👋🏽') // Returns: 1 (not 4 - skin tone modifier treated as single char)
  */
 export function get_char_length(str) {
-	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-	return [...segmenter.segment(str)].length;
+	return [...SEGMENTER.segment(str)].length;
 }
 
 
@@ -71,8 +72,7 @@ export function get_char_length(str) {
  * get_char_at('👋🏽', 0) // Returns: '👋🏽' (skin tone modifier included)
  */
 export function get_char_at(str, index) {
-	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-	const segments = [...segmenter.segment(str)];
+	const segments = [...SEGMENTER.segment(str)];
 	return segments[index].segment;
 }
 
@@ -92,8 +92,7 @@ export function get_char_at(str, index) {
  * char_slice('a👋🏽b', 1, 2) // Returns: '👋🏽' (skin tone modifier included)
  */
 export function char_slice(str, start, end = undefined) {
-	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-	const segments = [...segmenter.segment(str)];
+	const segments = [...SEGMENTER.segment(str)];
 	return segments
 		.slice(start, end)
 		.map((s) => s.segment)
@@ -115,8 +114,7 @@ export function char_slice(str, start, end = undefined) {
  * utf16_to_char_offset("a😀b", 3) // Returns: 2 (position after emoji)
  */
 export function utf16_to_char_offset(str, utf16_offset) {
-	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-	const segments = [...segmenter.segment(str)];
+	const segments = [...SEGMENTER.segment(str)];
 	let char_offset = 0;
 	let utf16_count = 0;
 
@@ -145,8 +143,7 @@ export function utf16_to_char_offset(str, utf16_offset) {
  * char_to_utf16_offset("a😀b", 2) // Returns: 3 (UTF-16 position after emoji)
  */
 export function char_to_utf16_offset(str, char_offset) {
-	const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-	const segments = [...segmenter.segment(str)];
+	const segments = [...SEGMENTER.segment(str)];
 	let utf16_offset = 0;
 
 	for (let i = 0; i < Math.min(char_offset, segments.length); i++) {
