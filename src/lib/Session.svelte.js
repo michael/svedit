@@ -419,7 +419,7 @@ export default class Session {
 	 * Compute next possible insert position from a given selection
 	 *
 	 * @param {Selection} [selection] - Reference selection
-	 * @returns {Selection} True if the paste operation was successful, false otherwise
+	 * @returns {Selection|null} The next node insert caret selection, or null if none is available
 	 */
 	get_next_node_insert_caret(selection = this.selection) {
 		// There's no parent path to insert into
