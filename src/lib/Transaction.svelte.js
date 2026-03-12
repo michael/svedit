@@ -18,7 +18,8 @@ import {
 	apply_op,
 	count_references_excluding_deleted,
 	validate_node,
-	get_active_annotation
+	get_active_annotation,
+	validate_selection
 } from './doc_utils.js';
 
 /**
@@ -370,50 +371,7 @@ export default class Transaction {
 	 * @private
 	 */
 	_validate_selection(selection) {
-		if (!selection) return;
-
-		const selection_type = selection.type;
-		if (!['node', 'text', 'property'].includes(selection_type)) {
-			throw new Error(`Invalid selection type: ${selection_type}`);
-		}
-
-		if (selection_type === 'node') {
-			const node_array = this.get(selection.path);
-
-			if (!Array.isArray(node_array)) {
-				throw new Error('Node selection path must point to a node_array');
-			}
-
-			const max_offset = node_array.length;
-			if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
-				throw new Error(
-					`Node selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${max_offset}.`
-				);
-			}
-			if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
-				throw new Error(
-					`Node selection focus_offset (${selection.focus_offset}) is out of bounds. Max is ${max_offset}.`
-				);
-			}
-		} else if (selection_type === 'text') {
-			const annotated_text = this.get(selection.path);
-
-			if (!annotated_text || typeof annotated_text.text !== 'string') {
-				throw new Error('Text selection path must point to annotated_text');
-			}
-
-			const char_length = get_char_length(annotated_text.text);
-			if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
-				throw new Error(
-					`Text selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${char_length}.`
-				);
-			}
-			if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
-				throw new Error(
-					`Text selection focus_offset (${selection.focus_offset}) is out of bounds. Max is ${char_length}.`
-				);
-			}
-		}
+		validate_selection(selection, this);
 	}
 
 	/**
