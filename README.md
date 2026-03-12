@@ -472,7 +472,7 @@ const new_node_id = tr.build('the_list', {
 		id: 'first_item',
 		type: 'list_item',
 		content: node.content
-	}
+	},
 	the_list: {
 		id: 'the_list',
 		type: 'list',
@@ -1006,7 +1006,7 @@ const session_config = {
 }
 ```
 
-The key in this map corresponds to the node's `type` property in the schema. Note that the component name should match the node type name. For example, a node with `type: "list_item"` will look for a component registered as `ListItem` in the `node_components` map.
+The keys must be PascalCase versions of the snake_case node types in your schema. Svedit converts node types automatically (e.g. `list_item` → `ListItem`, `image_grid` → `ImageGrid`), so a node with `type: "list_item"` will look for a component registered as `ListItem`.
 
 ## Mastering contenteditable
 
