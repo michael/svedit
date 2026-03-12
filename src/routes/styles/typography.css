@@ -68,7 +68,7 @@ i,
 	font-weight: 700;
 	font-variation-settings: 'wght' 700;
 	line-height: 1.2;
-	--text-wrap: balance;
+	text-wrap: balance;
 }
 
 .heading2 {
@@ -76,7 +76,7 @@ i,
 	font-weight: 700;
 	font-variation-settings: 'wght' 700;
 	line-height: 1.3;
-	--text-wrap: balance;
+	text-wrap: balance;
 }
 
 .heading3 {
@@ -84,7 +84,7 @@ i,
 	font-weight: 700;
 	font-variation-settings: "wght" 700;
 	line-height: 1.4;
-	--text-wrap: balance;
+	text-wrap: balance;
 }
 
 .body {

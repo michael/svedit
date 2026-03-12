@@ -136,10 +136,6 @@
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 		box-sizing: content-box;
-
-		&.heading1 {
-			text-wrap: var(--text-wrap);
-		}
 	}
 	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
 	[placeholder].empty:not(.focused)::before,
@@ -153,11 +149,6 @@
 	.text:not(.focused) {
 		caret-color: transparent;
 	}
-
-	/*.text.focused {
-    background: none;
-    outline: 1px solid var(--svedit-editing-stroke);
-  }*/
 
 	/* Disable text-transform when editable and focused so users see original text */
 	.text.editable.focused {
