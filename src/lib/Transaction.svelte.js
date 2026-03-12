@@ -344,9 +344,7 @@ export default class Transaction {
 		this.ops.push(op);
 		this.inverse_ops.push(['create', previous_value]);
 		this._apply_op(op);
-		// Check if the nodes that were referenced by the deleted node are now orphaned
-		// NOTE: We don't do this yet, because we still have some manual child node removal code
-		// that causes errors. But we should soon implement this only here.
+		// Cascade delete any nodes that are now orphaned after removing this node
 		this._cascade_delete_unreferenced_nodes(referenced_nodes);
 		return this;
 	}
