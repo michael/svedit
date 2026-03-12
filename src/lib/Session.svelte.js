@@ -108,64 +108,64 @@ export default class Session {
 	 * @throws {Error} Throws if the selection is invalid
 	 * @private
 	 */
-	_validate_selection(selection) {
-		if (!selection) return; // no selection is a valid selection
-		if (selection && !Array.isArray(selection.path)) {
-			throw new Error('Selection must have a valid path');
-		}
+	// _validate_selection(selection) {
+	// 	if (!selection) return; // no selection is a valid selection
+	// 	if (selection && !Array.isArray(selection.path)) {
+	// 		throw new Error('Selection must have a valid path');
+	// 	}
 
-		const selection_type = selection.type;
-		if (selection_type === 'node') {
-			// For node selections, path should point to a node_array
-			if (this.inspect(selection.path).type !== 'node_array') {
-				throw new Error(
-					`Node selection path does not point to a node array: ${selection.path.join('.')}`
-				);
-			}
+	// 	const selection_type = selection.type;
+	// 	if (selection_type === 'node') {
+	// 		// For node selections, path should point to a node_array
+	// 		if (this.inspect(selection.path).type !== 'node_array') {
+	// 			throw new Error(
+	// 				`Node selection path does not point to a node array: ${selection.path.join('.')}`
+	// 			);
+	// 		}
 
-			const node_array = this.get(selection.path);
+	// 		const node_array = this.get(selection.path);
 
-			// Validate anchor_offset and focus_offset are within bounds
-			const max_offset = node_array.length;
+	// 		// Validate anchor_offset and focus_offset are within bounds
+	// 		const max_offset = node_array.length;
 
-			if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
-				throw new Error(
-					`Node selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${max_offset})`
-				);
-			}
+	// 		if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
+	// 			throw new Error(
+	// 				`Node selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${max_offset})`
+	// 			);
+	// 		}
 
-			if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
-				throw new Error(
-					`Node selection focus_offset ${selection.focus_offset} is out of bounds (0-${max_offset})`
-				);
-			}
-		} else if (selection_type === 'text') {
-			// For text selections, path should point to an annotated_text property
-			const annotated_text = this.get(selection.path);
+	// 		if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
+	// 			throw new Error(
+	// 				`Node selection focus_offset ${selection.focus_offset} is out of bounds (0-${max_offset})`
+	// 			);
+	// 		}
+	// 	} else if (selection_type === 'text') {
+	// 		// For text selections, path should point to an annotated_text property
+	// 		const annotated_text = this.get(selection.path);
 
-			// Validate anchor_offset and focus_offset are within text bounds
-			const char_length = get_char_length(annotated_text.text);
+	// 		// Validate anchor_offset and focus_offset are within text bounds
+	// 		const char_length = get_char_length(annotated_text.text);
 
-			if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
-				throw new Error(
-					`Text selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${char_length})`
-				);
-			}
+	// 		if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
+	// 			throw new Error(
+	// 				`Text selection anchor_offset ${selection.anchor_offset} is out of bounds (0-${char_length})`
+	// 			);
+	// 		}
 
-			if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
-				throw new Error(
-					`Text selection focus_offset ${selection.focus_offset} is out of bounds (0-${char_length})`
-				);
-			}
-		} else if (selection_type === 'property') {
-			// For property selections, just validate the path exists
-			if (!this.inspect(selection.path)) {
-				throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
-			}
-		} else {
-			throw new Error(`Unknown selection type: ${selection_type}`);
-		}
-	}
+	// 		if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
+	// 			throw new Error(
+	// 				`Text selection focus_offset ${selection.focus_offset} is out of bounds (0-${char_length})`
+	// 			);
+	// 		}
+	// 	} else if (selection_type === 'property') {
+	// 		// For property selections, just validate the path exists
+	// 		if (!this.inspect(selection.path)) {
+	// 			throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
+	// 		}
+	// 	} else {
+	// 		throw new Error(`Unknown selection type: ${selection_type}`);
+	// 	}
+	// }
 
 	/**
 	 * Gets the document_id from the doc
