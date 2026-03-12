@@ -33,7 +33,7 @@ const BATCH_WINDOW_MS = 1000; // 1 second
  */
 
 export default class Session {
-	/** @type {Selection | undefined} */
+	/** @type {Selection | null} */
 	#selection = $state.raw(null);
 
 	/** @type {DocumentSchema} */
@@ -83,7 +83,7 @@ export default class Session {
 
 	/**
 	 * Gets the current selection
-	 * @returns {Selection | undefined}
+	 * @returns {Selection | null}
 	 */
 	get selection() {
 		return this.#selection;
@@ -91,7 +91,7 @@ export default class Session {
 
 	/**
 	 * Sets the selection with validation
-	 * @param {Selection | undefined} value - The new selection
+	 * @param {Selection | null} value - The new selection
 	 * @throws {Error} Throws if the selection is invalid
 	 */
 	set selection(value) {
