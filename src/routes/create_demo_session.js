@@ -807,10 +807,10 @@ export const session_config = {
 			'meta+z,ctrl+z': [commands.undo],
 			'meta+shift+z,ctrl+shift+z': [commands.redo],
 			escape: [commands.select_parent],
-			'ctrl+alt+arrowright': [commands.next_layout],
-			'ctrl+alt+arrowleft': [commands.previous_layout],
-			'ctrl+alt+arrowdown': [commands.next_type],
-			'ctrl+alt+arrowup': [commands.previous_type],
+			'ctrl+shift+arrowright': [commands.next_layout],
+			'ctrl+shift+arrowleft': [commands.previous_layout],
+			'ctrl+shift+arrowdown': [commands.next_type],
+			'ctrl+shift+arrowup': [commands.previous_type],
 			backspace: [commands.reset_image],
 			// iOS auto-capitalization workaround (shift is pressed on property selection)
 			'shift+backspace': [commands.reset_image]
