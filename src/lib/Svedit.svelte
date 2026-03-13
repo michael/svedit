@@ -1,5 +1,5 @@
 <script>
-	import { getContext, setContext } from 'svelte';
+	import { flushSync, getContext, setContext } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -89,7 +89,11 @@
 
 	// Handle blur - pop document's keymap from stack
 	function handle_canvas_blur() {
-		canvas_focused = false;
+		// Use flushSync so the selection highlight span (with its CSS anchor)
+		// is in the DOM immediately, before any dialog tries to position itself.
+		flushSync(() => {
+			canvas_focused = false;
+		});
 		key_mapper?.pop_scope();
 	}
 
@@ -739,8 +743,13 @@ ${fallback_html}`;
 	}
 
 	function focus_canvas() {
-		// We just render the selection (which will return focus to the canvas) implicitly
-		render_selection();
+		// Use flushSync so highlight spans are removed from the DOM
+		// immediately, before we focus and render_selection walks the
+		// text nodes.
+		flushSync(() => {
+			canvas_focused = true;
+		});
+		canvas_el?.focus();
 	}
 
 	/**
