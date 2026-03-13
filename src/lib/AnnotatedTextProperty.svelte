@@ -26,7 +26,12 @@
 	);
 
 	// Get selection highlight range if not inside an annotation
+	// Only render selection highlight when canvas is NOT focused.
+	// This avoids DOM mutations (splitting text nodes for highlight spans)
+	// while the user is actively selecting, which would cause selection
+	// feedback loops and scroll-to-focus issues.
 	let selection_highlight_range = $derived.by(() => {
+		if (svedit.canvas_focused) return null;
 		if (is_collapsed) return null;
 		if (!is_focused) return null;
 		if (svedit.session.active_annotation()) return null;

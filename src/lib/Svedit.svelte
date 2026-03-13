@@ -38,6 +38,7 @@
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
 	let is_composing = $state(false);
+	let canvas_focused = $state(false);
 	let before_composition_selection = null;
 
 
@@ -63,6 +64,9 @@
 		get canvas_el() {
 			return canvas_el;
 		},
+		get canvas_focused() {
+			return canvas_focused;
+		},
 		focus_canvas
 	};
 
@@ -79,11 +83,13 @@
 
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
+		canvas_focused = true;
 		key_mapper?.push_scope(session.keymap);
 	}
 
 	// Handle blur - pop document's keymap from stack
 	function handle_canvas_blur() {
+		canvas_focused = false;
 		key_mapper?.pop_scope();
 	}
 
@@ -266,6 +272,7 @@
 	// Map DOM selection to internal model
 	function onselectionchange() {
 		if (!editable) return;
+		if (!canvas_focused) return;
 		const dom_selection = window.getSelection();
 		if (!dom_selection.rangeCount) return;
 
@@ -1302,7 +1309,10 @@ ${fallback_html}`;
 	}
 
 	// Whenever the model selection changes, render the selection
+	// Skip when canvas is not focused to avoid stealing focus back
+	// (e.g., when a dialog is open and selection highlight fragments re-render)
 	$effect(() => {
+		if (!canvas_focused) return;
 		render_selection();
 	});
 </script>
