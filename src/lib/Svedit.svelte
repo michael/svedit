@@ -841,6 +841,8 @@ ${fallback_html}`;
 		// This handles selections that span across arbitrarily nested node arrays by
 		// finding the lowest common ancestor node_array and projecting each endpoint
 		// onto its index within that array.
+		let focus_walked_up = false;
+		let anchor_walked_up = false;
 		while (
 			focus_root_path.slice(0, -1).join('.') !== anchor_root_path.slice(0, -1).join('.')
 		) {
@@ -849,19 +851,23 @@ ${fallback_html}`;
 				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!focus_root) return null;
 				focus_root_path = focus_root.dataset.path.split('.');
+				focus_walked_up = true;
 			} else if (anchor_root_path.length > focus_root_path.length) {
 				// Anchor is deeper — walk it up
 				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!anchor_root) return null;
 				anchor_root_path = anchor_root.dataset.path.split('.');
+				anchor_walked_up = true;
 			} else {
 				// Same depth but different node arrays — walk both up
 				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!focus_root) return null;
 				focus_root_path = focus_root.dataset.path.split('.');
+				focus_walked_up = true;
 				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!anchor_root) return null;
 				anchor_root_path = anchor_root.dataset.path.split('.');
+				anchor_walked_up = true;
 			}
 		}
 
@@ -877,8 +883,11 @@ ${fallback_html}`;
 		}
 
 		// EDGE CASE: Exclude first node when anchor_node is a gap-after
-		// in a non-collapsed forward selection
+		// in a non-collapsed forward selection.
+		// Only apply when anchor wasn't walked up — if it was, the gap is at a
+		// deeper nesting level and no longer relevant to the resolved node array.
 		if (
+			!anchor_walked_up &&
 			anchor_node.parentElement?.dataset.type === 'gap-after' &&
 			!is_backwards &&
 			anchor_offset !== focus_offset
@@ -886,8 +895,10 @@ ${fallback_html}`;
 			anchor_offset += 1;
 		}
 		// EDGE CASE: Exclude first node when focus_node is a gap-after
-		// in a non-collapsed backward selection
+		// in a non-collapsed backward selection.
+		// Only apply when focus wasn't walked up — same reasoning as above.
 		else if (
+			!focus_walked_up &&
 			focus_node.parentElement?.dataset.type === 'gap-after' &&
 			is_backwards &&
 			anchor_offset !== focus_offset &&
