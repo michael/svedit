@@ -175,6 +175,9 @@ button,
 a {
 	/* Fix iconsitency between button and anchor widths */
 	all: unset;
+}
+
+a:not([contenteditable='true'] *) {
 	cursor: pointer;
 }
 
