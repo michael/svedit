@@ -10,7 +10,12 @@ describe('Svedit.svelte', () => {
 	it('should map node caret to DOM', async () => {
 		const session = create_test_session();
 
-		/* const { container } = */ render(SveditTest, { session });
+		const { container } = render(SveditTest, { session });
+
+		// Focus the canvas first so render_selection() runs when selection is set
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
 
 		// Now set node caret between first and second node
 		session.selection = {
@@ -39,7 +44,12 @@ describe('Svedit.svelte', () => {
 
 	it('should map property selection to DOM', async () => {
 		const session = create_test_session();
-		/* const { container }  = */ render(SveditTest, { session });
+		const { container } = render(SveditTest, { session });
+
+		// Focus the canvas first so render_selection() runs when selection is set
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
 
 		// Now set property selection
 		session.selection = {
@@ -62,6 +72,11 @@ describe('Svedit.svelte', () => {
 	it('should allow copying and pasting a story node with button reference multiple times', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
+
+		// Focus the canvas first so render_selection() runs when selection is set
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
 
 		// Get the original story and button content
 		const original_story = session.get('story_1');
@@ -117,10 +132,6 @@ describe('Svedit.svelte', () => {
 			value: mock_clipboard_data,
 			writable: false
 		});
-
-		const svedit_element = container.querySelector('.svedit-canvas');
-		// @ts-ignore
-		svedit_element?.focus();
 
 		document.dispatchEvent(copy_event);
 		await tick();
@@ -491,6 +502,11 @@ describe('Svedit.svelte', () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
 
+		// Focus the canvas first so render_selection() runs when selection is set
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
 		// Select a story node to copy
 		session.selection = {
 			type: 'node',
@@ -533,10 +549,6 @@ describe('Svedit.svelte', () => {
 			value: mock_clipboard_data,
 			writable: false
 		});
-
-		const svedit_element = container.querySelector('.svedit-canvas');
-		// @ts-ignore
-		svedit_element?.focus();
 
 		document.dispatchEvent(copy_event);
 		await tick();
@@ -612,6 +624,11 @@ describe('Svedit.svelte', () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
 
+		// Focus the canvas first so render_selection() runs when selection is set
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
 		// Create a text node with Unicode characters (emojis, special chars)
 		const unicode_text_id = nanoid();
 		const unicode_text_node = {
@@ -686,9 +703,6 @@ describe('Svedit.svelte', () => {
 			writable: false
 		});
 
-		const svedit_element = container.querySelector('.svedit-canvas');
-		// @ts-ignore
-		svedit_element?.focus();
 		document.dispatchEvent(copy_event);
 		await tick();
 
