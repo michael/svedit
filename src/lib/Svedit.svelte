@@ -844,12 +844,21 @@ ${fallback_html}`;
 		while (
 			focus_root_path.slice(0, -1).join('.') !== anchor_root_path.slice(0, -1).join('.')
 		) {
-			if (focus_root_path.length >= anchor_root_path.length) {
+			if (focus_root_path.length > anchor_root_path.length) {
+				// Focus is deeper — walk it up
 				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!focus_root) return null;
 				focus_root_path = focus_root.dataset.path.split('.');
-			}
-			if (anchor_root_path.length >= focus_root_path.length) {
+			} else if (anchor_root_path.length > focus_root_path.length) {
+				// Anchor is deeper — walk it up
+				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
+				if (!anchor_root) return null;
+				anchor_root_path = anchor_root.dataset.path.split('.');
+			} else {
+				// Same depth but different node arrays — walk both up
+				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
+				if (!focus_root) return null;
+				focus_root_path = focus_root.dataset.path.split('.');
 				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!anchor_root) return null;
 				anchor_root_path = anchor_root.dataset.path.split('.');
