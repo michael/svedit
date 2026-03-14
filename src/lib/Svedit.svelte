@@ -837,22 +837,23 @@ ${fallback_html}`;
 		let focus_node_depth = focus_root_path.length;
 		let anchor_node_depth = anchor_root_path.length;
 
-		// HACK: this works only for one level nesting - should be done recursively to work generally
-		if (focus_root_path.length > anchor_root_path.length) {
-			focus_root = focus_root.parentElement.closest('[data-path][data-type="node"]');
-			if (!focus_root) return null;
-			focus_root_path = focus_root.dataset.path.split('.');
-		} else if (anchor_root_path.length > focus_root_path.length) {
-			anchor_root = anchor_root.parentElement.closest('[data-path][data-type="node"]');
-			if (!anchor_root) return null;
-			anchor_root_path = anchor_root.dataset.path.split('.');
-		}
-
-		const is_same_node_array =
-			focus_root_path.slice(0, -1).join('.') === anchor_root_path.slice(0, -1).join('.');
-		if (!is_same_node_array) {
-			console.log('invalid selection, not same node_array');
-			return null;
+		// Walk both endpoints up the DOM until they share the same parent node_array.
+		// This handles selections that span across arbitrarily nested node arrays by
+		// finding the lowest common ancestor node_array and projecting each endpoint
+		// onto its index within that array.
+		while (
+			focus_root_path.slice(0, -1).join('.') !== anchor_root_path.slice(0, -1).join('.')
+		) {
+			if (focus_root_path.length >= anchor_root_path.length) {
+				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
+				if (!focus_root) return null;
+				focus_root_path = focus_root.dataset.path.split('.');
+			}
+			if (anchor_root_path.length >= focus_root_path.length) {
+				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
+				if (!anchor_root) return null;
+				anchor_root_path = anchor_root.dataset.path.split('.');
+			}
 		}
 
 		let anchor_offset = parseInt(anchor_root_path.at(-1));
