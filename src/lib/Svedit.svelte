@@ -81,22 +81,6 @@
 		session.initialize_commands(context);
 	});
 
-	// Handle focus - push session's keymap onto stack
-	function handle_canvas_focus() {
-		canvas_focused = true;
-		key_mapper?.push_scope(session.keymap);
-	}
-
-	// Handle blur - pop document's keymap from stack
-	function handle_canvas_blur() {
-		// Use flushSync so the selection highlight span (with its CSS anchor)
-		// is in the DOM immediately, before any dialog tries to position itself.
-		flushSync(() => {
-			canvas_focused = false;
-		});
-		key_mapper?.pop_scope();
-	}
-
 	/**
 	 * @param {InputEvent} event
 	 */
@@ -740,6 +724,33 @@ ${fallback_html}`;
 		} else {
 			console.log('unsupported selection', $state.snapshot(selection));
 		}
+	}
+
+	// Handle focus - push session's keymap onto stack
+	function handle_canvas_focus() {
+		// Use flushSync so highlight spans are removed from the DOM
+		// immediately, before the browser processes the click's selection.
+		flushSync(() => {
+			// Clear the model selection so render_selection() does not call
+			// setBaseAndExtent() with the old position, which would battle
+			// with the new selection the user is making (the click/drag that
+			// triggered this focus). The browser will place the caret and
+			// fire selectionchange, which sets the model selection correctly.
+			session.selection = null;
+			canvas_focused = true;
+		});
+		key_mapper?.push_scope(session.keymap);
+	}
+
+	// Handle blur - pop document's keymap from stack
+	function handle_canvas_blur() {
+		// Use flushSync so the selection highlight span (with its CSS anchor)
+		// is in the DOM immediately, before any popover/dialog tries to
+		// position itself.
+		flushSync(() => {
+			canvas_focused = false;
+		});
+		key_mapper?.pop_scope();
 	}
 
 	function focus_canvas() {
