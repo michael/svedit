@@ -119,6 +119,12 @@
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 	}
 
+	:global(.hero a) {
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+	}
+
 	@media (max-width: 768px) {
 		:global(.hero .hero-title) {
 			font-size: 2.5rem;

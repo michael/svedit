@@ -219,6 +219,11 @@ const doc = {
 			type: 'link',
 			href: 'https://mutter.co'
 		},
+		link_6: {
+			id: 'link_6',
+			type: 'link',
+			href: 'https://editable.website'
+		},
 		hero_1: {
 			id: 'hero_1',
 			type: 'hero',
@@ -226,7 +231,7 @@ const doc = {
 			title: { text: 'Svedit', annotations: [] },
 			description: {
 				text: 'A tiny library for building editable websites in Svelte.',
-				annotations: []
+				annotations: [{ start_offset: 28, end_offset: 45, node_id: 'link_6' }]
 			},
 			image: ''
 		},
