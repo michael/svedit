@@ -573,15 +573,15 @@ ${fallback_html}`;
 
 		let plain_text,
 			pasted_json,
-			pasted_images = [];
+			pasted_media = [];
 
 		// NOTE: For some reason, await navigator.clipboard.read()
 		const clipboard_items = event.clipboardData?.items || [];
 		for (const item of clipboard_items || []) {
-			if (item.type.startsWith('image/')) {
+			if (item.type.startsWith('image/') || item.type.startsWith('video/') || item.type.startsWith('audio/')) {
 				const blob = item.getAsFile();
 				const data_url = URL.createObjectURL(blob);
-				pasted_images.push({
+				pasted_media.push({
 					blob,
 					data_url,
 					type: item.type,
@@ -590,11 +590,11 @@ ${fallback_html}`;
 			}
 		}
 
-		if (pasted_images.length > 0) {
-			pasted_json = await session.config.handle_image_paste(session, pasted_images);
-			console.log('pasted_json_after_image_paste', pasted_json);
+		if (pasted_media.length > 0) {
+			pasted_json = await session.config.handle_media_paste(session, pasted_media);
+			console.log('pasted_json_after_media_paste', pasted_json);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
-			// handled inside handle_image_paste already.
+			// handled inside handle_media_paste already.
 			if (!pasted_json) return;
 		} else {
 			// First try to extract svedit data from HTML format
