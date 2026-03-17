@@ -495,15 +495,15 @@ export const session_config = {
 		Highlight,
 		Link
 	},
-	handle_image_paste: async (doc, pasted_images) => {
-		// ATTENTION: In a real-world-app, you may want to upload `pasted_images` here,
+	handle_media_paste: async (doc, pasted_media) => {
+		// ATTENTION: In a real-world-app, you may want to upload `pasted_media` here,
 		// before referencing them from the document.
 
 		if (doc.selection.type === 'property') {
 			const property_definition = doc.inspect(doc.selection.path);
 			if (property_definition.name === 'image') {
 				const tr = doc.tr;
-				tr.set(doc.selection.path, pasted_images[0].data_url);
+				tr.set(doc.selection.path, pasted_media[0].data_url);
 				doc.apply(tr);
 			}
 			return null;
@@ -518,8 +518,8 @@ export const session_config = {
 			} else {
 				target_node_type = 'story';
 			}
-			for (let i = 0; i < pasted_images.length; i++) {
-				const pasted_image = pasted_images[i];
+			for (let i = 0; i < pasted_media.length; i++) {
+				const pasted_image = pasted_media[i];
 				pasted_json.nodes['node_' + i] = {
 					id: 'node_' + i,
 					type: target_node_type,
