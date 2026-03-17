@@ -1,13 +1,13 @@
 import Command from '$lib/Command.svelte.js';
 import { is_selection_collapsed } from '$lib/utils.js';
-import { get_layout_node } from './app_utils.js';
+import { get_closest_switchable_layout, get_closest_switchable_type } from './app_utils.js';
 
 /**
  * Command that cycles through available layouts for a node.
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
-	layout_node = $derived(get_layout_node(this.context.session));
+	closest_switchable_layout = $derived(get_closest_switchable_layout(this.context.session, this.context.session.config));
 
 	constructor(direction, context) {
 		super(context);
@@ -15,15 +15,12 @@ export class CycleLayoutCommand extends Command {
 	}
 
 	is_enabled() {
-		if (!this.context.editable || !this.layout_node) return false;
-
-		const layout_count = this.context.session.config.node_layouts?.[this.layout_node.type];
-		return layout_count > 1 && this.layout_node?.layout;
+		return this.context.editable && this.closest_switchable_layout !== null;
 	}
 
 	execute() {
 		const session = this.context.session;
-		const node = this.layout_node;
+		const { node, node_array_path, node_index } = this.closest_switchable_layout;
 		const layout_count = session.config.node_layouts[node.type];
 
 		let new_layout;
@@ -34,6 +31,13 @@ export class CycleLayoutCommand extends Command {
 		}
 
 		const tr = session.tr;
+		// Set node selection so it's clear which node's layout changed
+		tr.set_selection({
+			type: 'node',
+			path: node_array_path,
+			anchor_offset: node_index,
+			focus_offset: node_index + 1
+		});
 		tr.set([node.id, 'layout'], new_layout);
 		session.apply(tr);
 	}
@@ -44,63 +48,42 @@ export class CycleLayoutCommand extends Command {
  * Direction can be 'next' or 'previous'.
  */
 export class CycleNodeTypeCommand extends Command {
+	closest_switchable_type = $derived(get_closest_switchable_type(this.context.session));
+
 	constructor(direction, context) {
 		super(context);
 		this.direction = direction;
 	}
 
 	is_enabled() {
-		const session = this.context.session;
-
-		if (!this.context.editable || !session.selection) return false;
-
-		// Need to check if we have a node selection or can select parent
-		let selection = session.selection;
-		if (selection.type !== 'node') {
-			// Would need to select parent first
-			return true; // Let execute handle this
-		}
-
-		const node_array_schema = session.inspect(selection.path);
-		if (node_array_schema.type !== 'node_array') return false;
-
-		// Need at least 2 types to cycle
-		return node_array_schema.node_types?.length > 1;
+		return this.context.editable && this.closest_switchable_type !== null;
 	}
 
 	execute() {
 		const session = this.context.session;
+		const { node, node_array_path, node_index } = this.closest_switchable_type;
+		const node_array_schema = session.inspect(node_array_path);
+		const node_types = node_array_schema.node_types;
 
-		// Ensure we have a node selection
-		if (session.selection.type !== 'node') {
-			session.select_parent();
-		}
-
-		const node = session.selected_node;
-		const old_selection = structuredClone(session.selection);
-		const node_array_schema = session.inspect(session.selection.path);
-
-		// If we are not dealing with a node selection in a container, return
-		if (node_array_schema.type !== 'node_array') return;
-
-		// Do nothing if there's only one type to switch to
-		if (node_array_schema.node_types?.length <= 1) return;
-
-		const current_type_index = node_array_schema.node_types.indexOf(node.type);
+		const current_type_index = node_types.indexOf(node.type);
 		let new_type_index;
 
 		if (this.direction === 'next') {
-			new_type_index = (current_type_index + 1) % node_array_schema.node_types.length;
+			new_type_index = (current_type_index + 1) % node_types.length;
 		} else {
-			new_type_index =
-				(current_type_index - 1 + node_array_schema.node_types.length) %
-				node_array_schema.node_types.length;
+			new_type_index = (current_type_index - 1 + node_types.length) % node_types.length;
 		}
 
-		const new_type = node_array_schema.node_types[new_type_index];
+		const new_type = node_types[new_type_index];
 		const tr = session.tr;
+		// Set the selection inside the transaction so undo/redo replays correctly
+		tr.set_selection({
+			type: 'node',
+			path: node_array_path,
+			anchor_offset: node_index,
+			focus_offset: node_index + 1
+		});
 		session.config.inserters[new_type](tr);
-		tr.set_selection(old_selection);
 		session.apply(tr);
 	}
 }

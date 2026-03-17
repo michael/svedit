@@ -1,10 +1,11 @@
 <script>
 	import Icon from './Icon.svelte';
-	import { get_layout_node } from '../app_utils.js';
+	import { get_closest_switchable_layout } from '../app_utils.js';
 
 	let { session, focus_canvas, editable = $bindable(false) } = $props();
 
-	let layout_node = $derived(get_layout_node(session));
+	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
+	let layout_node = $derived(closest_switchable_layout?.node ?? null);
 
 	let input_ref = $state();
 
