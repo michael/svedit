@@ -1,6 +1,19 @@
 import { split_annotated_text, join_annotated_text, get_char_length } from './utils.js';
 import { get_default_node_type } from './doc_utils.js';
 
+/**
+ * Set multiple properties on a node via a transaction.
+ *
+ * @param {object} tr - The transaction
+ * @param {Array} path - Path to the node
+ * @param {Record<string, any>} properties - Key/value pairs to set
+ */
+export function set_properties(tr, path, properties) {
+	for (const [key, value] of Object.entries(properties)) {
+		tr.set([...path, key], value);
+	}
+}
+
 export function break_text_node(tr) {
 	// Keep a reference of the original selection (before any transforms are applied)
 	const selection = tr.selection;
