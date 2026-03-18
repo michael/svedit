@@ -591,7 +591,8 @@ ${fallback_html}`;
 		}
 
 		if (pasted_media.length > 0) {
-			pasted_json = await session.config.handle_media_paste(session, pasted_media);
+			const handle_media_paste = session.config.handle_media_paste || session.config.handle_image_paste
+			pasted_json = await handle_media_paste(session, pasted_media);
 			console.log('pasted_json_after_media_paste', pasted_json);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
 			// handled inside handle_media_paste already.
