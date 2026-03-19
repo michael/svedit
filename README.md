@@ -1080,7 +1080,21 @@ You can preview the production build with `npm run preview`.
 
 ## Contributing
 
-At the very moment, the best way to help is to donate or to sponsor us, so we can buy time to work on this exclusively for a couple of more months. Please get in touch personally.
+Contributions are very welcome! Bug reports, bug fixes, and small PRs (a couple of lines of code) don't need any ceremony — just go for it. What follows applies to larger changes and new features.
+
+I take long-term maintainability very seriously. Much like the SQLite project, I prioritize minimalism and code quality over features. This means I may decline pull requests — even good ones — if they don't fit my vision for Svedit at a given point in time. I'll always try to articulate my reasons, but sometimes it comes down to intuition more than logic. Please don't take it personally — it doesn't mean your idea is bad, just that I don't see it belonging in core right now.
+
+### How to contribute a feature
+
+1. **Start with your requirements.** Open an issue describing what you need and why. Wait for a green light that this is something that belongs in core before writing code.
+2. **Prove feasibility.** Make a small PR that solves the root of the problem — no optimizations, no UX polish. This lets me evaluate the impact on the library and give you early feedback if your approach conflicts with Svedit's design decisions.
+3. **Plan the finish.** Once feasibility is approved, outline the remaining steps and wait for another green light. Then we iterate together until it's ready to merge.
+
+**Please don't work on a feature for a long time without checking in regularly.** I have a much lower tolerance for complexity than most developers, and I need to be able to digest changes in small pieces. Going off and making a large rewrite without involving me will likely be frustrating for both of us.
+
+### Sponsorship
+
+Another great way to help is to donate or sponsor the project, so we can buy more dedicated development time. Please get in touch personally.
 
 Find my contact details [here](https://editable.website).
 
