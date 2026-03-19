@@ -1094,9 +1094,7 @@ I take long-term maintainability very seriously. Much like the SQLite project, I
 
 ### Sponsorship
 
-Another great way to help is to donate or sponsor the project, so we can buy more dedicated development time. Please get in touch personally.
-
-Find my contact details [here](https://editable.website).
+Another great way to help is to donate or sponsor the project, so I can buy more dedicated development time. Email me at michael@letsken.com.
 
 ## Beta version
 
