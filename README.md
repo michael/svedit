@@ -1087,8 +1087,9 @@ I take long-term maintainability very seriously. Much like the SQLite project, I
 ### How to contribute a feature
 
 1. **Start with your requirements.** Open an issue describing what you need and why. Wait for a green light that this is something that belongs in core before writing code.
-2. **Prove feasibility.** Make a small PR that solves the root of the problem — no optimizations, no UX polish. This lets me evaluate the impact on the library and give you early feedback if your approach conflicts with Svedit's design decisions.
-3. **Plan the finish.** Once feasibility is approved, outline the remaining steps and wait for another green light. Then we iterate together until it's ready to merge.
+2. **Explore approaches.** For non-trivial features, there may be multiple ways to solve the problem. Discuss trade-offs before committing to one direction — I may ask you to explore alternatives first.
+3. **Prove feasibility.** Make a small PR that solves the root of the problem — no optimizations, no UX polish. This lets me evaluate the impact on the library and give you early feedback if your approach conflicts with Svedit's design decisions.
+4. **Plan the finish.** Once feasibility is approved, outline the remaining steps and wait for another green light. Then we iterate together until it's ready to merge.
 
 **Please don't work on a feature for a long time without checking in regularly.** I have a much lower tolerance for complexity than most developers, and I need to be able to digest changes in small pieces. Going off and making a large rewrite without involving me will likely be frustrating for both of us.
 
