@@ -1,5 +1,5 @@
 <script>
-	import { getContext, setContext } from 'svelte';
+	import { getContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
 	import { snake_to_pascal } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
@@ -19,12 +19,6 @@
 			.get(path)
 			.map(/** @param {string} node_id */ (node_id) => svedit.session.get(node_id))
 	);
-
-	// Expose array metadata to child Node.svelte instances via context,
-	// avoiding expensive session.inspect() / session.get() calls per node.
-	setContext('node_array_meta', {
-		get length() { return nodes.length; }
-	});
 </script>
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element 
@@ -52,9 +46,17 @@
 		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
 		     resolves anchor positioning against the shared containing block,
 		     not the placeholder which inherits .node positioning styles. -->
-		<NodeGap path={[...path, 0]} type="gap-before" empty />
+		<NodeGap array_path={path} offset={0} count={0} empty />
 	{/if}
 	{#each nodes as node, index (index)}
+		{#if svedit.editable}
+			<NodeGap
+				array_path={path}
+				offset={index}
+				count={nodes.length}
+				positioned={svedit.is_near_viewport?.([...path, index]) ?? true}
+			/>
+		{/if}
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
 			<Component path={[...path, index]} />
@@ -62,6 +64,14 @@
 			<UnknownNode path={[...path, index]} />
 		{/if}
 	{/each}
+	{#if svedit.editable && nodes.length > 0}
+		<NodeGap
+			array_path={path}
+			offset={nodes.length}
+			count={nodes.length}
+			positioned={svedit.is_near_viewport?.([...path, nodes.length - 1]) ?? true}
+		/>
+	{/if}
 	{#if svedit.editable && NodeGapMarkers}
 		<NodeGapMarkers {path} />
 	{/if}

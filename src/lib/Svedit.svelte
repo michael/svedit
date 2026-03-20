@@ -269,6 +269,10 @@
 		if (!canvas_el?.contains(range.commonAncestorContainer)) return;
 		let selection = __get_selection_from_dom();
 		if (selection) {
+			// Avoid assigning a new object reference when the selection is
+			// structurally identical — prevents a redundant $effect cycle
+			// (render_selection → scrollIntoView) on every DOM layout change.
+			if (JSON.stringify(selection) === JSON.stringify(session.selection)) return;
 			session.selection = selection;
 		}
 	}
@@ -765,6 +769,23 @@ ${fallback_html}`;
 	}
 
 	/**
+	 * When a DOM selection endpoint lands in a sibling NodeGap (not inside
+	 * a node), resolves the adjacent node element for the walk-up algorithm.
+	 * @param {HTMLElement} el
+	 * @returns {HTMLElement | null}
+	 */
+	function __resolve_node_from_gap(el) {
+		const gap = /** @type {HTMLElement | null} */ (el.closest('[data-gap-array-path]'));
+		if (!gap) return null;
+		const array_path = gap.dataset.gapArrayPath;
+		const offset = parseInt(gap.dataset.gapOffset, 10);
+		const node_idx = offset > 0 ? offset - 1 : 0;
+		return /** @type {HTMLElement | null} */ (
+			canvas_el.querySelector(`[data-path="${array_path}.${node_idx}"][data-type="node"]`)
+		);
+	}
+
+	/**
 	 * Extracts a NodeSelection from the current DOM selection.
 	 *
 	 *
@@ -783,55 +804,29 @@ ${fallback_html}`;
 		if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
 		if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
-		// EDGE CASE: Let's first check if we are in a node gap for node carets
-		let gap_after_el =
-			focus_node && focus_node?.closest('[data-type="gap-after"]');
-		if (gap_after_el && focus_node === anchor_node) {
-			// Find the node that this gap belongs to
-			let node = /** @type {HTMLElement} */ (gap_after_el.closest('[data-type="node"]'));
-			if (!node) {
-				console.log('No corresponding node found for gap-after');
-				return null;
-			}
-			const node_path = /** @type {DocumentPath} */ (node.dataset.path.split('.'));
-			const node_index = parseInt(String(node_path.at(-1)), 10);
-
-			return {
-				type: 'node',
-				path: node_path.slice(0, -1),
-				anchor_offset: node_index + 1,
-				focus_offset: node_index + 1
-			};
-		}
-
-		// EDGE CASE: Let's check if we are in a gap-before for node_arrays.
-		let gap_before_el = focus_node.closest('[data-type="gap-before"]');
-		if (gap_before_el && focus_node === anchor_node) {
-			const node_array_el = /** @type {HTMLElement} */ (
-				gap_before_el.closest('[data-type="node_array"]')
-			);
-			const node_array_path = node_array_el.dataset.path.split('.');
-			return {
-				type: 'node',
-				path: node_array_path,
-				anchor_offset: 0,
-				focus_offset: 0
-			};
-		}
-
-		let focus_root = /** @type {HTMLElement} */ (
-			focus_node.closest('[data-path][data-type="node"]')
+		// EDGE CASE: Collapsed selection inside a node gap (gap-after or gap-before).
+		// Gaps are siblings of nodes with data-gap-array-path and data-gap-offset.
+		const gap_el = /** @type {HTMLElement | null} */ (
+			focus_node.closest('[data-gap-array-path]')
 		);
+		if (gap_el && focus_node === anchor_node) {
+			const array_path = gap_el.dataset.gapArrayPath.split('.');
+			const gap_offset = parseInt(gap_el.dataset.gapOffset, 10);
+			return {
+				type: 'node',
+				path: array_path,
+				anchor_offset: gap_offset,
+				focus_offset: gap_offset
+			};
+		}
+
+		let focus_root = __resolve_node_from_gap(focus_node)
+			?? /** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
 		if (!focus_root) return null;
 
-		let anchor_root = /** @type {HTMLElement} */ (
-			anchor_node.closest('[data-path][data-type="node"]')
-		);
+		let anchor_root = __resolve_node_from_gap(anchor_node)
+			?? /** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
 		if (!anchor_root) return null;
-
-		if (!(focus_root && anchor_root)) {
-			return null;
-		}
 
 		let focus_root_path = focus_root.dataset.path.split('.');
 		let anchor_root_path = anchor_root.dataset.path.split('.');
@@ -1094,106 +1089,68 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
-		const node_array_el = canvas_el.querySelector(
-			`[data-path="${node_array_path}"][data-type="node_array"]`
+		return canvas_el.querySelector(
+			`[data-path="${node_array_path}.${node_offset}"][data-type="node"]`
 		);
-		if (!node_array_el) return null;
-
-		const node_elements = node_array_el.children;
-		if (node_elements.length === 0) return null;
-
-		return node_elements[node_offset];
 	}
 
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path.join('.');
-		let is_collapsed = selection.anchor_offset === selection.focus_offset;
-		let is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
+		const is_collapsed = selection.anchor_offset === selection.focus_offset;
+		const is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
-		// We need to translate the cusor offset to node offsets now
-		let anchor_node_offset, focus_node_offset;
+		const node_array_el = canvas_el.querySelector(
+			`[data-path="${node_array_path}"][data-type="node_array"]`
+		);
+		if (!node_array_el) return;
 
-		if (is_collapsed) {
-			anchor_node_offset = Math.max(0, selection.anchor_offset - 1);
-			focus_node_offset = Math.max(0, selection.focus_offset - 1);
-		} else if (is_backward) {
-			anchor_node_offset = selection.anchor_offset - 1;
-			focus_node_offset = selection.focus_offset;
-		} else {
-			anchor_node_offset = selection.anchor_offset;
-			focus_node_offset = selection.focus_offset - 1;
-		}
-
-		const anchor_node = __get_node_element(node_array_path, anchor_node_offset);
-		const focus_node = __get_node_element(node_array_path, focus_node_offset);
-
-		if (!anchor_node || !focus_node) return;
 		const dom_selection = window.getSelection();
 		const range = window.document.createRange();
 
-		if (is_collapsed) {
-			// Caret position in between two nodes or at the very beginning/end of a node_array
-			// IMPORTANT: We need to look for direct children of anchor_node to find the right node gap.
-			const gap_selector = selection.anchor_offset === 0
-				? '.gap-before'
-				: '.gap-after';
-			// In empty arrays the node gap is a sibling of the placeholder, not a child
-			const gap_el =
-				anchor_node.querySelector(`:scope > ${gap_selector}`) ??
-				anchor_node.parentElement?.querySelector(`:scope > ${gap_selector}`);
+		const gap_selector = (offset) =>
+			`[data-gap-array-path="${node_array_path}"][data-gap-offset="${offset}"]`;
 
+		if (is_collapsed) {
+			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
 			if (!gap_el) return;
-			range.setStart(gap_el, 1);
-			range.setEnd(gap_el, 1);
+			// Target .svedit-selectable (has a box), not gap_el which is
+			// display:contents and would cause the browser to normalize
+			// the range into the parent, breaking read-back.
+			const selectable = gap_el.querySelector('.svedit-selectable');
+			if (!selectable) return;
+			range.setStart(selectable, 1);
+			range.setEnd(selectable, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
 		} else {
-			// Expanded selection (one or more nodes are fully selectd)
+			const anchor_gap = node_array_el.querySelector(gap_selector(selection.anchor_offset));
+			const focus_gap = node_array_el.querySelector(gap_selector(selection.focus_offset));
+			if (!anchor_gap || !focus_gap) return;
+			const anchor_sel = anchor_gap.querySelector('.svedit-selectable');
+			const focus_sel = focus_gap.querySelector('.svedit-selectable');
+			if (!anchor_sel || !focus_sel) return;
+
 			if (is_backward) {
-				// Use the last selectable you find
-				const anchor_node_selectable = [...anchor_node.querySelectorAll('.svedit-selectable')].at(
-					-1
-				);
-				// Use the first selectable you find
-				const focus_node_selectable = [...focus_node.querySelectorAll('.svedit-selectable')].at(0);
-
-				range.setStart(focus_node_selectable, 1);
-				range.setEnd(anchor_node_selectable, 1);
 				dom_selection.removeAllRanges();
-				dom_selection.addRange(range);
-				// Phew, this was a hard nut to crack. But with that code the direction can be reversed.
-				dom_selection.setBaseAndExtent(anchor_node_selectable, 1, focus_node_selectable, 1);
+				dom_selection.setBaseAndExtent(anchor_sel, 1, focus_sel, 1);
 			} else {
-				// Use the first selectable you find
-				const anchor_node_selectable = [...anchor_node.querySelectorAll('.svedit-selectable')].at(
-					0
-				);
-				// Use the last selectable you find
-				const focus_node_selectable = [...focus_node.querySelectorAll('.svedit-selectable')].at(-1);
-
-				range.setStart(anchor_node_selectable, 1);
-				range.setEnd(focus_node_selectable, 1);
+				range.setStart(anchor_sel, 1);
+				range.setEnd(focus_sel, 1);
 				dom_selection.removeAllRanges();
 				dom_selection.addRange(range);
 			}
 		}
 
-		// Ensure the node_array is focused
-		const node_array_el = canvas_el.querySelector(
-			`[data-path="${node_array_path}"][data-type="node_array"]`
-		);
-		if (node_array_el) {
-			node_array_el.focus();
-			// Scroll the selection into view
+		node_array_el.focus();
+		const scroll_node_offset = is_collapsed
+			? Math.max(0, selection.anchor_offset - 1)
+			: (is_backward ? selection.focus_offset : selection.anchor_offset);
+		const scroll_node = __get_node_element(node_array_path, scroll_node_offset);
+		if (scroll_node) {
 			setTimeout(() => {
-				(is_backward ? focus_node : anchor_node).scrollIntoView({
-					block: 'nearest',
-					inline: 'nearest'
-				});
+				scroll_node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 			}, 0);
-		} else {
-			console.log('No container element found!');
 		}
 	}
 
