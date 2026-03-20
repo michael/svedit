@@ -2,6 +2,11 @@
 	/**
 	 * Invisible keyboard caret selectable and gap hit area.
 	 *
+	 * Rendered as a sibling of Node elements inside NodeArrayProperty,
+	 * interleaved between nodes in DOM order. This ensures:
+	 * - Correct DOM order for native drag-to-select across nodes
+	 * - No containing-block issues from transform/filter/will-change on nodes
+	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
 	 * activated lazily via the `positioned` prop — only gaps near the
@@ -15,29 +20,37 @@
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
-	 *
-	 * Node.svelte does NOT set position: relative, so the selectable's
-	 * containing block is a higher ancestor that contains all sibling
-	 * nodes, making cross-sibling anchor references valid.
 	 */
-	let { path, type, empty = false, last = false, positioned = true } = $props();
+	let { array_path, offset, count, empty = false, positioned = true } = $props();
+
+	let is_first = $derived(offset === 0);
+	let is_last = $derived(offset === count);
+	let type = $derived(is_first ? 'gap-before' : 'gap-after');
 
 	let gap_style = $derived.by(() => {
-		const p = path.join('-');
-		const arr = path.slice(0, -1).join('-');
-		const idx = parseInt(String(path.at(-1)), 10);
-		return `--_pa:--${p};--_next:--${arr}-${idx + 1};--_container:--${arr}`;
+		const arr = array_path.join('-');
+		const prev_idx = offset - 1;
+		const pa = is_first ? `--${arr}-0` : `--${arr}-${prev_idx}`;
+		const next = `--${arr}-${offset}`;
+		const container = `--${arr}`;
+		return `--_pa:${pa};--_next:${next};--_container:${container}`;
 	});
 
-	let anchor_name = $derived(`--g-${path.join('-')}-${type}`);
+	let anchor_name = $derived.by(() => {
+		const arr = array_path.join('-');
+		if (is_first) return `--g-${arr}-0-gap-before`;
+		return `--g-${arr}-${offset - 1}-gap-after`;
+	});
 </script>
 
 <div
 	class="node-gap {type}"
 	class:empty
-	class:last
+	class:last={is_last}
 	class:positioned
 	data-type={type}
+	data-gap-array-path={array_path.join('.')}
+	data-gap-offset={offset}
 	style={gap_style}
 >
 	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
@@ -46,10 +59,10 @@
 
 <style>
 	.node-gap {
-		height: 0;
-		overflow: visible;
-		outline: none;
-		pointer-events: none;
+		display: contents;
+		/* The native browser caret briefly appears inside .svedit-selectable for one frame 
+		before the model-driven NodeCaret renders at the correct edge position. 
+		Suppressing it here avoids a flash of the native caret. */
 		caret-color: transparent;
 	}
 
@@ -58,9 +71,7 @@
 	/* ------------------------------------------------------------------ */
 
 	.node-gap:not(.positioned) .svedit-selectable {
-		content-visibility: hidden;
-	  contain-intrinsic-size: 0 0;
-		position: static;
+		position: absolute;
 		pointer-events: none;
 		width: 0;
 		height: 0;
@@ -73,8 +84,11 @@
 
 	/*
 	 * Anchor references resolved from CSS variable names passed via
-	 * inline style (--_pa, --_next, --_container). Same pattern as
-	 * NodeGapMarkers — keeps JS minimal and anchor() in CSS.
+	 * inline style (--_pa = parent anchor, --_next, --_container).
+	 * Same pattern as NodeGapMarkers — keeps JS minimal and anchor() in CSS.
+	 *
+	 * --_pa references the anchor-name of the node this gap belongs to,
+	 * allowing us to position relative to that node's edges.
 	 */
 	.node-gap.positioned {
 		--_s-t: anchor(var(--_pa) top);
@@ -171,6 +185,8 @@
 		);
 		min-height: calc(var(--_gm) * var(--_C));
 		min-width: calc(var(--_gm) * var(--_R));
+		/* min-height: max(calc(var(--_gm) * var(--_C)), calc(anchor-size(var(--_pa) height, 100%) * var(--_R)));
+		min-width: max(calc(var(--_gm) * var(--_R)), calc(anchor-size(var(--_pa) width, 100%) * var(--_C))); */
 	}
 
 	/* After last node: col extends down, row extends right */
