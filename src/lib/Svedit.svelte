@@ -872,6 +872,10 @@ ${fallback_html}`;
 			}
 		}
 
+		// If both paths walked up to the root node, there's no common parent node_array
+		// (e.g. selecting between nav and page body). The resulting path would be empty.
+		if (anchor_root_path.length <= 1) return null;
+
 		let anchor_offset = parseInt(anchor_root_path.at(-1));
 		let focus_offset = parseInt(focus_root_path.at(-1));
 
