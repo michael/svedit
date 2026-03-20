@@ -26,7 +26,7 @@
  *
  * The viewport tracker drives **lazy positioning**: only near-viewport
  * gaps receive CSS anchor positioning (via NodeGap's `positioned`
- * prop). Off-viewport gaps remain as zero-size static elements with
+ * prop). Off-viewport gaps remain as zero-size absolute elements with
  * no layout cost. Gap markers (NodeGapMarkers) are only computed for
  * visible indices.
  *

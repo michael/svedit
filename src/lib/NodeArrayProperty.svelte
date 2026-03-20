@@ -1,5 +1,5 @@
 <script>
-	import { getContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
 	import { snake_to_pascal } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
@@ -19,6 +19,10 @@
 			.get(path)
 			.map(/** @param {string} node_id */ (node_id) => svedit.session.get(node_id))
 	);
+
+	setContext('node_array_meta', {
+		get length() { return nodes.length; }
+	});
 </script>
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element 
