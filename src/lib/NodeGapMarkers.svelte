@@ -66,6 +66,10 @@
 	 * --node-caret-blink-duration
 	 * --node-caret-animation
 	 * --node-caret-row-inline-position
+	 * --node-caret-boundary          (anchor-name of a parent element; edge
+	 *                                  gaps clamp to its edges instead of 0px.
+	 *                                  Prevents overlap when the node array has
+	 *                                  neighbors. See NodeGap.svelte for details.)
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick throughout. Shorthand:
@@ -264,7 +268,7 @@
 	.gap-edge.first {
 		top: min(
 			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
-			calc(max(0px, calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
+			calc(max(anchor(var(--node-caret-boundary, --_no-boundary) top, 0px), calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
@@ -272,7 +276,7 @@
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
-			calc(max(0px, calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
+			calc(max(anchor(var(--node-caret-boundary, --_no-boundary) left, 0px), calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
 		);
 		right: min(
 			calc(anchor(var(--_a) right) + var(--_R) * 99999px),
@@ -296,7 +300,7 @@
 			calc(100% - var(--_gm) + var(--_C) * 99999px)
 		);
 		right: max(
-			calc(0px + var(--_C) * -99999px),
+			calc(anchor(var(--node-caret-boundary, --_no-boundary) right, 0px) + var(--_C) * -99999px),
 			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
 			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -99999px),
 			calc(anchor(var(--_c) right) + var(--_C) * -99999px)
@@ -341,7 +345,7 @@
 		);
 		right: max(
 			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
-			calc(0px + var(--_C) * -99999px),
+			calc(anchor(var(--node-caret-boundary, --_no-boundary) right, 0px) + var(--_C) * -99999px),
 			calc(
 				anchor(var(--_a) right)
 				- (
@@ -448,9 +452,9 @@
 	/* Debugging styles  */
 	/* :global([data-type="node_array"]) {
 		outline: 0.1px solid green;
-	}
-	.gap-marker {
-		outline: 0.1px solid blue;
-		outline-offset: 0.5px;
 	} */
+	.gap-marker {
+		outline: 1px solid blue;
+		outline-offset: 0.5px;
+	}
 </style>
