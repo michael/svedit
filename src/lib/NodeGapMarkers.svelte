@@ -452,9 +452,9 @@
 	/* Debugging styles  */
 	/* :global([data-type="node_array"]) {
 		outline: 0.1px solid green;
-	} */
+	}
 	.gap-marker {
 		outline: 1px solid blue;
 		outline-offset: 0.5px;
-	}
+	} */
 </style>

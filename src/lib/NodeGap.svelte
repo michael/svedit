@@ -135,8 +135,6 @@
 		position-visibility: anchors-visible;
 		z-index: var(--node-caret-gap-z-index, 1);
 		cursor: pointer;
-		/* Debugging styles */
-		background-color: rgba(0, 0, 255, 0.2);
 	}
 
 	/* ------------------------------------------------------------------ */
