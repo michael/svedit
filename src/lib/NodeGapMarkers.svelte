@@ -66,6 +66,12 @@
 	 * --node-caret-blink-duration
 	 * --node-caret-animation
 	 * --node-caret-row-inline-position
+	 * --node-caret-boundary          (anchor-name of a parent element; edge
+	 *                                  gaps clamp to its edges instead of 0px.
+	 *                                  Prevents overlap when the node array has
+	 *                                  neighbors. See NodeGap.svelte for details.)
+	 * --node-caret-boundary-x        (per-axis override; clamps left/right only)
+	 * --node-caret-boundary-y        (per-axis override; clamps top/bottom only)
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick throughout. Shorthand:
@@ -262,9 +268,11 @@
 
 	/* Edge first: column = above first node, row = left of first node */
 	.gap-edge.first {
+		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
+		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
 		top: min(
 			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
-			calc(max(0px, calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
+			calc(max(var(--_b-t), calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
@@ -272,7 +280,7 @@
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
-			calc(max(0px, calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
+			calc(max(var(--_b-l), calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
 		);
 		right: min(
 			calc(anchor(var(--_a) right) + var(--_R) * 99999px),
@@ -280,23 +288,40 @@
 		);
 	}
 
-	/* Edge last: column = below last node, row = right of last node */
+	/* Edge last: column = below last node, row = right of last node.
+	   top/left also clamp to boundary - gm so that min-height/min-width
+	   (which win over bottom/right in overconstrained abs-pos) cannot
+	   push the element past the boundary. */
 	.gap-edge.last {
+		--_b-b: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 0px);
+		--_b-r: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 0px);
+		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 99999px);
+		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 99999px);
 		top: min(
 			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
-			calc(anchor(var(--_a) bottom) + var(--_R) * 99999px)
+			calc(
+				min(
+					anchor(var(--_a) bottom),
+					calc(var(--_b-bt) - var(--_gm))
+				) + var(--_R) * 99999px
+			)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
-			calc(anchor(var(--_a) bottom) - var(--_gm) + var(--_R) * 99999px)
+			calc(max(var(--_b-b), calc(anchor(var(--_a) bottom) - var(--_gm))) + var(--_R) * 99999px)
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
-			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
+			calc(
+				min(
+					anchor(var(--_a) right),
+					calc(var(--_b-rl) - var(--_gm))
+				) + var(--_C) * 99999px
+			),
 			calc(100% - var(--_gm) + var(--_C) * 99999px)
 		);
 		right: max(
-			calc(0px + var(--_C) * -99999px),
+			calc(var(--_b-r) + var(--_C) * -99999px),
 			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
 			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -99999px),
 			calc(anchor(var(--_c) right) + var(--_C) * -99999px)
@@ -314,6 +339,7 @@
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
 			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
+			calc(var(--_b-rl) - var(--_gm) + var(--_C) * 99999px),
 			calc(
 				anchor(var(--_a) right)
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
@@ -341,7 +367,7 @@
 		);
 		right: max(
 			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
-			calc(0px + var(--_C) * -99999px),
+			calc(var(--_b-r) + var(--_C) * -99999px),
 			calc(
 				anchor(var(--_a) right)
 				- (
@@ -450,7 +476,7 @@
 		outline: 0.1px solid green;
 	}
 	.gap-marker {
-		outline: 0.1px solid blue;
+		outline: 1px solid blue;
 		outline-offset: 0.5px;
 	} */
 </style>

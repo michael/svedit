@@ -1056,6 +1056,82 @@ Further things to consider:
 - Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
 - Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensure `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to child element of Node.
 
+### Node array CSS tokens
+
+`<NodeArrayProperty>` renders a `[data-type="node_array"]` element. Two CSS custom properties control how gaps and carets behave inside it:
+
+**`--row`** — Tell Svedit whether a node array flows horizontally (`1`) or vertically (`0`). Gaps, carets, and markers all switch orientation accordingly. Defaults to `0` on the Svedit canvas. Set it on the node array or an ancestor:
+
+```css
+.my-horizontal-layout :global(.grid-items) {
+  --row: 1;
+  display: flex;
+  flex-wrap: wrap;
+}
+```
+
+**`--node-caret-boundary`** — Edge gaps (before the first node, after the last) extend outward beyond the container to enlarge their click target. If the node array has neighboring elements (e.g. a preceding node or surrounding UI), the outward extension can overlap them:
+
+```
+Without --node-caret-boundary                  With --node-caret-boundary
+
+: . . . . . . . . . . . . . . . :      
+: +---------------------------+ :             +-----------------------------+
+: | Toolbar / UI              | : ← overlap   | Toolbar / UI                |
+: +---------------------------+ :             +-----------------------------+
+:                               :      
+:     edge gap (unbounded)      :   boudary → +-----------------------------+
+: . . . . . . . . . . . . . . . :             | : . . . . . . . . . . . . : |
+                                              | :   edge gap (clamped)    : |
+  +---------------------------+               | : . . . . . . . . . . . . : |
+  |  +---------------------+  |               |  +-----------------------+  |
+  |  | First node          |  |               |  | First node            |  |
+  |  +---------------------+  |               |  +-----------------------+  |
+  |    gap between nodes      |               |    gap between nodes        |
+  |  +---------------------+  |               |  +-----------------------+  |
+  |  | Last node           |  |               |  | Last node             |  |
+  |  +---------------------+  |               |  +-----------------------+  |
+  +---------------------------+               | : . . . . . . . . . . . . : |
+                                              | :   edge gap (clamped)    : |
+: . . . . . . . . . . . . . . . :             | : . . . . . . . . . . . . : |
+:     edge gap (unbounded)      :   boudary → +-----------------------------+
+:                               :      
+: +---------------------------+ :             +-----------------------------+
+: | Footer / UI               | : ← overlap   | Footer / UI                 |
+: +---------------------------+ :             +-----------------------------+
+: . . . . . . . . . . . . . . . : 
+```
+
+Set `--node-caret-boundary` to the `anchor-name` of a parent element to clamp edge gaps to that element's edges:
+
+```css
+.editor-wrapper {
+  anchor-name: --editor-boundary;
+  padding: 24px;
+}
+.editor-wrapper [data-type="node_array"] {
+  --node-caret-boundary: --editor-boundary;
+}
+```
+
+When set, edge gaps clamp to the boundary element's edges instead. When not set, gaps extend to the containing block edge (default).
+
+Since `--node-caret-boundary` inherits to nested node arrays, you may need to unset it on inner containers that should not be clamped:
+
+```css
+.inner-container [data-type="node_array"] {
+  --node-caret-boundary: initial;
+}
+```
+
+For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-caret-boundary-y` (top/bottom). They take precedence over `--node-caret-boundary` when set:
+
+```css
+.editor-wrapper [data-type="node_array"] {
+  --node-caret-boundary-x: --editor-boundary;
+}
+```
+
 ## Beyond the README
 
 The source code is compact and readable — less than 3000 LOC across a handful of files. We encourage you to explore it. The files in [`src/lib`](./src/lib) are the library code, while the files in [`src/routes`](./src/routes) are example code you can copy and adapt to your needs.
