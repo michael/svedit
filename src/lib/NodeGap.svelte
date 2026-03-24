@@ -220,7 +220,7 @@
 		);
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 99999px),
-			calc(var(--_s-r) + var(--_C) * 99999px),
+			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 99999px),
 			calc(100% - var(--_eg) + var(--_C) * 99999px)
 		);
 		right: min(
