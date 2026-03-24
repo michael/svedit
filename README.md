@@ -1116,6 +1116,22 @@ Set `--node-caret-boundary` to the `anchor-name` of a parent element to clamp ed
 
 When set, edge gaps clamp to the boundary element's edges instead. When not set, gaps extend to the containing block edge (default).
 
+Since `--node-caret-boundary` inherits to nested node arrays, you may need to unset it on inner containers that should not be clamped:
+
+```css
+.inner-container [data-type="node_array"] {
+  --node-caret-boundary: initial;
+}
+```
+
+For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-caret-boundary-y` (top/bottom). They take precedence over `--node-caret-boundary` when set:
+
+```css
+.editor-wrapper [data-type="node_array"] {
+  --node-caret-boundary-x: --editor-boundary;
+}
+```
+
 ## Beyond the README
 
 The source code is compact and readable — less than 3000 LOC across a handful of files. We encourage you to explore it. The files in [`src/lib`](./src/lib) are the library code, while the files in [`src/routes`](./src/routes) are example code you can copy and adapt to your needs.

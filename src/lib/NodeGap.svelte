@@ -96,7 +96,9 @@
 	 * box, so it can't detect margin, gap, or parent padding around
 	 * the container. --node-caret-boundary lets consumers set an
 	 * explicit clamp target (a parent element's anchor-name) so edge
-	 * gaps stop at that boundary instead.
+	 * gaps stop at that boundary instead. --node-caret-boundary-x and
+	 * --node-caret-boundary-y override per-axis, falling back to
+	 * --node-caret-boundary when unset.
 	 */
 	.node-gap.positioned {
 		--_s-t: anchor(var(--_pa) top);
@@ -105,8 +107,8 @@
 		--_s-r: anchor(var(--_pa) right);
 	}
 	.positioned.gap-before:not(.empty) {
-		--_b-t: anchor(var(--node-caret-boundary, --_no-boundary) top, 0px);
-		--_b-l: anchor(var(--node-caret-boundary, --_no-boundary) left, 0px);
+		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
+		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
 	}
 	.positioned.gap-after:not(.last) {
 		--_n-t: anchor(var(--_next) top);
@@ -119,10 +121,10 @@
 		--_c-b: anchor(var(--_container) bottom);
 		--_c-l: anchor(var(--_container) left);
 		--_c-r: anchor(var(--_container) right);
-		--_b-b: anchor(var(--node-caret-boundary, --_no-boundary) bottom, 0px);
-		--_b-r: anchor(var(--node-caret-boundary, --_no-boundary) right, 0px);
-		--_b-bt: anchor(var(--node-caret-boundary, --_no-boundary) bottom, 99999px);
-		--_b-rl: anchor(var(--node-caret-boundary, --_no-boundary) right, 99999px);
+		--_b-b: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 0px);
+		--_b-r: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 0px);
+		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 99999px);
+		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 99999px);
 	}
 
 	.positioned .svedit-selectable {
