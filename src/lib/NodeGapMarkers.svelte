@@ -284,15 +284,23 @@
 		);
 	}
 
-	/* Edge last: column = below last node, row = right of last node */
+	/* Edge last: column = below last node, row = right of last node.
+	   top also clamps to boundary_bottom - gm so that min-height
+	   (which wins over bottom in overconstrained abs-pos) cannot
+	   push the element past the boundary. */
 	.gap-edge.last {
 		top: min(
 			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
-			calc(anchor(var(--_a) bottom) + var(--_R) * 99999px)
+			calc(
+				min(
+					anchor(var(--_a) bottom),
+					calc(anchor(var(--node-caret-boundary, --_no-boundary) bottom, 99999px) - var(--_gm))
+				) + var(--_R) * 99999px
+			)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
-			calc(anchor(var(--_a) bottom) - var(--_gm) + var(--_R) * 99999px)
+			calc(max(anchor(var(--node-caret-boundary, --_no-boundary) bottom, 0px), calc(anchor(var(--_a) bottom) - var(--_gm))) + var(--_R) * 99999px)
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 99999px),

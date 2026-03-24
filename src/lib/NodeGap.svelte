@@ -121,6 +121,8 @@
 		--_c-r: anchor(var(--_container) right);
 		--_b-b: anchor(var(--node-caret-boundary, --_no-boundary) bottom, 0px);
 		--_b-r: anchor(var(--node-caret-boundary, --_no-boundary) right, 0px);
+		--_b-bt: anchor(var(--node-caret-boundary, --_no-boundary) bottom, 99999px);
+		--_b-rl: anchor(var(--node-caret-boundary, --_no-boundary) right, 99999px);
 	}
 
 	.positioned .svedit-selectable {
@@ -203,14 +205,17 @@
 		min-width: max(calc(var(--_gm) * var(--_R)), calc(anchor-size(var(--_pa) width, 100%) * var(--_C))); */
 	}
 
-	/* After last node: col extends down, row extends right */
+	/* After last node: col extends down, row extends right.
+	   top also clamps to boundary_bottom - eg so that min-height
+	   (which wins over bottom in overconstrained abs-pos) cannot
+	   push the element past the boundary. */
 	.positioned.gap-after.last .svedit-selectable {
 		top: min(
-			calc(var(--_s-b) + var(--_R) * 99999px),
+			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 99999px),
 			calc(var(--_s-t) + var(--_C) * 99999px)
 		);
 		bottom: min(
-			calc(var(--_s-b) - var(--_eg) + var(--_R) * 99999px),
+			calc(max(var(--_b-b), var(--_s-b) - var(--_eg)) + var(--_R) * 99999px),
 			calc(var(--_s-b) + var(--_C) * 99999px)
 		);
 		left: min(
