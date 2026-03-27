@@ -345,6 +345,20 @@ tr.insert_nodes(['new_node_id']);
 session.apply(tr);                      // Apply the transaction
 ```
 
+#### Batching history entries
+
+By default, every `session.apply(tr)` creates a new undo/redo entry. Pass `{ batch: true }` to merge the transaction into the previous history entry instead — useful for continuous interactions like dragging, where you want the entire gesture to undo as one step.
+
+```js
+session.apply(tr, { batch: true });
+```
+
+Batched transactions merge into the current history entry as long as they arrive within a 2-second window of the batch start. After 2 seconds of inactivity, the next `apply` starts a fresh entry. To force a new entry immediately (e.g. on pointer up), reset the batch timer:
+
+```js
+session.last_batch_started = undefined;
+```
+
 ### History
 
 ```js
