@@ -888,6 +888,11 @@ ${fallback_html}`;
 		// (e.g. selecting between nav and page body). The resulting path would be empty.
 		if (anchor_root_path.length <= 1) return null;
 
+		const parent_array_path = anchor_root_path.slice(0, -1);
+		// A node selection is only valid inside a node_array property.
+		const parent_property = session.inspect(parent_array_path);
+		if (!parent_property || parent_property.type !== 'node_array') return null;
+
 		let anchor_offset = parseInt(anchor_root_path.at(-1));
 		let focus_offset = parseInt(focus_root_path.at(-1));
 
@@ -927,7 +932,7 @@ ${fallback_html}`;
 
 		return {
 			type: 'node',
-			path: anchor_root_path.slice(0, -1),
+			path: parent_array_path,
 			anchor_offset: anchor_offset,
 			focus_offset: focus_offset
 		};
