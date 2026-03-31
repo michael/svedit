@@ -145,14 +145,14 @@
 		if (
 			['deleteContentBackward', 'deleteWordBackward', 'deleteContent'].includes(event.inputType)
 		) {
-			session.apply(session.tr.delete_selection('backward'));
+			delete_at_selection('backward');
 			event.preventDefault();
 			event.stopPropagation();
 			return;
 		}
 
 		if (['deleteContentForward', 'deleteWordForward'].includes(event.inputType)) {
-			session.apply(session.tr.delete_selection('forward'));
+			delete_at_selection('forward');
 			event.preventDefault();
 			event.stopPropagation();
 			return;
@@ -494,7 +494,24 @@ ${fallback_html}`;
 		}
 
 		if (delete_selection) {
-			session.apply(session.tr.delete_selection());
+			delete_at_selection();
+		}
+	}
+
+	/**
+	 * Shared delete logic for cut, backspace, and forward-delete.
+	 * For property selections, delegates to the config's handle_property_deletion hook.
+	 * For text/node selections, uses the standard transaction delete_selection.
+	 *
+	 * @param {'backward' | 'forward'} [direction]
+	 */
+	function delete_at_selection(direction = 'backward') {
+		if (session.selection?.type === 'property') {
+			if (session.config.handle_property_deletion) {
+				session.config.handle_property_deletion(session, session.selection.path);
+			}
+		} else {
+			session.apply(session.tr.delete_selection(direction));
 		}
 	}
 

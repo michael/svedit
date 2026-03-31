@@ -14,7 +14,6 @@ import {
 import {
 	CycleLayoutCommand,
 	CycleNodeTypeCommand,
-	ResetImageCommand,
 	ToggleLinkCommand
 } from './commands.svelte.js';
 import nanoid from './nanoid.js';
@@ -495,6 +494,13 @@ export const session_config = {
 		Highlight,
 		Link
 	},
+	handle_property_deletion: (doc, path) => {
+		const property_definition = doc.inspect(path);
+		if (property_definition?.type !== 'string' || property_definition?.name !== 'image') return;
+		const tr = doc.tr;
+		tr.set(path, '');
+		doc.apply(tr);
+	},
 	handle_media_paste: async (doc, pasted_media) => {
 		// ATTENTION: In a real-world-app, you may want to upload `pasted_media` here,
 		// before referencing them from the document.
@@ -794,8 +800,7 @@ export const session_config = {
 			next_layout: new CycleLayoutCommand('next', context),
 			previous_layout: new CycleLayoutCommand('previous', context),
 			next_type: new CycleNodeTypeCommand('next', context),
-			previous_type: new CycleNodeTypeCommand('previous', context),
-			reset_image: new ResetImageCommand(context)
+			previous_type: new CycleNodeTypeCommand('previous', context)
 		};
 
 		// Define keymap binding keys to commands
@@ -815,10 +820,7 @@ export const session_config = {
 			'ctrl+shift+arrowright': [commands.next_layout],
 			'ctrl+shift+arrowleft': [commands.previous_layout],
 			'ctrl+shift+arrowdown': [commands.next_type],
-			'ctrl+shift+arrowup': [commands.previous_type],
-			backspace: [commands.reset_image],
-			// iOS auto-capitalization workaround (shift is pressed on property selection)
-			'shift+backspace': [commands.reset_image]
+			'ctrl+shift+arrowup': [commands.previous_type]
 		});
 
 		return { commands, keymap };

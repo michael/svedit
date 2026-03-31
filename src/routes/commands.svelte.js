@@ -88,21 +88,7 @@ export class CycleNodeTypeCommand extends Command {
 	}
 }
 
-export class ResetImageCommand extends Command {
-	is_enabled() {
-		const session = this.context.session;
-		if (!this.context.editable || session.selection.type !== 'property') return false;
-		const property_definition = session.inspect(session.selection.path);
-		return property_definition.name === 'image';
-	}
 
-	execute() {
-		const session = this.context.session;
-		const tr = session.tr;
-		tr.set(session.selection.path, '');
-		session.apply(tr);
-	}
-}
 
 /**
  * Command that toggles link annotations on text selections.
