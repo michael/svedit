@@ -259,6 +259,16 @@ const doc = {
 
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
 
+Two optional hooks are especially useful when integrating custom media workflows:
+
+- `handle_media_paste(session, pasted_media)`  
+  Called when media is pasted. You can upload/process files, replace an existing media property, or return a node payload to insert new content.  
+  See example implementation in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
+
+- `handle_property_deletion(session, path)`  
+  Called when deleting/cutting a property selection. Use it to define app-specific reset behavior (for example clearing an image property or resetting a referenced media node).  
+  See example implementation in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
+
 ```js
 const session_config = {
   // ID generator for creating new nodes
