@@ -40,6 +40,8 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
+	let suppress_focus = false;
+	let pending_property_path = null;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -261,6 +263,12 @@
 	function onselectionchange() {
 		if (!editable) return;
 		if (!canvas_focused) return;
+		// When a property tap is pending, ignore browser-initiated selection
+		// changes. The selection will be set by handle_property_click instead.
+		// Without this guard, the browser's focus/tap places a DOM selection
+		// that gets mapped to a text/node selection, triggering render_selection
+		// with scrollIntoView before the property click handler runs.
+		if (suppress_focus) return;
 		const dom_selection = window.getSelection();
 		if (!dom_selection.rangeCount) return;
 
@@ -748,8 +756,94 @@ ${fallback_html}`;
 		}
 	}
 
+	/** Resolve the property element at the given coordinates, or null. */
+	function property_el_from_point(x, y) {
+		if (!document.caretPositionFromPoint) return null;
+		const caret_pos = document.caretPositionFromPoint(x, y);
+		if (!caret_pos) return null;
+		const target = caret_pos.offsetNode instanceof HTMLElement
+			? caret_pos.offsetNode
+			: caret_pos.offsetNode?.parentElement;
+		return target?.closest('[data-path][data-type="property"]') ?? null;
+	}
+
+	function reset_suppress_focus() {
+		canvas_el.removeAttribute('inputmode');
+		suppress_focus = false;
+		pending_property_path = null;
+	}
+
+	/**
+	 * On pointerdown, suppress the virtual keyboard on iOS if the pointer
+	 * is over a property element. The actual selection is deferred to
+	 * handle_canvas_click so scroll gestures don't change the selection.
+	 */
+	function handle_pointerdown(event) {
+		if (!editable) return;
+
+		const property_el = property_el_from_point(event.clientX, event.clientY);
+
+		if (!property_el) {
+			if (suppress_focus) reset_suppress_focus();
+			return;
+		}
+
+		canvas_el.setAttribute('inputmode', 'none');
+		suppress_focus = true;
+		pending_property_path = property_el.dataset.path.split('.');
+
+		// If the user drags instead of tapping, reset suppression so
+		// onselectionchange can process the drag selection normally.
+		const start_x = event.clientX;
+		const start_y = event.clientY;
+		const DRAG_THRESHOLD = 5;
+		function on_pointermove(e) {
+			const dx = e.clientX - start_x;
+			const dy = e.clientY - start_y;
+			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+				reset_suppress_focus();
+				canvas_el.removeEventListener('pointermove', on_pointermove);
+			}
+		}
+		canvas_el.addEventListener('pointermove', on_pointermove);
+		// Clean up the listener when the pointer interaction ends.
+		canvas_el.addEventListener('pointerup', () => {
+			canvas_el.removeEventListener('pointermove', on_pointermove);
+		}, { once: true });
+	}
+
+	/**
+	 * On click (only fires for completed taps, not scrolls), set the
+	 * property selection using the path cached from pointerdown.
+	 */
+	function handle_canvas_click() {
+		if (!editable || !suppress_focus || !pending_property_path) return;
+
+		const path = pending_property_path;
+		pending_property_path = null;
+
+		// Set both inside flushSync so the $effect sees them atomically.
+		// Otherwise canvas_focused=true triggers render_selection with
+		// the OLD selection (e.g. a text selection), causing scrollIntoView
+		// to scroll to the wrong place.
+		flushSync(() => {
+			canvas_focused = true;
+			session.selection = { type: 'property', path };
+		});
+	}
+
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
+		// When a property tap is pending, skip the normal focus flow
+		// (which clears the selection and can cause unwanted scrolling).
+		// handle_canvas_click will set the selection instead.
+		if (suppress_focus) {
+			flushSync(() => {
+				canvas_focused = true;
+			});
+			key_mapper?.push_scope(session.keymap);
+			return;
+		}
 		// Use flushSync so highlight spans are removed from the DOM
 		// immediately, before the browser processes the click's selection.
 		flushSync(() => {
@@ -1186,6 +1280,7 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
+
 		const gap_selectable = el.querySelector('.svedit-selectable');
 		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
@@ -1198,10 +1293,7 @@ ${fallback_html}`;
 
 		// Scroll the selection into view
 		setTimeout(() => {
-			const selectedElement = dom_selection.focusNode.parentElement;
-			if (selectedElement) {
-				selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			}
+			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
@@ -1363,6 +1455,8 @@ ${fallback_html}`;
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
+		onpointerdown={handle_pointerdown}
+		onclick={handle_canvas_click}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
 		contenteditable={editable ? 'true' : 'false'}
