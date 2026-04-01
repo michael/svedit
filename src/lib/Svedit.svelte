@@ -763,18 +763,12 @@ ${fallback_html}`;
 	}
 
 	/**
-	 * On pointerdown, suppress the virtual keyboard on iOS if the pointer
-	 * is over a property element. The actual selection is deferred to
-	 * handle_canvas_click so scroll gestures don't change the selection.
+	 * Register pointermove listeners that detect a drag gesture starting
+	 * from a property element. When the pointer exceeds the threshold,
+	 * on_drag is called to reset suppression state so onselectionchange
+	 * can process the drag selection.
 	 */
-	/**
-	 * Register pointermove/pointerup/pointercancel listeners that detect
-	 * a drag gesture. If the pointer moves beyond the threshold,
-	 * reset_suppress_focus is called so onselectionchange can process
-	 * the drag selection. Uses only coordinates — no DOM queries that
-	 * could trigger the virtual keyboard on iOS.
-	 */
-	function register_drag_detection(event) {
+	function register_drag_detection(event, on_drag) {
 		const start_x = event.clientX;
 		const start_y = event.clientY;
 		const DRAG_THRESHOLD = 5;
@@ -782,7 +776,7 @@ ${fallback_html}`;
 			const dx = e.clientX - start_x;
 			const dy = e.clientY - start_y;
 			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-				reset_suppress_focus();
+				on_drag();
 				cleanup();
 			}
 		}
@@ -796,35 +790,26 @@ ${fallback_html}`;
 		canvas_el.addEventListener('pointercancel', cleanup, { once: true });
 	}
 
+	/**
+	 * On pointerdown, suppress the virtual keyboard on iOS/touch if the
+	 * pointer is over a property element. Mouse pointers skip suppression
+	 * entirely since they never trigger a virtual keyboard. The actual
+	 * selection is deferred to handle_canvas_click so scroll gestures
+	 * (which also start with pointerdown) don't change the selection.
+	 */
 	function handle_pointerdown(event) {
 		if (!editable) return;
+		// Mouse pointers never trigger the virtual keyboard — skip all
+		// suppression logic and let the normal flow handle everything.
+		if (event.pointerType === 'mouse') return;
 
 		// After a completed property tap, skip DOM queries to avoid
-		// triggering the virtual keyboard during scroll on iOS.
-		// New taps are handled in handle_canvas_click instead.
-		// Register lightweight drag detection: only unblock
-		// onselectionchange (suppress_focus=false) without removing
-		// inputmode — removing it would open the keyboard mid-scroll.
+		// triggering the virtual keyboard during scroll on iOS. New
+		// taps are handled in handle_canvas_click instead. Register
+		// drag detection that only unblocks onselectionchange without
+		// removing inputmode (which would open the keyboard mid-scroll).
 		if (suppress_focus && !pending_property_path) {
-			const start_x = event.clientX;
-			const start_y = event.clientY;
-			const DRAG_THRESHOLD = 5;
-			function on_pointermove(e) {
-				const dx = e.clientX - start_x;
-				const dy = e.clientY - start_y;
-				if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-					suppress_focus = false;
-					cleanup();
-				}
-			}
-			function cleanup() {
-				canvas_el.removeEventListener('pointermove', on_pointermove);
-				canvas_el.removeEventListener('pointerup', cleanup);
-				canvas_el.removeEventListener('pointercancel', cleanup);
-			}
-			canvas_el.addEventListener('pointermove', on_pointermove);
-			canvas_el.addEventListener('pointerup', cleanup, { once: true });
-			canvas_el.addEventListener('pointercancel', cleanup, { once: true });
+			register_drag_detection(event, () => { suppress_focus = false; });
 			return;
 		}
 
@@ -839,7 +824,7 @@ ${fallback_html}`;
 		canvas_el.setAttribute('inputmode', 'none');
 		suppress_focus = true;
 		pending_property_path = property_el.dataset.path.split('.');
-		register_drag_detection(event);
+		register_drag_detection(event, reset_suppress_focus);
 	}
 
 	/**
