@@ -797,6 +797,12 @@ ${fallback_html}`;
 			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
 				reset_suppress_focus();
 				canvas_el.removeEventListener('pointermove', on_pointermove);
+				// Re-read the DOM selection — onselectionchange events during
+				// the first few pixels of drag were blocked by suppress_focus.
+				const selection = __get_selection_from_dom();
+				if (selection) {
+					session.selection = selection;
+				}
 			}
 		}
 		canvas_el.addEventListener('pointermove', on_pointermove);
