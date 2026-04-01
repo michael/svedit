@@ -756,17 +756,6 @@ ${fallback_html}`;
 		}
 	}
 
-	/** Resolve the property element at the given coordinates, or null. */
-	function property_el_from_point(x, y) {
-		if (!document.caretPositionFromPoint) return null;
-		const caret_pos = document.caretPositionFromPoint(x, y);
-		if (!caret_pos) return null;
-		const target = caret_pos.offsetNode instanceof HTMLElement
-			? caret_pos.offsetNode
-			: caret_pos.offsetNode?.parentElement;
-		return target?.closest('[data-path][data-type="property"]') ?? null;
-	}
-
 	function reset_suppress_focus() {
 		canvas_el.removeAttribute('inputmode');
 		suppress_focus = false;
@@ -780,8 +769,13 @@ ${fallback_html}`;
 	 */
 	function handle_pointerdown(event) {
 		if (!editable) return;
+		// After a completed property tap, skip entirely to avoid
+		// triggering the virtual keyboard during scroll gestures on iOS.
+		// New taps are handled in handle_canvas_click instead.
+		if (suppress_focus && !pending_property_path) return;
 
-		const property_el = property_el_from_point(event.clientX, event.clientY);
+		const target = /** @type {HTMLElement} */ (event.target);
+		const property_el = target.closest('[data-path][data-type="property"]');
 
 		if (!property_el) {
 			if (suppress_focus) reset_suppress_focus();
@@ -816,20 +810,37 @@ ${fallback_html}`;
 	 * On click (only fires for completed taps, not scrolls), set the
 	 * property selection using the path cached from pointerdown.
 	 */
-	function handle_canvas_click() {
-		if (!editable || !suppress_focus || !pending_property_path) return;
+	function handle_canvas_click(event) {
+		if (!editable || !suppress_focus) return;
 
-		const path = pending_property_path;
+		// Property tap: use path cached from pointerdown if available,
+		// otherwise detect from click target (when pointerdown was skipped
+		// after a previous property tap to avoid scroll side effects).
+		const property_path = pending_property_path
+			?? /** @type {HTMLElement} */ (event.target)
+				.closest('[data-path][data-type="property"]')?.dataset.path?.split('.');
+
 		pending_property_path = null;
 
-		// Set both inside flushSync so the $effect sees them atomically.
-		// Otherwise canvas_focused=true triggers render_selection with
-		// the OLD selection (e.g. a text selection), causing scrollIntoView
-		// to scroll to the wrong place.
-		flushSync(() => {
-			canvas_focused = true;
-			session.selection = { type: 'property', path };
-		});
+		if (property_path) {
+			// Set both inside flushSync so the $effect sees them atomically.
+			// Otherwise canvas_focused=true triggers render_selection with
+			// the OLD selection, causing scrollIntoView to the wrong place.
+			flushSync(() => {
+				canvas_focused = true;
+				session.selection = { type: 'property', path: property_path };
+			});
+			return;
+		}
+
+		// Non-property tap (click confirms it's not a scroll). Reset
+		// suppression and re-read the DOM selection that onselectionchange
+		// couldn't process while suppress_focus was true.
+		reset_suppress_focus();
+		const selection = __get_selection_from_dom();
+		if (selection) {
+			session.selection = selection;
+		}
 	}
 
 	// Handle focus - push session's keymap onto stack
