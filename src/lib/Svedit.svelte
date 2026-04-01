@@ -273,7 +273,15 @@
 			// structurally identical — prevents a redundant $effect cycle
 			// (render_selection → scrollIntoView) on every DOM layout change.
 			if (JSON.stringify(selection) === JSON.stringify(session.selection)) return;
-			session.selection = selection;
+			// Guard against the browser briefly reporting an out-of-bounds offset
+			// during dead-key / IME composition (e.g. ^ key on European keyboards).
+			// The selection will be corrected on the next selectionchange event once
+			// the DOM has settled, so silently dropping the invalid one is safe.
+			try {
+				session.selection = selection;
+			} catch {
+				// ignore transient out-of-bounds selection
+			}
 		}
 	}
 
