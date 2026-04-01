@@ -44,4 +44,7 @@
 		align-items: flex-end;
 		justify-content: center;
 	}
+	.svedit-selectable {
+		caret-color: transparent;
+	}
 </style>

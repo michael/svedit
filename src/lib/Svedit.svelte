@@ -767,12 +767,66 @@ ${fallback_html}`;
 	 * is over a property element. The actual selection is deferred to
 	 * handle_canvas_click so scroll gestures don't change the selection.
 	 */
+	/**
+	 * Register pointermove/pointerup/pointercancel listeners that detect
+	 * a drag gesture. If the pointer moves beyond the threshold,
+	 * reset_suppress_focus is called so onselectionchange can process
+	 * the drag selection. Uses only coordinates — no DOM queries that
+	 * could trigger the virtual keyboard on iOS.
+	 */
+	function register_drag_detection(event) {
+		const start_x = event.clientX;
+		const start_y = event.clientY;
+		const DRAG_THRESHOLD = 5;
+		function on_pointermove(e) {
+			const dx = e.clientX - start_x;
+			const dy = e.clientY - start_y;
+			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+				reset_suppress_focus();
+				cleanup();
+			}
+		}
+		function cleanup() {
+			canvas_el.removeEventListener('pointermove', on_pointermove);
+			canvas_el.removeEventListener('pointerup', cleanup);
+			canvas_el.removeEventListener('pointercancel', cleanup);
+		}
+		canvas_el.addEventListener('pointermove', on_pointermove);
+		canvas_el.addEventListener('pointerup', cleanup, { once: true });
+		canvas_el.addEventListener('pointercancel', cleanup, { once: true });
+	}
+
 	function handle_pointerdown(event) {
 		if (!editable) return;
-		// After a completed property tap, skip entirely to avoid
-		// triggering the virtual keyboard during scroll gestures on iOS.
+
+		// After a completed property tap, skip DOM queries to avoid
+		// triggering the virtual keyboard during scroll on iOS.
 		// New taps are handled in handle_canvas_click instead.
-		if (suppress_focus && !pending_property_path) return;
+		// Register lightweight drag detection: only unblock
+		// onselectionchange (suppress_focus=false) without removing
+		// inputmode — removing it would open the keyboard mid-scroll.
+		if (suppress_focus && !pending_property_path) {
+			const start_x = event.clientX;
+			const start_y = event.clientY;
+			const DRAG_THRESHOLD = 5;
+			function on_pointermove(e) {
+				const dx = e.clientX - start_x;
+				const dy = e.clientY - start_y;
+				if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+					suppress_focus = false;
+					cleanup();
+				}
+			}
+			function cleanup() {
+				canvas_el.removeEventListener('pointermove', on_pointermove);
+				canvas_el.removeEventListener('pointerup', cleanup);
+				canvas_el.removeEventListener('pointercancel', cleanup);
+			}
+			canvas_el.addEventListener('pointermove', on_pointermove);
+			canvas_el.addEventListener('pointerup', cleanup, { once: true });
+			canvas_el.addEventListener('pointercancel', cleanup, { once: true });
+			return;
+		}
 
 		const target = /** @type {HTMLElement} */ (event.target);
 		const property_el = target.closest('[data-path][data-type="property"]');
@@ -785,31 +839,7 @@ ${fallback_html}`;
 		canvas_el.setAttribute('inputmode', 'none');
 		suppress_focus = true;
 		pending_property_path = property_el.dataset.path.split('.');
-
-		// If the user drags instead of tapping, reset suppression so
-		// onselectionchange can process the drag selection normally.
-		const start_x = event.clientX;
-		const start_y = event.clientY;
-		const DRAG_THRESHOLD = 5;
-		function on_pointermove(e) {
-			const dx = e.clientX - start_x;
-			const dy = e.clientY - start_y;
-			if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-				reset_suppress_focus();
-				canvas_el.removeEventListener('pointermove', on_pointermove);
-				// Re-read the DOM selection — onselectionchange events during
-				// the first few pixels of drag were blocked by suppress_focus.
-				const selection = __get_selection_from_dom();
-				if (selection) {
-					session.selection = selection;
-				}
-			}
-		}
-		canvas_el.addEventListener('pointermove', on_pointermove);
-		// Clean up the listener when the pointer interaction ends.
-		canvas_el.addEventListener('pointerup', () => {
-			canvas_el.removeEventListener('pointermove', on_pointermove);
-		}, { once: true });
+		register_drag_detection(event);
 	}
 
 	/**
@@ -877,6 +907,7 @@ ${fallback_html}`;
 
 	// Handle blur - pop document's keymap from stack
 	function handle_canvas_blur() {
+		if (suppress_focus) reset_suppress_focus();
 		// Use flushSync so the selection highlight span (with its CSS anchor)
 		// is in the DOM immediately, before any popover/dialog tries to
 		// position itself.
