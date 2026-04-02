@@ -261,6 +261,7 @@
 	function onselectionchange() {
 		if (!editable) return;
 		if (!canvas_focused) return;
+		if (is_composing) return;
 		const dom_selection = window.getSelection();
 		if (!dom_selection.rangeCount) return;
 
