@@ -1011,13 +1011,19 @@ ${fallback_html}`;
 			// EDGE CASE 1: Either text node is empty (only a <br> is present), or caret is after a <br> at the very end of the text node
 			focus_root = anchor_root = focus_node;
 		} else {
-			focus_root = /** @type {HTMLElement} */ (
-				focus_node.parentElement?.closest('[data-path][data-type="text"]')
-			);
+			focus_root =
+				focus_node?.nodeType === Node.ELEMENT_NODE
+					? /** @type {HTMLElement} */ (focus_node.closest?.('[data-path][data-type="text"]'))
+					: /** @type {HTMLElement} */ (
+							focus_node?.parentElement?.closest('[data-path][data-type="text"]')
+						);
 			if (!focus_root) return null;
-			anchor_root = /** @type {HTMLElement} */ (
-				anchor_node.parentElement?.closest('[data-path][data-type="text"]')
-			);
+			anchor_root =
+				anchor_node?.nodeType === Node.ELEMENT_NODE
+					? /** @type {HTMLElement} */ (anchor_node.closest?.('[data-path][data-type="text"]'))
+					: /** @type {HTMLElement} */ (
+							anchor_node?.parentElement?.closest('[data-path][data-type="text"]')
+						);
 			if (!anchor_root) return null;
 		}
 
@@ -1040,6 +1046,7 @@ ${fallback_html}`;
 		const child_nodes = focus_root.childNodes;
 
 		if (
+			range.collapsed &&
 			focus_node === anchor_node &&
 			focus_node === focus_root &&
 			focus_root.dataset?.type === 'text' &&
@@ -1070,6 +1077,28 @@ ${fallback_html}`;
 		let end_offset = 0;
 		let current_offset = 0;
 
+		function get_root_child_offset(offset) {
+			let resolved_offset = 0;
+
+			for (let i = 0; i < offset; i++) {
+				const child_node = focus_root.childNodes[i];
+				if (!child_node) break;
+				if (child_node.nodeType === Node.COMMENT_NODE) continue;
+				if (child_node.nodeType === Node.ELEMENT_NODE && child_node.nodeName === 'BR') continue;
+				resolved_offset += get_char_length(child_node.textContent);
+			}
+
+			return resolved_offset;
+		}
+
+		if (range.startContainer === focus_root) {
+			start_offset = get_root_child_offset(range.startOffset);
+		}
+
+		if (range.endContainer === focus_root) {
+			end_offset = get_root_child_offset(range.endOffset);
+		}
+
 		function processNode(node) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				const nodeText = node.textContent;
@@ -1090,7 +1119,7 @@ ${fallback_html}`;
 					processNode(childNode);
 				}
 			}
-			return end_offset !== 0;
+			return node === range.endContainer && node.nodeType === Node.TEXT_NODE;
 		}
 
 		// Process nodes to find offsets
