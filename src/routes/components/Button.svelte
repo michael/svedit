@@ -20,6 +20,7 @@
 <style>
 	.button {
 		display: block;
+		min-width: 12rem;
 		text-decoration: none;
 		border-radius: var(--s-2);
 		background: var(--app-primary-fill);

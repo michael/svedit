@@ -57,12 +57,26 @@
 		padding: var(--s-10) var(--s-6);
 	}
 
+	.story .caption {
+		min-width: 0;
+		width: 100%;
+	}
+
 	.story :global(.buttons:not(.empty)) {
 		padding-top: 24px;
 		display: flex;
 		flex-direction: row;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: var(--s-2);
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
+	.story :global(.buttons:not(.empty) > *) {
+		flex: 0 0 auto;
 	}
 
 	.story :global(.buttons) {
