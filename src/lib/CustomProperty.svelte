@@ -37,5 +37,11 @@
 		bottom: 0;
 		z-index: 1;
 		outline: none;
+		/* Position the hidden selectable element at the bottom so the
+		   browser's native scroll-to-caret ensures the full property
+		   is visible, not just the top edge. */
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
 	}
 </style>
