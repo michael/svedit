@@ -556,7 +556,7 @@ export const session_config = {
 			for (const list_item_id of node.list_items) {
 				html += list_item(doc.get(list_item_id), doc, html_exporters);
 			}
-			return (html += '</ul>');
+			return (html + '</ul>');
 		},
 		story: (node, doc, html_exporters) => {
 			const { button } = html_exporters;
@@ -597,7 +597,7 @@ export const session_config = {
 			if (node.description.text.trim()) {
 				html += `<p>${node.description.text}</p>\n`;
 			}
-			return (html += '</div>');
+			return (html + '</div>');
 		},
 		list_item: (node) => {
 			const content =
