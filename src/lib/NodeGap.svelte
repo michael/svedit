@@ -173,7 +173,16 @@
 				+ max(0px, var(--_s-r) - var(--_n-l)) * 999
 				+ var(--_C) * 99999px
 			),
-			calc(100% - var(--_eg) + var(--_C) * 99999px)
+			/* Safety clamp for wrap: pins gap inside CB when current/next
+			   wrap across rows. Disabled in nowrap/horizontal-scroll where
+			   next is side-by-side on the same row (n-l > s-r) — there
+			   the other branches position correctly and this clamp would
+			   wrongly force the gap to CB right minus eg. */
+			calc(
+				100% - var(--_eg)
+				+ max(0px, var(--_n-l) - var(--_s-r) + 0.5px) * 9999
+				+ var(--_C) * 99999px
+			)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 99999px),
@@ -223,7 +232,16 @@
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 99999px),
 			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 99999px),
-			calc(100% - var(--_eg) + var(--_C) * 99999px)
+			/* Safety clamp for wrap: pins gap inside CB when the last
+			   node sits within the CB. Disabled in nowrap/horizontal-scroll
+			   where the trailing node extends past CB right (s-r > 100%) —
+			   there the anchor-based branches position correctly and this
+			   clamp would wrongly force the gap to CB right minus eg. */
+			calc(
+				100% - var(--_eg)
+				+ max(0px, var(--_s-r) - 100% + 0.5px) * 9999
+				+ var(--_C) * 99999px
+			)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 99999px),
@@ -279,8 +297,9 @@
 	}
 
 	/* Debugging styles  */
-	/* .positioned .svedit-selectable {
-		outline: 0.1px solid rgba(238, 0, 255, 0.5);
+	.positioned .svedit-selectable {
+		/* outline: 2px solid rgba(238, 0, 255, 0.5); */
+		background-color: rgba(238, 0, 255, 0.5);
 		outline-offset: -0.5px;
-	} */
+	}
 </style>

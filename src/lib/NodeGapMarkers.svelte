@@ -120,6 +120,21 @@
 		margin: 0 !important; /* prevent unwanted margin from parent elements */
 	}
 
+	/*
+	 * position-anchor ties the marker's containing-block/scroll behavior to
+	 * a specific anchor element, so the marker tracks its anchor's scroll
+	 * container the same way NodeGap's .svedit-selectable does. Without it,
+	 * markers inside a nested scroll container stay fixed in viewport space
+	 * while the anchored nodes scroll away.
+	 */
+	.gap-marker.gap-empty,
+	.gap-marker.gap-edge {
+		position-anchor: var(--_a);
+	}
+	.gap-marker.gap-mid {
+		position-anchor: var(--_p);
+	}
+
 	/* --------------------------------------------------------------------- */
 	/* Empty array                                                           */
 	/* --------------------------------------------------------------------- */
@@ -187,7 +202,17 @@
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left) + 0.5px) * 9999
 				+ var(--_C) * 99999px
 			),
-			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			/* Safety clamp for wrap: pins marker inside CB when prev/next wrap
+			   across rows (so the marker ends at the right edge of row 1).
+			   Disabled in nowrap/horizontal-scroll where p and n are
+			   side-by-side on the same row — there the other branches
+			   position correctly and this clamp would wrongly force the
+			   marker to the CB right. */
+			calc(
+				100% - var(--_gm)
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right) + 0.5px) * 9999
+				+ var(--_C) * 99999px
+			),
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
@@ -203,7 +228,15 @@
 			)
 		);
 		right: max(
-			calc(0px + var(--_C) * -99999px),
+			/* CB-right floor, disabled in nowrap/horizontal-scroll where n
+			   extends past CB right (p_right - n_left > 0 in right context,
+			   equivalent to n_left_body > p_right_body in layout). In that
+			   case the marker must extend past CB right to reach the gap,
+			   so right must be allowed to go negative. */
+			calc(
+				0px + var(--_C) * -99999px
+				- max(0px, anchor(var(--_p) right) - anchor(var(--_n) left) + 0.5px) * 9999
+			),
 			min(
 				calc(anchor(var(--_p) right) + var(--_R) * 99999px),
 				calc(
@@ -351,7 +384,16 @@
 				+ max(0px, anchor(var(--_a) right) - anchor(var(--_c) right) + 0.5px) * 9999
 				+ var(--_C) * 99999px
 			),
-			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			/* Safety clamp for wrap: pins marker inside CB when items 0 and 1
+			   wrap across rows. Disabled in nowrap/horizontal-scroll where
+			   items 0 and 1 are side-by-side on the same row — there the
+			   anchor-based branches position correctly and this clamp would
+			   wrongly force the marker to the CB right. */
+			calc(
+				100% - var(--_gm)
+				+ max(0px, anchor(var(--_s) left) - anchor(var(--_f) right) + 0.5px) * 9999
+				+ var(--_C) * 99999px
+			),
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
