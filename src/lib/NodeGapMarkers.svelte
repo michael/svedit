@@ -3,6 +3,19 @@
 	import NodeCaret from './NodeCaret.svelte';
 
 	/**
+	 * ┌─────────────────────────────────────────────────────────────────┐
+	 * │ MUST RULES — do not violate when modifying this file            │
+	 * ├─────────────────────────────────────────────────────────────────┤
+	 * │ 1. Edge markers (gap-edge.first / gap-edge.last) MUST render    │
+	 * │    OUTSIDE the node-array container — they extend into the     │
+	 * │    whitespace above/below (column) or left/right (row) of the  │
+	 * │    first/last node. They only clamp inward when the consumer   │
+	 * │    explicitly opts in via --node-caret-boundary(-x/-y).        │
+	 * │ 2. Markers MUST NEVER overlap nodes. They render strictly in   │
+	 * │    the whitespace between nodes (mid markers) or outside the   │
+	 * │    node array bounds (edge markers). Never on top of a node.  │
+	 * └─────────────────────────────────────────────────────────────────┘
+	 *
 	 * Renders insertion gap markers for a single node_array.
 	 *
 	 * Lives inside NodeArrayProperty so it inherits the --row CSS variable.

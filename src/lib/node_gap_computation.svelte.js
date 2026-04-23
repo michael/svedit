@@ -32,11 +32,22 @@
  *
  * ## Architecture
  *
- * Only **root-level** node_array children are observed (e.g. the
- * direct children of `page.body`). Nested node_arrays (e.g. buttons
- * inside a story, list items inside a list) are small and have their
- * visibility inferred from their root ancestor — no per-element IO
- * tracking needed. This keeps the IntersectionObserver budget small.
+ * ALL node_array children are observed with a single
+ * IntersectionObserver, regardless of nesting depth. Per-array
+ * visibility is tracked in `index_map` (Map<array_path, Set<child_index>>),
+ * so both top-level arrays (e.g. `page.body`) and nested arrays
+ * (e.g. `page.body.5.buttons`) cull gap emission uniformly.
+ *
+ * This matters for **intermediate scroll containers**: when a nested
+ * node_array sits inside its own overflow-scroll element (e.g. a
+ * horizontally-scrolling row of buttons), children scrolled outside
+ * the container must not emit gaps or activate anchor positioning —
+ * otherwise out-of-view anchor() resolutions contribute to layout
+ * overflow and cause visible shifts.
+ *
+ * The IntersectionObserver uses the viewport as its root. Intermediate
+ * scroll containers naturally clip their descendants, so IO correctly
+ * reports children scrolled out of a nested scroller as non-intersecting.
  *
  * The IntersectionObserver is created once and stays alive across
  * document mutations (typing, node insertion, undo/redo). A
@@ -51,9 +62,9 @@
  *
  * A single debounced **version counter** drives both node gap
  * positioning (`is_near_viewport`) and gap marker computation
- * (`visible_child_indices`). A plain `Set<string>` tracks which root
- * keys are near the viewport; `is_near_viewport` reads `version`
- * (reactive dependency) then does a non-reactive `Set.has()` lookup.
+ * (`visible_child_indices`). `is_near_viewport` reads `version`
+ * (reactive dependency) then does a non-reactive `Map.get` +
+ * `Set.has` lookup on `index_map`.
  *
  * The 20ms debounce coalesces rapid IO callbacks into a single reactive
  * version bump, preventing redundant O(N) `$derived` re-evaluations
@@ -112,44 +123,36 @@ function parse_node_path(path) {
 }
 
 /**
- * Root-level array children have paths with exactly 2 dots
- * (e.g. "page_1.body.0"). Deeper nodes (e.g. "page_1.body.5.buttons.0")
- * have 4+ dots and are skipped — their visibility is inferred from
- * their root ancestor being visible.
- *
- * This is the key insight that makes the IO budget manageable: in a
- * 500-node document with 2 levels of nesting, only ~100 root nodes
- * are observed rather than all 500.
- *
- * @param {string} path_str
- * @returns {boolean}
- */
-function is_root_array_child(path_str) {
-	let dots = 0;
-	for (let i = 0; i < path_str.length; i++) {
-		if (path_str[i] === '.' && ++dots > 2) return false;
-	}
-	return dots === 2;
-}
-
-/**
  * @param {object} svedit
  * @returns {{
  *   readonly visible_child_indices: Map<string, Set<number>>,
  *   readonly doc_snapshot: object | null,
- *   is_near_viewport: (path: Array<string|number>) => boolean
+ *   is_near_viewport: (path: Array<string|number>) => boolean,
+ *   is_edge_clipped: (path: Array<string|number>, side: 't'|'b'|'l'|'r') => boolean
  * }}
  */
 function create_visibility_culler(svedit) {
 
 	/** @type {Map<string, Set<number>>} */
 	const index_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
+
 	/**
-	 * Read-optimized index for is_near_viewport (called 1000× per version
-	 * bump). A single Set.has(string) is faster than Map.get + Set.has.
-	 * @type {Set<string>}
+	 * Per-node edge clip state. Packed as a 4-bit int:
+	 *   bit 0 = top, bit 1 = bottom, bit 2 = left, bit 3 = right.
+	 * A bit is set when the node's corresponding edge is clipped by an
+	 * ancestor scroll container (or the IO root). Derived from
+	 * entry.intersectionRect vs entry.boundingClientRect — no extra
+	 * observers or per-frame measurements required.
+	 *
+	 * Used to hide edge gap-markers (gap-edge.first / gap-edge.last)
+	 * when the adjacent node has scrolled past its nearest scroll
+	 * container's edge. Without this, edge markers remain visible
+	 * outside the scroll container's clip rect — a regression for
+	 * nested horizontal scrollers (e.g. Story.svelte `.buttons`).
+	 *
+	 * @type {Map<string, number>}
 	 */
-	const visible_roots = new Set(); // eslint-disable-line svelte/prefer-svelte-reactivity
+	const clip_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
 	let _ver = 0;
 	let version = $state.raw(0);
@@ -157,8 +160,33 @@ function create_visibility_culler(svedit) {
 	let version_timer = 0;
 
 	/**
+	 * Compute edge clip flags from an IntersectionObserver entry.
+	 * Returns a 4-bit packed int: (r<<3) | (l<<2) | (b<<1) | t.
+	 *
+	 * An edge is "clipped" when the intersectionRect (which accounts
+	 * for ancestor scroll-container clipping per IO spec) does not
+	 * reach the boundingClientRect (unclipped layout rect) on that
+	 * edge. Uses a 0.5px tolerance to avoid subpixel false positives.
+	 *
+	 * When fully hidden (isIntersecting=false), all 4 bits are set.
+	 *
+	 * @param {IntersectionObserverEntry} entry
+	 * @returns {number}
+	 */
+	function compute_clip_bits(entry) {
+		if (!entry.isIntersecting) return 0b1111;
+		const bcr = entry.boundingClientRect;
+		const ir = entry.intersectionRect;
+		const t = ir.top > bcr.top + 0.5 ? 1 : 0;
+		const b = ir.bottom < bcr.bottom - 0.5 ? 1 : 0;
+		const l = ir.left > bcr.left + 0.5 ? 1 : 0;
+		const r = ir.right < bcr.right - 0.5 ? 1 : 0;
+		return (r << 3) | (l << 2) | (b << 1) | t;
+	}
+
+	/**
 	 * Shared IntersectionObserver callback. Mutates index_map and
-	 * visible_roots in place, then debounces the reactive version bump.
+	 * clip_map in place, then debounces the reactive version bump.
 	 *
 	 * @param {IntersectionObserverEntry[]} entries
 	 */
@@ -172,7 +200,6 @@ function create_visibility_culler(svedit) {
 			if (!parsed) continue;
 
 			if (entry.isIntersecting) {
-				visible_roots.add(path);
 				let set = index_map.get(parsed.array_path);
 				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
 				if (!set.has(parsed.child_index)) {
@@ -180,12 +207,19 @@ function create_visibility_culler(svedit) {
 					did_change = true;
 				}
 			} else {
-				visible_roots.delete(path);
 				const set = index_map.get(parsed.array_path);
 				if (set && set.delete(parsed.child_index)) {
 					did_change = true;
 					if (set.size === 0) index_map.delete(parsed.array_path);
 				}
+			}
+
+			const new_bits = compute_clip_bits(entry);
+			const old_bits = clip_map.get(path) ?? 0;
+			if (new_bits !== old_bits) {
+				if (new_bits === 0) clip_map.delete(path);
+				else clip_map.set(path, new_bits);
+				did_change = true;
 			}
 		}
 		if (did_change) {
@@ -198,8 +232,8 @@ function create_visibility_culler(svedit) {
 	}
 
 	/**
-	 * Query existing DOM nodes, observe root-level ones with the IO,
-	 * and sync-check the first batch for instant initial visibility.
+	 * Query existing DOM nodes, observe all of them with the IO, and
+	 * sync-check the first batch for instant initial visibility.
 	 *
 	 * The sync check (getBoundingClientRect) ensures above-the-fold nodes
 	 * are marked visible immediately, without waiting for the async IO
@@ -216,7 +250,7 @@ function create_visibility_culler(svedit) {
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_el = /** @type {HTMLElement} */ (el);
 			const path = node_el.dataset.path;
-			if (!path || !is_root_array_child(path)) continue;
+			if (!path) continue;
 
 			io.observe(node_el);
 
@@ -230,7 +264,6 @@ function create_visibility_culler(svedit) {
 						rect.right >= -DEFAULT_OVERSCAN_PX &&
 						rect.left <= vw + DEFAULT_OVERSCAN_PX;
 					if (visible) {
-						visible_roots.add(path);
 						let set = index_map.get(parsed.array_path);
 						if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
 						set.add(parsed.child_index);
@@ -252,15 +285,25 @@ function create_visibility_culler(svedit) {
 	$effect(() => {
 		if (!svedit.editable) {
 			index_map.clear();
+			clip_map.clear();
 			version = ++_ver;
 			doc_snapshot = null;
 			return;
 		}
 
 		index_map.clear();
+		clip_map.clear();
 
+		// thresholds: [0, 1] so the IO fires at BOTH "becomes partially
+		// visible/hidden" (threshold 0) AND "becomes partially clipped /
+		// fully visible" (threshold 1). The latter is what powers
+		// edge-clip detection for gap-edge markers (see compute_clip_bits).
+		// Without threshold 1, a node scrolling from fully-visible to
+		// partially-clipped inside a nested scroll container never fires
+		// another callback and clip_map would go stale.
 		const io = new IntersectionObserver(process_entries, {
-			rootMargin: `${DEFAULT_OVERSCAN_PX}px`
+			rootMargin: `${DEFAULT_OVERSCAN_PX}px`,
+			threshold: [0, 1]
 		});
 
 		setup_observation(io);
@@ -285,14 +328,11 @@ function create_visibility_culler(svedit) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
-						if (el.matches?.(NODE_SELECTOR) && is_root_array_child(el.dataset.path)) {
+						if (el.matches?.(NODE_SELECTOR)) {
 							io.observe(el);
 						}
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
-							const child_el = /** @type {HTMLElement} */ (child);
-							if (is_root_array_child(child_el.dataset.path)) {
-								io.observe(child_el);
-							}
+							io.observe(/** @type {HTMLElement} */ (child));
 						}
 					}
 				}
@@ -308,7 +348,7 @@ function create_visibility_culler(svedit) {
 			io.disconnect();
 			mo?.disconnect();
 			index_map.clear();
-			visible_roots.clear();
+			clip_map.clear();
 		};
 	});
 
@@ -325,26 +365,101 @@ function create_visibility_culler(svedit) {
 	 * NodeGap elements are always in the DOM; this determines whether
 	 * the expensive CSS anchor positioning is activated (positioned
 	 * prop). Reads `version` (debounced 20ms) then does a non-reactive
-	 * Set.has() lookup. On initial mount, version is bumped immediately
-	 * (no debounce) so overlays appear in the first paint.
+	 * Map.get + Set.has lookup. On initial mount, version is bumped
+	 * immediately (no debounce) so overlays appear in the first paint.
+	 *
+	 * Per-array visibility: `path` is the child node path (e.g.
+	 * ['page', 'body', 3] or ['page', 'body', 5, 'buttons', 2]). We
+	 * split off the last segment as the child_index and look up the
+	 * array_path's visible set. If no set exists for that array,
+	 * none of its children are near the viewport.
 	 *
 	 * @param {Array<string|number>} path
 	 * @returns {boolean}
 	 */
 	function is_near_viewport(path) {
-		if (path.length < 3) return true;
 		void version;
-		// Content under non-tracked arrays is always visible — only the main body array is large enough to cull.
-		const parent_array = `${path[0]}.${path[1]}`;
-		if (!index_map.has(parent_array)) return true;
-		const root_key = `${path[0]}.${path[1]}.${path[2]}`;
-		return visible_roots.has(root_key);
+		if (path.length < 2) return true;
+		const child_index = path[path.length - 1];
+		if (typeof child_index !== 'number') return true;
+		const array_path = path.slice(0, -1).join('.');
+		const set = index_map.get(array_path);
+		return set ? set.has(child_index) : false;
+	}
+
+	/**
+	 * Edge clip check for a specific node. Returns true when the node's
+	 * given edge is clipped by an ancestor scroll container (or the IO
+	 * root). Used by NodeArrayProperty to hide gap-edge markers/gaps
+	 * when the adjacent node has scrolled past its nearest scroll
+	 * container's edge — since the gap-edge's natural position would
+	 * otherwise place it outside the scroll container's visible clip.
+	 *
+	 * Reads `version` for reactivity, then a non-reactive Map.get on
+	 * the packed clip bits for O(1) lookup.
+	 *
+	 * @param {Array<string|number>} path
+	 * @param {'t'|'b'|'l'|'r'} side
+	 * @returns {boolean}
+	 */
+	function is_edge_clipped(path, side) {
+		void version;
+		const key = path.join('.');
+		const bits = clip_map.get(key);
+		if (!bits) return false;
+		const mask = side === 't' ? 0b0001
+			: side === 'b' ? 0b0010
+			: side === 'l' ? 0b0100
+			: 0b1000;
+		return (bits & mask) !== 0;
+	}
+
+	/**
+	 * Is the node's leading edge clipped (top in column, left in row)?
+	 * Returns true if EITHER axis's leading edge is clipped, since JS
+	 * can't cheaply read the consumer's --row CSS var. Used to cull
+	 * gap-edge.first when the first node has scrolled past its nearest
+	 * scroll container's leading edge.
+	 *
+	 * Conservative: in cross-axis scroll scenarios (e.g. row scroller
+	 * that also clips top/bottom because node is taller than container),
+	 * this may over-hide. Accepted trade-off for simplicity.
+	 *
+	 * @param {Array<string|number>} path
+	 * @returns {boolean}
+	 */
+	function is_leading_clipped(path) {
+		void version;
+		const key = path.join('.');
+		const bits = clip_map.get(key);
+		if (!bits) return false;
+		// top (0b0001) or left (0b0100)
+		return (bits & 0b0101) !== 0;
+	}
+
+	/**
+	 * Is the node's trailing edge clipped (bottom in column, right in row)?
+	 * See is_leading_clipped for rationale and caveats.
+	 *
+	 * @param {Array<string|number>} path
+	 * @returns {boolean}
+	 */
+	function is_trailing_clipped(path) {
+		void version;
+		const key = path.join('.');
+		const bits = clip_map.get(key);
+		if (!bits) return false;
+		// bottom (0b0010) or right (0b1000)
+		return (bits & 0b1010) !== 0;
 	}
 
 	return {
 		get visible_child_indices() { version; return index_map; },
 		get doc_snapshot() { return doc_snapshot; },
-		is_near_viewport
+		is_near_viewport,
+		is_edge_clipped,
+		is_leading_clipped,
+		is_trailing_clipped
 	};
 }
 
@@ -359,6 +474,9 @@ export function create_gap_computation(svedit) {
 	const culler = create_visibility_culler(svedit);
 
 	svedit.is_near_viewport = culler.is_near_viewport;
+	svedit.is_edge_clipped = culler.is_edge_clipped;
+	svedit.is_leading_clipped = culler.is_leading_clipped;
+	svedit.is_trailing_clipped = culler.is_trailing_clipped;
 
 	let caret_gap_key = $derived.by(() => {
 		const s = svedit.session.selection;
@@ -444,84 +562,19 @@ export function create_gap_computation(svedit) {
 		// outdated visibility data. The IO fires within one frame.
 		if (culler.doc_snapshot !== svedit.session.doc) return by_path;
 
-		// Build culled gaps for root-level arrays (only near-viewport children)
+		// Build culled gaps uniformly for every array that has visible
+		// children (root-level and nested alike). Empty arrays are covered
+		// because NodeArrayProperty renders an `.empty-node-array`
+		// placeholder with `data-type="node"`, which IO observes like any
+		// other node — when visible, the array appears in index_map with
+		// child_index 0, and `build_array_gaps_culled` dispatches to the
+		// count===0 branch of `emit_gaps`.
 		for (const [path_str, indices] of culler.visible_child_indices) {
 			const gaps = build_array_gaps_culled(path_str, indices);
 			if (gaps.length > 0) by_path.set(path_str, gaps);
-
-			// Walk visible root nodes to find nested node_arrays (e.g.
-			// buttons inside a story) and emit full gaps for them.
-			for (const child_idx of indices) {
-				collect_nested_array_gaps(path_str, child_idx, by_path);
-			}
-		}
-
-		// Walk the document root's `node` type properties (e.g. page.nav,
-		// page.footer) which aren't children of any node_array and thus
-		// aren't reached by the culler's visible_child_indices traversal.
-		const doc_id = svedit.session.document_id;
-		const doc_node = svedit.session.doc.nodes[doc_id];
-		if (doc_node) {
-			const doc_type_def = svedit.session.schema[doc_node.type];
-			if (doc_type_def?.properties) {
-				for (const [prop_name, prop_def] of Object.entries(doc_type_def.properties)) {
-					if (prop_def.type === 'node' && doc_node[prop_name]) {
-						collect_node_gaps(`${doc_id}.${prop_name}`, doc_node[prop_name], by_path);
-					}
-				}
-			}
 		}
 
 		return by_path;
-	}
-
-	/**
-	 * Walk a visible node's schema to find nested node_arrays and add
-	 * full (unculled) gaps for them. Recurses into node_array children
-	 * and single node references (e.g. page.nav, page.footer).
-	 * @param {string} array_path_str
-	 * @param {number} child_index
-	 * @param {Map<string, Array<gap_t>>} by_path
-	 */
-	function collect_nested_array_gaps(array_path_str, child_index, by_path) {
-		const array_path = array_path_str.split('.');
-		const node_ids = svedit.session.get(array_path);
-		if (!Array.isArray(node_ids) || child_index >= node_ids.length) return;
-
-		collect_node_gaps(`${array_path_str}.${child_index}`, node_ids[child_index], by_path);
-	}
-
-	/**
-	 * Walk a single node's properties for node_arrays and node refs.
-	 * @param {string} node_path_str
-	 * @param {string} node_id
-	 * @param {Map<string, Array<gap_t>>} by_path
-	 */
-	function collect_node_gaps(node_path_str, node_id, by_path) {
-		const node = svedit.session.doc.nodes[node_id];
-		if (!node) return;
-
-		const type_def = svedit.session.schema[node.type];
-		if (!type_def?.properties) return;
-
-		for (const [prop_name, prop_def] of Object.entries(type_def.properties)) {
-			const prop_path_str = `${node_path_str}.${prop_name}`;
-
-			if (prop_def.type === 'node') {
-				const ref_id = node[prop_name];
-				if (ref_id) collect_node_gaps(prop_path_str, ref_id, by_path);
-			} else if (prop_def.type === 'node_array') {
-				if (by_path.has(prop_path_str)) continue;
-
-				const ids = node[prop_name] || [];
-				const gaps = emit_gaps(prop_path_str, prop_path_str.split('.'), ids.length, () => true);
-				if (gaps.length > 0) by_path.set(prop_path_str, gaps);
-
-				for (let i = 0; i < ids.length; i++) {
-					collect_node_gaps(`${prop_path_str}.${i}`, ids[i], by_path);
-				}
-			}
-		}
 	}
 
 	/**
@@ -542,7 +595,25 @@ export function create_gap_computation(svedit) {
 		return emit_gaps(array_path_str, array_path, node_ids.length, (offset, count) => {
 			const prev_visible = offset > 0 && visible_indices.has(offset - 1);
 			const next_visible = offset < count && visible_indices.has(offset);
-			return prev_visible || next_visible;
+			// Edge gaps (before first / after last) anchor on a single node.
+			// Between-gaps anchor on BOTH neighbors — if either is scrolled
+			// outside an intermediate scroll container, the gap would float
+			// over out-of-view space, so require both.
+			if (offset === 0) {
+				if (!next_visible) return false;
+				// Hide the leading edge marker when the first node has
+				// scrolled past its nearest scroll container's leading edge
+				// (left in row layout, top in column). Without this the
+				// marker stays anchored outside the scroll container's clip.
+				if (culler.is_leading_clipped([...array_path, 0])) return false;
+				return true;
+			}
+			if (offset === count) {
+				if (!prev_visible) return false;
+				if (culler.is_trailing_clipped([...array_path, count - 1])) return false;
+				return true;
+			}
+			return prev_visible && next_visible;
 		});
 	}
 

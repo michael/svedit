@@ -1,5 +1,18 @@
 <script>
 	/**
+	 * ┌─────────────────────────────────────────────────────────────────┐
+	 * │ MUST RULES — do not violate when modifying this file            │
+	 * ├─────────────────────────────────────────────────────────────────┤
+	 * │ 1. Edge gaps (gap-before at offset 0 / gap-after.last) MUST      │
+	 * │    render OUTSIDE the node-array container — they extend into   │
+	 * │    the whitespace above/below (column) or left/right (row) of   │
+	 * │    the first/last node. They only clamp when the consumer       │
+	 * │    explicitly opts in via --node-caret-boundary(-x/-y).         │
+	 * │ 2. Gaps MUST NEVER overlap nodes. They render strictly in the   │
+	 * │    whitespace between nodes (mid gaps) or outside the node      │
+	 * │    array bounds (edge gaps). Never on top of a node.            │
+	 * └─────────────────────────────────────────────────────────────────┘
+	 *
 	 * Invisible keyboard caret selectable and gap hit area.
 	 *
 	 * Rendered as a sibling of Node elements inside NodeArrayProperty,
