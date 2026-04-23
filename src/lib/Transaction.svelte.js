@@ -183,6 +183,13 @@ export default class Transaction {
 	 * ```
 	 */
 	set(path, value) {
+		const path_info = this.inspect(path);
+		if (path_info?.kind !== 'property') {
+			throw new Error(
+				`Transaction.set requires a path that points to a property, got ${JSON.stringify(path)}`
+			);
+		}
+
 		const node = this.get(path.slice(0, -1));
 
 		// Turns ["page_1", "body", "0", "description"]
@@ -192,9 +199,6 @@ export default class Transaction {
 
 		// Just to be sure, make a deep copy of the old value
 		const property_key = path.at(-1);
-		if (property_key === undefined) {
-			throw new Error('Invalid path: cannot get property key');
-		}
 		const property_key_str = String(property_key);
 		const previous_value = structuredClone($state.snapshot(node[property_key_str]));
 

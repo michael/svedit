@@ -48,6 +48,42 @@ describe('Session.svelte.js', () => {
 		expect(first_list_item_content).toEqual({ text: 'first list item', annotations: [] });
 	});
 
+	describe('Path inspection', () => {
+		it('should report node and property kinds correctly', () => {
+			const session = create_test_session();
+
+			const page_info = session.inspect(['page_1']);
+			expect(page_info.kind).toBe('node');
+			expect(page_info.type).toBe('page');
+
+			const body_info = session.inspect(['page_1', 'body']);
+			expect(body_info.kind).toBe('property');
+			expect(body_info.type).toBe('node_array');
+
+			const story_info = session.inspect(['page_1', 'body', 0]);
+			expect(story_info.kind).toBe('node');
+			expect(story_info.type).toBe('story');
+
+			const title_info = session.inspect(['page_1', 'body', 0, 'title']);
+			expect(title_info.kind).toBe('property');
+			expect(title_info.type).toBe('annotated_text');
+		});
+	});
+
+	describe('Transaction.set path validation', () => {
+		it('should throw when set is called with a node path instead of a property path', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+
+			expect(() =>
+				tr.set(['story_1'], {
+					...session.get('story_1'),
+					layout: 2
+				})
+			).toThrow('Transaction.set requires a path that points to a property');
+		});
+	});
+
 	describe('Deletion scenarios', () => {
 		it('should delete unreferenced nodes and their children when deleting from node_array', () => {
 			const session = create_test_session();
