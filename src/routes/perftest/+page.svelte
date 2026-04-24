@@ -112,7 +112,7 @@
 		return s;
 	}
 
-	let session = $state(make_session());
+	let session = $state.raw(make_session());
 
 	async function apply_settings() {
 		const t0 = performance.now();

@@ -13,6 +13,8 @@
 	.list {
 		padding: var(--s-10) var(--s-6);
 		counter-reset: listcounter;
+		max-height: 300px;
+		overflow-y: auto;
 	}
 	.list :global(.list-node-array) {
 		--row: 0;
