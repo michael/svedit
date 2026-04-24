@@ -292,53 +292,60 @@ function create_visibility_culler(svedit) {
 	}
 
 	/**
+	 * Synchronous visibility check used when a node is first registered —
+	 * either during `setup_observation` at mount, or via the MutationObserver
+	 * when a new node enters the DOM. IO's initial callback is async; without
+	 * this, newly-mounted visible nodes are absent from `index_map` for up to
+	 * a frame, during which `build_all_gaps` omits their gap markers. In
+	 * wrapping layouts (grid / flex-wrap) that window is visible to the user
+	 * as missing markers until the next IO tick.
+	 *
+	 * @param {HTMLElement} node_el
+	 * @param {number} vh
+	 * @param {number} vw
+	 * @returns {boolean} true when the node was added to index_map
+	 */
+	function sync_add_if_visible(node_el, vh, vw) {
+		const path = node_el.dataset.path;
+		if (!path) return false;
+		const parsed = parse_node_path(path);
+		if (!parsed) return false;
+		const rect = node_el.getBoundingClientRect();
+		const visible =
+			rect.top <= vh + DEFAULT_OVERSCAN_PX &&
+			rect.bottom >= -DEFAULT_OVERSCAN_PX &&
+			rect.right >= -DEFAULT_OVERSCAN_PX &&
+			rect.left <= vw + DEFAULT_OVERSCAN_PX;
+		if (!visible) return false;
+		let set = index_map.get(parsed.array_path);
+		if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+		if (set.has(parsed.child_index)) return false;
+		set.add(parsed.child_index);
+		bump_array_ver(parsed.array_path);
+		return true;
+	}
+
+	/**
 	 * Query existing DOM nodes, observe all of them with the IO, and
-	 * sync-check nodes in the overscan region for instant initial
-	 * visibility.
+	 * sync-check each node's visibility for instant initial state.
 	 *
-	 * Without this, non-sync-checked nodes render with `.positioned=false`
-	 * on first paint, then flip to true when the IO callback arrives —
-	 * visible as a flash of the anchor-positioned gap marker.
-	 *
-	 * Iterates in document order. Once we pass a node whose rect.top is
-	 * below viewport + overscan, every subsequent sibling in a flow-
-	 * layout container is too — we can skip the gBCR for those. Nested
-	 * scrollers whose children don't satisfy this heuristic are still
-	 * io.observe'd; the async IO callback populates their set within one
-	 * frame (sync check is an optimization, not a correctness guarantee).
+	 * Without the sync check, non-intersecting nodes render with
+	 * `.positioned=false` on first paint, then flip to true when the IO
+	 * callback arrives — visible as a flash of the anchor-positioned gap
+	 * marker. The gBCR call per node is cheap at mount because layout
+	 * already happened; no additional reflow is triggered.
 	 *
 	 * @param {IntersectionObserver} io
 	 */
 	function setup_observation(io) {
 		const vh = window.innerHeight;
 		const vw = window.innerWidth;
-		let past_overscan = false;
 
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_el = /** @type {HTMLElement} */ (el);
-			const path = node_el.dataset.path;
-			if (!path) continue;
-
+			if (!node_el.dataset.path) continue;
 			io.observe(node_el);
-
-			if (past_overscan) continue;
-
-			const parsed = parse_node_path(path);
-			if (!parsed) continue;
-			const rect = node_el.getBoundingClientRect();
-			if (rect.top > vh + DEFAULT_OVERSCAN_PX) {
-				past_overscan = true;
-				continue;
-			}
-			const visible =
-				rect.bottom >= -DEFAULT_OVERSCAN_PX &&
-				rect.right >= -DEFAULT_OVERSCAN_PX &&
-				rect.left <= vw + DEFAULT_OVERSCAN_PX;
-			if (visible) {
-				let set = index_map.get(parsed.array_path);
-				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
-				set.add(parsed.child_index);
-			}
+			sync_add_if_visible(node_el, vh, vw);
 		}
 	}
 
@@ -392,13 +399,21 @@ function create_visibility_culler(svedit) {
 
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
+				const vh = window.innerHeight;
+				const vw = window.innerWidth;
+				let any_sync_added = false;
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
-						if (el.matches?.(NODE_SELECTOR)) io.observe(el);
+						if (el.matches?.(NODE_SELECTOR)) {
+							io.observe(el);
+							if (sync_add_if_visible(el, vh, vw)) any_sync_added = true;
+						}
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
-							io.observe(/** @type {HTMLElement} */ (child));
+							const child_el = /** @type {HTMLElement} */ (child);
+							io.observe(child_el);
+							if (sync_add_if_visible(child_el, vh, vw)) any_sync_added = true;
 						}
 					}
 					// Browser auto-unobserves removed elements from the IO, but
@@ -413,6 +428,18 @@ function create_visibility_culler(svedit) {
 							forget_node(/** @type {HTMLElement} */ (child));
 						}
 					}
+				}
+				// New visible nodes added synchronously — bump version now so
+				// consumers (NodeArrayProperty, emit_gaps via $effect.pre) see
+				// the updated index_map in the same flush. Without this, gaps
+				// for the new nodes wait on the IO debounce (~20ms) while
+				// NodeGap's positioned prop already reports them visible from
+				// the non-reactive index_map read, producing a mismatch where
+				// NodeGaps render positioned but NodeGapMarkers don't emit.
+				if (any_sync_added) {
+					clearTimeout(version_timer);
+					version = ++_ver;
+					doc_snapshot = svedit.session.doc;
 				}
 			});
 			deferred_raf = requestAnimationFrame(() => {
