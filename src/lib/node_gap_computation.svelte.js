@@ -399,31 +399,8 @@ function create_visibility_culler(svedit) {
 		if (path.length < 2) return true;
 		const child_index = path[path.length - 1];
 		if (typeof child_index !== 'number') return true;
-		const array_path = path.slice(0, -1).join('.');
-		const set = index_map.get(array_path);
+		const set = index_map.get(path.slice(0, -1).join('.'));
 		return set ? set.has(child_index) : false;
-	}
-
-	/**
-	 * Is the node's leading edge (top in column, left in row) clipped by
-	 * an ancestor scroll container? Reads `version` for reactivity.
-	 *
-	 * @param {Array<string|number>} path
-	 * @returns {boolean}
-	 */
-	function is_leading_clipped(path) {
-		void version;
-		return ((clip_map.get(path.join('.')) ?? 0) & 0b01) !== 0;
-	}
-
-	/**
-	 * Is the node's trailing edge (bottom in column, right in row) clipped?
-	 * @param {Array<string|number>} path
-	 * @returns {boolean}
-	 */
-	function is_trailing_clipped(path) {
-		void version;
-		return ((clip_map.get(path.join('.')) ?? 0) & 0b10) !== 0;
 	}
 
 	/**
@@ -433,27 +410,35 @@ function create_visibility_culler(svedit) {
 	 * near-viewport AND not clipped on the adjacent edge (otherwise the
 	 * gap renders outside the nearest scroll container's visible clip).
 	 *
-	 * Called from build_array_gaps_culled (gap emission) and
-	 * NodeArrayProperty (NodeGap `positioned` prop) — keep in sync.
+	 * Hot path: called N+1 times per visible array from
+	 * build_array_gaps_culled AND once per NodeGap from NodeArrayProperty.
+	 * Accepts `array_path` as either a pre-joined string (preferred by
+	 * callers that already have it) or an array (joined once internally).
+	 * Doing the join once here avoids the per-index array spread + join
+	 * pattern that would otherwise allocate on every call.
 	 *
-	 * @param {Array<string|number>} array_path
+	 * @param {Array<string|number> | string} array_path
 	 * @param {number} offset
 	 * @param {number} count
 	 * @returns {boolean}
 	 */
 	function should_position_gap(array_path, offset, count) {
+		void version;
+		const array_path_str = typeof array_path === 'string'
+			? array_path
+			: array_path.join('.');
+		const set = index_map.get(array_path_str);
+
 		if (offset === 0) {
-			if (!is_near_viewport([...array_path, 0])) return false;
-			if (is_leading_clipped([...array_path, 0])) return false;
-			return true;
+			if (!set || !set.has(0)) return false;
+			return ((clip_map.get(`${array_path_str}.0`) ?? 0) & 0b01) === 0;
 		}
 		if (offset === count) {
-			if (!is_near_viewport([...array_path, count - 1])) return false;
-			if (is_trailing_clipped([...array_path, count - 1])) return false;
-			return true;
+			const last = count - 1;
+			if (!set || !set.has(last)) return false;
+			return ((clip_map.get(`${array_path_str}.${last}`) ?? 0) & 0b10) === 0;
 		}
-		return is_near_viewport([...array_path, offset - 1])
-			&& is_near_viewport([...array_path, offset]);
+		return !!set && set.has(offset - 1) && set.has(offset);
 	}
 
 	return {
@@ -591,7 +576,7 @@ export function create_gap_computation(svedit) {
 		if (!Array.isArray(node_ids)) return [];
 
 		return emit_gaps(array_path_str, array_path, node_ids.length, (offset, count) =>
-			culler.should_position_gap(array_path, offset, count)
+			culler.should_position_gap(array_path_str, offset, count)
 		);
 	}
 

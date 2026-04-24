@@ -14,6 +14,10 @@
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
+	// Pre-joined once per path change; reused by data-path and by every
+	// NodeGap's should_position_gap call to avoid N+1 joins per render.
+	let path_str = $derived(path.join('.'));
+
 	let nodes = $derived(
 		svedit.session
 			.get(path)
@@ -30,7 +34,7 @@
 	this={tag}
 	class={css_class}
 	data-type="node_array"
-	data-path={path.join('.')}
+	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
 >
 	{#if nodes.length === 0 && svedit.editable}
@@ -59,7 +63,7 @@
 				array_path={path}
 				offset={index}
 				count={nodes.length}
-				positioned={svedit.should_position_gap?.(path, index, nodes.length) ?? true}
+				positioned={svedit.should_position_gap?.(path_str, index, nodes.length) ?? true}
 			/>
 		{/if}
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
@@ -74,7 +78,7 @@
 			array_path={path}
 			offset={nodes.length}
 			count={nodes.length}
-			positioned={svedit.should_position_gap?.(path, nodes.length, nodes.length) ?? true}
+			positioned={svedit.should_position_gap?.(path_str, nodes.length, nodes.length) ?? true}
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
