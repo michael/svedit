@@ -25,6 +25,16 @@
 		get length() { return node_ids.length; }
 	});
 
+	// Enforce the "one path = one DOM mount per document" invariant in dev mode.
+	// Logs an error if the same path is mounted twice (e.g. header + footer rendering
+	// the same node_array). Multiple legitimate solutions exist: distinct node_arrays
+	// in the same doc, or separate Svedit instances.
+	$effect(() => {
+		const current_path_str = path_str;
+		svedit.session.register_mount(current_path_str);
+		return () => svedit.session.unregister_mount(current_path_str);
+	});
+
 </script>
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element
@@ -60,7 +70,7 @@
 			positioned={svedit.should_position_gap?.(path_str, 0, 0) ?? true}
 		/>
 	{/if}
-	{#each nodes as node, index (node.id)}
+	{#each nodes as node, index (index)}
 		{#if svedit.editable}
 			<NodeGap
 				array_path={path}
@@ -88,3 +98,23 @@
 		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>
+
+<style>
+	[data-type="node_array"] {
+		/*
+		 * Defensive isolation for CSS anchor positioning.
+		 *
+		 * Each NodeArrayProperty publishes per-node anchor-names like `--page-1-body-0`.
+		 * Without scoping, anchor() resolves against the nearest matching name in scope,
+		 * which can leak across siblings on the same page (multi-document pages, or
+		 * accidental duplicate mounts of the same path). `anchor-scope: all` confines
+		 * every anchor-name declared inside this subtree to descendants only, so each
+		 * NodeArrayProperty's gaps and gap markers always resolve to its own nodes.
+		 *
+		 * Note: a duplicate mount of the same path within one document is still an error
+		 * (see Session#register_mount) — this rule just prevents one symptom (anchor
+		 * cross-resolution) from corrupting layout while the dev fixes the root cause.
+		 */
+		anchor-scope: all;
+	}
+</style>
