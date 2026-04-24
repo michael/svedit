@@ -90,14 +90,6 @@ const DEFAULT_OVERSCAN_PX = 500;
 const NODE_SELECTOR = '[data-type="node"][data-path]';
 
 /**
- * Cap on synchronous getBoundingClientRect calls during initial setup.
- * Calling gBCR for every node in a 500+ node document would cause a
- * significant layout thrash. By capping at 30, we get instant visibility
- * data for above-the-fold content and let the IO handle the rest async.
- */
-const MAX_SYNC_CHECKS = 30;
-
-/**
  * Debounce before bumping the reactive `version` after IO visibility
  * changes. 20ms coalesces rapid IO callbacks into one version bump,
  * yielding consistent 60fps at ≤1000 nodes. Total perceived overlay
@@ -108,6 +100,25 @@ const MAX_SYNC_CHECKS = 30;
  * drops at 1000 nodes (37–55fps avg vs 60fps with 20ms).
  */
 const VERSION_DEBOUNCE_MS = 20;
+
+/**
+ * Shallow array equality for node ID lists. Reference check first
+ * (free), then element-wise comparison. Handles the case where a
+ * $state proxy wrapping the Session returns new array wrappers for
+ * the same underlying structural-sharing data.
+ *
+ * @param {any[] | null} a
+ * @param {any[] | null} b
+ * @returns {boolean}
+ */
+function node_ids_equal(a, b) {
+	if (a === b) return true;
+	if (!a || !b || a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i]) return false;
+	}
+	return true;
+}
 
 /**
  * Split "root.prop.0" into { array_path: "root.prop", child_index: 0 }.
@@ -127,6 +138,7 @@ function parse_node_path(path) {
  * @returns {{
  *   readonly visible_child_indices: Map<string, Set<number>>,
  *   readonly doc_snapshot: object | null,
+ *   readonly array_ver_map: Map<string, number>,
  *   is_near_viewport: (path: Array<string|number>) => boolean,
  *   should_position_gap: (array_path: Array<string|number>, offset: number, count: number) => boolean
  * }}
@@ -155,10 +167,28 @@ function create_visibility_culler(svedit) {
 	 */
 	const clip_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
+	/**
+	 * Per-array change counter. Bumps whenever this array's IO visibility
+	 * or clip state changes. Consumed by the gap cache (create_gap_computation)
+	 * to skip rebuilding arrays whose state is unchanged since the last
+	 * version bump — turns O(all_visible_arrays) into O(changed_arrays) on
+	 * every scroll tick.
+	 *
+	 * @type {Map<string, number>}
+	 */
+	const array_ver_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
+
 	let _ver = 0;
 	let version = $state.raw(0);
 	let doc_snapshot = $state.raw(null);
 	let version_timer = 0;
+
+	/**
+	 * @param {string} array_path_str
+	 */
+	function bump_array_ver(array_path_str) {
+		array_ver_map.set(array_path_str, (array_ver_map.get(array_path_str) ?? 0) + 1);
+	}
 
 	/**
 	 * Drop map entries for a node element being removed from the DOM.
@@ -174,6 +204,7 @@ function create_visibility_culler(svedit) {
 		if (set && set.delete(parsed.child_index) && set.size === 0) {
 			index_map.delete(parsed.array_path);
 		}
+		bump_array_ver(parsed.array_path);
 	}
 
 	/**
@@ -208,17 +239,19 @@ function create_visibility_culler(svedit) {
 			const parsed = parse_node_path(path);
 			if (!parsed) continue;
 
+			let array_changed = false;
+
 			if (entry.isIntersecting) {
 				let set = index_map.get(parsed.array_path);
 				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
 				if (!set.has(parsed.child_index)) {
 					set.add(parsed.child_index);
-					did_change = true;
+					array_changed = true;
 				}
 			} else {
 				const set = index_map.get(parsed.array_path);
 				if (set && set.delete(parsed.child_index)) {
-					did_change = true;
+					array_changed = true;
 					if (set.size === 0) index_map.delete(parsed.array_path);
 				}
 			}
@@ -226,8 +259,26 @@ function create_visibility_culler(svedit) {
 			const new_bits = compute_clip_bits(entry);
 			const old_bits = clip_map.get(path) ?? 0;
 			if (new_bits !== old_bits) {
-				if (new_bits === 0) clip_map.delete(path);
+				// 0b11 (fully hidden) is equivalent to "not tracked" for
+				// consumers — should_position_gap short-circuits on the
+				// visibility set before ever reading clip bits. Dropping
+				// the entry keeps clip_map size proportional to partially-
+				// clipped nodes, not total observed nodes.
+				if (new_bits === 0 || new_bits === 0b11) clip_map.delete(path);
 				else clip_map.set(path, new_bits);
+				// Only bump when the transition is observable to consumers.
+				// 0 ↔ 0b11 transitions are invisible (both drop from clip_map),
+				// and should_position_gap already reacts to visibility-set
+				// changes handled above. Bumping here would spuriously
+				// invalidate the gap cache on every IO refire for off-screen
+				// nodes, causing per-keystroke gap reassignment at scale.
+				const old_meaningful = old_bits === 0b01 || old_bits === 0b10;
+				const new_meaningful = new_bits === 0b01 || new_bits === 0b10;
+				if (old_meaningful || new_meaningful) array_changed = true;
+			}
+
+			if (array_changed) {
+				bump_array_ver(parsed.array_path);
 				did_change = true;
 			}
 		}
@@ -242,19 +293,26 @@ function create_visibility_culler(svedit) {
 
 	/**
 	 * Query existing DOM nodes, observe all of them with the IO, and
-	 * sync-check the first batch for instant initial visibility.
+	 * sync-check nodes in the overscan region for instant initial
+	 * visibility.
 	 *
-	 * The sync check (getBoundingClientRect) ensures above-the-fold nodes
-	 * are marked visible immediately, without waiting for the async IO
-	 * callback. Capped at MAX_SYNC_CHECKS to avoid layout thrashing in
-	 * large documents — the IO handles the rest asynchronously.
+	 * Without this, non-sync-checked nodes render with `.positioned=false`
+	 * on first paint, then flip to true when the IO callback arrives —
+	 * visible as a flash of the anchor-positioned gap marker.
+	 *
+	 * Iterates in document order. Once we pass a node whose rect.top is
+	 * below viewport + overscan, every subsequent sibling in a flow-
+	 * layout container is too — we can skip the gBCR for those. Nested
+	 * scrollers whose children don't satisfy this heuristic are still
+	 * io.observe'd; the async IO callback populates their set within one
+	 * frame (sync check is an optimization, not a correctness guarantee).
 	 *
 	 * @param {IntersectionObserver} io
 	 */
 	function setup_observation(io) {
 		const vh = window.innerHeight;
 		const vw = window.innerWidth;
-		let sync_checked = 0;
+		let past_overscan = false;
 
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_el = /** @type {HTMLElement} */ (el);
@@ -263,22 +321,23 @@ function create_visibility_culler(svedit) {
 
 			io.observe(node_el);
 
-			if (sync_checked < MAX_SYNC_CHECKS) {
-				const parsed = parse_node_path(path);
-				if (parsed) {
-					const rect = node_el.getBoundingClientRect();
-					const visible =
-						rect.bottom >= -DEFAULT_OVERSCAN_PX &&
-						rect.top <= vh + DEFAULT_OVERSCAN_PX &&
-						rect.right >= -DEFAULT_OVERSCAN_PX &&
-						rect.left <= vw + DEFAULT_OVERSCAN_PX;
-					if (visible) {
-						let set = index_map.get(parsed.array_path);
-						if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
-						set.add(parsed.child_index);
-					}
-				}
-				sync_checked++;
+			if (past_overscan) continue;
+
+			const parsed = parse_node_path(path);
+			if (!parsed) continue;
+			const rect = node_el.getBoundingClientRect();
+			if (rect.top > vh + DEFAULT_OVERSCAN_PX) {
+				past_overscan = true;
+				continue;
+			}
+			const visible =
+				rect.bottom >= -DEFAULT_OVERSCAN_PX &&
+				rect.right >= -DEFAULT_OVERSCAN_PX &&
+				rect.left <= vw + DEFAULT_OVERSCAN_PX;
+			if (visible) {
+				let set = index_map.get(parsed.array_path);
+				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+				set.add(parsed.child_index);
 			}
 		}
 	}
@@ -295,6 +354,7 @@ function create_visibility_culler(svedit) {
 		if (!svedit.editable) {
 			index_map.clear();
 			clip_map.clear();
+			array_ver_map.clear();
 			version = ++_ver;
 			doc_snapshot = null;
 			return;
@@ -302,6 +362,7 @@ function create_visibility_culler(svedit) {
 
 		index_map.clear();
 		clip_map.clear();
+		array_ver_map.clear();
 
 		// threshold 1 fires on fully-visible ↔ partially-clipped transitions
 		// (the signal compute_clip_bits needs); threshold 0 fires on
@@ -366,6 +427,7 @@ function create_visibility_culler(svedit) {
 			mo?.disconnect();
 			index_map.clear();
 			clip_map.clear();
+			array_ver_map.clear();
 		};
 	});
 
@@ -444,6 +506,7 @@ function create_visibility_culler(svedit) {
 	return {
 		get visible_child_indices() { version; return index_map; },
 		get doc_snapshot() { return doc_snapshot; },
+		get array_ver_map() { return array_ver_map; },
 		is_near_viewport,
 		should_position_gap
 	};
@@ -461,6 +524,24 @@ export function create_gap_computation(svedit) {
 
 	svedit.is_near_viewport = culler.is_near_viewport;
 	svedit.should_position_gap = culler.should_position_gap;
+
+	/**
+	 * Per-array gap cache. Two-level cache keyed by array_path_str:
+	 *
+	 * - Fast hit: `ver` and `doc` both match → return cached gaps without
+	 *   any session calls. Hot path during pure scroll (no doc mutations).
+	 * - Medium hit: `ver` matches but `doc` differs, and `node_ids` ref is
+	 *   stable → array wasn't affected by the doc mutation (e.g. user typed
+	 *   in an unrelated node). Reuse cached gaps and promote the doc ref for
+	 *   a fast hit next tick.
+	 *
+	 * @type {Map<string, { ver: number, doc: any, node_ids: any, gaps: Array<gap_t> }>}
+	 */
+	const gap_cache = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
+
+	$effect(() => {
+		if (!svedit.editable) gap_cache.clear();
+	});
 
 	let caret_gap_key = $derived.by(() => {
 		const s = svedit.session.selection;
@@ -493,20 +574,62 @@ export function create_gap_computation(svedit) {
 		return sig;
 	}
 
+	/**
+	 * Previous tick's gap output, reused as a "keys-that-were-visible-last-time"
+	 * set. On each tick we only need to clear signals that disappeared — iterating
+	 * path_gap_signals directly would be O(all_signals_ever_created).
+	 *
+	 * @type {Map<string, Array<gap_t>>}
+	 */
+	let prev_gaps_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
+
+	/**
+	 * Shallow structural equality on two gap_t arrays. When the gap cache
+	 * misses (e.g. IO bumped array_ver without changing visible indices),
+	 * emit_gaps produces a NEW array whose contents are identical to the
+	 * cached one. Reassigning a new ref to `sig.gaps` would needlessly
+	 * re-render NodeGapMarkers and re-evaluate `positioned` $deriveds —
+	 * the root cause of per-keystroke anchor flicker at scale.
+	 *
+	 * @param {Array<gap_t>} a
+	 * @param {Array<gap_t>} b
+	 */
+	function gaps_equal(a, b) {
+		if (a === b) return true;
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) {
+			const x = a[i], y = b[i];
+			if (x.key !== y.key || x.vars !== y.vars || x.type !== y.type ||
+				x.offset !== y.offset || x.is_first !== y.is_first ||
+				x.is_last !== y.is_last || x.has_pair !== y.has_pair) return false;
+		}
+		return true;
+	}
+
 	// Distribute gap data to per-path signals. Runs before DOM updates
 	// so NodeGapMarkers sees fresh data in the same render pass.
+	//
+	// Two-level skip to avoid downstream re-renders:
+	// 1. The gap cache returns the same array reference when an array's
+	//    state is unchanged, so `sig.gaps !== gaps` short-circuits the
+	//    $state.raw assignment — $derived consumers don't re-evaluate.
+	// 2. Stale clear iterates only paths that WERE visible last tick,
+	//    not every signal ever created.
 	$effect.pre(() => {
 		const new_gaps = build_all_gaps();
-		const seen = new Set(); // eslint-disable-line svelte/prefer-svelte-reactivity
 		for (const [path_str, gaps] of new_gaps) {
-			seen.add(path_str);
-			get_or_create_gap_signal(path_str).gaps = gaps;
-		}
-		for (const [path_str, sig] of path_gap_signals) {
-			if (!seen.has(path_str) && sig.gaps.length > 0) {
-				sig.gaps = [];
+			const sig = get_or_create_gap_signal(path_str);
+			if (sig.gaps !== gaps && !gaps_equal(sig.gaps, gaps)) {
+				sig.gaps = gaps;
 			}
 		}
+		for (const [path_str] of prev_gaps_map) {
+			if (!new_gaps.has(path_str)) {
+				const sig = path_gap_signals.get(path_str);
+				if (sig && sig.gaps.length > 0) sig.gaps = [];
+			}
+		}
+		prev_gaps_map = new_gaps;
 	});
 
 	svedit.insertion_gap_data = {
@@ -540,10 +663,14 @@ export function create_gap_computation(svedit) {
 		/** @type {Map<string, Array<gap_t>>} */
 		const by_path = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
-		// Wait until the culler's visibility snapshot matches the current doc.
-		// During the brief gap between a doc mutation and the next IO callback,
-		// the snapshot is stale — return empty to avoid computing gaps against
-		// outdated visibility data. The IO fires within one frame.
+		// Wait until the culler's visibility snapshot matches the current
+		// doc. During the brief gap between a doc mutation and the next IO
+		// callback, the snapshot is stale — emitting gap-markers now would
+		// produce entries referencing node paths that may have just been
+		// removed, and their anchor() references fall back to the containing
+		// block → huge gap-markers spanning the whole container. Returning
+		// empty blanks markers for one frame but avoids the far worse
+		// overlapping-giant-gaps regression. The IO fires within one frame.
 		if (culler.doc_snapshot !== svedit.session.doc) return by_path;
 
 		// Build culled gaps uniformly for every array that has visible
@@ -563,21 +690,57 @@ export function create_gap_computation(svedit) {
 
 	/**
 	 * Build gaps for a node_array using visibility filter (culled path).
+	 * See `gap_cache` for the two-level skip strategy.
+	 *
 	 * @param {string} array_path_str
 	 * @returns {Array<gap_t>}
 	 */
 	function build_array_gaps_culled(array_path_str) {
+		const current_ver = culler.array_ver_map.get(array_path_str) ?? 0;
+		const current_doc = svedit.session.doc;
+		const cached = gap_cache.get(array_path_str);
+
+		// Fast hit: no IO change and same doc → no session calls needed.
+		if (cached && cached.ver === current_ver && cached.doc === current_doc) {
+			return cached.gaps;
+		}
+
 		const array_path = array_path_str.split('.');
+		let node_ids = null;
 		try {
 			const info = svedit.session.inspect(array_path);
-			if (info.kind !== 'property' || info.type !== 'node_array') return [];
-		} catch { return []; }
-		const node_ids = svedit.session.get(array_path);
-		if (!Array.isArray(node_ids)) return [];
+			if (info.kind === 'property' && info.type === 'node_array') {
+				const n = svedit.session.get(array_path);
+				if (Array.isArray(n)) node_ids = n;
+			}
+		} catch { /* invalid path — cache the empty result below */ }
 
-		return emit_gaps(array_path_str, array_path, node_ids.length, (offset, count) =>
+		if (!node_ids) {
+			gap_cache.set(array_path_str, { ver: current_ver, doc: current_doc, node_ids: null, gaps: [] });
+			return [];
+		}
+
+		// Medium hit: doc changed but this array's node_ids are unchanged
+		// (common case: user typed in an unrelated node and apply_op left
+		// this array's containing node untouched). Reuse gaps and promote
+		// the doc ref so next tick takes the fast hit.
+		//
+		// First try reference equality (free, works with raw Session),
+		// then fall back to content comparison (handles $state proxy
+		// wrapping where structural sharing is obscured by new proxy
+		// wrappers on each doc mutation).
+		if (cached && cached.ver === current_ver && node_ids_equal(cached.node_ids, node_ids)) {
+			cached.doc = current_doc;
+			cached.node_ids = node_ids;
+			return cached.gaps;
+		}
+
+		const gaps = emit_gaps(array_path_str, array_path, node_ids.length, (offset, count) =>
 			culler.should_position_gap(array_path_str, offset, count)
 		);
+
+		gap_cache.set(array_path_str, { ver: current_ver, doc: current_doc, node_ids, gaps });
+		return gaps;
 	}
 
 	/**

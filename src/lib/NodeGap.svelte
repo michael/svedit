@@ -114,10 +114,22 @@
 	 * --node-caret-boundary when unset.
 	 */
 	.node-gap.positioned {
-		--_s-t: anchor(var(--_pa) top);
-		--_s-b: anchor(var(--_pa) bottom);
-		--_s-l: anchor(var(--_pa) left);
-		--_s-r: anchor(var(--_pa) right);
+		/* Fallback 9999999px: when --_pa is orphan (node briefly missing during
+		   edits), anchor() without a fallback invalidates the custom property
+		   and `top` falls back to 0, placing the gap at viewport top as a
+		   giant overlay. 9999999px ensures orphan anchors produce huge values
+		   that min() excludes instead.
+		   LIMIT: documents taller or wider than 9999999px will re-surface
+		   the reported giant-overlay bug — the fallback must exceed the
+		   containing block's dimensions to land off-screen. If you need to
+		   support larger documents, bump this value here and in the matching
+		   `* 9999999px` branch-disable trick throughout this file (and in
+		   NodeGapMarkers.svelte). Stay below ~33M px to avoid Blink's
+		   LayoutUnit ceiling. */
+		--_s-t: anchor(var(--_pa) top, 9999999px);
+		--_s-b: anchor(var(--_pa) bottom, 9999999px);
+		--_s-l: anchor(var(--_pa) left, 9999999px);
+		--_s-r: anchor(var(--_pa) right, 9999999px);
 	}
 	.positioned.gap-before:not(.empty) {
 		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
@@ -136,8 +148,8 @@
 		--_c-r: anchor(var(--_container) right);
 		--_b-b: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 0px);
 		--_b-r: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 0px);
-		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 99999px);
-		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 99999px);
+		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 9999999px);
+		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 9999999px);
 	}
 
 	.positioned .svedit-selectable {
@@ -160,31 +172,31 @@
 	/* Uses var(--row, 1) with the * 99999 multiplier trick:              */
 	/*   --_R = var(--row, 1)          → 1 in row, 0 in column           */
 	/*   --_C = calc(1 - var(--row, 1))→ 1 in column, 0 in row           */
-	/* Inside min(), + var(--_R) * 99999px disables a col branch in row,  */
-	/* + var(--_C) * 99999px disables a row branch in column.             */
+	/* Inside min(), + var(--_R) * 9999999px disables a col branch in row,  */
+	/* + var(--_C) * 9999999px disables a row branch in column.             */
 	/* ------------------------------------------------------------------ */
 
 	/* Between two siblings: col centers vertically, row centers horizontally */
 	.positioned.gap-after:not(.last) .svedit-selectable {
 		--_mid: calc((var(--_s-b) + var(--_n-t)) / 2 - var(--_gm) / 2);
 		top: min(
-			calc(var(--_s-b) + var(--_R) * 99999px),
-			calc(var(--_mid) + var(--_R) * 99999px),
-			calc(var(--_s-t) + var(--_C) * 99999px)
+			calc(var(--_s-b) + var(--_R) * 9999999px),
+			calc(var(--_mid) + var(--_R) * 9999999px),
+			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(var(--_n-t) + var(--_R) * 99999px),
-			calc(var(--_mid) + var(--_R) * 99999px),
-			calc(var(--_s-b) + var(--_C) * 99999px)
+			calc(var(--_n-t) + var(--_R) * 9999999px),
+			calc(var(--_mid) + var(--_R) * 9999999px),
+			calc(var(--_s-b) + var(--_C) * 9999999px)
 		);
 		left: min(
-			calc(var(--_s-l) + var(--_R) * 99999px),
-			calc(var(--_s-r) + var(--_C) * 99999px),
+			calc(var(--_s-l) + var(--_R) * 9999999px),
+			calc(var(--_s-r) + var(--_C) * 9999999px),
 			calc(
 				(var(--_s-r) + var(--_n-l)) / 2
 				- var(--_gm) / 2
 				+ max(0px, var(--_s-r) - var(--_n-l)) * 999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			),
 			/* Safety clamp for wrap: pins gap inside CB when current/next
 			   wrap across rows. Disabled in nowrap/horizontal-scroll where
@@ -194,11 +206,11 @@
 			calc(
 				100% - var(--_eg)
 				+ max(0px, var(--_n-l) - var(--_s-r) + 0.5px) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		right: min(
-			calc(var(--_s-r) + var(--_R) * 99999px),
+			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(
 				max(
 					0px,
@@ -220,7 +232,7 @@
 						)
 					)
 				)
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		min-height: calc(var(--_gm) * var(--_C));
@@ -235,16 +247,16 @@
 	   push the element past the boundary. */
 	.positioned.gap-after.last .svedit-selectable {
 		top: min(
-			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 99999px),
-			calc(var(--_s-t) + var(--_C) * 99999px)
+			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 9999999px),
+			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(max(var(--_b-b), var(--_s-b) - var(--_eg)) + var(--_R) * 99999px),
-			calc(var(--_s-b) + var(--_C) * 99999px)
+			calc(max(var(--_b-b), var(--_s-b) - var(--_eg)) + var(--_R) * 9999999px),
+			calc(var(--_s-b) + var(--_C) * 9999999px)
 		);
 		left: min(
-			calc(var(--_s-l) + var(--_R) * 99999px),
-			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 99999px),
+			calc(var(--_s-l) + var(--_R) * 9999999px),
+			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 9999999px),
 			/* Safety clamp for wrap: pins gap inside CB when the last
 			   node sits within the CB. Disabled in nowrap/horizontal-scroll
 			   where the trailing node extends past CB right (s-r > 100%) —
@@ -253,11 +265,11 @@
 			calc(
 				100% - var(--_eg)
 				+ max(0px, var(--_s-r) - 100% + 0.5px) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		right: min(
-			calc(var(--_s-r) + var(--_R) * 99999px),
+			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(
 				max(
 					var(--_b-r),
@@ -266,7 +278,7 @@
 						calc(var(--_s-r) - var(--_eg))
 					)
 				)
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		min-height: calc(var(--_eg) * var(--_C));
@@ -278,24 +290,24 @@
 		top: min(
 			calc(
 				max(var(--_b-t), var(--_s-t) - var(--_eg))
-				+ var(--_R) * 99999px
+				+ var(--_R) * 9999999px
 			),
-			calc(var(--_s-t) + var(--_C) * 99999px)
+			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(var(--_s-t) + var(--_R) * 99999px),
-			calc(var(--_s-b) + var(--_C) * 99999px)
+			calc(var(--_s-t) + var(--_R) * 9999999px),
+			calc(var(--_s-b) + var(--_C) * 9999999px)
 		);
 		left: min(
-			calc(var(--_s-l) + var(--_R) * 99999px),
+			calc(var(--_s-l) + var(--_R) * 9999999px),
 			calc(
 				max(var(--_b-l), var(--_s-l) - var(--_eg))
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		right: min(
-			calc(var(--_s-r) + var(--_R) * 99999px),
-			calc(var(--_s-l) + var(--_C) * 99999px)
+			calc(var(--_s-r) + var(--_R) * 9999999px),
+			calc(var(--_s-l) + var(--_C) * 9999999px)
 		);
 		min-height: calc(var(--_eg) * var(--_C));
 		min-width: calc(var(--_eg) * var(--_R));
@@ -309,9 +321,9 @@
 		right: min(var(--_s-r), var(--_c-r));
 	}
 
-	/* Debugging styles  */
+	/* Debugging styles - DO NOT CHANGE OR REMOVE */
 	.positioned .svedit-selectable {
-		/* outline: 2px solid rgba(238, 0, 255, 0.5); */
+		outline: 2px solid rgba(238, 0, 255, 0.5);
 		background-color: rgba(238, 0, 255, 0.5);
 		outline-offset: -0.5px;
 	}
