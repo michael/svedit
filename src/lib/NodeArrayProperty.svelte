@@ -25,10 +25,7 @@
 		get length() { return node_ids.length; }
 	});
 
-	// Enforce the "one path = one DOM mount per document" invariant in dev mode.
-	// Logs an error if the same path is mounted twice (e.g. header + footer rendering
-	// the same node_array). Multiple legitimate solutions exist: distinct node_arrays
-	// in the same doc, or separate Svedit instances.
+	// Enforce the "one path = one DOM mount per document" invariant
 	$effect(() => {
 		const current_path_str = path_str;
 		svedit.session.register_mount(current_path_str);

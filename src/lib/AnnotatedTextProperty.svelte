@@ -104,7 +104,7 @@
 		return fragments;
 	}
 
-	// Enforce the "one path = one DOM mount per document" invariant in dev mode.
+	// Enforce the "one path = one DOM mount per document" invariant
 	$effect(() => {
 		const current_path_str = path_str;
 		svedit.session.register_mount(current_path_str);

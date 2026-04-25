@@ -72,7 +72,7 @@ export default class Session {
 	#mounted_paths = new Set();
 
 	/**
-	 * Registers a path as mounted. In dev mode, logs an error if the path is
+	 * Registers a path as mounted. Logs an error if the path is
 	 * already mounted (a duplicate mount breaks anchor positioning, IO tracking,
 	 * id uniqueness, gap signals and selection mapping).
 	 * @param {string} path_str
@@ -80,10 +80,7 @@ export default class Session {
 	register_mount(path_str) {
 		if (this.#mounted_paths.has(path_str)) {
 			console.error(
-				`[svedit] Path "${path_str}" is mounted more than once. ` +
-				`Within a single Svedit document, each path may be mounted exactly once. ` +
-				`To render shared content in multiple places (e.g. header + footer nav), ` +
-				`use distinct node_arrays or separate Svedit instances.`
+				`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
 			);
 			return;
 		}
