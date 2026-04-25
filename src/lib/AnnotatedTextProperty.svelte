@@ -9,10 +9,12 @@
 	/** @type {AnnotatedTextPropertyProps} */
 	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
 
+	let path_str = $derived(path.join('.'));
+
 	let is_focused = $derived.by(() => {
 		return (
 			svedit.session.selection?.type === 'text' &&
-			path.join('.') === svedit.session.selection?.path.join('.')
+			path_str === svedit.session.selection?.path.join('.')
 		);
 	});
 
@@ -101,6 +103,13 @@
 
 		return fragments;
 	}
+
+	// Enforce the "one path = one DOM mount per document" invariant in dev mode.
+	$effect(() => {
+		const current_path_str = path_str;
+		svedit.session.register_mount(current_path_str);
+		return () => svedit.session.unregister_mount(current_path_str);
+	});
 </script>
 
 <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
