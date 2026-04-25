@@ -6,13 +6,21 @@
 
 	/** @type {CustomPropertyProps} */
 	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
+	let path_str = $derived(path.join('.'));
+
+	// Enforce the "one path = one DOM mount per document" invariant
+	$effect(() => {
+		const current_path_str = path_str;
+		svedit.session.register_mount(current_path_str);
+		return () => svedit.session.unregister_mount(current_path_str);
+	});
 </script>
 
 <svelte:element
 	this={tag}
 	class={css_class}
 	data-type="property"
-	data-path={path.join('.')}
+	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}"
 	{...rest}
 >

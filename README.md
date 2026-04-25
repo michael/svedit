@@ -948,6 +948,16 @@ Svedit provides specialized components for rendering different property types:
 />
 ```
 
+> **One path = one DOM mount.** Within a single Svedit document, each node path
+> may be mounted exactly once. Mounting the same path twice (e.g. rendering the
+> same `nav_items` array in both header and footer) breaks anchor positioning,
+> intersection tracking, id uniqueness, and selection mapping.
+> Svedit logs an error if it detects a duplicate mount.
+>
+> If you need to render shared content in multiple places, model it as distinct
+> node_arrays (`header_nav`, `footer_nav`) in the same document, or render it
+> from a separate Svedit instance.
+
 **`<CustomProperty>`** - For custom properties like images or other non-text content:
 
 ```svelte

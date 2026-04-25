@@ -3,10 +3,23 @@
 	import NodeCaret from './NodeCaret.svelte';
 
 	/**
+	 * ┌─────────────────────────────────────────────────────────────────┐
+	 * │ MUST RULES — do not violate when modifying this file            │
+	 * ├─────────────────────────────────────────────────────────────────┤
+	 * │ 1. Edge markers (gap-edge.first / gap-edge.last) MUST render    │
+	 * │    OUTSIDE the node-array container — they extend into the     │
+	 * │    whitespace above/below (column) or left/right (row) of the  │
+	 * │    first/last node. They only clamp inward when the consumer   │
+	 * │    explicitly opts in via --node-caret-boundary(-x/-y).        │
+	 * │ 2. Markers MUST NEVER overlap nodes. They render strictly in   │
+	 * │    the whitespace between nodes (mid markers) or outside the   │
+	 * │    node array bounds (edge markers). Never on top of a node.  │
+	 * └─────────────────────────────────────────────────────────────────┘
+	 *
 	 * Renders insertion gap markers for a single node_array.
 	 *
 	 * Lives inside NodeArrayProperty so it inherits the --row CSS variable.
-	 * Uses var(--row, 1) with the * 99999 multiplier trick to switch between
+	 * Uses var(--row, 1) with the * 9999999 multiplier trick to switch between
 	 * column and row positioning/visuals in pure CSS — no container queries.
 	 *
 	 * Gap data is produced by node_gap_computation and published to the
@@ -73,15 +86,15 @@
 	 * --node-caret-boundary-x        (per-axis override; clamps left/right only)
 	 * --node-caret-boundary-y        (per-axis override; clamps top/bottom only)
 	 *
-	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
+	 * Row/column detection uses var(--row, 1) with the * 9999999 multiplier
 	 * trick throughout. Shorthand:
 	 *   --_R: var(--row, 1)              (1 when row, 0 when column)
 	 *   --_C: calc(1 - var(--row, 1))    (1 when column, 0 when row)
 	 *
-	 * Inside min(): + var(--_X) * 99999px makes a branch huge → min ignores it.
-	 * Inside max(): + var(--_X) * -99999px makes a branch tiny → max ignores it.
+	 * Inside min(): + var(--_X) * 9999999px makes a branch huge → min ignores it.
+	 * Inside max(): + var(--_X) * -9999999px makes a branch tiny → max ignores it.
 	 * Nested min/max inherit the outermost convention: if the root is min(),
-	 * all branches (even inside inner max()) use + 99999px to disable.
+	 * all branches (even inside inner max()) use + 9999999px to disable.
 	 */
 
 	/* Suppress caret blink during active click on a node gap. */
@@ -120,6 +133,21 @@
 		margin: 0 !important; /* prevent unwanted margin from parent elements */
 	}
 
+	/*
+	 * position-anchor ties the marker's containing-block/scroll behavior to
+	 * a specific anchor element, so the marker tracks its anchor's scroll
+	 * container the same way NodeGap's .svedit-selectable does. Without it,
+	 * markers inside a nested scroll container stay fixed in viewport space
+	 * while the anchored nodes scroll away.
+	 */
+	.gap-marker.gap-empty,
+	.gap-marker.gap-edge {
+		position-anchor: var(--_a);
+	}
+	.gap-marker.gap-mid {
+		position-anchor: var(--_p);
+	}
+
 	/* --------------------------------------------------------------------- */
 	/* Empty array                                                           */
 	/* --------------------------------------------------------------------- */
@@ -130,9 +158,9 @@
 		left: anchor(var(--_a) left);
 		bottom: anchor(var(--_a) bottom);
 		right: max(
-			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
-			calc(anchor(var(--_a) right) + var(--_C) * -99999px),
-			calc(anchor(var(--_a) left) - var(--_eg) + var(--_C) * -99999px)
+			calc(anchor(var(--_a) right) + var(--_R) * -9999999px),
+			calc(anchor(var(--_a) right) + var(--_C) * -9999999px),
+			calc(anchor(var(--_a) left) - var(--_eg) + var(--_C) * -9999999px)
 		);
 	}
 
@@ -141,37 +169,37 @@
 	/* Column: spans from prev bottom to next top, with a centering branch  */
 	/* that guarantees at least --_gm height when the gap is too small.     */
 	/* Row: spans prev node. Row left/right use complex narrowing logic;    */
-	/* row branches all get + var(--_C) * 99999px so they're ignored in     */
+	/* row branches all get + var(--_C) * 9999999px so they're ignored in     */
 	/* column layout.                                                        */
 	/* --------------------------------------------------------------------- */
 
 	.gap-marker.gap-mid {
 		top: min(
-			calc(anchor(var(--_p) bottom) + var(--_R) * 99999px),
+			calc(anchor(var(--_p) bottom) + var(--_R) * 9999999px),
 			calc(
 				(anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
 				- var(--_gm) / 2
-				+ var(--_R) * 99999px
+				+ var(--_R) * 9999999px
 			),
-			calc(anchor(var(--_p) top) + var(--_C) * 99999px)
+			calc(anchor(var(--_p) top) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(anchor(var(--_n) top) + var(--_R) * 99999px),
+			calc(anchor(var(--_n) top) + var(--_R) * 9999999px),
 			calc(
 				(anchor(var(--_p) bottom) + anchor(var(--_n) top)) / 2
 				- var(--_gm) / 2
-				+ var(--_R) * 99999px
+				+ var(--_R) * 9999999px
 			),
-			calc(anchor(var(--_p) bottom) + var(--_C) * 99999px)
+			calc(anchor(var(--_p) bottom) + var(--_C) * 9999999px)
 		);
 		left: min(
-			calc(anchor(var(--_p) left) + var(--_R) * 99999px),
-			calc(anchor(var(--_p) right) + var(--_C) * 99999px),
+			calc(anchor(var(--_p) left) + var(--_R) * 9999999px),
+			calc(anchor(var(--_p) right) + var(--_C) * 9999999px),
 			calc(
 				(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
 				- var(--_gm) / 2
 				+ max(0px, anchor(var(--_p) right) - anchor(var(--_n) left)) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			),
 			/* Wrap narrowing: centers marker in a gap-width region at prev_right.
 			   The + 0.5px disables this branch for zero-gap grids (items touching)
@@ -185,9 +213,19 @@
 				) / 2
 				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left) + 0.5px) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			),
-			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			/* Safety clamp for wrap: pins marker inside CB when prev/next wrap
+			   across rows (so the marker ends at the right edge of row 1).
+			   Disabled in nowrap/horizontal-scroll where p and n are
+			   side-by-side on the same row — there the other branches
+			   position correctly and this clamp would wrongly force the
+			   marker to the CB right. */
+			calc(
+				100% - var(--_gm)
+				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right) + 0.5px) * 9999
+				+ var(--_C) * 9999999px
+			),
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
@@ -199,20 +237,28 @@
 					- 0.5px
 				) * 9999
 				+ max(0px, anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		right: max(
-			calc(0px + var(--_C) * -99999px),
+			/* CB-right floor, disabled in nowrap/horizontal-scroll where n
+			   extends past CB right (p_right - n_left > 0 in right context,
+			   equivalent to n_left_body > p_right_body in layout). In that
+			   case the marker must extend past CB right to reach the gap,
+			   so right must be allowed to go negative. */
+			calc(
+				0px + var(--_C) * -9999999px
+				- max(0px, anchor(var(--_p) right) - anchor(var(--_n) left) + 0.5px) * 9999
+			),
 			min(
-				calc(anchor(var(--_p) right) + var(--_R) * 99999px),
+				calc(anchor(var(--_p) right) + var(--_R) * 9999999px),
 				calc(
-					anchor(var(--_n) left) + var(--_C) * 99999px
+					anchor(var(--_n) left) + var(--_C) * 9999999px
 				),
 				calc(
 					(anchor(var(--_p) right) + anchor(var(--_n) left)) / 2
 					- var(--_gm) / 2
-					+ var(--_C) * 99999px
+					+ var(--_C) * 9999999px
 				),
 				max(
 					/* Symmetric right-side narrowing. The + 0.5px mirrors the left
@@ -227,7 +273,7 @@
 							)
 						) / 2
 						- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right) + 0.5px) * 9999
-						+ var(--_C) * 99999px
+						+ var(--_C) * 9999999px
 					),
 					calc(
 						anchor(var(--_p) right) - var(--_gm)
@@ -236,21 +282,21 @@
 							- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 							+ 0.5px
 						) * 9999
-						+ var(--_C) * 99999px
+						+ var(--_C) * 9999999px
 					),
 					calc(
 						anchor(var(--_p) right) - var(--_gm)
 						- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
-						+ var(--_C) * 99999px
+						+ var(--_C) * 9999999px
 					),
 					calc(
 						anchor(var(--_p) right)
 						- (anchor(var(--_n) left) - anchor(var(--_p) right)) * 9999
-						+ var(--_C) * 99999px
+						+ var(--_C) * 9999999px
 					),
 					min(
-						calc(anchor(var(--_c) right) + var(--_C) * 99999px),
-						calc(anchor(var(--_p) right) - var(--_eg) + var(--_C) * 99999px)
+						calc(anchor(var(--_c) right) + var(--_C) * 9999999px),
+						calc(anchor(var(--_p) right) - var(--_eg) + var(--_C) * 9999999px)
 					)
 				)
 			)
@@ -271,20 +317,20 @@
 		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
 		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
 		top: min(
-			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
-			calc(max(var(--_b-t), calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 99999px)
+			calc(anchor(var(--_a) top) + var(--_C) * 9999999px),
+			calc(max(var(--_b-t), calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 9999999px)
 		);
 		bottom: min(
-			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
-			calc(anchor(var(--_a) top) + var(--_R) * 99999px)
+			calc(anchor(var(--_a) bottom) + var(--_C) * 9999999px),
+			calc(anchor(var(--_a) top) + var(--_R) * 9999999px)
 		);
 		left: min(
-			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
-			calc(max(var(--_b-l), calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 99999px)
+			calc(anchor(var(--_a) left) + var(--_R) * 9999999px),
+			calc(max(var(--_b-l), calc(anchor(var(--_a) left) - var(--_gm))) + var(--_C) * 9999999px)
 		);
 		right: min(
-			calc(anchor(var(--_a) right) + var(--_R) * 99999px),
-			calc(anchor(var(--_a) left) + var(--_C) * 99999px)
+			calc(anchor(var(--_a) right) + var(--_R) * 9999999px),
+			calc(anchor(var(--_a) left) + var(--_C) * 9999999px)
 		);
 	}
 
@@ -295,51 +341,51 @@
 	.gap-edge.last {
 		--_b-b: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 0px);
 		--_b-r: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 0px);
-		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 99999px);
-		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 99999px);
+		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 9999999px);
+		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 9999999px);
 		top: min(
-			calc(anchor(var(--_a) top) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) top) + var(--_C) * 9999999px),
 			calc(
 				min(
 					anchor(var(--_a) bottom),
 					calc(var(--_b-bt) - var(--_gm))
-				) + var(--_R) * 99999px
+				) + var(--_R) * 9999999px
 			)
 		);
 		bottom: min(
-			calc(anchor(var(--_a) bottom) + var(--_C) * 99999px),
-			calc(max(var(--_b-b), calc(anchor(var(--_a) bottom) - var(--_gm))) + var(--_R) * 99999px)
+			calc(anchor(var(--_a) bottom) + var(--_C) * 9999999px),
+			calc(max(var(--_b-b), calc(anchor(var(--_a) bottom) - var(--_gm))) + var(--_R) * 9999999px)
 		);
 		left: min(
-			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_R) * 9999999px),
 			calc(
 				min(
 					anchor(var(--_a) right),
 					calc(var(--_b-rl) - var(--_gm))
-				) + var(--_C) * 99999px
+				) + var(--_C) * 9999999px
 			),
-			calc(100% - var(--_gm) + var(--_C) * 99999px)
+			calc(100% - var(--_gm) + var(--_C) * 9999999px)
 		);
 		right: max(
-			calc(var(--_b-r) + var(--_C) * -99999px),
-			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
-			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -99999px),
-			calc(anchor(var(--_c) right) + var(--_C) * -99999px)
+			calc(var(--_b-r) + var(--_C) * -9999999px),
+			calc(anchor(var(--_a) right) + var(--_R) * -9999999px),
+			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -9999999px),
+			calc(anchor(var(--_c) right) + var(--_C) * -9999999px)
 		);
 	}
 
 	/* --------------------------------------------------------------------- */
 	/* Trailing gap in row with 2+ items: complex narrowing using --_f/--_s  */
 	/* Overrides .gap-edge.last — must re-include col branch for both left   */
-	/* (min: + 99999px to disable) and right (max: * -99999px to disable).   */
+	/* (min: + 9999999px to disable) and right (max: * -9999999px to disable).   */
 	/* --------------------------------------------------------------------- */
 
 	/* Purpose of this + 0.5px: disable for zero-gap grids (see .gap-mid comment). */
 	.gap-marker.gap-edge.last.pair {
 		left: min(
-			calc(anchor(var(--_a) left) + var(--_R) * 99999px),
-			calc(anchor(var(--_a) right) + var(--_C) * 99999px),
-			calc(var(--_b-rl) - var(--_gm) + var(--_C) * 99999px),
+			calc(anchor(var(--_a) left) + var(--_R) * 9999999px),
+			calc(anchor(var(--_a) right) + var(--_C) * 9999999px),
+			calc(var(--_b-rl) - var(--_gm) + var(--_C) * 9999999px),
 			calc(
 				anchor(var(--_a) right)
 				+ (max(0px, anchor(var(--_s) left) - anchor(var(--_f) right))) / 2
@@ -349,9 +395,18 @@
 				) / 2
 				+ max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
 				+ max(0px, anchor(var(--_a) right) - anchor(var(--_c) right) + 0.5px) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			),
-			calc(100% - var(--_gm) + var(--_C) * 99999px),
+			/* Safety clamp for wrap: pins marker inside CB when items 0 and 1
+			   wrap across rows. Disabled in nowrap/horizontal-scroll where
+			   items 0 and 1 are side-by-side on the same row — there the
+			   anchor-based branches position correctly and this clamp would
+			   wrongly force the marker to the CB right. */
+			calc(
+				100% - var(--_gm)
+				+ max(0px, anchor(var(--_s) left) - anchor(var(--_f) right) + 0.5px) * 9999
+				+ var(--_C) * 9999999px
+			),
 			calc(
 				100% - max(
 					max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)),
@@ -362,12 +417,12 @@
 					- (anchor(var(--_c) right) - anchor(var(--_a) right))
 					- 0.5px
 				) * 9999
-				+ var(--_C) * 99999px
+				+ var(--_C) * 9999999px
 			)
 		);
 		right: max(
-			calc(anchor(var(--_a) right) + var(--_R) * -99999px),
-			calc(var(--_b-r) + var(--_C) * -99999px),
+			calc(anchor(var(--_a) right) + var(--_R) * -9999999px),
+			calc(var(--_b-r) + var(--_C) * -9999999px),
 			calc(
 				anchor(var(--_a) right)
 				- (
@@ -379,7 +434,7 @@
 				) / 2
 				- max(0px, anchor(var(--_s) left) - anchor(var(--_f) right)) * 9999
 				- max(0px, anchor(var(--_c) right) - anchor(var(--_a) right) + 0.5px) * 9999
-				+ var(--_C) * -99999px
+				+ var(--_C) * -9999999px
 			),
 			calc(
 				anchor(var(--_a) right) - var(--_gm)
@@ -388,16 +443,16 @@
 					- (max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)))
 					+ 0.5px
 				) * 9999
-				+ var(--_C) * -99999px
+				+ var(--_C) * -9999999px
 			),
 			calc(
 				anchor(var(--_a) right) - var(--_gm)
 				- max(0px, anchor(var(--_f) right) - anchor(var(--_s) left)) * 9999
-				+ var(--_C) * -99999px
+				+ var(--_C) * -9999999px
 			),
 			min(
-				calc(anchor(var(--_c) right) + var(--_C) * -99999px),
-				calc(anchor(var(--_a) right) - var(--_eg) + var(--_C) * -99999px)
+				calc(anchor(var(--_c) right) + var(--_C) * -9999999px),
+				calc(anchor(var(--_a) right) - var(--_eg) + var(--_C) * -9999999px)
 			)
 		);
 	}
@@ -420,20 +475,20 @@
 		&:not(.gap-empty)::before {
 			--_mi: var(--node-caret-marker-inset, 2px);
 			top: min(
-				calc(50% + var(--_R) * 99999px),
-				calc(var(--_mi) + var(--_C) * 99999px)
+				calc(50% + var(--_R) * 9999999px),
+				calc(var(--_mi) + var(--_C) * 9999999px)
 			);
 			bottom: min(
-				calc(50% + var(--_R) * 99999px),
-				calc(var(--_mi) + var(--_C) * 99999px)
+				calc(50% + var(--_R) * 9999999px),
+				calc(var(--_mi) + var(--_C) * 9999999px)
 			);
 			left: min(
-				calc(var(--_mi) + var(--_R) * 99999px),
-				calc(50% + var(--_C) * 99999px)
+				calc(var(--_mi) + var(--_R) * 9999999px),
+				calc(50% + var(--_C) * 9999999px)
 			);
 			right: min(
-				calc(var(--_mi) + var(--_R) * 99999px),
-				calc(50% + var(--_C) * 99999px)
+				calc(var(--_mi) + var(--_R) * 9999999px),
+				calc(50% + var(--_C) * 9999999px)
 			);
 			border-top: calc(var(--_C) * 1px) dashed var(--node-caret-gap-color, var(--svedit-canvas-stroke));
 			border-left: calc(var(--_R) * 1px) dashed var(--node-caret-gap-color, var(--svedit-canvas-stroke));
@@ -471,7 +526,7 @@
 		}
 	}
 
-	/* Debugging styles  */
+	/* Debugging styles - DO NOT CHANGE OR REMOVE */
 	/* :global([data-type="node_array"]) {
 		outline: 0.1px solid green;
 	}
