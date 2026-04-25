@@ -25,6 +25,13 @@
 		get length() { return node_ids.length; }
 	});
 
+	// Enforce the "one path = one DOM mount per document" invariant
+	$effect(() => {
+		const current_path_str = path_str;
+		svedit.session.register_mount(current_path_str);
+		return () => svedit.session.unregister_mount(current_path_str);
+	});
+
 </script>
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element
@@ -60,7 +67,7 @@
 			positioned={svedit.should_position_gap?.(path_str, 0, 0) ?? true}
 		/>
 	{/if}
-	{#each nodes as node, index (node.id)}
+	{#each nodes as node, index (index)}
 		{#if svedit.editable}
 			<NodeGap
 				array_path={path}
