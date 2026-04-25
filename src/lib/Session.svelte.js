@@ -1,4 +1,3 @@
-import { DEV } from 'esm-env';
 import Transaction from './Transaction.svelte.js';
 import { char_slice, traverse } from './utils.js';
 import {
@@ -79,7 +78,6 @@ export default class Session {
 	 * @param {string} path_str
 	 */
 	register_mount(path_str) {
-		if (!DEV) return;
 		if (this.#mounted_paths.has(path_str)) {
 			console.error(
 				`[svedit] Path "${path_str}" is mounted more than once. ` +
@@ -97,7 +95,6 @@ export default class Session {
 	 * @param {string} path_str
 	 */
 	unregister_mount(path_str) {
-		if (!DEV) return;
 		this.#mounted_paths.delete(path_str);
 	}
 

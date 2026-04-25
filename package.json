@@ -38,9 +38,6 @@
 	"peerDependencies": {
 		"svelte": "^5.0.0"
 	},
-	"dependencies": {
-		"esm-env": "^1.2.1"
-	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.3",
 		"@eslint/js": "^10.0.1",

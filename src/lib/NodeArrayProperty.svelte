@@ -98,23 +98,3 @@
 		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>
-
-<style>
-	[data-type="node_array"] {
-		/*
-		 * Defensive isolation for CSS anchor positioning.
-		 *
-		 * Each NodeArrayProperty publishes per-node anchor-names like `--page-1-body-0`.
-		 * Without scoping, anchor() resolves against the nearest matching name in scope,
-		 * which can leak across siblings on the same page (multi-document pages, or
-		 * accidental duplicate mounts of the same path). `anchor-scope: all` confines
-		 * every anchor-name declared inside this subtree to descendants only, so each
-		 * NodeArrayProperty's gaps and gap markers always resolve to its own nodes.
-		 *
-		 * Note: a duplicate mount of the same path within one document is still an error
-		 * (see Session#register_mount) — this rule just prevents one symptom (anchor
-		 * cross-resolution) from corrupting layout while the dev fixes the root cause.
-		 */
-		anchor-scope: all;
-	}
-</style>
