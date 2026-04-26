@@ -818,7 +818,10 @@ ${fallback_html}`;
 		const property_el = target.closest('[data-path][data-type="property"]');
 
 		if (!property_el) {
-			if (suppress_focus) reset_suppress_focus();
+			// Tap on text — clear any inputmode='none' left over from a
+			// prior property tap (including the orphan case where a scroll
+			// gesture cleared suppress_focus but not inputmode).
+			reset_suppress_focus();
 			return;
 		}
 
