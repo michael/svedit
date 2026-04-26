@@ -1357,6 +1357,7 @@ ${fallback_html}`;
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
+		inputmode={session.selection?.type === 'property' ? 'none' : 'text'}
 		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
