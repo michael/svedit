@@ -30,10 +30,12 @@
 			Math.abs(session.selection.focus_offset - session.selection.anchor_offset) === 1
 	);
 
-	let can_show_cycle_tools = $derived(is_single_node_selection);
-	let can_show_select_parent_tool = $derived(
-		is_single_node_selection || session.selection?.type === 'text'
+	let can_show_cycle_tools = $derived(
+		is_single_node_selection ||
+			session.selection?.type === 'text' ||
+			session.selection?.type === 'property'
 	);
+	let can_show_select_parent_tool = $derived(!!session.selection);
 
 	// Get default node_type for current node_array
 	let default_node_type = $derived.by(() => {
@@ -386,8 +388,7 @@
 		width: fit-content;
 		position: fixed;
 		bottom: var(--s-4);
-		left: 50%;
-		transform: translateX(-50%);
+		right: var(--s-4);
 		border-radius: var(--s-2);
 		box-shadow: var(--shadow-2);
 		display: flex;
