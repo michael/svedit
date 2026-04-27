@@ -1374,7 +1374,7 @@ ${fallback_html}`;
 		{oncompositionend}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
-		inputmode={session.selection?.type === 'property' ? 'none' : 'text'}
+		inputmode={session.selection?.type === 'text' ? 'text' : 'none'}
 		contenteditable={editable ? 'true' : 'false'}
 		tabindex="-1"
 		{autocapitalize}
