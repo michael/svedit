@@ -1187,6 +1187,7 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${selection.path.join('.')}"][data-type="property"]`
 		);
+
 		const gap_selectable = el.querySelector('.svedit-selectable');
 		const range = window.document.createRange();
 		const dom_selection = window.getSelection();
@@ -1199,10 +1200,7 @@ ${fallback_html}`;
 
 		// Scroll the selection into view
 		setTimeout(() => {
-			const selectedElement = dom_selection.focusNode.parentElement;
-			if (selectedElement) {
-				selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			}
+			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
@@ -1354,6 +1352,16 @@ ${fallback_html}`;
 	<!-- Overlays must be before canvas so they initialize first. -->
 	<NodeSelectionMarkers />
 	{#if Overlays}<Overlays />{/if}
+	<!--
+		inputmode is derived from the model selection: when a custom property
+		(image, embed, etc.) is selected, set inputmode="none" so iOS does
+		not open the virtual keyboard. For any other selection (text, node,
+		none), allow the keyboard via inputmode="text". The browser's native
+		selection-change flow updates session.selection on tap, which flips
+		this attribute before iOS decides whether to show the keyboard — no
+		imperative state tracking, drag detection, or click/pointerdown
+		handlers are required for keyboard suppression.
+	-->
 	<div
 		class="svedit-canvas {css_class}"
 		class:hide-selection={session.selection?.type === 'node'}
@@ -1366,6 +1374,7 @@ ${fallback_html}`;
 		{oncompositionend}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
+		inputmode={session.selection?.type === 'property' ? 'none' : 'text'}
 		contenteditable={editable ? 'true' : 'false'}
 		tabindex="-1"
 		{autocapitalize}
