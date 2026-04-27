@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import { get_closest_switchable_layout } from '../app_utils.js';
 
+
 	let { session, focus_canvas, editable = $bindable(false) } = $props();
 
 	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
@@ -101,14 +102,6 @@
 
 	function delete_node_selection(event) {
 		event.preventDefault();
-
-		if (session.selection?.type === 'property') {
-			session.config.handle_property_deletion?.(session, session.selection.path);
-			return;
-		}
-
-		if (session.selection?.type !== 'node') return;
-
 		session.apply(session.tr.delete_selection('backward'));
 	}
 

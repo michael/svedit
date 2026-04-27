@@ -494,12 +494,10 @@ export const session_config = {
 		Highlight,
 		Link
 	},
-	handle_property_deletion: (doc, path) => {
-		const property_definition = doc.inspect(path);
+	handle_property_deletion: (tr, path) => {
+		const property_definition = tr.inspect(path);
 		if (property_definition?.type !== 'string' || property_definition?.name !== 'image') return;
-		const tr = doc.tr;
 		tr.set(path, '');
-		doc.apply(tr);
 	},
 	handle_media_paste: async (doc, pasted_media) => {
 		// ATTENTION: In a real-world-app, you may want to upload `pasted_media` here,
