@@ -137,7 +137,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="editor-toolbar p-1" class:editable onkeydown={handle_toolbar_keydown}>
+<div class="editor-toolbar" class:editable onkeydown={handle_toolbar_keydown}>
 	{#if show_image_input}
 		<div class="contextual-input">
 			<label>
@@ -150,7 +150,6 @@
 				/>
 			</label>
 		</div>
-		<hr />
 	{/if}
 	{#if session.selection?.type === 'text'}
 		{#if session.available_annotation_types.includes('strong')}
@@ -221,11 +220,9 @@
 				/>
 			</label>
 		</div>
-		<hr />
 	{/if}
 
 	{#if session.selection?.type === 'node' || session.selection?.type === 'property'}
-		<hr />
 		{#if is_node_caret && default_node_type}
 			<button title="Insert (↵)" onmousedown={insert_default_node}>
 				<svg
@@ -264,7 +261,6 @@
 	{/if}
 
 	{#if can_show_cycle_tools || can_show_select_parent_tool}
-		<hr />
 		{#if can_show_cycle_tools}
 			<button
 				title="Cycle type (⌃ ⇧ ↓)"
@@ -329,10 +325,6 @@
 		{/if}
 	{/if}
 
-	{#if session.selection?.type === 'text' || (session.selection?.type === 'node' && session.selected_node?.type === 'story') || (session.selection?.type === 'node' && session.selected_node?.type === 'list')}
-		<hr />
-	{/if}
-
 	{#if editable}
 		<button
 			title="Undo"
@@ -372,10 +364,6 @@
 		padding: var(--s-1) var(--s-8);
 	}
 
-	.editor-toolbar.editable .toggle-editable {
-		margin-left: var(--s-4);
-	}
-
 	.toggle-editable:hover {
 		background: var(--svedit-editing-stroke);
 		color: var(--app-canvas-fill);
@@ -392,6 +380,7 @@
 		border-radius: var(--s-2);
 		box-shadow: var(--shadow-2);
 		display: flex;
+		padding-inline: 4px;
 		z-index: 50;
 		flex-direction: row;
 		align-items: center;
@@ -449,14 +438,6 @@
 					border-color: var(--svedit-editing-stroke);
 				}
 			}
-		}
-
-		hr {
-			background-color: var(--app-stroke);
-			width: 1px;
-			height: 100%;
-			border: none;
-			margin-inline: var(--s-2);
 		}
 	}
 </style>
