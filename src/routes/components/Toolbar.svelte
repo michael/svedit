@@ -30,16 +30,7 @@
 		{ value: 5, label: 'Upper roman', icon: 'list-upper-roman' }
 	];
 
-	function snake_to_human(snake_str) {
-		return snake_str
-			.split('_')
-			.map((word, index) =>
-				index === 0
-					? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-					: word.toLowerCase()
-			)
-			.join(' ');
-	}
+
 
 	function toggle_editable() {
 		if (editable) {
@@ -48,7 +39,8 @@
 		editable = !editable;
 	}
 
-	function handle_layout_change(layout_index) {
+	function handle_layout_change(event, layout_index) {
+		event.preventDefault();
 		if (!layout_node) return;
 		if (layout_node.id) {
 			const tr = session.tr;
@@ -57,7 +49,8 @@
 		}
 	}
 
-	function handle_list_layout_change(layout) {
+	function handle_list_layout_change(event, layout) {
+		event.preventDefault();
 		if (!layout_node) return;
 		if (layout_node.id) {
 			const tr = session.tr;
@@ -72,9 +65,9 @@
 			session.selection.anchor_offset === session.selection.focus_offset
 	);
 
-	// Get allowed node_types for current node_array
-	let allowed_node_types = $derived.by(() => {
-		if (!is_node_caret) return [];
+	// Get default node_type for current node_array
+	let default_node_type = $derived.by(() => {
+		if (!is_node_caret) return null;
 
 		const node_array_path = session.selection.path;
 		const node_array_node = session.get(node_array_path.slice(0, -1)); // Get the parent node
@@ -82,20 +75,27 @@
 
 		// Get schema for this node type
 		const node_schema = session.schema[node_array_node?.type];
-		if (!node_schema) return [];
+		if (!node_schema) return null;
 
 		// Get property schema
 		const property_definition = node_schema.properties[node_array_property];
-		if (property_definition?.type !== 'node_array') return [];
+		if (property_definition?.type !== 'node_array') return null;
 
-		return property_definition.node_types || [];
+		return (
+			property_definition.default_node_type ||
+			(property_definition.node_types?.length === 1 ? property_definition.node_types[0] : null)
+		);
 	});
 
-	// Function to insert node (always inserts paragraph for now, ignoring node_type)
-	function insert_node(node_type) {
-		if (!is_node_caret) return;
+	function insert_default_node(event) {
+		event.preventDefault();
+		if (!is_node_caret || !default_node_type) return;
+
+		const inserter = session.config.inserters?.[default_node_type];
+		if (!inserter) return;
+
 		const tr = session.tr;
-		session.config.inserters[node_type](tr);
+		inserter(tr);
 		session.apply(tr);
 	}
 
@@ -162,7 +162,10 @@
 			<button
 				title="Bold"
 				class="bold"
-				onclick={() => session.commands.toggle_strong?.execute()}
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_strong?.execute();
+				}}
 				disabled={session.commands.toggle_strong?.disabled}
 				class:active={session.commands.toggle_strong?.active}
 			>
@@ -173,7 +176,10 @@
 			<button
 				title="Italic"
 				class="italic"
-				onclick={() => session.commands.toggle_emphasis?.execute()}
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_emphasis?.execute();
+				}}
 				disabled={session.commands.toggle_emphasis?.disabled}
 				class:active={session.commands.toggle_emphasis?.active}
 			>
@@ -184,7 +190,10 @@
 			<button
 				title="Highlight"
 				class="highlight"
-				onclick={() => session.commands.toggle_highlight?.execute()}
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_highlight?.execute();
+				}}
 				disabled={session.commands.toggle_highlight?.disabled}
 				class:active={session.commands.toggle_highlight?.active}
 			>
@@ -194,7 +203,10 @@
 		{#if session.available_annotation_types.includes('link')}
 			<button
 				title="Link"
-				onclick={() => session.commands.toggle_link?.execute()}
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_link?.execute();
+				}}
 				disabled={session.commands.toggle_link?.disabled}
 				class:active={session.commands.toggle_link?.active}
 			>
@@ -220,7 +232,7 @@
 	{#if layout_node?.type === 'story'}
 		{#each layout_options as option (option.value)}
 			<button
-				onclick={() => handle_layout_change(option.value)}
+				onmousedown={(event) => handle_layout_change(event, option.value)}
 				class:active={layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
@@ -231,7 +243,7 @@
 		<hr />
 		{#each list_layout_options as option (option.value)}
 			<button
-				onclick={() => handle_list_layout_change(option.value)}
+				onmousedown={(event) => handle_list_layout_change(event, option.value)}
 				class:active={layout_node.layout === option.value}
 			>
 				<Icon name={option.icon} />
@@ -239,14 +251,11 @@
 		{/each}
 	{/if}
 
-	{#if is_node_caret && allowed_node_types.length > 0}
+	{#if is_node_caret && default_node_type}
 		<hr />
-		{#each allowed_node_types as node_type (node_type)}
-			<button title={`Add ${snake_to_human(node_type)}`} onclick={() => insert_node(node_type)}>
-				<Icon name="square" />
-				{snake_to_human(node_type)}
-			</button>
-		{/each}
+		<button title="Add node" aria-label="Add node" onmousedown={insert_default_node}>
+			+
+		</button>
 	{/if}
 
 	{#if session.selection?.type === 'text' || (session.selection?.type === 'node' && session.selected_node?.type === 'story') || (session.selection?.type === 'node' && session.selected_node?.type === 'list')}
@@ -256,14 +265,20 @@
 	{#if editable}
 		<button
 			title="Undo"
-			onclick={() => session.commands.undo?.execute()}
+			onmousedown={(event) => {
+				event.preventDefault();
+				session.commands.undo?.execute();
+			}}
 			disabled={session.commands.undo?.disabled}
 		>
 			<Icon name="rotate-left" />
 		</button>
 		<button
 			title="Redo"
-			onclick={() => session.commands.redo?.execute()}
+			onmousedown={(event) => {
+				event.preventDefault();
+				session.commands.redo?.execute();
+			}}
 			disabled={session.commands.redo?.disabled}
 		>
 			<Icon name="rotate-right" />
