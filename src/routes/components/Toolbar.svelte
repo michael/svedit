@@ -31,6 +31,9 @@
 	);
 
 	let can_show_cycle_tools = $derived(is_single_node_selection);
+	let can_show_select_parent_tool = $derived(
+		is_single_node_selection || session.selection?.type === 'text'
+	);
 
 	// Get default node_type for current node_array
 	let default_node_type = $derived.by(() => {
@@ -81,6 +84,12 @@
 		event.preventDefault();
 		if (session.commands.next_layout?.disabled) return;
 		session.commands.next_layout?.execute();
+	}
+
+	function select_parent(event) {
+		event.preventDefault();
+		if (session.commands.select_parent?.disabled) return;
+		session.commands.select_parent?.execute();
 	}
 
 	// Check if we should show the image URL input
@@ -233,50 +242,70 @@
 		</button>
 	{/if}
 
-	{#if can_show_cycle_tools}
+	{#if can_show_cycle_tools || can_show_select_parent_tool}
 		<hr />
-		<button
-			title="Cycle type (⌃ ⇧ ↓)"
-			onmousedown={cycle_node_type}
-			disabled={!closest_switchable_type || session.commands.next_type?.disabled}
-		>
-			<svg
-				class="toolbar-icon"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
+		{#if can_show_cycle_tools}
+			<button
+				title="Cycle type (⌃ ⇧ ↓)"
+				onmousedown={cycle_node_type}
+				disabled={!closest_switchable_type || session.commands.next_type?.disabled}
 			>
-				<line x1="6" y1="4" x2="18" y2="4" />
-				<line x1="12" y1="4" x2="12" y2="14" />
-				<polyline points="8 18 12 22 16 18" />
-				<line x1="12" y1="14" x2="12" y2="22" />
-			</svg>
-		</button>
-		<button
-			title="Cycle layout (⌃ ⇧ →)"
-			onmousedown={cycle_layout}
-			disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
-		>
-			<svg
-				class="toolbar-icon"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<line x1="6" y1="4" x2="18" y2="4" />
+					<line x1="12" y1="4" x2="12" y2="14" />
+					<polyline points="8 18 12 22 16 18" />
+					<line x1="12" y1="14" x2="12" y2="22" />
+				</svg>
+			</button>
+			<button
+				title="Cycle layout (⌃ ⇧ →)"
+				onmousedown={cycle_layout}
+				disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
 			>
-				<line x1="4" y1="6" x2="4" y2="18" />
-				<line x1="4" y1="12" x2="14" y2="12" />
-				<polyline points="18 8 22 12 18 16" />
-				<line x1="14" y1="12" x2="22" y2="12" />
-			</svg>
-		</button>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<line x1="4" y1="6" x2="4" y2="18" />
+					<line x1="4" y1="12" x2="14" y2="12" />
+					<polyline points="18 8 22 12 18 16" />
+					<line x1="14" y1="12" x2="22" y2="12" />
+				</svg>
+			</button>
+		{/if}
+		{#if can_show_select_parent_tool}
+			<button
+				title="Select parent (Esc)"
+				onmousedown={select_parent}
+				disabled={session.commands.select_parent?.disabled}
+			>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
+				>
+					<rect x="4" y="6" width="16" height="12" stroke="currentColor" stroke-width="2" />
+					<rect x="10" y="10" width="4" height="4" fill="currentColor" />
+				</svg>
+			</button>
+		{/if}
 	{/if}
 
 	{#if session.selection?.type === 'text' || (session.selection?.type === 'node' && session.selected_node?.type === 'story') || (session.selection?.type === 'node' && session.selected_node?.type === 'list')}
