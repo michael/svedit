@@ -1,37 +1,16 @@
 <script>
 	import Icon from './Icon.svelte';
-	import { get_closest_switchable_layout } from '../app_utils.js';
-
+	import {
+		get_closest_switchable_layout,
+		get_closest_switchable_type
+	} from '../app_utils.js';
 
 	let { session, focus_canvas, editable = $bindable(false) } = $props();
 
 	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
-	let layout_node = $derived(closest_switchable_layout?.node ?? null);
+	let closest_switchable_type = $derived(get_closest_switchable_type(session));
 
 	let input_ref = $state();
-
-	const layout_options = [
-		{ value: 1, label: 'Image left', icon: 'image-left' },
-		{ value: 2, label: 'Image right', icon: 'image-right' },
-		{ value: 3, label: 'Image top', icon: 'image-at-top' }
-	];
-
-	const list_layout_options = [
-		{ value: 1, label: 'Square', icon: 'square' },
-		{ value: 2, label: 'Disc', icon: 'disc' },
-		{
-			value: 3,
-			label: 'Decimal leading zero',
-			icon: 'list-decimal-leading-zero'
-		},
-		// { value: 'decimal', label: 'Decimal', icon: 'list-decimal' },
-		{ value: 4, label: 'Lower latin', icon: 'list-lower-latin' },
-		// { value: 'lower-roman', label: 'Lower roman', icon: 'list-lower-roman' },
-		// { value: 'upper-latin', label: 'Upper latin', icon: 'list-upper-latin' },
-		{ value: 5, label: 'Upper roman', icon: 'list-upper-roman' }
-	];
-
-
 
 	function toggle_editable() {
 		if (editable) {
@@ -40,31 +19,18 @@
 		editable = !editable;
 	}
 
-	function handle_layout_change(event, layout_index) {
-		event.preventDefault();
-		if (!layout_node) return;
-		if (layout_node.id) {
-			const tr = session.tr;
-			tr.set([layout_node.id, 'layout'], layout_index);
-			session.apply(tr);
-		}
-	}
-
-	function handle_list_layout_change(event, layout) {
-		event.preventDefault();
-		if (!layout_node) return;
-		if (layout_node.id) {
-			const tr = session.tr;
-			tr.set([layout_node.id, 'layout'], layout);
-			session.apply(tr);
-		}
-	}
-
 	// Check if we have a collapsed node selection (node caret)
 	let is_node_caret = $derived(
 		session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset
 	);
+
+	let is_single_node_selection = $derived(
+		session.selection?.type === 'node' &&
+			Math.abs(session.selection.focus_offset - session.selection.anchor_offset) === 1
+	);
+
+	let can_show_cycle_tools = $derived(is_single_node_selection);
 
 	// Get default node_type for current node_array
 	let default_node_type = $derived.by(() => {
@@ -103,6 +69,18 @@
 	function delete_node_selection(event) {
 		event.preventDefault();
 		session.apply(session.tr.delete_selection('backward'));
+	}
+
+	function cycle_node_type(event) {
+		event.preventDefault();
+		if (session.commands.next_type?.disabled) return;
+		session.commands.next_type?.execute();
+	}
+
+	function cycle_layout(event) {
+		event.preventDefault();
+		if (session.commands.next_layout?.disabled) return;
+		session.commands.next_layout?.execute();
 	}
 
 	// Check if we should show the image URL input
@@ -235,37 +213,69 @@
 		<hr />
 	{/if}
 
-	{#if layout_node?.type === 'story'}
-		{#each layout_options as option (option.value)}
-			<button
-				onmousedown={(event) => handle_layout_change(event, option.value)}
-				class:active={layout_node.layout === option.value}
-			>
-				<Icon name={option.icon} />
-			</button>
-		{/each}
-	{/if}
-	{#if layout_node?.type === 'list'}
-		<hr />
-		{#each list_layout_options as option (option.value)}
-			<button
-				onmousedown={(event) => handle_list_layout_change(event, option.value)}
-				class:active={layout_node.layout === option.value}
-			>
-				<Icon name={option.icon} />
-			</button>
-		{/each}
-	{/if}
-
 	{#if session.selection?.type === 'node' || session.selection?.type === 'property'}
 		<hr />
 		{#if is_node_caret && default_node_type}
 			<button title="Insert (↵)" onmousedown={insert_default_node}>
-				+
+				<svg
+					class="toolbar-icon"
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 15 15"
+					fill="none"
+					aria-hidden="true"
+				>
+					<path d="M7.5 3V12M3 7.5H12" stroke="currentColor" stroke-linecap="square" />
+				</svg>
 			</button>
 		{/if}
 		<button title="Delete backwards (⌫)" onmousedown={delete_node_selection}>
 			⌫
+		</button>
+	{/if}
+
+	{#if can_show_cycle_tools}
+		<hr />
+		<button
+			title="Cycle type (⌃ ⇧ ↓)"
+			onmousedown={cycle_node_type}
+			disabled={!closest_switchable_type || session.commands.next_type?.disabled}
+		>
+			<svg
+				class="toolbar-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<line x1="6" y1="4" x2="18" y2="4" />
+				<line x1="12" y1="4" x2="12" y2="14" />
+				<polyline points="8 18 12 22 16 18" />
+				<line x1="12" y1="14" x2="12" y2="22" />
+			</svg>
+		</button>
+		<button
+			title="Cycle layout (⌃ ⇧ →)"
+			onmousedown={cycle_layout}
+			disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
+		>
+			<svg
+				class="toolbar-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<line x1="4" y1="6" x2="4" y2="18" />
+				<line x1="4" y1="12" x2="14" y2="12" />
+				<polyline points="18 8 22 12 18 16" />
+				<line x1="14" y1="12" x2="22" y2="12" />
+			</svg>
 		</button>
 	{/if}
 
@@ -350,6 +360,12 @@
 				color: var(--svedit-editing-stroke);
 				--icon-color: var(--svedit-editing-stroke);
 			}
+		}
+
+		.toolbar-icon {
+			width: var(--icon-size, 20px);
+			height: var(--icon-size, 20px);
+			color: var(--icon-color, var(--app-primary-text));
 		}
 
 		.contextual-input {
