@@ -453,19 +453,25 @@ export default class Transaction {
 	}
 
 	/**
-	 * Deletes the currently selected text or nodes.
+	 * Deletes the currently selected text, node, or property.
 	 *
 	 * Behavior depends on selection type:
 	 * - For node selections: Removes selected nodes and cascades deletion of unreferenced nodes
 	 * - For text selections: Removes selected text and adjusts annotations accordingly
 	 * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
-	 * - Property selections are ignored: Those are best handled handled via commands + keyboard shortcuts.
+	 * - For property selections: Delegates to the config's handle_property_deletion hook
 	 *
 	 * @param {'backward' | 'forward'} [direction] - Direction of deletion for collapsed selections
 	 * @returns {Transaction} This transaction instance for method chaining
 	 */
 	delete_selection(direction = 'backward') {
-		if (!this.selection || this.selection.type === 'property') return this;
+		if (!this.selection) return this;
+
+		if (this.selection.type === 'property') {
+			this.config.handle_property_deletion?.(this, this.selection.path);
+			return this;
+		}
+
 		const path = this.selection.path;
 
 		// Get the start and end indices for the selection
