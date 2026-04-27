@@ -238,7 +238,26 @@
 			</button>
 		{/if}
 		<button title="Delete backwards (⌫)" onmousedown={delete_node_selection}>
-			⌫
+			<svg
+				class="delete-backwards-icon toolbar-icon"
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 15 15"
+				fill="none"
+				aria-hidden="true"
+			>
+				<path
+					d="M5 3.5H13.5V11.5H5L1.5 7.5L5 3.5Z"
+					stroke="currentColor"
+					stroke-linejoin="miter"
+					stroke-width="0.85"
+				/>
+				<path
+					d="M7.25 6L10.25 9M10.25 6L7.25 9"
+					stroke="currentColor"
+					stroke-linecap="square"
+					stroke-width="0.85"
+				/>
+			</svg>
 		</button>
 	{/if}
 
@@ -301,8 +320,8 @@
 					xmlns="http://www.w3.org/2000/svg"
 					aria-hidden="true"
 				>
-					<rect x="4" y="6" width="16" height="12" stroke="currentColor" stroke-width="2" />
-					<rect x="10" y="10" width="4" height="4" fill="currentColor" />
+					<rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="1.5" />
+					<rect x="10.25" y="10.25" width="3.5" height="3.5" fill="currentColor" />
 				</svg>
 			</button>
 		{/if}
@@ -395,6 +414,11 @@
 			width: var(--icon-size, 20px);
 			height: var(--icon-size, 20px);
 			color: var(--icon-color, var(--app-primary-text));
+		}
+
+		.delete-backwards-icon {
+			width: 20px;
+			height: 20px;
 		}
 
 		.contextual-input {
