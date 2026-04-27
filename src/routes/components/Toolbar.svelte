@@ -99,6 +99,19 @@
 		session.apply(tr);
 	}
 
+	function delete_node_selection(event) {
+		event.preventDefault();
+
+		if (session.selection?.type === 'property') {
+			session.config.handle_property_deletion?.(session, session.selection.path);
+			return;
+		}
+
+		if (session.selection?.type !== 'node') return;
+
+		session.apply(session.tr.delete_selection('backward'));
+	}
+
 	// Check if we should show the image URL input
 	let show_image_input = $derived(
 		session.selection?.type === 'property' && session.selection.path.at(-1) === 'image'
@@ -251,10 +264,15 @@
 		{/each}
 	{/if}
 
-	{#if is_node_caret && default_node_type}
+	{#if session.selection?.type === 'node' || session.selection?.type === 'property'}
 		<hr />
-		<button title="Add node" aria-label="Add node" onmousedown={insert_default_node}>
-			+
+		{#if is_node_caret && default_node_type}
+			<button title="Insert (↵)" onmousedown={insert_default_node}>
+				+
+			</button>
+		{/if}
+		<button title="Delete backwards (⌫)" onmousedown={delete_node_selection}>
+			⌫
 		</button>
 	{/if}
 
