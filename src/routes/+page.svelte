@@ -81,11 +81,13 @@
 	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.doc.document_id]} />
 
 	{#if editable}
-		<div class="flex-column gap-y-2 my-10 w-full max-w-screen-lg mx-auto">
-			<p>Selection:</p>
-			<pre class="debug-info p-4">{JSON.stringify(session.selection || {}, null, '  ')}</pre>
-			<p>Nodes:</p>
-			<pre class="debug-info p-4">{JSON.stringify(session.doc, null, '  ')}</pre>
+		<div class="debug-panel-wrapper">
+			<div class="debug-panel-shell flex-column gap-y-2 w-full max-w-screen-lg mx-auto">
+				<p>Selection:</p>
+				<pre class="debug-info">{JSON.stringify(session.selection || {}, null, '  ')}</pre>
+				<p style="padding-top: 36px;">Nodes:</p>
+				<pre class="debug-info">{JSON.stringify(session.doc, null, '  ')}</pre>
+			</div>
 		</div>
 	{/if}
 </div>
@@ -93,12 +95,24 @@
 <svelte:window onkeydown={key_mapper.handle_keydown.bind(key_mapper)} />
 
 <style>
+	.debug-panel-wrapper {
+		padding-block: var(--s-10);
+		/*background: color-mix(in oklch, var(--app-canvas-fill) 94%, var(--app-primary-text));*/
+	}
+
+	.debug-panel-shell {
+		padding: var(--s-6);
+	}
+
 	.debug-info {
 		text-wrap: wrap;
 		height: 12lh;
 		overflow-y: auto;
-		color: white;
-		background: var(--app-primary-fill);
+		color: var(--app-primary-text);
+		background: color-mix(in oklch, var(--app-canvas-fill) 98%, var(--app-primary-text));
+		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 86%, var(--app-primary-text));
+		font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 12px;
+		padding: var(--s-4);
 	}
 </style>
