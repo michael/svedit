@@ -35,7 +35,7 @@
 			session.selection?.type === 'text' ||
 			session.selection?.type === 'property'
 	);
-	let can_show_select_parent_tool = $derived(!!session.selection);
+	let can_show_select_parent_tool = $derived(!session.commands.select_parent?.disabled);
 
 	// Get default node_type for current node_array
 	let default_node_type = $derived.by(() => {
@@ -380,7 +380,6 @@
 		border-radius: var(--s-2);
 		box-shadow: var(--shadow-2);
 		display: flex;
-		padding-inline: 4px;
 		z-index: 50;
 		flex-direction: row;
 		align-items: center;

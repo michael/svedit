@@ -93,7 +93,11 @@ export class RedoCommand extends Command {
  */
 export class SelectParentCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.session.selection;
+		return (
+			this.context.editable &&
+			this.context.session.selection &&
+			this.context.session.selection.path.length > 3
+		);
 	}
 
 	execute() {
