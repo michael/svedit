@@ -8,7 +8,7 @@
 	let has_image = $derived(node.image && node.image.trim() !== '');
 </script>
 
-<Node 
+<Node
 	{path}
 	class="hero mx-auto w-full {has_image ? 'has-image' : ''}"
 	style={has_image ? `background-image: url(${node.image});` : ''}
@@ -53,10 +53,11 @@
 		justify-content: center;
 		min-height: 50vh;
 		position: relative;
+		overflow: hidden;
 		background: linear-gradient(
-			135deg,
-			var(--app-primary-fill),
-			color-mix(in srgb, var(--app-primary-fill) 80%, white)
+			180deg,
+			color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text)) 0%,
+			var(--app-canvas-fill) 72%
 		);
 	}
 
@@ -64,7 +65,7 @@
 		margin-top: var(--s-6);
 	}
 
-	.hero.has-image {
+	:global(.hero.has-image) {
 		background-size: cover;
 		background-position: center;
 		background-repeat: no-repeat;
@@ -82,46 +83,57 @@
 
 	.hero-content {
 		text-align: center;
-		max-width: 800px;
+		max-width: 512px;
 		width: 100%;
 		position: relative;
 		z-index: 2;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.hero-content::before {
+		content: '';
+		display: block;
+		width: 3.5rem;
+		height: 0.22rem;
+		margin-bottom: var(--s-5);
+		background: var(--app-primary-fill);
+		border-radius: 9999px;
 	}
 
 	:global(.hero .hero-title) {
 		font-size: 3rem;
 		font-weight: 700;
+		font-variation-settings: 'wght' 700;
 		line-height: 1.2;
 		margin-bottom: var(--s-6);
-		color: white;
-		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+		color: var(--app-primary-text);
+		letter-spacing: -0.03em;
 	}
 
 	:global(.hero .hero-subtitle) {
 		font-size: 1.7rem;
 		line-height: 1.6;
-		opacity: 0.8;
-		color: white;
-		opacity: 0.9;
-		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+		color: var(--app-primary-text);
+		opacity: 0.95;
 		max-width: 600px;
 		margin: 0 auto;
 	}
 
 	:global(.hero.has-image .hero-title) {
-		color: white;
-		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+		color: var(--app-primary-text);
 	}
 
 	:global(.hero.has-image .hero-subtitle) {
-		color: white;
-		opacity: 0.9;
-		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+		color: var(--app-primary-text);
+		opacity: 0.95;
 	}
 
 	:global(.hero a) {
-		color: inherit;
-		text-decoration: underline;
+		color: var(--app-primary-fill);
+		text-decoration-line: underline;
+		text-decoration-color: var(--app-primary-fill);
 		text-underline-offset: 0.15em;
 	}
 

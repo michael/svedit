@@ -303,24 +303,23 @@
 			</svg>
 		</button>
 	{/if}
-	<button
-		title="Select parent (Esc)"
-		onmousedown={select_parent}
-		disabled={session.commands.select_parent?.disabled}
-	>
-		<svg
-			class="toolbar-icon"
-			viewBox="0 0 24 24"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			aria-hidden="true"
-		>
-			<rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="1.5" />
-			<rect x="10.25" y="10.25" width="3.5" height="3.5" fill="currentColor" />
-		</svg>
-	</button>
-
 	{#if editable}
+		<button
+			title="Select parent (Esc)"
+			onmousedown={select_parent}
+			disabled={session.commands.select_parent?.disabled}
+		>
+			<svg
+				class="toolbar-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				aria-hidden="true"
+			>
+				<rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="1.5" />
+				<rect x="10.25" y="10.25" width="3.5" height="3.5" fill="currentColor" />
+			</svg>
+		</button>
 		<button
 			title="Undo"
 			onmousedown={(event) => {
