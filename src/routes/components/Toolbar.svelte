@@ -141,7 +141,6 @@
 	{#if show_image_input}
 		<div class="contextual-input">
 			<label>
-				Image URL:
 				<input
 					bind:this={input_ref}
 					type="url"
@@ -260,70 +259,66 @@
 		</button>
 	{/if}
 
-	{#if can_show_cycle_tools || can_show_select_parent_tool}
-		{#if can_show_cycle_tools}
-			<button
-				title="Cycle type (⌃ ⇧ ↓)"
-				onmousedown={cycle_node_type}
-				disabled={!closest_switchable_type || session.commands.next_type?.disabled}
+	{#if can_show_cycle_tools}
+		<button
+			title="Cycle type (⌃ ⇧ ↓)"
+			onmousedown={cycle_node_type}
+			disabled={!closest_switchable_type || session.commands.next_type?.disabled}
+		>
+			<svg
+				class="toolbar-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
 			>
-				<svg
-					class="toolbar-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<line x1="6" y1="4" x2="18" y2="4" />
-					<line x1="12" y1="4" x2="12" y2="14" />
-					<polyline points="8 18 12 22 16 18" />
-					<line x1="12" y1="14" x2="12" y2="22" />
-				</svg>
-			</button>
-			<button
-				title="Cycle layout (⌃ ⇧ →)"
-				onmousedown={cycle_layout}
-				disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
+				<line x1="6" y1="4" x2="18" y2="4" />
+				<line x1="12" y1="4" x2="12" y2="14" />
+				<polyline points="8 18 12 22 16 18" />
+				<line x1="12" y1="14" x2="12" y2="22" />
+			</svg>
+		</button>
+		<button
+			title="Cycle layout (⌃ ⇧ →)"
+			onmousedown={cycle_layout}
+			disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
+		>
+			<svg
+				class="toolbar-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
 			>
-				<svg
-					class="toolbar-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<line x1="4" y1="6" x2="4" y2="18" />
-					<line x1="4" y1="12" x2="14" y2="12" />
-					<polyline points="18 8 22 12 18 16" />
-					<line x1="14" y1="12" x2="22" y2="12" />
-				</svg>
-			</button>
-		{/if}
-		{#if can_show_select_parent_tool}
-			<button
-				title="Select parent (Esc)"
-				onmousedown={select_parent}
-				disabled={session.commands.select_parent?.disabled}
-			>
-				<svg
-					class="toolbar-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-					aria-hidden="true"
-				>
-					<rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="1.5" />
-					<rect x="10.25" y="10.25" width="3.5" height="3.5" fill="currentColor" />
-				</svg>
-			</button>
-		{/if}
+				<line x1="4" y1="6" x2="4" y2="18" />
+				<line x1="4" y1="12" x2="14" y2="12" />
+				<polyline points="18 8 22 12 18 16" />
+				<line x1="14" y1="12" x2="22" y2="12" />
+			</svg>
+		</button>
 	{/if}
+	<button
+		title="Select parent (Esc)"
+		onmousedown={select_parent}
+		disabled={session.commands.select_parent?.disabled}
+	>
+		<svg
+			class="toolbar-icon"
+			viewBox="0 0 24 24"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+		>
+			<rect x="3" y="5" width="18" height="14" stroke="currentColor" stroke-width="1.5" />
+			<rect x="10.25" y="10.25" width="3.5" height="3.5" fill="currentColor" />
+		</svg>
+	</button>
 
 	{#if editable}
 		<button
@@ -354,60 +349,127 @@
 
 <style>
 	.toggle-editable {
-		font-size: var(--base-size);
-		border-radius: var(--s-2);
-		font-weight: 700;
-		display: block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		height: 36px;
+		min-height: 36px;
+		padding: 0 1rem;
+		border: 1px solid var(--svedit-editing-stroke);
+		border-radius: 9999px;
+		background: var(--app-canvas-fill);
+		color: var(--svedit-editing-stroke);
+		box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
+		font-size: 0.875rem;
+		font-weight: 600;
+		line-height: 1;
 		text-decoration: none;
-		background: var(--svedit-editing-stroke);
-		color: var(--app-canvas-fill);
-		padding: var(--s-1) var(--s-8);
+		cursor: pointer;
+		pointer-events: auto;
+		transition: all 150ms;
+		outline: 1px solid transparent;
 	}
 
 	.toggle-editable:hover {
-		background: var(--svedit-editing-stroke);
-		color: var(--app-canvas-fill);
-		opacity: 0.9;
+		background: color-mix(in oklch, var(--app-primary-text) 4%, var(--app-canvas-fill));
+		color: var(--svedit-editing-stroke);
+	}
+
+	.toggle-editable:active {
+		background: color-mix(in oklch, var(--app-primary-text) 7%, var(--app-canvas-fill));
+		transform: translateY(1px) scale(0.95);
+	}
+
+	.toggle-editable:focus-visible {
+		outline: 1px solid var(--svedit-editing-stroke);
+		outline-offset: 1px;
 	}
 
 	.editor-toolbar {
 		color: var(--app-primary-text);
-		background-color: var(--app-canvas-fill);
 		width: fit-content;
 		position: fixed;
 		bottom: var(--s-4);
 		right: var(--s-4);
-		border-radius: var(--s-2);
-		box-shadow: var(--shadow-2);
 		display: flex;
 		z-index: 50;
 		flex-direction: row;
 		align-items: center;
+		gap: 0.35rem;
 		max-width: calc(100vw - 2 * var(--s-4));
+		padding: 4px;
+		margin: -4px;
 		overflow-x: auto;
 		scrollbar-width: thin;
 
-		button {
+		button:not(.toggle-editable) {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			box-sizing: border-box;
+			width: 36px;
+			height: 36px;
+			min-width: 36px;
+			min-height: 36px;
+			aspect-ratio: 1 / 1;
+			padding: 0;
+			flex: 0 0 36px;
+			border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 91%, var(--app-primary-text));
+			border-radius: 50%;
+			background: var(--app-canvas-fill);
+			color: var(--app-primary-text);
+			box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
 			text-wrap: nowrap;
-			height: 100%;
-			min-height: 44px;
+			cursor: pointer;
+			pointer-events: auto;
+			transition: all 150ms;
+			outline: 1px solid transparent;
 			--icon-color: var(--app-primary-text);
 			position: relative;
-			&.active {
-				color: var(--svedit-editing-stroke);
-				--icon-color: var(--svedit-editing-stroke);
-			}
+		}
+
+		button:not(.toggle-editable):hover:not(:disabled) {
+			border-color: color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text));
+			background: color-mix(in oklch, var(--app-canvas-fill) 96%, var(--app-primary-text));
+		}
+
+		button:not(.toggle-editable):active:not(:disabled) {
+			border-color: color-mix(in oklch, var(--app-canvas-fill) 84%, var(--app-primary-text));
+			background: color-mix(in oklch, var(--app-canvas-fill) 94%, var(--app-primary-text));
+			transform: translateY(1px) scale(0.95);
+		}
+
+		button:not(.toggle-editable):focus-visible {
+			outline: 1px solid var(--svedit-editing-stroke);
+			outline-offset: 1px;
+		}
+
+		button:not(.toggle-editable):disabled {
+			color: var(--app-primary-text);
+			border-color: color-mix(in oklch, var(--app-canvas-fill) 91%, var(--app-primary-text));
+			background: var(--app-canvas-fill);
+			box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
+			opacity: 1;
+			cursor: not-allowed;
+			--icon-color: color-mix(in oklch, var(--app-canvas-fill) 70%, var(--app-primary-text));
+		}
+
+		button:not(.toggle-editable).active {
+			color: var(--svedit-editing-stroke);
+			border-color: var(--svedit-editing-stroke);
+			--icon-color: var(--svedit-editing-stroke);
 		}
 
 		.toolbar-icon {
-			width: var(--icon-size, 20px);
-			height: var(--icon-size, 20px);
+			width: var(--icon-size, 18px);
+			height: var(--icon-size, 18px);
 			color: var(--icon-color, var(--app-primary-text));
 		}
 
 		.delete-backwards-icon {
-			width: 20px;
-			height: 20px;
+			width: 18px;
+			height: 18px;
 		}
 
 		.contextual-input {
