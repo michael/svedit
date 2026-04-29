@@ -23,6 +23,7 @@
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
+	data-node-type={node.type}
 	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
