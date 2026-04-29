@@ -146,11 +146,26 @@
 </svelte:element>
 
 <style>
-	.text {
+	/* Editable text base layout; :where() allows easy override without specificity conflicts. */
+	:where(.text) {
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 		box-sizing: content-box;
 	}
+
+	/* Trim extra vertical space for precise padding; keeps descenders visible. Considered a new baseline for typography on the web. */
+	@supports (text-box: trim-both cap text) {
+		:where(.text) {
+			text-box: trim-both cap text;
+		}
+	}
+
+	/* Fix Chrome bug: caret correct on baseline in empty contenteditable. */
+	:where(.text.editable.empty) {
+		line-height: 1cap;
+		min-height: 1cap;
+	}
+
 	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
 	[placeholder].empty:not(.focused)::before,
 	[placeholder].empty.focused::after {
