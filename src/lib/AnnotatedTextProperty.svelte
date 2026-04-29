@@ -153,10 +153,10 @@
 		box-sizing: content-box;
 	}
 
-	/* Trim extra vertical space for precise padding; keeps descenders visible. Considered a new baseline for typography on the web. */
-	@supports (text-box: trim-both cap text) {
+	/* Trim extra vertical space for precise padding; Considered a new baseline for typography on the web. */
+	@supports (text-box: trim-both cap alphabetic) {
 		:where(.text) {
-			text-box: trim-both cap text;
+			text-box: trim-both cap alphabetic;
 		}
 	}
 
