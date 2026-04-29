@@ -19,11 +19,10 @@
 <svelte:element
 	id={node.id}
 	this={tag}
-	class="{css_class}{is_first ? ' first' : ''}{is_last ? ' last' : ''}"
+	class="node-{node.type} {css_class}{is_first ? ' first' : ''}{is_last ? ' last' : ''}"
 	data-node-id={node.id}
 	data-path={path.join('.')}
 	data-type="node"
-	data-node-type={node.type}
 	style="anchor-name: --{path.join('-')};{style}"
 	{...rest}
 >
