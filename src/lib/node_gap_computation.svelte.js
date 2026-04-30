@@ -5,6 +5,8 @@
  * @module
  */
 
+import { deserialize_path, serialize_path } from './utils.js';
+
 /**
  * IntersectionObserver-based viewport tracking for node arrays.
  *
@@ -121,16 +123,15 @@ function node_ids_equal(a, b) {
 }
 
 /**
- * Split "root.prop.0" into { array_path: "root.prop", child_index: 0 }.
+ * Split "root__prop__0" into { array_path: "root__prop", child_index: 0 }.
  * @param {string} path
  * @returns {{ array_path: string, child_index: number } | null}
  */
 function parse_node_path(path) {
-	const dot = path.lastIndexOf('.');
-	if (dot < 0) return null;
-	const child_index = parseInt(path.slice(dot + 1), 10);
-	if (Number.isNaN(child_index)) return null;
-	return { array_path: path.slice(0, dot), child_index };
+	const path_segments = deserialize_path(path);
+	const child_index = path_segments.at(-1);
+	if (typeof child_index !== 'number') return null;
+	return { array_path: serialize_path(path_segments.slice(0, -1)), child_index };
 }
 
 /**
@@ -140,11 +141,10 @@ function parse_node_path(path) {
  *   readonly doc_snapshot: object | null,
  *   readonly array_ver_map: Map<string, number>,
  *   is_near_viewport: (path: Array<string|number>) => boolean,
- *   should_position_gap: (array_path: Array<string|number>, offset: number, count: number) => boolean
+ *   should_position_gap: (array_path: Array<string|number> | string, offset: number, count: number) => boolean
  * }}
  */
 function create_visibility_culler(svedit) {
-
 	/** @type {Map<string, Set<number>>} */
 	const index_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
@@ -219,8 +219,8 @@ function create_visibility_culler(svedit) {
 		if (!entry.isIntersecting) return 0b11;
 		const bcr = entry.boundingClientRect;
 		const ir = entry.intersectionRect;
-		const leading = (ir.top > bcr.top + 0.5 || ir.left > bcr.left + 0.5) ? 0b01 : 0;
-		const trailing = (ir.bottom < bcr.bottom - 0.5 || ir.right < bcr.right - 0.5) ? 0b10 : 0;
+		const leading = ir.top > bcr.top + 0.5 || ir.left > bcr.left + 0.5 ? 0b01 : 0;
+		const trailing = ir.bottom < bcr.bottom - 0.5 || ir.right < bcr.right - 0.5 ? 0b10 : 0;
 		return leading | trailing;
 	}
 
@@ -243,7 +243,7 @@ function create_visibility_culler(svedit) {
 
 			if (entry.isIntersecting) {
 				let set = index_map.get(parsed.array_path);
-				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+				if (!set) index_map.set(parsed.array_path, (set = new Set())); // eslint-disable-line svelte/prefer-svelte-reactivity
 				if (!set.has(parsed.child_index)) {
 					set.add(parsed.child_index);
 					array_changed = true;
@@ -318,7 +318,7 @@ function create_visibility_culler(svedit) {
 			rect.left <= vw + DEFAULT_OVERSCAN_PX;
 		if (!visible) return false;
 		let set = index_map.get(parsed.array_path);
-		if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+		if (!set) index_map.set(parsed.array_path, (set = new Set())); // eslint-disable-line svelte/prefer-svelte-reactivity
 		if (set.has(parsed.child_index)) return false;
 		set.add(parsed.child_index);
 		bump_array_ver(parsed.array_path);
@@ -488,7 +488,7 @@ function create_visibility_culler(svedit) {
 		if (path.length < 2) return true;
 		const child_index = path[path.length - 1];
 		if (typeof child_index !== 'number') return true;
-		const set = index_map.get(path.slice(0, -1).join('.'));
+		const set = index_map.get(serialize_path(path.slice(0, -1)));
 		return set ? set.has(child_index) : false;
 	}
 
@@ -513,27 +513,38 @@ function create_visibility_culler(svedit) {
 	 */
 	function should_position_gap(array_path, offset, count) {
 		void version;
-		const array_path_str = typeof array_path === 'string'
-			? array_path
-			: array_path.join('.');
+		const array_path_str = typeof array_path === 'string' ? array_path : serialize_path(array_path);
 		const set = index_map.get(array_path_str);
 
 		if (offset === 0) {
 			if (!set || !set.has(0)) return false;
-			return ((clip_map.get(`${array_path_str}.0`) ?? 0) & 0b01) === 0;
+			return (
+				((clip_map.get(serialize_path([...deserialize_path(array_path_str), 0])) ?? 0) & 0b01) === 0
+			);
 		}
 		if (offset === count) {
 			const last = count - 1;
 			if (!set || !set.has(last)) return false;
-			return ((clip_map.get(`${array_path_str}.${last}`) ?? 0) & 0b10) === 0;
+			return (
+				((clip_map.get(serialize_path([...deserialize_path(array_path_str), last])) ?? 0) &
+					0b10) ===
+				0
+			);
 		}
 		return !!set && set.has(offset - 1) && set.has(offset);
 	}
 
 	return {
-		get visible_child_indices() { version; return index_map; },
-		get doc_snapshot() { return doc_snapshot; },
-		get array_ver_map() { return array_ver_map; },
+		get visible_child_indices() {
+			version;
+			return index_map;
+		},
+		get doc_snapshot() {
+			return doc_snapshot;
+		},
+		get array_ver_map() {
+			return array_ver_map;
+		},
 		is_near_viewport,
 		should_position_gap
 	};
@@ -573,7 +584,7 @@ export function create_gap_computation(svedit) {
 	let caret_gap_key = $derived.by(() => {
 		const s = svedit.session.selection;
 		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
-		return `${s.path.join('.')}-gap-${s.anchor_offset}`;
+		return `${serialize_path(s.path)}-gap-${s.anchor_offset}`;
 	});
 
 	/**
@@ -625,10 +636,18 @@ export function create_gap_computation(svedit) {
 		if (a === b) return true;
 		if (a.length !== b.length) return false;
 		for (let i = 0; i < a.length; i++) {
-			const x = a[i], y = b[i];
-			if (x.key !== y.key || x.vars !== y.vars || x.type !== y.type ||
-				x.offset !== y.offset || x.is_first !== y.is_first ||
-				x.is_last !== y.is_last || x.has_pair !== y.has_pair) return false;
+			const x = a[i],
+				y = b[i];
+			if (
+				x.key !== y.key ||
+				x.vars !== y.vars ||
+				x.type !== y.type ||
+				x.offset !== y.offset ||
+				x.is_first !== y.is_first ||
+				x.is_last !== y.is_last ||
+				x.has_pair !== y.has_pair
+			)
+				return false;
 		}
 		return true;
 	}
@@ -661,7 +680,9 @@ export function create_gap_computation(svedit) {
 
 	svedit.insertion_gap_data = {
 		get_gaps: get_or_create_gap_signal,
-		get caret_gap_key() { return caret_gap_key; }
+		get caret_gap_key() {
+			return caret_gap_key;
+		}
 	};
 
 	// -----------------------------------------------------------------------------
@@ -685,7 +706,7 @@ export function create_gap_computation(svedit) {
 	 * @returns {Map<string, Array<gap_t>>}
 	 */
 	function build_all_gaps() {
-		if (!svedit.editable) return new Map();
+		if (!svedit.editable) return new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
 		/** @type {Map<string, Array<gap_t>>} */
 		const by_path = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
@@ -732,7 +753,7 @@ export function create_gap_computation(svedit) {
 			return cached.gaps;
 		}
 
-		const array_path = array_path_str.split('.');
+		const array_path = deserialize_path(array_path_str);
 		let node_ids = null;
 		try {
 			const info = svedit.session.inspect(array_path);
@@ -740,10 +761,17 @@ export function create_gap_computation(svedit) {
 				const n = svedit.session.get(array_path);
 				if (Array.isArray(n)) node_ids = n;
 			}
-		} catch { /* invalid path — cache the empty result below */ }
+		} catch {
+			/* invalid path — cache the empty result below */
+		}
 
 		if (!node_ids) {
-			gap_cache.set(array_path_str, { ver: current_ver, doc: current_doc, node_ids: null, gaps: [] });
+			gap_cache.set(array_path_str, {
+				ver: current_ver,
+				doc: current_doc,
+				node_ids: null,
+				gaps: []
+			});
 			return [];
 		}
 
@@ -779,13 +807,12 @@ export function create_gap_computation(svedit) {
 	 * @returns {Array<gap_t>}
 	 */
 	function emit_gaps(array_path_str, array_path, count, is_visible) {
-		const anchor_prefix = `--${array_path.join('-')}`;
-		const g_prefix = `--g-${array_path.join('-')}`;
-		const container_var = `;--_c:${anchor_prefix}`;
+		const node_anchor = (index) => `--${serialize_path([...array_path, index])}`;
+		const gap_before_anchor = (index) => `--g-${serialize_path([...array_path, index])}-gap-before`;
+		const gap_after_anchor = (index) => `--g-${serialize_path([...array_path, index])}-gap-after`;
+		const container_var = `;--_c:--${serialize_path(array_path)}`;
 		const has_pair = count >= 2;
-		const pair_vars = has_pair
-			? `;--_f:${anchor_prefix}-0;--_s:${anchor_prefix}-1`
-			: '';
+		const pair_vars = has_pair ? `;--_f:${node_anchor(0)};--_s:${node_anchor(1)}` : '';
 
 		/** @type {Array<gap_t>} */
 		const gaps = [];
@@ -796,7 +823,7 @@ export function create_gap_computation(svedit) {
 				path: array_path,
 				offset: 0,
 				type: 'gap-empty',
-				vars: `--_ct:${g_prefix}-0-gap-before;--_a:${anchor_prefix}-0${container_var}`,
+				vars: `--_ct:${gap_before_anchor(0)};--_a:${node_anchor(0)}${container_var}`,
 				is_first: true,
 				is_last: true,
 				has_pair: false
@@ -809,22 +836,18 @@ export function create_gap_computation(svedit) {
 
 			const is_first = offset === 0;
 			const is_last = offset === count;
-			const g_anchor = offset === 0
-				? `${g_prefix}-0-gap-before`
-				: `${g_prefix}-${offset - 1}-gap-after`;
+			const g_anchor = offset === 0 ? gap_before_anchor(0) : gap_after_anchor(offset - 1);
 
 			let type, vars;
 
 			if (is_first || is_last) {
 				type = 'gap-edge';
-				const adjacent = is_first
-					? `${anchor_prefix}-0`
-					: `${anchor_prefix}-${count - 1}`;
+				const adjacent = is_first ? node_anchor(0) : node_anchor(count - 1);
 				vars = `--_ct:${g_anchor};--_a:${adjacent}${container_var}${pair_vars}`;
 			} else {
 				type = 'gap-mid';
-				const p_anchor = `${anchor_prefix}-${offset - 1}`;
-				const n_anchor = `${anchor_prefix}-${offset}`;
+				const p_anchor = node_anchor(offset - 1);
+				const n_anchor = node_anchor(offset);
 				vars = `--_ct:${g_anchor};--_p:${p_anchor};--_n:${n_anchor}${container_var}${pair_vars}`;
 			}
 

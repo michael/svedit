@@ -1,6 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
+		import { serialize_path } from './utils.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -29,7 +30,7 @@
 	let { path } = $props();
 
 	const svedit = getContext('svedit');
-	let path_str = $derived(path.join('.'));
+	let path_str = $derived(serialize_path(path));
 	// Per-path signal: only re-evaluates when THIS path's gaps change.
 	let gap_signal = $derived(svedit.insertion_gap_data?.get_gaps(path_str));
 	let my_gaps = $derived(gap_signal?.gaps ?? []);

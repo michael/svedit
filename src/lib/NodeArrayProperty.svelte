@@ -1,7 +1,7 @@
 <script>
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
-	import { snake_to_pascal } from './utils.js';
+	import { serialize_path, snake_to_pascal } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
@@ -9,20 +9,24 @@
 
 	const svedit = getContext('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.NodeGap ?? DefaultNodeGap);
-	let NodeGapMarkers = $derived(svedit.session.config.system_components?.NodeGapMarkers ?? DefaultNodeGapMarkers);
+	let NodeGapMarkers = $derived(
+		svedit.session.config.system_components?.NodeGapMarkers ?? DefaultNodeGapMarkers
+	);
 
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
 	// Pre-joined once per path change; reused by data-path and by every
 	// NodeGap's should_position_gap call to avoid N+1 joins per render.
-	let path_str = $derived(path.join('.'));
+	let path_str = $derived(serialize_path(path));
 
 	let node_ids = $derived(svedit.session.get(path));
-	let nodes = $derived(node_ids.map(id => svedit.session.get(id)));
+	let nodes = $derived(node_ids.map((id) => svedit.session.get(id)));
 
 	setContext('node_array_meta', {
-		get length() { return node_ids.length; }
+		get length() {
+			return node_ids.length;
+		}
 	});
 
 	// Enforce the "one path = one DOM mount per document" invariant
@@ -31,15 +35,16 @@
 		svedit.session.register_mount(current_path_str);
 		return () => svedit.session.unregister_mount(current_path_str);
 	});
-
 </script>
+
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element
 	this={tag}
 	class={css_class}
 	data-type="node_array"
 	data-path={path_str}
-	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
+	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	{...rest}
 >
 	{#if node_ids.length === 0 && svedit.editable}
 		<!--
@@ -50,11 +55,9 @@
 		-->
 		<div
 			class="node empty-node-array"
-			data-path={[...path, 0].join('.')}
+			data-path={serialize_path([...path, 0])}
 			data-type="node"
-			style="anchor-name: --{[...path, 0].join(
-				'-'
-			)}; min-height: 40px; min-width: 24px;"
+			style="anchor-name: --{serialize_path([...path, 0])}; min-height: 40px; min-width: 24px;"
 		></div>
 		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
 		     resolves anchor positioning against the shared containing block,

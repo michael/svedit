@@ -8,6 +8,7 @@ import {
 	apply_op,
 	count_references as doc_count_references,
 	validate_document_schema,
+	is_id_valid,
 	validate_node,
 	get_active_annotation,
 	validate_selection
@@ -67,9 +68,9 @@ export default class Session {
 	 * Tracks paths currently mounted in the DOM. Within one Svedit document, each
 	 * path may be mounted exactly once. Used by NodeArrayProperty to detect
 	 * duplicate mounts in dev mode.
-	 * @type {Set<string>}
+	 * @type {Record<string, true>}
 	 */
-	#mounted_paths = new Set();
+	#mounted_paths = $state.raw({});
 
 	/**
 	 * Registers a path as mounted. Logs an error if the path is
@@ -78,13 +79,13 @@ export default class Session {
 	 * @param {string} path_str
 	 */
 	register_mount(path_str) {
-		if (this.#mounted_paths.has(path_str)) {
+		if (this.#mounted_paths[path_str]) {
 			console.error(
 				`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
 			);
 			return;
 		}
-		this.#mounted_paths.add(path_str);
+		this.#mounted_paths[path_str] = true;
 	}
 
 	/**
@@ -92,7 +93,7 @@ export default class Session {
 	 * @param {string} path_str
 	 */
 	unregister_mount(path_str) {
-		this.#mounted_paths.delete(path_str);
+		delete this.#mounted_paths[path_str];
 	}
 
 	/**
@@ -109,6 +110,7 @@ export default class Session {
 		this.schema = schema;
 		this.doc = doc;
 		this.config = config;
+		this.validate_doc();
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
@@ -152,6 +154,9 @@ export default class Session {
 	}
 
 	validate_doc() {
+		if (!is_id_valid(this.doc.document_id)) {
+			throw new Error(`Document ${this.doc.document_id} has an invalid id.`);
+		}
 		for (const node of Object.values(this.doc.nodes)) {
 			validate_node(node, this.schema, this.doc.nodes);
 		}
