@@ -3,7 +3,6 @@
 	import {
 		snake_to_pascal,
 		get_char_length,
-		utf16_to_char_offset,
 		char_to_utf16_offset
 	} from './utils.js';
 	import { create_gap_computation } from './node_gap_computation.svelte.js';
@@ -990,19 +989,30 @@ ${fallback_html}`;
 			range = dom_selection.getRangeAt(0);
 		}
 
+		function get_text_root(node) {
+			if (!node) return null;
+
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				return /** @type {HTMLElement | null} */ (
+					node.closest?.('[data-path][data-type="text"]') ?? null
+				);
+			}
+
+			return /** @type {HTMLElement | null} */ (
+				node.parentElement?.closest('[data-path][data-type="text"]') ?? null
+			);
+		}
+
 		let focus_root, anchor_root;
 
 		if (focus_node === anchor_node && focus_node.dataset?.type === 'text') {
 			// EDGE CASE 1: Either text node is empty (only a <br> is present), or caret is after a <br> at the very end of the text node
 			focus_root = anchor_root = focus_node;
 		} else {
-			focus_root = /** @type {HTMLElement} */ (
-				focus_node.parentElement?.closest('[data-path][data-type="text"]')
-			);
+			focus_root = get_text_root(focus_node);
 			if (!focus_root) return null;
-			anchor_root = /** @type {HTMLElement} */ (
-				anchor_node.parentElement?.closest('[data-path][data-type="text"]')
-			);
+
+			anchor_root = get_text_root(anchor_node);
 			if (!anchor_root) return null;
 		}
 
@@ -1025,6 +1035,7 @@ ${fallback_html}`;
 		const child_nodes = focus_root.childNodes;
 
 		if (
+			range.collapsed &&
 			focus_node === anchor_node &&
 			focus_node === focus_root &&
 			focus_root.dataset?.type === 'text' &&
@@ -1051,37 +1062,15 @@ ${fallback_html}`;
 			}
 		}
 
-		let start_offset = 0;
-		let end_offset = 0;
-		let current_offset = 0;
-
-		function processNode(node) {
-			if (node.nodeType === Node.TEXT_NODE) {
-				const nodeText = node.textContent;
-				const nodeCharLength = get_char_length(nodeText);
-				if (node === range.startContainer) {
-					// Convert UTF-16 offset to character offset
-					const char_start_offset = utf16_to_char_offset(nodeText, range.startOffset);
-					start_offset = current_offset + char_start_offset;
-				}
-				if (node === range.endContainer) {
-					// Convert UTF-16 offset to character offset
-					const char_end_offset = utf16_to_char_offset(nodeText, range.endOffset);
-					end_offset = current_offset + char_end_offset;
-				}
-				current_offset += nodeCharLength;
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				for (const childNode of node.childNodes) {
-					processNode(childNode);
-				}
-			}
-			return end_offset !== 0;
+		function get_text_offset(container, offset) {
+			const offset_range = window.document.createRange();
+			offset_range.setStart(focus_root, 0);
+			offset_range.setEnd(container, offset);
+			return get_char_length(offset_range.toString());
 		}
 
-		// Process nodes to find offsets
-		for (const childNode of focus_root.childNodes) {
-			if (processNode(childNode)) break;
-		}
+		const start_offset = get_text_offset(range.startContainer, range.startOffset);
+		const end_offset = get_text_offset(range.endContainer, range.endOffset);
 
 		// Check if it's a backward selection
 		// When range is provided, we can't detect backward selection from the range alone
