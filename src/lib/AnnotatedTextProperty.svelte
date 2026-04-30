@@ -160,12 +160,6 @@
 		}
 	}
 
-	/* Fix Chrome bug: caret correct on baseline in empty contenteditable. */
-	:where(.text.editable.empty) {
-		line-height: 1cap !important;
-		min-height: 1cap !important;
-	}
-
 	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
 	[placeholder].empty:not(.focused)::before,
 	[placeholder].empty.focused::after {
