@@ -473,41 +473,101 @@ export default class Session {
 		return $state.snapshot(node_array.slice(start, end));
 	}
 
+	/**
+	 * Find which node has `child_id` in any of its node-array properties.
+	 * Returns the parent's id, the array property name, and the index of the
+	 * child within that array — or null if no parent contains it (i.e.
+	 * `child_id` is the doc root, or the graph is disconnected).
+	 *
+	 * @param {string} child_id
+	 * @returns {{ parent_id: string, prop_name: string, index: number } | null}
+	 */
+	_find_node_parent(child_id) {
+		for (const [nid, node] of Object.entries(this.doc.nodes)) {
+			const node_schema = this.schema[node.type];
+			if (!node_schema) continue;
+			for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
+				if (prop_def.type !== 'node_array') continue;
+				const arr = node[prop_name];
+				if (!Array.isArray(arr)) continue;
+				const idx = arr.indexOf(child_id);
+				if (idx >= 0) return { parent_id: nid, prop_name, index: idx };
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Move the selection up one level in the document hierarchy.
+	 *
+	 * Three cases:
+	 *
+	 *   1. Path encodes the parent already (text/property length ≥ 4, or
+	 *      node selection length ≥ 4). The last two segments are
+	 *      `[index, prop_name]` of the current subject inside its parent
+	 *      array — drop them to reach the array, and use that index as
+	 *      the offset.
+	 *
+	 *   2. Short paths (length 2): for both short text/property selections
+	 *      (`[block_id, 'content']`) and short node selections
+	 *      (`[array_owner_id, prop_name]`) the path doesn't say which
+	 *      array contains the subject, so we walk the document graph.
+	 *
+	 *   3. Reaching the doc root with no parent clears the selection.
+	 */
 	select_parent() {
 		if (!this.selection) return;
-		if (['text', 'property'].includes(this.selection?.type)) {
-			// For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
-			// in the path
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else if (this.selection.type === 'node') {
-			// For node selections, we go up one level
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
+		const sel = this.selection;
 
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else {
-			this.selection = null;
+		// Case 1a — nested text/property: path = [..., array_idx, prop_name]
+		// at length ≥ 4. Drop the trailing pair to land on the containing
+		// array with the index offset.
+		if ((sel.type === 'text' || sel.type === 'property') && sel.path.length >= 4) {
+			const parent_path = sel.path.slice(0, -2);
+			const current_index = parseInt(String(sel.path[sel.path.length - 2]));
+			this.selection = {
+				type: 'node',
+				path: parent_path,
+				anchor_offset: current_index,
+				focus_offset: current_index + 1
+			};
+			return;
 		}
+
+		// Case 1b — nested node selection: path = [..., array_idx, prop_name]
+		// at length ≥ 4. The current selection is on children inside an
+		// inner array. Climb one level by dropping the trailing
+		// `[idx, prop_name]` pair so the subject (the node at that
+		// position) becomes selected within the outer array.
+		if (sel.type === 'node' && sel.path.length >= 4) {
+			const parent_path = sel.path.slice(0, -2);
+			const current_index = parseInt(String(sel.path[sel.path.length - 2]));
+			this.selection = {
+				type: 'node',
+				path: parent_path,
+				anchor_offset: current_index,
+				focus_offset: current_index + 1
+			};
+			return;
+		}
+
+		// Case 2 — short paths. Graph walk to find the subject's parent.
+		const subject_id = sel.path[0];
+		if (!subject_id) {
+			this.selection = null;
+			return;
+		}
+		const parent = this._find_node_parent(subject_id);
+		if (!parent) {
+			this.selection = null;
+			return;
+		}
+		this.selection = {
+			type: 'node',
+			path: [parent.parent_id, parent.prop_name],
+			anchor_offset: parent.index,
+			focus_offset: parent.index + 1
+		};
 	}
 
 	/**
