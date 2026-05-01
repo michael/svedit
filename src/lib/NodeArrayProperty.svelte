@@ -41,41 +41,41 @@
 	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
 >
-	{#if node_ids.length === 0 && svedit.editable}
+	{#if node_ids.length === 0}
 		<!--
-		Experimental: We'll let .empty-node-array act like a node, so the existing
+		Experimental: We'll let .empty-node-placeholder act like a node, so the existing
 		code paths for selection mapping will work as expected.
 
-		TODO: Need to figure out a way to make .empty-node-array customizable.
+		TODO: Need to figure out a way to make .empty-node-placeholder customizable.
 		-->
-		<div
-			class="node empty-node-array"
-			data-path={[...path, 0].join('.')}
-			data-type="node"
-			style="anchor-name: --{[...path, 0].join(
-				'-'
-			)}; min-height: 40px; min-width: 24px;"
-		></div>
-		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
-		     resolves anchor positioning against the shared containing block,
-		     not the placeholder which inherits .node positioning styles. -->
+		{#if svedit.editable}
+			<div
+				class="empty-node-placeholder"
+				data-path={[...path, 0].join('.')}
+				data-type="node"
+				style="anchor-name: --{[...path, 0].join(
+					'-'
+				)}; min-height: 40px; min-width: 24px;"
+			></div>
+			<!-- Sibling (not child) of .empty-node-placeholder so its .svedit-selectable
+			     resolves anchor positioning against the shared containing block,
+			     not the placeholder which inherits .node positioning styles. -->
+		{/if}
 		<NodeGap
 			array_path={path}
 			offset={0}
 			count={0}
 			empty
-			positioned={svedit.should_position_gap?.(path_str, 0, 0) ?? true}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, 0, 0) ?? true) : false}
 		/>
 	{/if}
 	{#each nodes as node, index (index)}
-		{#if svedit.editable}
-			<NodeGap
-				array_path={path}
-				offset={index}
-				count={nodes.length}
-				positioned={svedit.should_position_gap?.(path_str, index, nodes.length) ?? true}
-			/>
-		{/if}
+		<NodeGap
+			array_path={path}
+			offset={index}
+			count={nodes.length}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, index, nodes.length) ?? true) : false}
+		/>
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
 			<Component path={[...path, index]} />
@@ -83,12 +83,12 @@
 			<UnknownNode path={[...path, index]} />
 		{/if}
 	{/each}
-	{#if svedit.editable && node_ids.length > 0}
+	{#if node_ids.length > 0}
 		<NodeGap
 			array_path={path}
 			offset={node_ids.length}
 			count={node_ids.length}
-			positioned={svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true) : false}
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}

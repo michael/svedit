@@ -1087,8 +1087,59 @@ Further things to consider:
 - Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
 - Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
-- Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
-- Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensure `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to child element of Node.
+- Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensures `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to a child element of Node.
+
+### Consistent DOM structure across modes
+
+`<NodeArrayProperty>` always renders a `.node-gap` element before each node, regardless of whether the editor is in edit or read-only mode. In edit mode, this is the full `<NodeGap>` component with anchor positioning, hit areas, and caret support. In read-only mode, it's a plain `<div class="node-gap"></div>`.
+
+This means the DOM structure is identical in both modes:
+
+```html
+<!-- Same structure in edit and read-only mode -->
+<div data-type="node_array">
+  <div class="node-gap">...</div><!-- First element is a node-gap -->
+  <div data-type="node"><!-- first node --></div>
+  <div class="node-gap">...</div>
+  <div data-type="node"><!-- second node --></div>
+  ...
+  <div class="node-gap">...</div><!-- Last element is a node-gap -->
+</div>
+```
+
+The `.node-gap` element uses `display: contents`, so it has no layout impact — it doesn't generate a box, doesn't affect flex/grid item counts, and doesn't consume space. It only serves as a DOM placeholder for consistent selector targeting.
+
+Because `.node-gap` is always the actual first and last child, do not use `:first-child` or `:last-child` on nodes — they will never match. Use `:nth-child(1 of [data-type="node"])` and `:nth-last-child(1 of [data-type="node"])` instead.
+
+CSS sibling selectors that target node adjacency only need one form:
+
+```css
+/* Works in both edit and read-only mode */
+.node-text + .node-gap + .node-media {
+  margin-block-start: 1rem;
+}
+```
+
+For `:nth-child` selectors, use the `of <selector>` syntax to skip over `.node-gap` elements and count only nodes:
+
+```css
+/* Even nodes */
+.list-node-array > :nth-child(2n of [data-type="node"]) {
+  background: var(--zebra-stripe);
+}
+
+/* Odd nodes */
+.list-node-array > :nth-child(2n-1 of [data-type="node"]) {
+  background: var(--zebra-stripe);
+}
+
+/* Last node */
+.list-node-array > :nth-last-child(1 of [data-type="node"]) {
+  border-bottom: none;
+}
+```
+
+Without the `of` filter, plain `:nth-child(even)` would count `.node-gap` divs and produce incorrect results. The [`of <selector>`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/:nth-child#syntax) form is Baseline 2023 and supported in all modern browsers.
 
 ### Node array CSS tokens
 

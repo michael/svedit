@@ -72,7 +72,7 @@
 		}
 	}
 
-	.story :global(.buttons.empty .node.empty-node-array) {
+	.story :global(.buttons.empty .empty-node-placeholder) {
 		position: absolute !important;
 	}
 
