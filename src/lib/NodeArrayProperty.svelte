@@ -14,8 +14,6 @@
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
 
-	// Pre-joined once per path change; reused by data-path and by every
-	// NodeGap's should_position_gap call to avoid N+1 joins per render.
 	let path_str = $derived(path.join('.'));
 
 	let node_ids = $derived(svedit.session.get(path));
@@ -64,7 +62,6 @@
 			offset={0}
 			count={0}
 			empty
-			positioned={svedit.should_position_gap?.(path_str, 0, 0) ?? true}
 		/>
 	{/if}
 	{#each nodes as node, index (index)}
@@ -73,7 +70,6 @@
 				array_path={path}
 				offset={index}
 				count={nodes.length}
-				positioned={svedit.should_position_gap?.(path_str, index, nodes.length) ?? true}
 			/>
 		{/if}
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
@@ -88,7 +84,6 @@
 			array_path={path}
 			offset={node_ids.length}
 			count={node_ids.length}
-			positioned={svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true}
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}

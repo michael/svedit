@@ -22,9 +22,11 @@
 	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
-	 * activated lazily via the `positioned` prop — only gaps near the
-	 * viewport pay the layout cost of anchor() resolution. Off-screen
-	 * gaps are zero-size static elements with no layout cost.
+	 * activated lazily via the `.positioned` class, toggled
+	 * imperatively by the IO callback in node_gap_computation —
+	 * only gaps near the viewport pay the layout cost of anchor()
+	 * resolution. Off-screen gaps are zero-size absolute elements
+	 * with no layout cost.
 	 *
 	 * `position-visibility: anchors-visible` does NOT skip anchor
 	 * resolution — the browser resolves all anchor() then hides the
@@ -34,7 +36,7 @@
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
 	 */
-	let { array_path, offset, count, empty = false, positioned = true } = $props();
+	let { array_path, offset, count, empty = false } = $props();
 
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
@@ -57,10 +59,11 @@
 </script>
 
 <div
-	class="node-gap {type}"
+	class="node-gap"
+	class:gap-before={is_first}
+	class:gap-after={!is_first}
 	class:empty
 	class:last={is_last}
-	class:positioned
 	data-type={type}
 	data-gap-array-path={array_path.join('.')}
 	data-gap-offset={offset}
@@ -83,7 +86,7 @@
 	/* Un-positioned: minimal in-DOM presence, no anchor resolution        */
 	/* ------------------------------------------------------------------ */
 
-	.node-gap:not(.positioned) .svedit-selectable {
+	:global(.node-gap:not(.positioned) .svedit-selectable) {
 		position: absolute;
 		pointer-events: none;
 		width: 0;
@@ -113,7 +116,7 @@
 	 * --node-caret-boundary-y override per-axis, falling back to
 	 * --node-caret-boundary when unset.
 	 */
-	.node-gap.positioned {
+	:global(.node-gap.positioned) {
 		/* Fallback 9999999px: when --_pa is orphan (node briefly missing during
 		   edits), anchor() without a fallback invalidates the custom property
 		   and `top` falls back to 0, placing the gap at viewport top as a
@@ -131,17 +134,17 @@
 		--_s-l: anchor(var(--_pa) left, 9999999px);
 		--_s-r: anchor(var(--_pa) right, 9999999px);
 	}
-	.positioned.gap-before:not(.empty) {
+	:global(.node-gap.positioned.gap-before:not(.empty)) {
 		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
 		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
 	}
-	.positioned.gap-after:not(.last) {
+	:global(.node-gap.positioned.gap-after:not(.last)) {
 		--_n-t: anchor(var(--_next) top);
 		--_n-l: anchor(var(--_next) left);
 		--_c-r: anchor(var(--_container) right);
 	}
-	.positioned.gap-after.last,
-	.positioned.gap-before.empty {
+	:global(.node-gap.positioned.gap-after.last),
+	:global(.node-gap.positioned.gap-before.empty) {
 		--_c-t: anchor(var(--_container) top);
 		--_c-b: anchor(var(--_container) bottom);
 		--_c-l: anchor(var(--_container) left);
@@ -152,7 +155,7 @@
 		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 9999999px);
 	}
 
-	.positioned .svedit-selectable {
+	:global(.node-gap.positioned .svedit-selectable) {
 		--_eg: var(--node-caret-edge-gap, 24px);
 		--_gm: var(--node-caret-gap-min-size, 16px);
 		--_R: var(--row, 1);
@@ -177,7 +180,7 @@
 	/* ------------------------------------------------------------------ */
 
 	/* Between two siblings: col centers vertically, row centers horizontally */
-	.positioned.gap-after:not(.last) .svedit-selectable {
+	:global(.node-gap.positioned.gap-after:not(.last) .svedit-selectable) {
 		--_mid: calc((var(--_s-b) + var(--_n-t)) / 2 - var(--_gm) / 2);
 		top: min(
 			calc(var(--_s-b) + var(--_R) * 9999999px),
@@ -245,7 +248,7 @@
 	   top also clamps to boundary_bottom - eg so that min-height
 	   (which wins over bottom in overconstrained abs-pos) cannot
 	   push the element past the boundary. */
-	.positioned.gap-after.last .svedit-selectable {
+	:global(.node-gap.positioned.gap-after.last .svedit-selectable) {
 		top: min(
 			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 9999999px),
 			calc(var(--_s-t) + var(--_C) * 9999999px)
@@ -286,7 +289,7 @@
 	}
 
 	/* Before first node: col extends up, row extends left */
-	.positioned.gap-before:not(.empty) .svedit-selectable {
+	:global(.node-gap.positioned.gap-before:not(.empty) .svedit-selectable) {
 		top: min(
 			calc(
 				max(var(--_b-t), var(--_s-t) - var(--_eg))
@@ -314,7 +317,7 @@
 	}
 
 	/* Empty array: spans the outermost edges of placeholder and container. */
-	.positioned.gap-before.empty .svedit-selectable {
+	:global(.node-gap.positioned.gap-before.empty .svedit-selectable) {
 		top: min(var(--_s-t), var(--_c-t));
 		bottom: min(var(--_s-b), var(--_c-b));
 		left: min(var(--_s-l), var(--_c-l));
@@ -322,7 +325,7 @@
 	}
 
 	/* Debugging styles - DO NOT CHANGE OR REMOVE */
-	/* .positioned .svedit-selectable {
+	/* :global(.node-gap.positioned .svedit-selectable) {
 		outline: 2px solid rgba(238, 0, 255, 0.5);
 		background-color: rgba(238, 0, 255, 0.5);
 		outline-offset: -0.5px;

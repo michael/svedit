@@ -5,6 +5,8 @@
  * @module
  */
 
+import { untrack } from 'svelte';
+
 /**
  * IntersectionObserver-based viewport tracking for node arrays.
  *
@@ -25,10 +27,10 @@
  * - ui = f(doc_state, editable_state) — no viewport-driven DOM changes
  *
  * The viewport tracker drives **lazy positioning**: only near-viewport
- * gaps receive CSS anchor positioning (via NodeGap's `positioned`
- * prop). Off-viewport gaps remain as zero-size absolute elements with
- * no layout cost. Gap markers (NodeGapMarkers) are only computed for
- * visible indices.
+ * gaps receive CSS anchor positioning (via the `.positioned` class
+ * toggled imperatively by the IO callback). Off-viewport gaps remain
+ * as zero-size absolute elements with no layout cost. Gap markers
+ * (NodeGapMarkers) are only computed for visible indices.
  *
  * ## Architecture
  *
@@ -60,18 +62,14 @@
  *
  * ## Reactivity strategy
  *
- * A single debounced **version counter** drives both node gap
- * positioning (`is_near_viewport`) and gap marker computation
- * (`visible_child_indices`). `is_near_viewport` reads `version`
- * (reactive dependency) then does a non-reactive `Map.get` +
- * `Set.has` lookup on `index_map`.
+ * `.positioned` class toggling on NodeGap elements is **imperative**:
+ * the IO callback directly toggles classes on adjacent gap DOM
+ * elements via `toggle_adjacent_gaps()`. This is O(K) where K is
+ * the number of nodes whose visibility changed — no reactive fan-out.
  *
- * The 20ms debounce coalesces rapid IO callbacks into a single reactive
- * version bump, preventing redundant O(N) `$derived` re-evaluations
- * (~53ms total overlay latency ≈ 3 frames at 60fps). On initial mount,
- * the `$effect` bumps `version` immediately (no debounce); Svelte
- * flushes effects before the first browser paint so overlays appear
- * with zero flash.
+ * Gap marker computation (NodeGapMarkers) uses a debounced
+ * `gap_version` counter that triggers the `$effect.pre` pipeline.
+ * The 20ms debounce coalesces rapid IO callbacks into one rebuild.
  *
  */
 
@@ -90,16 +88,39 @@ const DEFAULT_OVERSCAN_PX = 500;
 const NODE_SELECTOR = '[data-type="node"][data-path]';
 
 /**
- * Debounce before bumping the reactive `version` after IO visibility
- * changes. 20ms coalesces rapid IO callbacks into one version bump,
- * yielding consistent 60fps at ≤1000 nodes. Total perceived overlay
- * latency is ~53ms (IO callback + 20ms + render ≈ 3 frames), well
- * below the ~60ms threshold where delays become noticeable.
+ * IntersectionObserver callback for view-mode visibility classes.
+ * Toggles `in-view`, `fully-in-view`, `visible-top`, `visible-bottom`,
+ * and `seen` on observed node elements. Used by both editing and
+ * view-only modes for CSS scrollytelling and lazy reveal animations.
  *
- * Tested values: 0 / 5 / 10 / 20. Lower values (0–10) cause FPS
- * drops at 1000 nodes (37–55fps avg vs 60fps with 20ms).
+ * @param {IntersectionObserverEntry[]} entries
  */
-const VERSION_DEBOUNCE_MS = 20;
+function process_view_entries(entries) {
+	for (const entry of entries) {
+		const cl = entry.target.classList;
+		cl.toggle('in-view', entry.isIntersecting);
+		if (entry.isIntersecting) {
+			cl.add('seen');
+			const bcr = entry.boundingClientRect;
+			const ir = entry.intersectionRect;
+			cl.toggle('fully-in-view', entry.intersectionRatio > 0.98);
+			cl.toggle('visible-top', ir.bottom < bcr.bottom - 0.5);
+			cl.toggle('visible-bottom', ir.top > bcr.top + 0.5);
+		} else {
+			cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+		}
+	}
+}
+
+/**
+ * Debounce before bumping the reactive gap_version after IO visibility
+ * changes. Only affects gap MARKER re-computation (the `$effect.pre`
+ * pipeline), not `.positioned` class toggling which is imperative and
+ * instant. 20ms coalesces rapid IO callbacks into one gap rebuild.
+ */
+const GAP_DEBOUNCE_MS = 20;
+
+const GAP_SELECTOR = '.node-gap[data-gap-array-path]';
 
 /**
  * Shallow array equality for node ID lists. Reference check first
@@ -139,8 +160,7 @@ function parse_node_path(path) {
  *   readonly visible_child_indices: Map<string, Set<number>>,
  *   readonly doc_snapshot: object | null,
  *   readonly array_ver_map: Map<string, number>,
- *   is_near_viewport: (path: Array<string|number>) => boolean,
- *   should_position_gap: (array_path: Array<string|number>, offset: number, count: number) => boolean
+ *   should_position_gap: (array_path: string, offset: number, is_last: boolean) => boolean
  * }}
  */
 function create_visibility_culler(svedit) {
@@ -150,38 +170,24 @@ function create_visibility_culler(svedit) {
 
 	/**
 	 * Per-node 2-bit clip state: bit 0 = leading (top|left edge clipped),
-	 * bit 1 = trailing (bottom|right edge clipped). Derived from
-	 * entry.intersectionRect vs entry.boundingClientRect — the IO spec
-	 * guarantees intersectionRect already accounts for ancestor
-	 * scroll-container clipping, so no extra observers or per-frame
-	 * measurements are needed. Used to hide edge gap-markers when the
-	 * first/last node has scrolled past its nearest scroll container's
-	 * edge (e.g. Story.svelte horizontally-scrolling `.buttons`).
-	 *
-	 * Axis-agnostic on purpose: JS doesn't cheaply know the layout's
-	 * row/column orientation, so "leading" OR's top+left and "trailing"
-	 * OR's bottom+right. Cross-axis clip (e.g. a row scroller whose
-	 * items exceed container height) may over-hide — accepted trade-off.
+	 * bit 1 = trailing (bottom|right edge clipped). Used to hide edge
+	 * gap-markers when the first/last node has scrolled past its nearest
+	 * scroll container's edge (e.g. horizontally-scrolling `.buttons`).
 	 *
 	 * @type {Map<string, number>}
 	 */
 	const clip_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
 	/**
-	 * Per-array change counter. Bumps whenever this array's IO visibility
-	 * or clip state changes. Consumed by the gap cache (create_gap_computation)
-	 * to skip rebuilding arrays whose state is unchanged since the last
-	 * version bump — turns O(all_visible_arrays) into O(changed_arrays) on
-	 * every scroll tick.
-	 *
+	 * Per-array change counter for the gap cache.
 	 * @type {Map<string, number>}
 	 */
 	const array_ver_map = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
-	let _ver = 0;
-	let version = $state.raw(0);
+	let _gap_ver = 0;
+	let gap_version = $state.raw(0);
 	let doc_snapshot = $state.raw(null);
-	let version_timer = 0;
+	let gap_version_timer = 0;
 
 	/**
 	 * @param {string} array_path_str
@@ -208,10 +214,6 @@ function create_visibility_culler(svedit) {
 	}
 
 	/**
-	 * Returns 2 bits: bit 0 = leading clipped (top|left), bit 1 = trailing
-	 * clipped (bottom|right). 0.5px tolerance avoids subpixel false
-	 * positives. Both bits set when fully hidden.
-	 *
 	 * @param {IntersectionObserverEntry} entry
 	 * @returns {number}
 	 */
@@ -225,8 +227,56 @@ function create_visibility_culler(svedit) {
 	}
 
 	/**
-	 * Shared IntersectionObserver callback. Mutates index_map and
-	 * clip_map in place, then debounces the reactive version bump.
+	 * Pure visibility check for a gap. No reactive dependencies.
+	 *
+	 * @param {string} array_path_str
+	 * @param {number} offset
+	 * @param {boolean} is_last
+	 * @returns {boolean}
+	 */
+	function should_position_gap(array_path_str, offset, is_last) {
+		const set = index_map.get(array_path_str);
+		if (offset === 0) {
+			if (!set || !set.has(0)) return false;
+			return ((clip_map.get(`${array_path_str}.0`) ?? 0) & 0b01) === 0;
+		}
+		if (is_last) {
+			const last = offset - 1;
+			if (!set || !set.has(last)) return false;
+			return ((clip_map.get(`${array_path_str}.${last}`) ?? 0) & 0b10) === 0;
+		}
+		return !!set && set.has(offset - 1) && set.has(offset);
+	}
+
+	/**
+	 * Toggle `.positioned` class on a gap element based on current
+	 * index_map / clip_map state. O(1) per gap.
+	 *
+	 * @param {Element} gap_el
+	 */
+	function toggle_gap_positioned(gap_el) {
+		const arr = /** @type {HTMLElement} */ (gap_el).dataset.gapArrayPath;
+		if (!arr) return;
+		const offset = parseInt(/** @type {HTMLElement} */ (gap_el).dataset.gapOffset, 10);
+		const is_last = gap_el.classList.contains('last');
+		gap_el.classList.toggle('positioned', should_position_gap(arr, offset, is_last));
+	}
+
+	/**
+	 * Toggle `.positioned` on both gap elements adjacent to a node.
+	 * @param {Element} node_el
+	 */
+	function toggle_adjacent_gaps(node_el) {
+		const prev = node_el.previousElementSibling;
+		if (prev?.classList.contains('node-gap')) toggle_gap_positioned(prev);
+		const next = node_el.nextElementSibling;
+		if (next?.classList.contains('node-gap')) toggle_gap_positioned(next);
+	}
+
+	/**
+	 * IO callback. Updates index_map + clip_map, then imperatively
+	 * toggles `.positioned` on adjacent gap DOM elements. Debounces
+	 * a gap_version bump for the gap marker pipeline.
 	 *
 	 * @param {IntersectionObserverEntry[]} entries
 	 */
@@ -259,19 +309,8 @@ function create_visibility_culler(svedit) {
 			const new_bits = compute_clip_bits(entry);
 			const old_bits = clip_map.get(path) ?? 0;
 			if (new_bits !== old_bits) {
-				// 0b11 (fully hidden) is equivalent to "not tracked" for
-				// consumers — should_position_gap short-circuits on the
-				// visibility set before ever reading clip bits. Dropping
-				// the entry keeps clip_map size proportional to partially-
-				// clipped nodes, not total observed nodes.
 				if (new_bits === 0 || new_bits === 0b11) clip_map.delete(path);
 				else clip_map.set(path, new_bits);
-				// Only bump when the transition is observable to consumers.
-				// 0 ↔ 0b11 transitions are invisible (both drop from clip_map),
-				// and should_position_gap already reacts to visibility-set
-				// changes handled above. Bumping here would spuriously
-				// invalidate the gap cache on every IO refire for off-screen
-				// nodes, causing per-keystroke gap reassignment at scale.
 				const old_meaningful = old_bits === 0b01 || old_bits === 0b10;
 				const new_meaningful = new_bits === 0b01 || new_bits === 0b10;
 				if (old_meaningful || new_meaningful) array_changed = true;
@@ -280,91 +319,62 @@ function create_visibility_culler(svedit) {
 			if (array_changed) {
 				bump_array_ver(parsed.array_path);
 				did_change = true;
+				toggle_adjacent_gaps(el);
 			}
 		}
 		if (did_change) {
-			clearTimeout(version_timer);
-			version_timer = window.setTimeout(() => {
-				version = ++_ver;
+			clearTimeout(gap_version_timer);
+			gap_version_timer = window.setTimeout(() => {
+				gap_version = ++_gap_ver;
 				doc_snapshot = svedit.session.doc;
-			}, VERSION_DEBOUNCE_MS);
+			}, GAP_DEBOUNCE_MS);
 		}
 	}
 
 	/**
-	 * Synchronous visibility check used when a node is first registered —
-	 * either during `setup_observation` at mount, or via the MutationObserver
-	 * when a new node enters the DOM. IO's initial callback is async; without
-	 * this, newly-mounted visible nodes are absent from `index_map` for up to
-	 * a frame, during which `build_all_gaps` omits their gap markers. In
-	 * wrapping layouts (grid / flex-wrap) that window is visible to the user
-	 * as missing markers until the next IO tick.
+	 * Observe all existing nodes, populate index_map synchronously
+	 * via gBCR, then toggle `.positioned` on all gap elements.
 	 *
-	 * @param {HTMLElement} node_el
-	 * @param {number} vh
-	 * @param {number} vw
-	 * @returns {boolean} true when the node was added to index_map
-	 */
-	function sync_add_if_visible(node_el, vh, vw) {
-		const path = node_el.dataset.path;
-		if (!path) return false;
-		const parsed = parse_node_path(path);
-		if (!parsed) return false;
-		const rect = node_el.getBoundingClientRect();
-		const visible =
-			rect.top <= vh + DEFAULT_OVERSCAN_PX &&
-			rect.bottom >= -DEFAULT_OVERSCAN_PX &&
-			rect.right >= -DEFAULT_OVERSCAN_PX &&
-			rect.left <= vw + DEFAULT_OVERSCAN_PX;
-		if (!visible) return false;
-		let set = index_map.get(parsed.array_path);
-		if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
-		if (set.has(parsed.child_index)) return false;
-		set.add(parsed.child_index);
-		bump_array_ver(parsed.array_path);
-		return true;
-	}
-
-	/**
-	 * Query existing DOM nodes, observe all of them with the IO, and
-	 * sync-check each node's visibility for instant initial state.
-	 *
-	 * Without the sync check, non-intersecting nodes render with
-	 * `.positioned=false` on first paint, then flip to true when the IO
-	 * callback arrives — visible as a flash of the anchor-positioned gap
-	 * marker. The gBCR call per node is cheap at mount because layout
-	 * already happened; no additional reflow is triggered.
+	 * Two-pass: first pass populates index_map for all visible nodes
+	 * so the second pass has complete neighbor information when
+	 * computing should_position_gap for each gap.
 	 *
 	 * @param {IntersectionObserver} io
-	 * @param {IntersectionObserver} view_io
 	 */
-	function setup_observation(io, view_io) {
+	function setup_observation(io) {
 		const vh = window.innerHeight;
 		const vw = window.innerWidth;
 
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_el = /** @type {HTMLElement} */ (el);
-			if (!node_el.dataset.path) continue;
+			const path = node_el.dataset.path;
+			if (!path) continue;
 			io.observe(node_el);
-			view_io.observe(node_el);
-			sync_add_if_visible(node_el, vh, vw);
+			const parsed = parse_node_path(path);
+			if (!parsed) continue;
+			const rect = node_el.getBoundingClientRect();
+			if (rect.top <= vh + DEFAULT_OVERSCAN_PX &&
+				rect.bottom >= -DEFAULT_OVERSCAN_PX &&
+				rect.right >= -DEFAULT_OVERSCAN_PX &&
+				rect.left <= vw + DEFAULT_OVERSCAN_PX) {
+				let set = index_map.get(parsed.array_path);
+				if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+				set.add(parsed.child_index);
+				bump_array_ver(parsed.array_path);
+			}
+		}
+
+		for (const el of document.querySelectorAll(GAP_SELECTOR)) {
+			toggle_gap_positioned(el);
 		}
 	}
 
-	// Uses $effect (not $effect.pre) because setup_observation needs the
-	// DOM to be in the live document (querySelectorAll). Svelte flushes
-	// effects before the first browser paint, so the immediate version
-	// bump here makes overlays appear with zero flash.
-	//
-	// Depends only on `svedit.editable`, NOT `svedit.session.doc`. The IO
-	// stays alive across document mutations. A MutationObserver registers
-	// newly added DOM nodes; removals are handled by the IO itself.
 	$effect(() => {
 		if (!svedit.editable) {
 			index_map.clear();
 			clip_map.clear();
 			array_ver_map.clear();
-			version = ++_ver;
+			gap_version = ++_gap_ver;
 			doc_snapshot = null;
 			return;
 		}
@@ -373,74 +383,40 @@ function create_visibility_culler(svedit) {
 		clip_map.clear();
 		array_ver_map.clear();
 
-		// threshold 1 fires on fully-visible ↔ partially-clipped transitions
-		// (the signal compute_clip_bits needs); threshold 0 fires on
-		// partially-visible ↔ hidden. Without threshold 1, a node scrolled
-		// from fully-visible to partially-clipped inside a nested scroller
-		// would never fire again and clip_map would go stale.
 		const io = new IntersectionObserver(process_entries, {
 			rootMargin: `${DEFAULT_OVERSCAN_PX}px`,
 			threshold: [0, 1]
 		});
 
-		const view_io = new IntersectionObserver((entries) => {
-			for (const entry of entries) {
-				const cl = entry.target.classList;
-				cl.toggle('in-view', entry.isIntersecting);
-				if (entry.isIntersecting) {
-					cl.add('seen');
-					const bcr = entry.boundingClientRect;
-					const ir = entry.intersectionRect;
-					cl.toggle('fully-in-view', entry.intersectionRatio > 0.98);
-					cl.toggle('visible-top', ir.bottom < bcr.bottom - 0.5);
-					cl.toggle('visible-bottom', ir.top > bcr.top + 0.5);
-				} else {
-					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
-				}
-			}
-		}, { threshold: [0, 1] });
+		setup_observation(io);
+		doc_snapshot = untrack(() => svedit.session.doc);
+		gap_version = ++_gap_ver;
 
-		setup_observation(io, view_io);
-		// Sync doc_snapshot here — the $effect.pre bridge (line ~309) won't
-		// re-run because doc didn't change, only editable did.
-		doc_snapshot = svedit.session.doc;
-		version = ++_ver;
-
-		const canvas = svedit.canvas_el || document.querySelector('.svedit-canvas');
+		const canvas = untrack(() => svedit.canvas_el) || document.querySelector('.svedit-canvas');
 		/** @type {MutationObserver | null} */
 		let mo = null;
-
-		// The MO start is deferred by one rAF. During initial Svelte mount,
-		// hundreds of DOM mutations fire as components render. Processing
-		// these is wasted work since setup_observation() already handled
-		// the initial scan. Deferring lets the mount complete first.
 		let deferred_raf = 0;
 
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
 				const vh = window.innerHeight;
 				const vw = window.innerWidth;
-				let any_sync_added = false;
+				let any_added = false;
+
+				// Pass 1: process node additions/removals → update index_map
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
 						if (el.matches?.(NODE_SELECTOR)) {
 							io.observe(el);
-							view_io.observe(el);
-							if (sync_add_if_visible(el, vh, vw)) any_sync_added = true;
+							if (sync_add_node(el, vh, vw)) any_added = true;
 						}
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
-							const child_el = /** @type {HTMLElement} */ (child);
-							io.observe(child_el);
-							view_io.observe(child_el);
-							if (sync_add_if_visible(child_el, vh, vw)) any_sync_added = true;
+							io.observe(/** @type {HTMLElement} */ (child));
+							if (sync_add_node(/** @type {HTMLElement} */ (child), vh, vw)) any_added = true;
 						}
 					}
-					// Browser auto-unobserves removed elements from the IO, but
-					// clip_map/index_map entries keyed by data-path are never
-					// cleaned by the IO callback (no exit fires for removed DOM).
-					// Without this, both maps grow unbounded across doc mutations.
 					for (const removed of m.removedNodes) {
 						if (removed.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (removed);
@@ -450,16 +426,22 @@ function create_visibility_culler(svedit) {
 						}
 					}
 				}
-				// New visible nodes added synchronously — bump version now so
-				// consumers (NodeArrayProperty, emit_gaps via $effect.pre) see
-				// the updated index_map in the same flush. Without this, gaps
-				// for the new nodes wait on the IO debounce (~20ms) while
-				// NodeGap's positioned prop already reports them visible from
-				// the non-reactive index_map read, producing a mismatch where
-				// NodeGaps render positioned but NodeGapMarkers don't emit.
-				if (any_sync_added) {
-					clearTimeout(version_timer);
-					version = ++_ver;
+
+				// Pass 2: toggle .positioned on new/re-keyed gap elements
+				for (const m of mutations) {
+					for (const added of m.addedNodes) {
+						if (added.nodeType !== Node.ELEMENT_NODE) continue;
+						const el = /** @type {HTMLElement} */ (added);
+						if (el.matches?.(GAP_SELECTOR)) toggle_gap_positioned(el);
+						for (const child of el.querySelectorAll?.(GAP_SELECTOR) ?? []) {
+							toggle_gap_positioned(child);
+						}
+					}
+				}
+
+				if (any_added) {
+					clearTimeout(gap_version_timer);
+					gap_version = ++_gap_ver;
 					doc_snapshot = svedit.session.doc;
 				}
 			});
@@ -469,10 +451,9 @@ function create_visibility_culler(svedit) {
 		}
 
 		return () => {
-			clearTimeout(version_timer);
+			clearTimeout(gap_version_timer);
 			cancelAnimationFrame(deferred_raf);
 			io.disconnect();
-			view_io.disconnect();
 			mo?.disconnect();
 			index_map.clear();
 			clip_map.clear();
@@ -480,55 +461,54 @@ function create_visibility_culler(svedit) {
 		};
 	});
 
-	// Reactive bridge: ensures gap-building re-runs on structural doc
-	// changes (node add/delete) even when the IO doesn't fire — e.g.
-	// removed DOM elements silently leave the IntersectionObserver
-	// without an exit callback, so version never bumps for deletions.
+	/**
+	 * Sync-add a node to index_map if it's within the overscan zone.
+	 * Used by the MO for dynamically added nodes.
+	 *
+	 * @param {HTMLElement} el
+	 * @param {number} vh
+	 * @param {number} vw
+	 * @returns {boolean}
+	 */
+	function sync_add_node(el, vh, vw) {
+		const path = el.dataset.path;
+		if (!path) return false;
+		const parsed = parse_node_path(path);
+		if (!parsed) return false;
+		const rect = el.getBoundingClientRect();
+		if (rect.top > vh + DEFAULT_OVERSCAN_PX ||
+			rect.bottom < -DEFAULT_OVERSCAN_PX ||
+			rect.right < -DEFAULT_OVERSCAN_PX ||
+			rect.left > vw + DEFAULT_OVERSCAN_PX) return false;
+		let set = index_map.get(parsed.array_path);
+		if (!set) index_map.set(parsed.array_path, set = new Set()); // eslint-disable-line svelte/prefer-svelte-reactivity
+		if (set.has(parsed.child_index)) return false;
+		set.add(parsed.child_index);
+		bump_array_ver(parsed.array_path);
+		return true;
+	}
+
+	// Reactive bridge: ensures gap marker rebuild on structural doc changes
 	$effect.pre(() => {
 		doc_snapshot = svedit.session.doc;
 	});
 
 	/*
-	 * View-mode visibility classes.
-	 *
-	 * Unlike the gap-computation pipeline above (only useful while the
-	 * user is editing), the `in-view` / `fully-in-view` / `visible-top`
-	 * / `visible-bottom` / `seen` classes are useful in BOTH editing
-	 * and viewing. Pure-CSS scrollytelling, lazy reveal animations,
-	 * "currently-reading" indicators etc. all benefit from them in
-	 * read mode.
-	 *
-	 * This effect runs unconditionally (no `svedit.editable` gate) and
-	 * operates an independent IntersectionObserver + MutationObserver
-	 * pair. The two halves don't share state so this can't conflict
-	 * with the editor pipeline above.
+	 * View-mode visibility classes (always active, editing + viewing).
+	 * Toggles `in-view` / `fully-in-view` / `visible-top` /
+	 * `visible-bottom` / `seen` imperatively from the IO callback.
 	 */
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
-		const view_io = new IntersectionObserver((entries) => {
-			for (const entry of entries) {
-				const cl = entry.target.classList;
-				cl.toggle('in-view', entry.isIntersecting);
-				if (entry.isIntersecting) {
-					cl.add('seen');
-					const bcr = entry.boundingClientRect;
-					const ir = entry.intersectionRect;
-					cl.toggle('fully-in-view', entry.intersectionRatio > 0.98);
-					cl.toggle('visible-top', ir.bottom < bcr.bottom - 0.5);
-					cl.toggle('visible-bottom', ir.top > bcr.top + 0.5);
-				} else {
-					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
-				}
-			}
-		}, { threshold: [0, 1] });
+		const view_io = new IntersectionObserver(process_view_entries, { threshold: [0, 1] });
 
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			const node_el = /** @type {HTMLElement} */ (el);
 			if (node_el.dataset.path) view_io.observe(node_el);
 		}
 
-		const canvas = svedit.canvas_el || document.querySelector('.svedit-canvas');
+		const canvas = untrack(() => svedit.canvas_el) || document.querySelector('.svedit-canvas');
 		/** @type {MutationObserver | null} */
 		let mo = null;
 		let deferred_raf = 0;
@@ -557,75 +537,10 @@ function create_visibility_culler(svedit) {
 		};
 	});
 
-	/**
-	 * Viewport proximity check driving lazy anchor positioning.
-	 * NodeGap elements are always in the DOM; this determines whether
-	 * the expensive CSS anchor positioning is activated (positioned
-	 * prop). Reads `version` (debounced 20ms) then does a non-reactive
-	 * Map.get + Set.has lookup. On initial mount, version is bumped
-	 * immediately (no debounce) so overlays appear in the first paint.
-	 *
-	 * Per-array visibility: `path` is the child node path (e.g.
-	 * ['page', 'body', 3] or ['page', 'body', 5, 'buttons', 2]). We
-	 * split off the last segment as the child_index and look up the
-	 * array_path's visible set. If no set exists for that array,
-	 * none of its children are near the viewport.
-	 *
-	 * @param {Array<string|number>} path
-	 * @returns {boolean}
-	 */
-	function is_near_viewport(path) {
-		void version;
-		if (path.length < 2) return true;
-		const child_index = path[path.length - 1];
-		if (typeof child_index !== 'number') return true;
-		const set = index_map.get(path.slice(0, -1).join('.'));
-		return set ? set.has(child_index) : false;
-	}
-
-	/**
-	 * Single source of truth for "should this gap be positioned / emitted".
-	 * Between-gaps need BOTH neighbors near-viewport (otherwise the gap
-	 * floats over out-of-view space); edge gaps need their one neighbor
-	 * near-viewport AND not clipped on the adjacent edge (otherwise the
-	 * gap renders outside the nearest scroll container's visible clip).
-	 *
-	 * Hot path: called N+1 times per visible array from
-	 * build_array_gaps_culled AND once per NodeGap from NodeArrayProperty.
-	 * Accepts `array_path` as either a pre-joined string (preferred by
-	 * callers that already have it) or an array (joined once internally).
-	 * Doing the join once here avoids the per-index array spread + join
-	 * pattern that would otherwise allocate on every call.
-	 *
-	 * @param {Array<string|number> | string} array_path
-	 * @param {number} offset
-	 * @param {number} count
-	 * @returns {boolean}
-	 */
-	function should_position_gap(array_path, offset, count) {
-		void version;
-		const array_path_str = typeof array_path === 'string'
-			? array_path
-			: array_path.join('.');
-		const set = index_map.get(array_path_str);
-
-		if (offset === 0) {
-			if (!set || !set.has(0)) return false;
-			return ((clip_map.get(`${array_path_str}.0`) ?? 0) & 0b01) === 0;
-		}
-		if (offset === count) {
-			const last = count - 1;
-			if (!set || !set.has(last)) return false;
-			return ((clip_map.get(`${array_path_str}.${last}`) ?? 0) & 0b10) === 0;
-		}
-		return !!set && set.has(offset - 1) && set.has(offset);
-	}
-
 	return {
-		get visible_child_indices() { version; return index_map; },
+		get visible_child_indices() { gap_version; return index_map; },
 		get doc_snapshot() { return doc_snapshot; },
 		get array_ver_map() { return array_ver_map; },
-		is_near_viewport,
 		should_position_gap
 	};
 }
@@ -640,7 +555,6 @@ function create_visibility_culler(svedit) {
 export function create_gap_computation(svedit) {
 	const culler = create_visibility_culler(svedit);
 
-	svedit.is_near_viewport = culler.is_near_viewport;
 	svedit.should_position_gap = culler.should_position_gap;
 
 	/**
@@ -776,7 +690,7 @@ export function create_gap_computation(svedit) {
 	 * @returns {Map<string, Array<gap_t>>}
 	 */
 	function build_all_gaps() {
-		if (!svedit.editable) return new Map();
+		if (!svedit.editable) return new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
 
 		/** @type {Map<string, Array<gap_t>>} */
 		const by_path = new Map(); // eslint-disable-line svelte/prefer-svelte-reactivity
@@ -854,7 +768,7 @@ export function create_gap_computation(svedit) {
 		}
 
 		const gaps = emit_gaps(array_path_str, array_path, node_ids.length, (offset, count) =>
-			culler.should_position_gap(array_path_str, offset, count)
+			culler.should_position_gap(array_path_str, offset, offset === count)
 		);
 
 		gap_cache.set(array_path_str, { ver: current_ver, doc: current_doc, node_ids, gaps });
