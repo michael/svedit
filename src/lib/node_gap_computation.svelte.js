@@ -336,8 +336,9 @@ function create_visibility_culler(svedit) {
 	 * already happened; no additional reflow is triggered.
 	 *
 	 * @param {IntersectionObserver} io
+	 * @param {IntersectionObserver} view_io
 	 */
-	function setup_observation(io) {
+	function setup_observation(io, view_io) {
 		const vh = window.innerHeight;
 		const vw = window.innerWidth;
 
@@ -345,6 +346,7 @@ function create_visibility_culler(svedit) {
 			const node_el = /** @type {HTMLElement} */ (el);
 			if (!node_el.dataset.path) continue;
 			io.observe(node_el);
+			view_io.observe(node_el);
 			sync_add_if_visible(node_el, vh, vw);
 		}
 	}
@@ -381,7 +383,24 @@ function create_visibility_culler(svedit) {
 			threshold: [0, 1]
 		});
 
-		setup_observation(io);
+		const view_io = new IntersectionObserver((entries) => {
+			for (const entry of entries) {
+				const cl = entry.target.classList;
+				cl.toggle('in-view', entry.isIntersecting);
+				if (entry.isIntersecting) {
+					cl.add('seen');
+					const bcr = entry.boundingClientRect;
+					const ir = entry.intersectionRect;
+					cl.toggle('fully-in-view', entry.intersectionRatio > 0.98);
+					cl.toggle('visible-top', ir.bottom < bcr.bottom - 0.5);
+					cl.toggle('visible-bottom', ir.top > bcr.top + 0.5);
+				} else {
+					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+				}
+			}
+		}, { threshold: [0, 1] });
+
+		setup_observation(io, view_io);
 		// Sync doc_snapshot here — the $effect.pre bridge (line ~309) won't
 		// re-run because doc didn't change, only editable did.
 		doc_snapshot = svedit.session.doc;
@@ -408,11 +427,13 @@ function create_visibility_culler(svedit) {
 						const el = /** @type {HTMLElement} */ (added);
 						if (el.matches?.(NODE_SELECTOR)) {
 							io.observe(el);
+							view_io.observe(el);
 							if (sync_add_if_visible(el, vh, vw)) any_sync_added = true;
 						}
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
 							const child_el = /** @type {HTMLElement} */ (child);
 							io.observe(child_el);
+							view_io.observe(child_el);
 							if (sync_add_if_visible(child_el, vh, vw)) any_sync_added = true;
 						}
 					}
@@ -451,6 +472,7 @@ function create_visibility_culler(svedit) {
 			clearTimeout(version_timer);
 			cancelAnimationFrame(deferred_raf);
 			io.disconnect();
+			view_io.disconnect();
 			mo?.disconnect();
 			index_map.clear();
 			clip_map.clear();
@@ -464,6 +486,75 @@ function create_visibility_culler(svedit) {
 	// without an exit callback, so version never bumps for deletions.
 	$effect.pre(() => {
 		doc_snapshot = svedit.session.doc;
+	});
+
+	/*
+	 * View-mode visibility classes.
+	 *
+	 * Unlike the gap-computation pipeline above (only useful while the
+	 * user is editing), the `in-view` / `fully-in-view` / `visible-top`
+	 * / `visible-bottom` / `seen` classes are useful in BOTH editing
+	 * and viewing. Pure-CSS scrollytelling, lazy reveal animations,
+	 * "currently-reading" indicators etc. all benefit from them in
+	 * read mode.
+	 *
+	 * This effect runs unconditionally (no `svedit.editable` gate) and
+	 * operates an independent IntersectionObserver + MutationObserver
+	 * pair. The two halves don't share state so this can't conflict
+	 * with the editor pipeline above.
+	 */
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		const view_io = new IntersectionObserver((entries) => {
+			for (const entry of entries) {
+				const cl = entry.target.classList;
+				cl.toggle('in-view', entry.isIntersecting);
+				if (entry.isIntersecting) {
+					cl.add('seen');
+					const bcr = entry.boundingClientRect;
+					const ir = entry.intersectionRect;
+					cl.toggle('fully-in-view', entry.intersectionRatio > 0.98);
+					cl.toggle('visible-top', ir.bottom < bcr.bottom - 0.5);
+					cl.toggle('visible-bottom', ir.top > bcr.top + 0.5);
+				} else {
+					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+				}
+			}
+		}, { threshold: [0, 1] });
+
+		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
+			const node_el = /** @type {HTMLElement} */ (el);
+			if (node_el.dataset.path) view_io.observe(node_el);
+		}
+
+		const canvas = svedit.canvas_el || document.querySelector('.svedit-canvas');
+		/** @type {MutationObserver | null} */
+		let mo = null;
+		let deferred_raf = 0;
+		if (canvas) {
+			mo = new MutationObserver((mutations) => {
+				for (const m of mutations) {
+					for (const added of m.addedNodes) {
+						if (added.nodeType !== Node.ELEMENT_NODE) continue;
+						const el = /** @type {HTMLElement} */ (added);
+						if (el.matches?.(NODE_SELECTOR)) view_io.observe(el);
+						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
+							view_io.observe(/** @type {HTMLElement} */ (child));
+						}
+					}
+				}
+			});
+			deferred_raf = requestAnimationFrame(() => {
+				mo.observe(canvas, { childList: true, subtree: true });
+			});
+		}
+
+		return () => {
+			cancelAnimationFrame(deferred_raf);
+			view_io.disconnect();
+			mo?.disconnect();
+		};
 	});
 
 	/**
