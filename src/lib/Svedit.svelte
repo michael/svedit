@@ -703,9 +703,6 @@ ${fallback_html}`;
 		const selection = /** @type {Selection} */ (session.selection);
 
 		if (!selection) {
-			// No model selection -> just leave things as they are
-			let dom_selection = window.getSelection();
-			dom_selection.removeAllRanges();
 			return;
 		}
 
