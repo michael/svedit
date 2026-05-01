@@ -168,8 +168,10 @@
 	}
 
 	/* A virtual caret: to fix the caret vertical alignment issue in Chrome and Firefox for empty focused contenteditable with placeholders */
-	.empty  {
-		caret-color: red !important;
+    /* Browser BUG: iOS Safari only considers the caret color set on the top contenteditable element, not on nested elements (e.g. the second selector doesn't work in iOS Safari) */
+	:global(.svedit-canvas:has([placeholder].editable.empty.focused)), 
+    [placeholder].editable.empty.focused {
+		caret-color: transparent !important;
 	}
 	[placeholder].editable.empty.focused::before {
     content: "";
