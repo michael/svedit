@@ -315,26 +315,17 @@ export function create_node_visibility(svedit) {
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
-		untrack(() => {
-			registry.start();
-			// Observe every existing node. NO getBoundingClientRect
-			// here — it would force layout on each call, and at scale
-			// (2000+ nodes) the bootstrap loop interleaves with Svelte's
-			// mount work, causing each gBCR to re-trigger layout for
-			// the growing DOM. Traced cost: ~1.5 s of forced reflow at
-			// 2000 nodes.
-			//
-			// IO populates near_map / array_indices / clip_map on its
-			// first callback, which fires within ~1 frame of observe().
-			// Until then, NodeGaps render without .positioned (zero-size,
-			// invisible) and NodeGapMarkers render zero gaps. The flash
-			// is invisible because un-positioned NodeGaps have no layout
-			// presence — the user sees the document, then markers appear
-			// one frame later as the IO callback lands.
-			for (const el of document.querySelectorAll(NODE_SELECTOR)) {
-				registry.observe(/** @type {HTMLElement} */ (el));
-			}
-		});
+		registry.start();
+		// Observe every existing node. NO getBoundingClientRect — it
+		// would force layout on each call, and at 2000+ nodes the
+		// bootstrap interleaves with Svelte's mount work, retriggering
+		// layout for the growing DOM (~1.5 s of forced reflow when
+		// traced). IO populates near_map / array_indices / clip_map on
+		// its first callback, ~1 frame after observe(). The lag is
+		// invisible: un-positioned NodeGaps have zero layout presence.
+		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
+			registry.observe(/** @type {HTMLElement} */ (el));
+		}
 
 		const canvas =
 			untrack(() => svedit.canvas_el) || document.querySelector('.svedit-canvas');

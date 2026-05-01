@@ -82,6 +82,8 @@
 		/** @type {Set<number>} */
 		const offsets = new Set();
 
+		// Emissions accumulate in ascending offset order — Set preserves
+		// insertion order, so iterating `offsets` later doesn't need a sort.
 		// Edge gap-before: emit if node 0 is visible and not leading-clipped.
 		if (sorted[0] === 0 && ((clip_map.get(`${path_str}.0`) ?? 0) & 0b01) === 0) {
 			offsets.add(0);
@@ -99,8 +101,7 @@
 			offsets.add(count);
 		}
 
-		const sorted_offsets = [...offsets].sort((a, b) => a - b);
-		for (const offset of sorted_offsets) {
+		for (const offset of offsets) {
 			const is_first = offset === 0;
 			const is_last = offset === count;
 
