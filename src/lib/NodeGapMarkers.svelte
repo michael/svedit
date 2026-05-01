@@ -22,18 +22,96 @@
 	 * Uses var(--row, 1) with the * 9999999 multiplier trick to switch between
 	 * column and row positioning/visuals in pure CSS — no container queries.
 	 *
-	 * Gap data is produced by node_gap_computation and published to the
-	 * svedit context. This component reads and renders it.
+	 * Reads visibility state directly from the registry. SvelteSet's per-key
+	 * tracking on `.has()` and iteration means this component only
+	 * re-evaluates when THIS array's visible-index set changes.
 	 */
 
-	let { path } = $props();
+	let { path, count } = $props();
 
 	const svedit = getContext('svedit');
 	let path_str = $derived(path.join('.'));
-	// Per-path signal: only re-evaluates when THIS path's gaps change.
-	let gap_signal = $derived(svedit.insertion_gap_data?.get_gaps(path_str));
-	let my_gaps = $derived(gap_signal?.gaps ?? []);
-	let caret_gap_key = $derived(svedit.insertion_gap_data?.caret_gap_key);
+	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
+
+	let caret_gap_key = $derived.by(() => {
+		const s = svedit.session.selection;
+		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
+		return `${s.path.join('.')}-gap-${s.anchor_offset}`;
+	});
+
+	let my_gaps = $derived.by(() => {
+		const registry = svedit.visibility_registry;
+		const clip_map = registry.clip_map;
+		const anchor_prefix = `--${path.join('-')}`;
+		const g_prefix = `--g-${path.join('-')}`;
+		const container_var = `;--_c:${anchor_prefix}`;
+		const has_pair = count >= 2;
+		const pair_vars = has_pair
+			? `;--_f:${anchor_prefix}-0;--_s:${anchor_prefix}-1`
+			: '';
+
+		/** @type {Array<{key:string,offset:number,type:string,vars:string,is_first:boolean,is_last:boolean,has_pair:boolean}>} */
+		const result = [];
+
+		if (count === 0) {
+			if (visible.has(0)) {
+				result.push({
+					key: `${path_str}-gap-0`,
+					offset: 0,
+					type: 'gap-empty',
+					vars: `--_ct:${g_prefix}-0-gap-before;--_a:${anchor_prefix}-0${container_var}`,
+					is_first: true,
+					is_last: true,
+					has_pair: false
+				});
+			}
+			return result;
+		}
+
+		for (let offset = 0; offset <= count; offset++) {
+			const is_first = offset === 0;
+			const is_last = offset === count;
+
+			if (is_first) {
+				if (!visible.has(0)) continue;
+				if (((clip_map.get(`${path_str}.0`) ?? 0) & 0b01) !== 0) continue;
+			} else if (is_last) {
+				if (!visible.has(offset - 1)) continue;
+				if (((clip_map.get(`${path_str}.${offset - 1}`) ?? 0) & 0b10) !== 0) continue;
+			} else {
+				if (!visible.has(offset - 1) || !visible.has(offset)) continue;
+			}
+
+			const g_anchor = is_first
+				? `${g_prefix}-0-gap-before`
+				: `${g_prefix}-${offset - 1}-gap-after`;
+
+			let type, vars;
+			if (is_first || is_last) {
+				type = 'gap-edge';
+				const adjacent = is_first
+					? `${anchor_prefix}-0`
+					: `${anchor_prefix}-${count - 1}`;
+				vars = `--_ct:${g_anchor};--_a:${adjacent}${container_var}${pair_vars}`;
+			} else {
+				type = 'gap-mid';
+				const p_anchor = `${anchor_prefix}-${offset - 1}`;
+				const n_anchor = `${anchor_prefix}-${offset}`;
+				vars = `--_ct:${g_anchor};--_p:${p_anchor};--_n:${n_anchor}${container_var}${pair_vars}`;
+			}
+
+			result.push({
+				key: `${path_str}-gap-${offset}`,
+				offset,
+				type,
+				vars,
+				is_first,
+				is_last,
+				has_pair
+			});
+		}
+		return result;
+	});
 </script>
 
 {#each my_gaps as gap (gap.key)}

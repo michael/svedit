@@ -87,6 +87,6 @@
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
-		<NodeGapMarkers {path} />
+		<NodeGapMarkers {path} count={node_ids.length} />
 	{/if}
 </svelte:element>
