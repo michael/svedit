@@ -89,13 +89,7 @@ export class RedoCommand extends Command {
 
 /**
  * Command that selects the parent of the current selection.
- * Useful for navigating up the document hierarchy.
- *
- * Enabled whenever there is any selection — `select_parent()` walks the
- * document graph to find the containing array, so paths that don't encode
- * the parent (every node selection, top-level text selections) still
- * climb correctly. The previous `path.length > 3` gate was a string-only
- * heuristic that silently disabled climbing for nested arrays.
+ * Enabled whenever there is any selection.
  */
 export class SelectParentCommand extends Command {
 	is_enabled() {
