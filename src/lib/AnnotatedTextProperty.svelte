@@ -167,6 +167,27 @@
 		color: color-mix(in oklch, currentcolor 50%, transparent);
 	}
 
+	/* A virtual caret: to fix the caret vertical alignment issue in Chrome and Firefox for empty focused contenteditable with placeholders */
+	[placeholder].editable.empty.focused  {
+		caret-color: transparent;
+	}
+	[placeholder].editable.empty.focused::before {
+    content: "";
+		/* we limit width & height to avoid layout shifts in case the text has a lower natural height */
+    width: 0px;
+    height: 1cap;
+    display: inline-block;
+		/* we use box-shadow to draw the caret shape, matching the native caret */
+    box-shadow: 
+			0 -0.4cap 0 0.65px var(--svedit-caret-color, AccentColor),
+			0 0 0 0.65px var(--svedit-caret-color, AccentColor),
+			0 0.4cap 0 0.65px var(--svedit-caret-color, AccentColor);
+		animation: var(
+			--node-caret-animation,
+			node-caret-blink var(--node-caret-blink-duration, 1.1s) ease-in-out infinite
+		);
+	}
+
 	/* Hide flickering: in Chrome, the caret jumps from end of placeholder string to start of text property when we focus */
 	.text:not(.focused) {
 		caret-color: transparent;
