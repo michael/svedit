@@ -1,7 +1,4 @@
 <script>
-	import { getContext } from 'svelte';
-	import { should_position_gap } from './node_visibility.svelte.js';
-
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
 	 * │ MUST RULES — do not violate when modifying this file            │
@@ -25,11 +22,10 @@
 	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
-	 * activated lazily via the `.positioned` class, declaratively bound
-	 * to a $derived that reads from the visibility registry. SvelteMap /
-	 * SvelteSet fine-grained tracking means only NodeGaps whose specific
-	 * neighbor keys changed re-evaluate — no O(N) reactive fan-out and
-	 * no DOM sibling traversal.
+	 * activated lazily via the `.positioned` class, toggled imperatively
+	 * by the IO callback / MO / bootstrap in node_visibility — keeps
+	 * NodeGap allocation-free of per-instance Svelte signals, which
+	 * matters at 1000+ NodeGaps per scroll frame.
 	 *
 	 * `position-visibility: anchors-visible` does NOT skip anchor
 	 * resolution — the browser resolves all anchor() then hides the
@@ -41,16 +37,9 @@
 	 */
 	let { array_path, offset, count, empty = false } = $props();
 
-	const svedit = getContext('svedit');
-
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
-	let array_path_str = $derived(array_path.join('.'));
-
-	let positioned = $derived(
-		should_position_gap(svedit.visibility_registry, array_path_str, offset, count, empty)
-	);
 
 	let gap_style = $derived.by(() => {
 		const arr = array_path.join('-');
@@ -74,9 +63,8 @@
 	class:gap-after={!is_first}
 	class:empty
 	class:last={is_last}
-	class:positioned
 	data-type={type}
-	data-gap-array-path={array_path_str}
+	data-gap-array-path={array_path.join('.')}
 	data-gap-offset={offset}
 	style={gap_style}
 >

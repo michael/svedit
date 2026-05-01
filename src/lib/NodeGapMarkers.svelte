@@ -68,19 +68,41 @@
 			return result;
 		}
 
-		for (let offset = 0; offset <= count; offset++) {
+		// Iterate visible indices (O(K)) instead of 0..count (O(N)) — at
+		// 1000 nodes with ~30 visible, this drops 1001 SvelteSet/SvelteMap
+		// reads per re-derivation to ~30. Filter stale indices >= count
+		// that may briefly remain after a node delete (until MO fires).
+		const sorted = [];
+		for (const i of visible) {
+			if (i >= 0 && i < count) sorted.push(i);
+		}
+		sorted.sort((a, b) => a - b);
+		if (sorted.length === 0) return result;
+
+		/** @type {Set<number>} */
+		const offsets = new Set();
+
+		// Edge gap-before: emit if node 0 is visible and not leading-clipped.
+		if (sorted[0] === 0 && ((clip_map.get(`${path_str}.0`) ?? 0) & 0b01) === 0) {
+			offsets.add(0);
+		}
+		// Mid gaps: between consecutive visible nodes. The gap at offset N
+		// sits between node N-1 and node N — emit when both are visible.
+		for (let i = 0; i < sorted.length - 1; i++) {
+			if (sorted[i + 1] === sorted[i] + 1) offsets.add(sorted[i + 1]);
+		}
+		// Edge gap-after.last: emit if last node is visible and not trailing-clipped.
+		if (
+			sorted[sorted.length - 1] === count - 1 &&
+			((clip_map.get(`${path_str}.${count - 1}`) ?? 0) & 0b10) === 0
+		) {
+			offsets.add(count);
+		}
+
+		const sorted_offsets = [...offsets].sort((a, b) => a - b);
+		for (const offset of sorted_offsets) {
 			const is_first = offset === 0;
 			const is_last = offset === count;
-
-			if (is_first) {
-				if (!visible.has(0)) continue;
-				if (((clip_map.get(`${path_str}.0`) ?? 0) & 0b01) !== 0) continue;
-			} else if (is_last) {
-				if (!visible.has(offset - 1)) continue;
-				if (((clip_map.get(`${path_str}.${offset - 1}`) ?? 0) & 0b10) !== 0) continue;
-			} else {
-				if (!visible.has(offset - 1) || !visible.has(offset)) continue;
-			}
 
 			const g_anchor = is_first
 				? `${g_prefix}-0-gap-before`

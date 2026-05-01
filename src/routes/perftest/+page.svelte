@@ -4,7 +4,7 @@
 	import { document_schema, session_config } from '../create_demo_session.js';
 	import nanoid from '../nanoid.js';
 
-	const PRESETS = [50, 100, 200, 500, 1000, 2000, 6000];
+	const PRESETS = [50, 100, 200, 500, 1000, 2000];
 
 	let node_count = $state(200);
 	let editable = $state(true);
@@ -20,6 +20,7 @@
 	let resize_result = $state(null);
 	let is_testing = $state(false);
 	let benchmark_results = $state([]);
+	let copy_feedback = $state(false);
 
 	let frame_times = [];
 	let raf_id;
@@ -418,6 +419,15 @@
 
 {#if benchmark_results.length > 0}
 	<div class="results-table" data-testid="results-table">
+		<div class="results-header">
+			<button class="copy-json-btn" onclick={() => {
+				navigator.clipboard.writeText(JSON.stringify(benchmark_results, null, 2));
+				copy_feedback = true;
+				setTimeout(() => copy_feedback = false, 1500);
+			}}>
+				{copy_feedback ? 'Copied!' : 'Copy JSON'}
+			</button>
+		</div>
 		<table>
 			<thead>
 				<tr>
@@ -550,6 +560,27 @@
 	.results-table {
 		margin: 8px 16px;
 		overflow-x: auto;
+	}
+
+	.results-header {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 4px;
+	}
+
+	.copy-json-btn {
+		padding: 3px 10px;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		background: #f5f5f5;
+		cursor: pointer;
+		font-size: 12px;
+		font-family: system-ui, sans-serif;
+		transition: background 0.1s;
+	}
+
+	.copy-json-btn:hover {
+		background: #e0e0e0;
 	}
 
 	.results-table table {

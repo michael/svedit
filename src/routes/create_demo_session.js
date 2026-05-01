@@ -494,6 +494,8 @@ export const session_config = {
 		Highlight,
 		Link
 	},
+	// Enable view classes for the editor. Comes with a small performance penalty for 1000+ nodes.
+	view_classes: true,
 	handle_property_deletion: (tr, path) => {
 		const property_definition = tr.inspect(path);
 		if (property_definition?.type !== 'string' || property_definition?.name !== 'image') return;

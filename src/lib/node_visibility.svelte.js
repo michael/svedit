@@ -28,6 +28,8 @@
  * 2. **viewport state** — computed from boundingClientRect vs window
  *    dimensions (independent of rootMargin). Drives `.in-view`,
  *    `.fully-in-view`, `.visible-top`, `.visible-bottom`, `.seen`.
+ *    OPT-IN via `session.config.view_classes` — costs ~5 classList
+ *    ops per IO entry, measurable at 200-500 nodes.
  * 3. **clip_map** — computed from intersectionRect vs boundingClientRect
  *    for nested-scroller edge clip detection.
  *
@@ -48,6 +50,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { untrack } from 'svelte';
 
 const NODE_SELECTOR = '[data-type="node"][data-path]';
+const GAP_SELECTOR = '.node-gap[data-gap-array-path]';
 
 /**
  * Overscan margin around the viewport (px). Nodes within this distance
@@ -85,11 +88,26 @@ class VisibilityRegistry {
 	/** @type {IntersectionObserver | null} */
 	#io = null;
 
+	/**
+	 * When true, IO callback toggles `.in-view` / `.seen` /
+	 * `.fully-in-view` / `.visible-top` / `.visible-bottom` on node
+	 * elements. Apps that don't use scrollytelling/reveal patterns can
+	 * leave this off — measured ~10-15% scroll-FPS win at 200-500 nodes
+	 * by skipping ~5 classList ops per IO entry.
+	 *
+	 * Also affects IO threshold (see `start()`): with view_classes off,
+	 * we use threshold `[0]` only, halving IO callback frequency during
+	 * scroll. With view_classes on, we add `0.98` so the callback fires
+	 * on the fully-visible ↔ partially-clipped transition needed by
+	 * `.fully-in-view` / `.visible-top` / `.visible-bottom`.
+	 */
+	view_classes = false;
+
 	start() {
 		if (typeof window === 'undefined' || this.#io) return;
 		this.#io = new IntersectionObserver((entries) => this.#process(entries), {
 			rootMargin: `${OVERSCAN_PX}px`,
-			threshold: [0, 0.98]
+			threshold: this.view_classes ? [0, 0.98] : [0]
 		});
 	}
 
@@ -132,28 +150,36 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Synchronously fill near_map / array_indices from an element's bcr.
-	 * Used for initial bootstrap and for nodes added by Svelte (so the
-	 * first render after a node insertion has correct .positioned state
-	 * without waiting one frame for the IO callback).
+	 * Imperatively toggle .positioned on a single gap element based on
+	 * current near_map / clip_map state. Reads dataset + classList for
+	 * gap context (no Svelte reactivity).
 	 *
-	 * @param {HTMLElement} el
-	 * @param {number} vh
-	 * @param {number} vw
+	 * @param {Element} gap_el
 	 */
-	sync_fill_if_near(el, vh, vw) {
-		const path = el.dataset?.path;
-		if (!path || this.near_map.has(path)) return;
-		const r = el.getBoundingClientRect();
-		if (
-			r.top > vh + OVERSCAN_PX ||
-			r.bottom < -OVERSCAN_PX ||
-			r.right < -OVERSCAN_PX ||
-			r.left > vw + OVERSCAN_PX
-		) return;
-		this.near_map.set(path, true);
-		const split = this.#split_path(path);
-		if (split) this.get_array_indices(split.array_path).add(split.index);
+	sync_gap_class(gap_el) {
+		const arr = /** @type {HTMLElement} */ (gap_el).dataset.gapArrayPath;
+		if (!arr) return;
+		const offset = parseInt(/** @type {HTMLElement} */ (gap_el).dataset.gapOffset, 10);
+		const is_last = gap_el.classList.contains('last');
+		const empty = gap_el.classList.contains('empty');
+		gap_el.classList.toggle(
+			'positioned',
+			should_position_gap_imperative(this, arr, offset, is_last, empty)
+		);
+	}
+
+	/**
+	 * Toggle .positioned on the two gap elements adjacent to a node
+	 * element. Used after near_map / clip_map writes triggered by IO,
+	 * MO, or bootstrap. O(1) DOM sibling traversal.
+	 *
+	 * @param {Element} node_el
+	 */
+	sync_gaps_around_node(node_el) {
+		const prev = node_el.previousElementSibling;
+		if (prev?.classList.contains('node-gap')) this.sync_gap_class(prev);
+		const next = node_el.nextElementSibling;
+		if (next?.classList.contains('node-gap')) this.sync_gap_class(next);
 	}
 
 	/** @param {string} path */
@@ -195,14 +221,23 @@ class VisibilityRegistry {
 			const bcr = entry.boundingClientRect;
 			const ir = entry.intersectionRect;
 
+			// Track whether near/clip changed so we only touch the DOM
+			// when the gap classification could have flipped.
+			let any_change = false;
+
 			// near_map (overscan zone)
 			if (is_near) {
-				if (!this.near_map.has(path)) this.near_map.set(path, true);
+				if (!this.near_map.has(path)) {
+					this.near_map.set(path, true);
+					any_change = true;
+				}
 			} else if (this.near_map.has(path)) {
 				this.near_map.delete(path);
+				any_change = true;
 			}
 
-			// array_indices (per-array index set)
+			// array_indices (per-array index set) — kept in sync with near_map
+			// for NodeGapMarkers' visible-iteration consumer.
 			const split = this.#split_path(path);
 			if (split) {
 				const set = this.get_array_indices(split.array_path);
@@ -216,30 +251,40 @@ class VisibilityRegistry {
 			if (new_bits !== old_bits) {
 				if (new_bits === 0 || new_bits === 0b11) this.clip_map.delete(path);
 				else this.clip_map.set(path, new_bits);
+				any_change = true;
 			}
 
-			// View classes — pure DOM ops, no Svelte consumers.
-			// Computed from bcr vs viewport (independent of rootMargin),
-			// so semantics match the original separate view IO.
-			const in_viewport =
-				is_near &&
-				bcr.bottom > 0 &&
-				bcr.top < vh &&
-				bcr.right > 0 &&
-				bcr.left < vw;
-			const cl = el.classList;
-			cl.toggle('in-view', in_viewport);
-			if (in_viewport) {
-				cl.add('seen');
-				const visible_w = Math.min(bcr.right, vw) - Math.max(bcr.left, 0);
-				const visible_h = Math.min(bcr.bottom, vh) - Math.max(bcr.top, 0);
-				const area = bcr.width * bcr.height;
-				const ratio = area > 0 ? (visible_w * visible_h) / area : 0;
-				cl.toggle('fully-in-view', ratio > 0.98);
-				cl.toggle('visible-top', bcr.bottom > vh + 0.5);
-				cl.toggle('visible-bottom', bcr.top < -0.5);
-			} else {
-				cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+			// Imperative .positioned toggle on the two adjacent gap
+			// elements — replaces a reactive $derived per NodeGap, which
+			// at 1000+ NodeGaps cost a measurable amount of Svelte
+			// scheduling overhead per scroll frame.
+			if (any_change) this.sync_gaps_around_node(el);
+
+			// View classes — opt-in via session.config.view_classes.
+			// Off by default because each entry costs ~5 classList ops
+			// and ~5 style invalidations; measurable hit at 200-500
+			// nodes for apps that don't use scrollytelling.
+			if (this.view_classes) {
+				const in_viewport =
+					is_near &&
+					bcr.bottom > 0 &&
+					bcr.top < vh &&
+					bcr.right > 0 &&
+					bcr.left < vw;
+				const cl = el.classList;
+				cl.toggle('in-view', in_viewport);
+				if (in_viewport) {
+					cl.add('seen');
+					const visible_w = Math.min(bcr.right, vw) - Math.max(bcr.left, 0);
+					const visible_h = Math.min(bcr.bottom, vh) - Math.max(bcr.top, 0);
+					const area = bcr.width * bcr.height;
+					const ratio = area > 0 ? (visible_w * visible_h) / area : 0;
+					cl.toggle('fully-in-view', ratio > 0.98);
+					cl.toggle('visible-top', bcr.bottom > vh + 0.5);
+					cl.toggle('visible-bottom', bcr.top < -0.5);
+				} else {
+					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+				}
 			}
 		}
 	}
@@ -264,24 +309,30 @@ class VisibilityRegistry {
  */
 export function create_node_visibility(svedit) {
 	const registry = new VisibilityRegistry();
+	registry.view_classes = !!svedit.session?.config?.view_classes;
 	svedit.visibility_registry = registry;
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
-		// The whole setup must run untracked: the bootstrap reads near_map.has()
-		// to skip duplicates AND writes near_map.set() — without untrack the
-		// effect would track its own writes and re-fire forever (Svelte's
-		// effect_update_depth_exceeded). Same applies to canvas_el access.
 		untrack(() => {
 			registry.start();
-
-			const vh = window.innerHeight;
-			const vw = window.innerWidth;
+			// Observe every existing node. NO getBoundingClientRect
+			// here — it would force layout on each call, and at scale
+			// (2000+ nodes) the bootstrap loop interleaves with Svelte's
+			// mount work, causing each gBCR to re-trigger layout for
+			// the growing DOM. Traced cost: ~1.5 s of forced reflow at
+			// 2000 nodes.
+			//
+			// IO populates near_map / array_indices / clip_map on its
+			// first callback, which fires within ~1 frame of observe().
+			// Until then, NodeGaps render without .positioned (zero-size,
+			// invisible) and NodeGapMarkers render zero gaps. The flash
+			// is invisible because un-positioned NodeGaps have no layout
+			// presence — the user sees the document, then markers appear
+			// one frame later as the IO callback lands.
 			for (const el of document.querySelectorAll(NODE_SELECTOR)) {
-				const node_el = /** @type {HTMLElement} */ (el);
-				registry.observe(node_el);
-				registry.sync_fill_if_near(node_el, vh, vw);
+				registry.observe(/** @type {HTMLElement} */ (el));
 			}
 		});
 
@@ -293,20 +344,18 @@ export function create_node_visibility(svedit) {
 
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
-				const _vh = window.innerHeight;
-				const _vw = window.innerWidth;
+				// Pass 1: observe new nodes / unobserve removed ones.
+				// No getBoundingClientRect — IO will populate near/clip
+				// state on its first callback. The brief lag between
+				// node insert and .positioned activation is invisible
+				// because un-positioned NodeGaps have zero layout presence.
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
-						if (el.matches?.(NODE_SELECTOR)) {
-							registry.observe(el);
-							registry.sync_fill_if_near(el, _vh, _vw);
-						}
+						if (el.matches?.(NODE_SELECTOR)) registry.observe(el);
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
-							const child_el = /** @type {HTMLElement} */ (child);
-							registry.observe(child_el);
-							registry.sync_fill_if_near(child_el, _vh, _vw);
+							registry.observe(/** @type {HTMLElement} */ (child));
 						}
 					}
 					for (const removed of m.removedNodes) {
@@ -315,6 +364,22 @@ export function create_node_visibility(svedit) {
 						if (el.matches?.(NODE_SELECTOR)) registry.unobserve(el);
 						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
 							registry.unobserve(/** @type {HTMLElement} */ (child));
+						}
+					}
+				}
+				// Pass 2: any newly-mounted .node-gap (e.g. count grew →
+				// new mid gap inserted next to an already-visible node)
+				// gets its .positioned set to current state. The IO
+				// won't fire for the EXISTING adjacent node (its
+				// intersection didn't change), so the new gap would
+				// otherwise stay un-positioned until the next scroll.
+				for (const m of mutations) {
+					for (const added of m.addedNodes) {
+						if (added.nodeType !== Node.ELEMENT_NODE) continue;
+						const el = /** @type {HTMLElement} */ (added);
+						if (el.matches?.(GAP_SELECTOR)) registry.sync_gap_class(el);
+						for (const child of el.querySelectorAll?.(GAP_SELECTOR) ?? []) {
+							registry.sync_gap_class(child);
 						}
 					}
 				}
@@ -335,39 +400,39 @@ export function create_node_visibility(svedit) {
 }
 
 /**
- * Pure visibility check used by NodeGap to decide whether to render
- * with `.positioned` (anchor positioning active) or as a zero-size
- * absolute element with no layout cost.
- *
- * Reads near_map and clip_map via SvelteMap fine-grained tracking, so
- * the calling $derived only re-evaluates when the relevant keys change.
+ * Non-reactive visibility check used by the imperative .positioned
+ * toggle. Reads near_map / clip_map directly without going through
+ * SvelteMap's per-key tracking — we only call this from the IO/MO
+ * callbacks and the bootstrap, never from a $derived. `is_last` and
+ * `empty` come from the gap element's classList, so we don't need
+ * `count` here.
  *
  * @param {VisibilityRegistry} registry
  * @param {string} array_path_str
  * @param {number} offset
- * @param {number} count
+ * @param {boolean} is_last
  * @param {boolean} empty
  */
-export function should_position_gap(registry, array_path_str, offset, count, empty) {
+function should_position_gap_imperative(registry, array_path_str, offset, is_last, empty) {
 	if (!registry) return false;
-	const set = registry.get_array_indices(array_path_str);
 
-	if (empty || count === 0) {
-		if (!set.has(0)) return false;
-		const c = registry.clip_map.get(`${array_path_str}.0`) ?? 0;
-		return (c & 0b11) !== 0b11;
+	if (empty) {
+		return registry.near_map.has(`${array_path_str}.0`);
 	}
 
 	if (offset === 0) {
-		if (!set.has(0)) return false;
+		if (!registry.near_map.has(`${array_path_str}.0`)) return false;
 		return ((registry.clip_map.get(`${array_path_str}.0`) ?? 0) & 0b01) === 0;
 	}
 
-	if (offset === count) {
+	if (is_last) {
 		const last = offset - 1;
-		if (!set.has(last)) return false;
+		if (!registry.near_map.has(`${array_path_str}.${last}`)) return false;
 		return ((registry.clip_map.get(`${array_path_str}.${last}`) ?? 0) & 0b10) === 0;
 	}
 
-	return set.has(offset - 1) && set.has(offset);
+	return (
+		registry.near_map.has(`${array_path_str}.${offset - 1}`) &&
+		registry.near_map.has(`${array_path_str}.${offset}`)
+	);
 }
