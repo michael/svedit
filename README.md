@@ -1166,6 +1166,26 @@ For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-car
 }
 ```
 
+## Recomended Workarounds (e.g. browser bugs)
+
+Our goal is to report browser bugs and get them fixed, but sometimes it takes decades and nothing happens.
+This is a list of recommended workarounds for those scenarios. They are not part of Svedit itself because they can cause subtle side-effects and should be therefore applied with care and deliberation.
+
+### Fix vertical alignment of caret due to a decade-old browser bug
+https://stackoverflow.com/questions/32905957/caret-position-when-centering-with-flexbox-in-contenteditable/
+
+This is safe to use when your app/website only uses `text-box: trim-both cap
+alphabetic;` (Svedit default) for all `<AnnotatedTextProperty>` istances. If you want
+to use other text-box trim strategies, you have to make specific overrides to
+.text.editable.empty. for each case.
+
+```css
+.svedit-canvas .text.editable.empty {
+  line-height: 1cap !important;
+}
+```
+
+
 ## Beyond the README
 
 The source code is compact and readable — less than 3000 LOC across a handful of files. We encourage you to explore it. The files in [`src/lib`](./src/lib) are the library code, while the files in [`src/routes`](./src/routes) are example code you can copy and adapt to your needs.
