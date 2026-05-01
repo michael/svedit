@@ -307,7 +307,7 @@ const session_config = {
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events
-- **`view_classes`** - Opt-in viewport visibility classes. When `true`, every node element gets `.in-view`, `.seen`, `.fully-in-view`, `.visible-top`, `.visible-bottom` toggled as it scrolls through the viewport. Useful for scrollytelling and reveal animations driven from CSS. **Off by default** — costs ~5 classList ops per IO entry, measurable in scroll FPS at 200+ nodes. Enabling it also widens the IntersectionObserver thresholds (from `[0]` to `[0, 0.98]`) so the callback fires on the fully-visible transition. Leave off if your app doesn't read these classes from CSS.
+- **`view_classes`** - Viewport visibility classes. Every node element gets `.in-view`, `.seen`, `.fully-in-view`, `.visible-top`, `.visible-bottom` toggled as it scrolls through the viewport. Useful for scrollytelling and reveal animations driven from CSS. **On by default**. Set `view_classes: false` to opt out — saves ~5 classList ops per IO entry (measurable scroll-FPS win at 200+ nodes) and narrows the IntersectionObserver thresholds from `[0, 0.98]` to `[0]` (halves callback frequency during scroll). Disable if your app doesn't read these classes from CSS.
 
 The config is accessible throughout your app via `session.config`.
 

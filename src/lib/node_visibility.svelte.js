@@ -91,9 +91,10 @@ class VisibilityRegistry {
 	/**
 	 * When true, IO callback toggles `.in-view` / `.seen` /
 	 * `.fully-in-view` / `.visible-top` / `.visible-bottom` on node
-	 * elements. Apps that don't use scrollytelling/reveal patterns can
-	 * leave this off — measured ~10-15% scroll-FPS win at 200-500 nodes
-	 * by skipping ~5 classList ops per IO entry.
+	 * elements — useful for scrollytelling and reveal animations.
+	 * Apps that don't use these CSS hooks can opt out via
+	 * `session.config.view_classes = false` to skip ~5 classList ops
+	 * per IO entry (~10-15% scroll-FPS win at 200-500 nodes).
 	 *
 	 * Also affects IO threshold (see `start()`): with view_classes off,
 	 * we use threshold `[0]` only, halving IO callback frequency during
@@ -101,7 +102,7 @@ class VisibilityRegistry {
 	 * on the fully-visible ↔ partially-clipped transition needed by
 	 * `.fully-in-view` / `.visible-top` / `.visible-bottom`.
 	 */
-	view_classes = false;
+	view_classes = true;
 
 	start() {
 		if (typeof window === 'undefined' || this.#io) return;
@@ -309,7 +310,7 @@ class VisibilityRegistry {
  */
 export function create_node_visibility(svedit) {
 	const registry = new VisibilityRegistry();
-	registry.view_classes = !!svedit.session?.config?.view_classes;
+	registry.view_classes = svedit.session?.config?.view_classes !== false;
 	svedit.visibility_registry = registry;
 
 	$effect(() => {
