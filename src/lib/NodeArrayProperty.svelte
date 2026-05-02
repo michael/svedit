@@ -21,10 +21,11 @@
 	let node_ids = $derived(svedit.session.get(path));
 	let nodes = $derived(node_ids.map(id => svedit.session.get(id)));
 
-	// Empty arrays render both an .empty-node-placeholder (cursor target) and
-	// a NodeGap (wide click hit area). Hide the gap while the caret is in the
-	// placeholder so its <br> isn't a second arrow-key stop (issue #260).
-	let cursor_in_empty_placeholder = $derived(
+	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
+	// the model selection. Used by the CSS rule below to hide the empty-array
+	// NodeGap while the caret is in the placeholder, so its <br> isn't a
+	// second arrow-key stop (issue #260).
+	let is_focused = $derived(
 		node_ids.length === 0
 		&& svedit.session.selection?.type === 'node'
 		&& svedit.session.selection.path.join('.') === path_str
@@ -60,7 +61,7 @@
 		{#if svedit.editable}
 			<div
 				class="empty-node-placeholder"
-				class:cursor-here={cursor_in_empty_placeholder}
+				class:focused={is_focused}
 				data-path={[...path, 0].join('.')}
 				data-type="node"
 				style="anchor-name: --{[...path, 0].join(
@@ -107,8 +108,8 @@
 </svelte:element>
 
 <style>
-	/* See `cursor_in_empty_placeholder` derived state (issue #260). */
-	:global(.empty-node-placeholder.cursor-here + .node-gap) {
+	/* See `is_focused` derived state (issue #260). */
+	:global(.empty-node-placeholder.focused + .node-gap) {
 		display: none;
 	}
 </style>
