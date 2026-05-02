@@ -26,8 +26,7 @@
 	// NodeGap while the caret is in the placeholder, so its <br> isn't a
 	// second arrow-key stop (issue #260).
 	let is_focused = $derived(
-		node_ids.length === 0
-		&& svedit.session.selection?.type === 'node'
+		svedit.session.selection?.type === 'node'
 		&& svedit.session.selection.path.join('.') === path_str
 	);
 
@@ -47,6 +46,7 @@
 <svelte:element
 	this={tag}
 	class={css_class}
+	class:focused={is_focused}
 	data-type="node_array"
 	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
@@ -61,7 +61,6 @@
 		{#if svedit.editable}
 			<div
 				class="empty-node-placeholder"
-				class:focused={is_focused}
 				data-path={[...path, 0].join('.')}
 				data-type="node"
 				style="anchor-name: --{[...path, 0].join(
@@ -109,7 +108,7 @@
 
 <style>
 	/* See `is_focused` derived state (issue #260). */
-	:global(.empty-node-placeholder.focused + .node-gap) {
+	:global([data-type='node_array'].focused > .empty-node-placeholder + .node-gap) {
 		display: none;
 	}
 </style>
