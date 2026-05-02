@@ -56,7 +56,7 @@
 				style="anchor-name: --{[...path, 0].join(
 					'-'
 				)}; min-height: 40px; min-width: 24px;"
-			></div>
+			><br /></div>
 			<!-- Sibling (not child) of .empty-node-placeholder so its .svedit-selectable
 			     resolves anchor positioning against the shared containing block,
 			     not the placeholder which inherits .node positioning styles. -->

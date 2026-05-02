@@ -883,10 +883,15 @@ ${fallback_html}`;
 
 		// Check if it's a backwards selection
 		const is_backwards = __is_dom_selection_backwards();
-		if (is_backwards) {
-			anchor_offset += 1;
-		} else {
-			focus_offset += 1;
+		// The +1 converts "cursor on node N" → "selection ends after node N"
+		// (offset N+1). Skip for empty arrays where the .empty-node-placeholder
+		// is at path-index 0 but the only valid offset is 0.
+		if (session.get(parent_array_path)?.length > 0) {
+			if (is_backwards) {
+				anchor_offset += 1;
+			} else {
+				focus_offset += 1;
+			}
 		}
 
 		// EDGE CASE: Exclude first node when anchor_node is a gap-after
@@ -1113,17 +1118,30 @@ ${fallback_html}`;
 			`[data-gap-array-path="${node_array_path}"][data-gap-offset="${offset}"]`;
 
 		if (is_collapsed) {
-			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
-			if (!gap_el) return;
-			// Target .svedit-selectable (has a box), not gap_el which is
-			// display:contents and would cause the browser to normalize
-			// the range into the parent, breaking read-back.
-			const selectable = gap_el.querySelector('.svedit-selectable');
-			if (!selectable) return;
-			range.setStart(selectable, 1);
-			range.setEnd(selectable, 1);
-			dom_selection.removeAllRanges();
-			dom_selection.addRange(range);
+			// Empty arrays: cursor lives in the .empty-node-placeholder's <br>,
+			// not the gap's .svedit-selectable (which is contenteditable=false
+			// and would strand the caret).
+			const empty_placeholder = node_array_el.querySelector(
+				`:scope > .empty-node-placeholder[data-path="${node_array_path}.0"]`
+			);
+			if (empty_placeholder) {
+				range.setStart(empty_placeholder, 0);
+				range.setEnd(empty_placeholder, 0);
+				dom_selection.removeAllRanges();
+				dom_selection.addRange(range);
+			} else {
+				const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
+				if (!gap_el) return;
+				// Target .svedit-selectable (has a box), not gap_el which is
+				// display:contents and would cause the browser to normalize
+				// the range into the parent, breaking read-back.
+				const selectable = gap_el.querySelector('.svedit-selectable');
+				if (!selectable) return;
+				range.setStart(selectable, 1);
+				range.setEnd(selectable, 1);
+				dom_selection.removeAllRanges();
+				dom_selection.addRange(range);
+			}
 		} else {
 			const anchor_gap = node_array_el.querySelector(gap_selector(selection.anchor_offset));
 			const focus_gap = node_array_el.querySelector(gap_selector(selection.focus_offset));

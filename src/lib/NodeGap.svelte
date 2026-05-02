@@ -77,7 +77,21 @@
 		data-gap-offset={offset}
 		style={gap_style}
 	>
-		<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
+		<!-- For empty arrays the .svedit-selectable is the wide click hit area
+		     only — the cursor stop lives in the sibling .empty-node-placeholder's
+		     <br>. contenteditable=false stops it from becoming a second arrow-key
+		     stop; the click handler routes clicks to the placeholder since
+		     contenteditable=false elements swallow native cursor placement. -->
+		<div
+			class="svedit-selectable"
+			style="anchor-name:{anchor_name}"
+			contenteditable={empty ? 'false' : undefined}
+			onpointerdown={empty ? (e) => {
+				e.preventDefault();
+				const ph = e.currentTarget.closest('.node-gap')?.previousElementSibling;
+				if (ph) window.getSelection().setBaseAndExtent(ph, 0, ph, 0);
+			} : undefined}
+		>{#if !empty}<br />{/if}</div>
 	</div>
 {:else}
 	<div class="node-gap"></div>
