@@ -59,7 +59,7 @@
 			class="empty-node-placeholder"
 			data-path={serialize_path([...path, 0])}
 			data-type="node"
-			style="anchor-name: --{[...path, 0].join('-')}; --node-array-anchor: --{path.join('-')}"
+			style="anchor-name: --{serialize_path([...path, 0])}; --node-array-anchor: --{path_str}"
 		>
 		<NodeGap
 			array_path={path}
