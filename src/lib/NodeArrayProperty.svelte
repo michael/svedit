@@ -27,7 +27,7 @@
 	// second arrow-key stop (issue #260).
 	let is_focused = $derived(
 		svedit.session.selection?.type === 'node'
-		&& svedit.session.selection.path.join('.') === path_str
+		&& serialize_path(svedit.session.selection.path) === path_str
 	);
 
 	setContext('node_array_meta', {
