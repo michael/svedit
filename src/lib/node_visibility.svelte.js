@@ -202,18 +202,16 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Queue a node for deferred view-class sync. The actual BCR read +
-	 * classList write happens in a single RAF, so multiple MO-triggered
-	 * insertions share one layout pass. By RAF time the viewport IO's
-	 * initial callback has usually already fired (IO runs before RAF in
-	 * the rendering pipeline), so this is a safety net for any it missed.
+	 * Queue a node for deferred view-class sync. Unobserves from the
+	 * viewport IO immediately to prevent its initial callback from
+	 * racing with the RAF, then re-observes in #flush_view_sync after
+	 * classes are applied via BCR. Multiple MO-triggered insertions
+	 * coalesce into a single RAF / layout pass.
 	 *
 	 * @param {HTMLElement} el
 	 */
 	schedule_view_sync(el) {
 		if (!this.view_classes) return;
-		// Temporarily unobserve from viewport IO to prevent its initial
-		// callback from racing with the RAF and undoing our classes.
 		this.#view_io?.unobserve(el);
 		this.#pending_view_sync.add(el);
 		if (!this.#pending_view_raf) {
@@ -231,7 +229,6 @@ class VisibilityRegistry {
 			const in_viewport =
 				bcr.bottom > 0 && bcr.top < vh && bcr.right > 0 && bcr.left < vw;
 			this.#apply_view_classes(el, in_viewport, bcr, vh);
-			// Re-observe now that classes are set and the element has layout.
 			this.#view_io?.observe(el);
 		}
 		this.#pending_view_sync.clear();
