@@ -18,6 +18,7 @@
 	let gap_mk_count = $state(null);
 	let scroll_result = $state(null);
 	let resize_result = $state(null);
+	let mutation_result = $state(null);
 	let is_testing = $state(false);
 	let benchmark_results = $state([]);
 	let copy_feedback = $state(false);
@@ -238,11 +239,15 @@
 			const rz_fps = await quick_resize_test(40);
 			await new Promise(r => setTimeout(r, 200));
 
+			const mut_fps = await run_mutation_frames(20);
+			await new Promise(r => setTimeout(r, 200));
+
 			benchmark_results = [...benchmark_results, {
 				nodes: count,
 				render_ms: r_ms, dom_el: d, gaps: g, memory: m,
 				scroll_avg: s_fps.avg, scroll_min: s_fps.min,
-				resize_avg: rz_fps.avg, resize_min: rz_fps.min
+				resize_avg: rz_fps.avg, resize_min: rz_fps.min,
+				mutation_avg: mut_fps.avg, mutation_min: mut_fps.min
 			}];
 		}
 		is_testing = false;
@@ -285,6 +290,53 @@
 			requestAnimationFrame(step);
 		});
 		return calc_fps_stats(stamps);
+	}
+
+	/**
+	 * Add `count` button nodes one-per-frame to the first story's
+	 * buttons array and return FPS stats for the mutation frames.
+	 * @param {number} count
+	 */
+	async function run_mutation_frames(count) {
+		/** @type {{ node_id: string, prop: string } | undefined} */
+		let target;
+		for (const node of Object.values(session.doc.nodes)) {
+			if (node.type === 'story' && Array.isArray(node.buttons)) {
+				target = { node_id: node.id, prop: 'buttons' };
+				break;
+			}
+		}
+		if (!target) return { avg: 0, min: 0, p5: 0, frames: 0 };
+
+		const stamps = [];
+		await new Promise(resolve => {
+			let i = 0;
+			function step(now) {
+				stamps.push(now);
+				if (i < count) {
+					const id = nanoid();
+					const tr = session.tr;
+					tr.create({ id, type: 'button', label: { text: `Btn ${i + 1}`, annotations: [] }, href: '#' });
+					const current = [...session.doc.nodes[target.node_id][target.prop]];
+					current.push(id);
+					tr.set([target.node_id, target.prop], current);
+					session.apply(tr);
+					i++;
+					requestAnimationFrame(step);
+				} else {
+					resolve();
+				}
+			}
+			requestAnimationFrame(step);
+		});
+		return calc_fps_stats(stamps);
+	}
+
+	async function do_mutation_test() {
+		is_testing = true;
+		mutation_result = null;
+		mutation_result = await run_mutation_frames(300);
+		is_testing = false;
 	}
 
 	const key_mapper = new KeyMapper();
@@ -374,6 +426,7 @@
 		</button>
 		<button onclick={do_scroll_test} disabled={is_testing}>Scroll Test</button>
 		<button onclick={do_resize_test} disabled={is_testing}>Resize Test</button>
+		<button onclick={do_mutation_test} disabled={is_testing}>Mutation Test</button>
 		<button onclick={run_full_benchmark} disabled={is_testing} data-testid="benchmark-btn">
 			Full Benchmark
 		</button>
@@ -412,6 +465,14 @@
 			({resize_result.frames} frames)
 		</div>
 	{/if}
+	{#if mutation_result}
+		<div class="metrics-row test-result">
+			Mutation: avg <strong>{mutation_result.avg}</strong> fps,
+			min <strong>{mutation_result.min}</strong> fps,
+			p5 <strong>{mutation_result.p5}</strong> fps
+			({mutation_result.frames} frames)
+		</div>
+	{/if}
 	{#if is_testing}
 		<div class="metrics-row testing-indicator">Running test...</div>
 	{/if}
@@ -440,6 +501,8 @@
 					<th>Scroll min</th>
 					<th>Resize avg</th>
 					<th>Resize min</th>
+					<th>Mut avg</th>
+					<th>Mut min</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -454,6 +517,8 @@
 						<td>{r.scroll_min}</td>
 						<td>{r.resize_avg}</td>
 						<td>{r.resize_min}</td>
+						<td>{r.mutation_avg ?? '–'}</td>
+						<td>{r.mutation_min ?? '–'}</td>
 					</tr>
 				{/each}
 			</tbody>

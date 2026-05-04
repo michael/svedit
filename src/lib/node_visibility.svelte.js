@@ -89,6 +89,10 @@ class VisibilityRegistry {
 	/** @type {IntersectionObserver | null} */
 	#view_io = null;
 
+	/** @type {Set<HTMLElement>} */
+	#pending_view_sync = new Set();
+	#pending_view_raf = 0;
+
 	/**
 	 * When true, a second IO (rootMargin 0, actual viewport) toggles
 	 * `.in-view` / `.seen` / `.fully-in-view` / `.visible-top` /
@@ -100,9 +104,8 @@ class VisibilityRegistry {
 	 * viewport — by the time a node scrolls into view, both thresholds
 	 * have already been crossed and no further callback fires.
 	 *
-	 * Apps that don't use these CSS hooks can opt out via
-	 * `session.config.view_classes = false` to skip the second observer
-	 * entirely.
+	 * Opt out via `session.config.view_classes = false` to skip the
+	 * second observer entirely.
 	 */
 	view_classes = true;
 
@@ -124,6 +127,9 @@ class VisibilityRegistry {
 		this.#io = null;
 		this.#view_io?.disconnect();
 		this.#view_io = null;
+		cancelAnimationFrame(this.#pending_view_raf);
+		this.#pending_view_raf = 0;
+		this.#pending_view_sync.clear();
 		this.near_map.clear();
 		this.clip_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
@@ -193,6 +199,63 @@ class VisibilityRegistry {
 		if (prev?.classList.contains('node-gap')) this.sync_gap_class(prev);
 		const next = node_el.nextElementSibling;
 		if (next?.classList.contains('node-gap')) this.sync_gap_class(next);
+	}
+
+	/**
+	 * Queue a node for deferred view-class sync. The actual BCR read +
+	 * classList write happens in a single RAF, so multiple MO-triggered
+	 * insertions share one layout pass. By RAF time the viewport IO's
+	 * initial callback has usually already fired (IO runs before RAF in
+	 * the rendering pipeline), so this is a safety net for any it missed.
+	 *
+	 * @param {HTMLElement} el
+	 */
+	schedule_view_sync(el) {
+		if (!this.view_classes) return;
+		// Temporarily unobserve from viewport IO to prevent its initial
+		// callback from racing with the RAF and undoing our classes.
+		this.#view_io?.unobserve(el);
+		this.#pending_view_sync.add(el);
+		if (!this.#pending_view_raf) {
+			this.#pending_view_raf = requestAnimationFrame(() => this.#flush_view_sync());
+		}
+	}
+
+	#flush_view_sync() {
+		this.#pending_view_raf = 0;
+		const vh = window.innerHeight;
+		const vw = window.innerWidth;
+		for (const el of this.#pending_view_sync) {
+			if (!el.isConnected) continue;
+			const bcr = el.getBoundingClientRect();
+			const in_viewport =
+				bcr.bottom > 0 && bcr.top < vh && bcr.right > 0 && bcr.left < vw;
+			this.#apply_view_classes(el, in_viewport, bcr, vh);
+			// Re-observe now that classes are set and the element has layout.
+			this.#view_io?.observe(el);
+		}
+		this.#pending_view_sync.clear();
+	}
+
+	/**
+	 * @param {HTMLElement} el
+	 * @param {boolean} in_viewport
+	 * @param {DOMRectReadOnly} bcr
+	 * @param {number} vh
+	 */
+	#apply_view_classes(el, in_viewport, bcr, vh) {
+		const cl = el.classList;
+		cl.toggle('in-view', in_viewport);
+		if (in_viewport) {
+			cl.add('seen');
+			const top_clipped = bcr.top < -0.5;
+			const bottom_clipped = bcr.bottom > vh + 0.5;
+			cl.toggle('fully-in-view', !top_clipped && !bottom_clipped);
+			cl.toggle('visible-top', !top_clipped && bottom_clipped);
+			cl.toggle('visible-bottom', top_clipped && !bottom_clipped);
+		} else {
+			cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
+		}
 	}
 
 	/** @param {string} path */
@@ -276,33 +339,10 @@ class VisibilityRegistry {
 	 */
 	#process_view(entries) {
 		const vh = window.innerHeight;
-		const vw = window.innerWidth;
-
 		for (const entry of entries) {
 			const el = /** @type {HTMLElement} */ (entry.target);
 			if (!el.dataset.path) continue;
-
-			const bcr = entry.boundingClientRect;
-			const in_viewport =
-				entry.isIntersecting &&
-				bcr.bottom > 0 &&
-				bcr.top < vh &&
-				bcr.right > 0 &&
-				bcr.left < vw;
-			const cl = el.classList;
-			cl.toggle('in-view', in_viewport);
-			if (in_viewport) {
-				cl.add('seen');
-				const visible_w = Math.min(bcr.right, vw) - Math.max(bcr.left, 0);
-				const visible_h = Math.min(bcr.bottom, vh) - Math.max(bcr.top, 0);
-				const area = bcr.width * bcr.height;
-				const ratio = area > 0 ? (visible_w * visible_h) / area : 0;
-				cl.toggle('fully-in-view', ratio > 0.98);
-				cl.toggle('visible-top', bcr.bottom > vh + 0.5);
-				cl.toggle('visible-bottom', bcr.top < -0.5);
-			} else {
-				cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
-			}
+			this.#apply_view_classes(el, entry.isIntersecting, entry.boundingClientRect, vh);
 		}
 	}
 
@@ -352,42 +392,36 @@ export function create_node_visibility(svedit) {
 
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
-				// Pass 1: observe new nodes / unobserve removed ones.
-				// No getBoundingClientRect — IO will populate near/clip
-				// state on its first callback. The brief lag between
-				// node insert and .positioned activation is invisible
-				// because un-positioned NodeGaps have zero layout presence.
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
-						if (el.matches?.(NODE_SELECTOR)) registry.observe(el);
-						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
-							registry.observe(/** @type {HTMLElement} */ (child));
+						if (el.matches(NODE_SELECTOR)) {
+							registry.observe(el);
+							registry.schedule_view_sync(el);
+						}
+						// Newly-mounted gaps need immediate .positioned sync —
+						// the IO won't fire for the EXISTING adjacent node
+						// (its intersection didn't change), so the gap would
+						// stay un-positioned until the next scroll.
+						if (el.matches(GAP_SELECTOR)) {
+							registry.sync_gap_class(el);
+						}
+						for (const child of el.querySelectorAll(NODE_SELECTOR)) {
+							const node_el = /** @type {HTMLElement} */ (child);
+							registry.observe(node_el);
+							registry.schedule_view_sync(node_el);
+						}
+						for (const child of el.querySelectorAll(GAP_SELECTOR)) {
+							registry.sync_gap_class(child);
 						}
 					}
 					for (const removed of m.removedNodes) {
 						if (removed.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (removed);
-						if (el.matches?.(NODE_SELECTOR)) registry.unobserve(el);
-						for (const child of el.querySelectorAll?.(NODE_SELECTOR) ?? []) {
+						if (el.matches(NODE_SELECTOR)) registry.unobserve(el);
+						for (const child of el.querySelectorAll(NODE_SELECTOR)) {
 							registry.unobserve(/** @type {HTMLElement} */ (child));
-						}
-					}
-				}
-				// Pass 2: any newly-mounted .node-gap (e.g. count grew →
-				// new mid gap inserted next to an already-visible node)
-				// gets its .positioned set to current state. The IO
-				// won't fire for the EXISTING adjacent node (its
-				// intersection didn't change), so the new gap would
-				// otherwise stay un-positioned until the next scroll.
-				for (const m of mutations) {
-					for (const added of m.addedNodes) {
-						if (added.nodeType !== Node.ELEMENT_NODE) continue;
-						const el = /** @type {HTMLElement} */ (added);
-						if (el.matches?.(GAP_SELECTOR)) registry.sync_gap_class(el);
-						for (const child of el.querySelectorAll?.(GAP_SELECTOR) ?? []) {
-							registry.sync_gap_class(child);
 						}
 					}
 				}
