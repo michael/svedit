@@ -20,4 +20,8 @@
 		flex-direction: column;
 		gap: var(--s-4);
 	}
+	/* Use `of [data-type="node"]` to skip interleaved .node-gap elements */
+	.list :global(.list-node-array > :nth-child(2n of [data-type="node"]) .list-item) {
+		background: color-mix(in oklab, var(--app-primary-fill) 5%, transparent);
+	}
 </style>

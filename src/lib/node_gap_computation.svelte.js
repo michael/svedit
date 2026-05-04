@@ -702,7 +702,7 @@ export function create_gap_computation(svedit) {
 
 		// Build culled gaps uniformly for every array that has visible
 		// children (root-level and nested alike). Empty arrays are covered
-		// because NodeArrayProperty renders an `.empty-node-array`
+		// because NodeArrayProperty renders an `.empty-node-placeholder`
 		// placeholder with `data-type="node"`, which IO observes like any
 		// other node — when visible, the array appears in index_map with
 		// child_index 0, and `build_array_gaps_culled` dispatches to the

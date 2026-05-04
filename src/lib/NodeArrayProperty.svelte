@@ -21,6 +21,15 @@
 	let node_ids = $derived(svedit.session.get(path));
 	let nodes = $derived(node_ids.map(id => svedit.session.get(id)));
 
+	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
+	// the model selection. Used by the CSS rule below to hide the empty-array
+	// NodeGap while the caret is in the placeholder, so its <br> isn't a
+	// second arrow-key stop (issue #260).
+	let is_focused = $derived(
+		svedit.session.selection?.type === 'node'
+		&& svedit.session.selection.path.join('.') === path_str
+	);
+
 	setContext('node_array_meta', {
 		get length() { return node_ids.length; }
 	});
@@ -37,45 +46,36 @@
 <svelte:element
 	this={tag}
 	class={css_class}
+	class:focused={is_focused}
 	data-type="node_array"
 	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
 >
 	{#if node_ids.length === 0 && svedit.editable}
-		<!--
-		Experimental: We'll let .empty-node-array act like a node, so the existing
-		code paths for selection mapping will work as expected.
-
-		TODO: Need to figure out a way to make .empty-node-array customizable.
-		-->
 		<div
-			class="node empty-node-array"
+			class="empty-node-placeholder"
 			data-path={[...path, 0].join('.')}
 			data-type="node"
 			style="anchor-name: --{[...path, 0].join(
 				'-'
-			)}; min-height: 40px; min-width: 24px;"
-		></div>
-		<!-- Sibling (not child) of .empty-node-array so its .svedit-selectable
-		     resolves anchor positioning against the shared containing block,
-		     not the placeholder which inherits .node positioning styles. -->
+			)}; --node-array-anchor: --{path.join('-')}"
+		>
 		<NodeGap
 			array_path={path}
 			offset={0}
 			count={0}
 			empty
-			positioned={svedit.should_position_gap?.(path_str, 0, 0) ?? true}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, 0, 0) ?? true) : false}
 		/>
+		</div>
 	{/if}
 	{#each nodes as node, index (index)}
-		{#if svedit.editable}
-			<NodeGap
-				array_path={path}
-				offset={index}
-				count={nodes.length}
-				positioned={svedit.should_position_gap?.(path_str, index, nodes.length) ?? true}
-			/>
-		{/if}
+		<NodeGap
+			array_path={path}
+			offset={index}
+			count={nodes.length}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, index, nodes.length) ?? true) : false}
+		/>
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
 			<Component path={[...path, index]} />
@@ -83,15 +83,25 @@
 			<UnknownNode path={[...path, index]} />
 		{/if}
 	{/each}
-	{#if svedit.editable && node_ids.length > 0}
+	{#if node_ids.length > 0}
 		<NodeGap
 			array_path={path}
 			offset={node_ids.length}
 			count={node_ids.length}
-			positioned={svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true}
+			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true) : false}
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
 		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>
+
+<style>
+.empty-node-placeholder {
+	cursor: pointer;
+	right: anchor(var(--node-array-anchor) right);
+	left: anchor(var(--node-array-anchor) left);
+	min-height: 40px; 
+	min-width: 24px; 
+}
+</style>

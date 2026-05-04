@@ -1,4 +1,6 @@
 <script>
+	import { getContext } from 'svelte';
+
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
 	 * │ MUST RULES — do not violate when modifying this file            │
@@ -33,14 +35,21 @@
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
+	 *
+	 * If you override this component via `system_components.NodeGap`, make
+	 * sure your custom component also handles read-only mode by rendering a
+	 * plain `.node-gap` placeholder without editable internals.
 	 */
+	const svedit = getContext('svedit');
 	let { array_path, offset, count, empty = false, positioned = true } = $props();
+	let is_editable = $derived(svedit.editable);
 
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
 
 	let gap_style = $derived.by(() => {
+		if (!is_editable) return '';
 		const arr = array_path.join('-');
 		const prev_idx = offset - 1;
 		const pa = is_first ? `--${arr}-0` : `--${arr}-${prev_idx}`;
@@ -50,24 +59,29 @@
 	});
 
 	let anchor_name = $derived.by(() => {
+		if (!is_editable) return '';
 		const arr = array_path.join('-');
 		if (is_first) return `--g-${arr}-0-gap-before`;
 		return `--g-${arr}-${offset - 1}-gap-after`;
 	});
 </script>
 
-<div
-	class="node-gap {type}"
-	class:empty
-	class:last={is_last}
-	class:positioned
-	data-type={type}
-	data-gap-array-path={array_path.join('.')}
-	data-gap-offset={offset}
-	style={gap_style}
->
-	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
-</div>
+{#if is_editable}
+	<div
+		class="node-gap {type}"
+		class:empty
+		class:last={is_last}
+		class:positioned
+		data-type={type}
+		data-gap-array-path={array_path.join('.')}
+		data-gap-offset={offset}
+		style={gap_style}
+	>
+		<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
+	</div>
+{:else}
+	<div class="node-gap"></div>
+{/if}
 
 
 <style>
