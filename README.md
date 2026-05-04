@@ -32,6 +32,19 @@ You can also install Svedit into an existing SvelteKit project with `npm install
 
 **Chromeless canvas:** Svedit keeps the editing canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
 
+**Native-first:** Svedit favors native browser solutions over custom ones whenever possible — using browser-based rendering and the browser's selection APIs underneath, rather than reimplementing them (e.g. by building on [pretext](https://github.com/chenglou/pretext)). When we hit browser bugs, we try to get them fixed upstream (together with the W3C editing working group). Workarounds we add are intended to be temporary, until the underlying issue is fixed by browser vendors. And where we believe there's a better way to solve a problem than what's currently specified, we lobby for it to become a new (or improved) web standard.
+
+*Concrete example — caret rendering with placeholders:* Browsers don't render the caret height correctly when a placeholder is shown, and Firefox additionally fails to render placeholders correctly for centered text. We have two workarounds:
+
+- *Workaround 1:* Add CSS `line-height: 1cap !important;` (see [#261](https://github.com/michael/svedit/pull/261)) to fix the caret height. Doesn't fix the Firefox centering issue.
+- *Workaround 2:* Render a custom cursor while placeholders are shown. Fixes all the problems, but deviates from native behavior (e.g. for centered text, the caret is rendered at the start of the placeholder rather than at the center, where the first typed character would actually land).
+
+Svedit's path forward might be:
+
+- *Short term:* Use workaround 2, since it fixes all issues including Firefox.
+- *Mid term:* Once Firefox fixes its cursor rendering, switch to workaround 1, which is closer to native behavior.
+- *Long term:* Push browsers to render the caret correctly everywhere, and advocate for the improved caret placement from workaround 2 to become the new standard.
+
 ## How it works
 
 Svedit connects eight key pieces:
@@ -1088,8 +1101,59 @@ Further things to consider:
 - Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
 - Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
-- Avoid CSS selectors like `:last-child` or `:first-child` on nodes (e.g., `[data-type="node"]:last-child`) because `<NodeGap>` elements are inserted in edit mode and will become the actual first or last child. This can cause unexpected layout shifts (e.g., if you have `.paragraph-node:last-child { margin-bottom: 10px }`, the margin won't apply as expected).
-- Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensure `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to child element of Node.
+- Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensures `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to a child element of Node.
+
+### Consistent DOM structure across modes
+
+`<NodeArrayProperty>` always renders a `.node-gap` element before each node, regardless of whether the editor is in edit or read-only mode. In edit mode, this is the full `<NodeGap>` component with anchor positioning, hit areas, and caret support. In read-only mode, it's a plain `<div class="node-gap"></div>`.
+
+This means the DOM structure is identical in both modes:
+
+```html
+<!-- Same structure in edit and read-only mode -->
+<div data-type="node_array">
+  <div class="node-gap">...</div><!-- First element is a node-gap -->
+  <div data-type="node"><!-- first node --></div>
+  <div class="node-gap">...</div>
+  <div data-type="node"><!-- second node --></div>
+  ...
+  <div class="node-gap">...</div><!-- Last element is a node-gap -->
+</div>
+```
+
+The `.node-gap` element uses `display: contents`, so it has no layout impact — it doesn't generate a box, doesn't affect flex/grid item counts, and doesn't consume space. It only serves as a DOM placeholder for consistent selector targeting.
+
+Because `.node-gap` is always the actual first and last child, do not use `:first-child` or `:last-child` on nodes — they will never match. Use `:nth-child(1 of [data-type="node"])` and `:nth-last-child(1 of [data-type="node"])` instead.
+
+CSS sibling selectors that target node adjacency only need one form:
+
+```css
+/* Works in both edit and read-only mode */
+.node-text + .node-gap + .node-media {
+  margin-block-start: 1rem;
+}
+```
+
+For `:nth-child` selectors, use the `of <selector>` syntax to skip over `.node-gap` elements and count only nodes:
+
+```css
+/* Even nodes */
+.list-node-array > :nth-child(2n of [data-type="node"]) {
+  background: var(--zebra-stripe);
+}
+
+/* Odd nodes */
+.list-node-array > :nth-child(2n-1 of [data-type="node"]) {
+  background: var(--zebra-stripe);
+}
+
+/* Last node */
+.list-node-array > :nth-last-child(1 of [data-type="node"]) {
+  border-bottom: none;
+}
+```
+
+Without the `of` filter, plain `:nth-child(even)` would count `.node-gap` divs and produce incorrect results. The [`of <selector>`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/:nth-child#syntax) form is Baseline 2023 and supported in all modern browsers.
 
 ### Node array CSS tokens
 
@@ -1166,6 +1230,26 @@ For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-car
   --node-caret-boundary-x: --editor-boundary;
 }
 ```
+
+## Recomended Workarounds (e.g. browser bugs)
+
+Our goal is to report browser bugs and get them fixed, but sometimes it takes decades and nothing happens.
+This is a list of recommended workarounds for those scenarios. They are not part of Svedit itself because they can cause subtle side-effects and should be therefore applied with care and deliberation.
+
+### Fix vertical alignment of caret due to a decade-old browser bug
+https://stackoverflow.com/questions/32905957/caret-position-when-centering-with-flexbox-in-contenteditable/
+
+This is safe to use when your app/website only uses `text-box: trim-both cap
+alphabetic;` (Svedit default) for all `<AnnotatedTextProperty>` istances. If you want
+to use other text-box trim strategies, you have to make specific overrides to
+.text.editable.empty. for each case.
+
+```css
+.svedit-canvas .text.editable.empty {
+  line-height: 1cap !important;
+}
+```
+
 
 ## Beyond the README
 
