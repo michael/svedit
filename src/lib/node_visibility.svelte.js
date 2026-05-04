@@ -1,9 +1,5 @@
 /**
- * Single-observer viewport visibility tracking for node arrays.
- *
- * Replaces the dual-IO + dual-MO + hand-rolled cache architecture in
- * the previous node_gap_computation. One IntersectionObserver, one
- * MutationObserver, native SvelteMap/SvelteSet fine-grained reactivity.
+ * Dual-observer viewport visibility tracking for node arrays.
  *
  * ## Why this exists
  *
@@ -19,19 +15,21 @@
  * by viewport visibility. Off-screen NodeGaps remain as zero-size
  * absolute elements with no anchor cost.
  *
- * ## Single observer, dual-purpose
+ * ## Two observers, separated by root
  *
- * One IntersectionObserver with `rootMargin: 500px` does triple duty:
- *
+ * **Overscan IO** (`rootMargin: 500px`, threshold `[0]`):
  * 1. **near_map** — entry.isIntersecting is true for the rootMargin'd
  *    overscan zone. Drives `.positioned` activation on adjacent gaps.
- * 2. **viewport state** — computed from boundingClientRect vs window
- *    dimensions (independent of rootMargin). Drives `.in-view`,
- *    `.fully-in-view`, `.visible-top`, `.visible-bottom`, `.seen`.
- *    OPT-IN via `session.config.view_classes` — costs ~5 classList
- *    ops per IO entry, measurable at 200-500 nodes.
- * 3. **clip_map** — computed from intersectionRect vs boundingClientRect
+ * 2. **clip_map** — computed from intersectionRect vs boundingClientRect
  *    for nested-scroller edge clip detection.
+ *
+ * **Viewport IO** (`rootMargin: 0`, threshold `[0, 1]`):
+ * 3. **view classes** — `.in-view`, `.fully-in-view`, `.visible-top`,
+ *    `.visible-bottom`, `.seen`. OPT-IN via `session.config.view_classes`.
+ *    A separate observer is required because the overscan IO fires its
+ *    thresholds while nodes are still 500px outside the real viewport —
+ *    by the time a node scrolls into view, both thresholds have already
+ *    been crossed and no further callback fires.
  *
  * ## Reactivity
  *
@@ -88,33 +86,44 @@ class VisibilityRegistry {
 	/** @type {IntersectionObserver | null} */
 	#io = null;
 
+	/** @type {IntersectionObserver | null} */
+	#view_io = null;
+
 	/**
-	 * When true, IO callback toggles `.in-view` / `.seen` /
-	 * `.fully-in-view` / `.visible-top` / `.visible-bottom` on node
-	 * elements — useful for scrollytelling and reveal animations.
-	 * Apps that don't use these CSS hooks can opt out via
-	 * `session.config.view_classes = false` to skip ~5 classList ops
-	 * per IO entry (~10-15% scroll-FPS win at 200-500 nodes).
+	 * When true, a second IO (rootMargin 0, actual viewport) toggles
+	 * `.in-view` / `.seen` / `.fully-in-view` / `.visible-top` /
+	 * `.visible-bottom` on node elements — useful for scrollytelling
+	 * and reveal animations.
 	 *
-	 * Also affects IO threshold (see `start()`): with view_classes off,
-	 * we use threshold `[0]` only, halving IO callback frequency during
-	 * scroll. With view_classes on, we add `0.98` so the callback fires
-	 * on the fully-visible ↔ partially-clipped transition needed by
-	 * `.fully-in-view` / `.visible-top` / `.visible-bottom`.
+	 * A separate observer is required because the overscan IO (rootMargin
+	 * 500px) fires its thresholds while nodes are still outside the real
+	 * viewport — by the time a node scrolls into view, both thresholds
+	 * have already been crossed and no further callback fires.
+	 *
+	 * Apps that don't use these CSS hooks can opt out via
+	 * `session.config.view_classes = false` to skip the second observer
+	 * entirely.
 	 */
 	view_classes = true;
 
 	start() {
 		if (typeof window === 'undefined' || this.#io) return;
-		this.#io = new IntersectionObserver((entries) => this.#process(entries), {
+		this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
 			rootMargin: `${OVERSCAN_PX}px`,
-			threshold: this.view_classes ? [0, 0.98] : [0]
+			threshold: [0]
 		});
+		if (this.view_classes) {
+			this.#view_io = new IntersectionObserver((entries) => this.#process_view(entries), {
+				threshold: [0, 1]
+			});
+		}
 	}
 
 	stop() {
 		this.#io?.disconnect();
 		this.#io = null;
+		this.#view_io?.disconnect();
+		this.#view_io = null;
 		this.near_map.clear();
 		this.clip_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
@@ -141,11 +150,13 @@ class VisibilityRegistry {
 	/** @param {HTMLElement} el */
 	observe(el) {
 		this.#io?.observe(el);
+		this.#view_io?.observe(el);
 	}
 
 	/** @param {HTMLElement} el */
 	unobserve(el) {
 		this.#io?.unobserve(el);
+		this.#view_io?.unobserve(el);
 		const path = el.dataset?.path;
 		if (path) this.#forget(path);
 	}
@@ -158,12 +169,13 @@ class VisibilityRegistry {
 	 * @param {Element} gap_el
 	 */
 	sync_gap_class(gap_el) {
-		const arr = /** @type {HTMLElement} */ (gap_el).dataset.gapArrayPath;
+		const el = /** @type {HTMLElement} */ (gap_el);
+		const arr = el.dataset.gapArrayPath;
 		if (!arr) return;
-		const offset = parseInt(/** @type {HTMLElement} */ (gap_el).dataset.gapOffset, 10);
-		const is_last = gap_el.classList.contains('last');
-		const empty = gap_el.classList.contains('empty');
-		gap_el.classList.toggle(
+		const offset = parseInt(el.dataset.gapOffset, 10);
+		const is_last = el.classList.contains('last');
+		const empty = el.classList.contains('empty');
+		el.classList.toggle(
 			'positioned',
 			should_position_gap_imperative(this, arr, offset, is_last, empty)
 		);
@@ -208,11 +220,13 @@ class VisibilityRegistry {
 		return { array_path: path.slice(0, dot), index };
 	}
 
-	/** @param {IntersectionObserverEntry[]} entries */
-	#process(entries) {
-		const vh = window.innerHeight;
-		const vw = window.innerWidth;
-
+	/**
+	 * Overscan IO callback. Manages near_map, clip_map, array_indices,
+	 * and imperative .positioned toggling on adjacent gaps.
+	 *
+	 * @param {IntersectionObserverEntry[]} entries
+	 */
+	#process_near(entries) {
 		for (const entry of entries) {
 			const el = /** @type {HTMLElement} */ (entry.target);
 			const path = el.dataset.path;
@@ -222,11 +236,8 @@ class VisibilityRegistry {
 			const bcr = entry.boundingClientRect;
 			const ir = entry.intersectionRect;
 
-			// Track whether near/clip changed so we only touch the DOM
-			// when the gap classification could have flipped.
 			let any_change = false;
 
-			// near_map (overscan zone)
 			if (is_near) {
 				if (!this.near_map.has(path)) {
 					this.near_map.set(path, true);
@@ -237,8 +248,6 @@ class VisibilityRegistry {
 				any_change = true;
 			}
 
-			// array_indices (per-array index set) — kept in sync with near_map
-			// for NodeGapMarkers' visible-iteration consumer.
 			const split = this.#split_path(path);
 			if (split) {
 				const set = this.get_array_indices(split.array_path);
@@ -246,7 +255,6 @@ class VisibilityRegistry {
 				else set.delete(split.index);
 			}
 
-			// clip_map (nested-scroller edge clip)
 			const new_bits = is_near ? this.#clip_bits(bcr, ir) : 0b11;
 			const old_bits = this.clip_map.get(path) ?? 0;
 			if (new_bits !== old_bits) {
@@ -255,37 +263,45 @@ class VisibilityRegistry {
 				any_change = true;
 			}
 
-			// Imperative .positioned toggle on the two adjacent gap
-			// elements — replaces a reactive $derived per NodeGap, which
-			// at 1000+ NodeGaps cost a measurable amount of Svelte
-			// scheduling overhead per scroll frame.
 			if (any_change) this.sync_gaps_around_node(el);
+		}
+	}
 
-			// View classes — opt-in via session.config.view_classes.
-			// Off by default because each entry costs ~5 classList ops
-			// and ~5 style invalidations; measurable hit at 200-500
-			// nodes for apps that don't use scrollytelling.
-			if (this.view_classes) {
-				const in_viewport =
-					is_near &&
-					bcr.bottom > 0 &&
-					bcr.top < vh &&
-					bcr.right > 0 &&
-					bcr.left < vw;
-				const cl = el.classList;
-				cl.toggle('in-view', in_viewport);
-				if (in_viewport) {
-					cl.add('seen');
-					const visible_w = Math.min(bcr.right, vw) - Math.max(bcr.left, 0);
-					const visible_h = Math.min(bcr.bottom, vh) - Math.max(bcr.top, 0);
-					const area = bcr.width * bcr.height;
-					const ratio = area > 0 ? (visible_w * visible_h) / area : 0;
-					cl.toggle('fully-in-view', ratio > 0.98);
-					cl.toggle('visible-top', bcr.bottom > vh + 0.5);
-					cl.toggle('visible-bottom', bcr.top < -0.5);
-				} else {
-					cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
-				}
+	/**
+	 * Viewport IO callback. Toggles view classes on node elements.
+	 * Runs on a separate observer with rootMargin 0 so thresholds
+	 * fire at actual viewport edges, not the overscan boundary.
+	 *
+	 * @param {IntersectionObserverEntry[]} entries
+	 */
+	#process_view(entries) {
+		const vh = window.innerHeight;
+		const vw = window.innerWidth;
+
+		for (const entry of entries) {
+			const el = /** @type {HTMLElement} */ (entry.target);
+			if (!el.dataset.path) continue;
+
+			const bcr = entry.boundingClientRect;
+			const in_viewport =
+				entry.isIntersecting &&
+				bcr.bottom > 0 &&
+				bcr.top < vh &&
+				bcr.right > 0 &&
+				bcr.left < vw;
+			const cl = el.classList;
+			cl.toggle('in-view', in_viewport);
+			if (in_viewport) {
+				cl.add('seen');
+				const visible_w = Math.min(bcr.right, vw) - Math.max(bcr.left, 0);
+				const visible_h = Math.min(bcr.bottom, vh) - Math.max(bcr.top, 0);
+				const area = bcr.width * bcr.height;
+				const ratio = area > 0 ? (visible_w * visible_h) / area : 0;
+				cl.toggle('fully-in-view', ratio > 0.98);
+				cl.toggle('visible-top', bcr.bottom > vh + 0.5);
+				cl.toggle('visible-bottom', bcr.top < -0.5);
+			} else {
+				cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
 			}
 		}
 	}

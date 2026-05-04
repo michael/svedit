@@ -67,11 +67,11 @@
 		</div>
 	{/if}
 	{#each nodes as node, index (index)}
-			<NodeGap
-				array_path={path}
-				offset={index}
-				count={nodes.length}
-			/>
+		<NodeGap
+			array_path={path}
+			offset={index}
+			count={nodes.length}
+		/>
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
 			<Component path={[...path, index]} />
