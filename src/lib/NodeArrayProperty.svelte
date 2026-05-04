@@ -51,26 +51,15 @@
 	data-path={path_str}
 	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
 >
-	{#if node_ids.length === 0}
-		<!--
-		Experimental: We'll let .empty-node-placeholder act like a node, so the existing
-		code paths for selection mapping will work as expected.
-
-		TODO: Need to figure out a way to make .empty-node-placeholder customizable.
-		-->
-		{#if svedit.editable}
-			<div
-				class="empty-node-placeholder"
-				data-path={[...path, 0].join('.')}
-				data-type="node"
-				style="anchor-name: --{[...path, 0].join(
-					'-'
-				)}; min-height: 40px; min-width: 24px;"
-			><br /></div>
-			<!-- Sibling (not child) of .empty-node-placeholder so its .svedit-selectable
-			     resolves anchor positioning against the shared containing block,
-			     not the placeholder which inherits .node positioning styles. -->
-		{/if}
+	{#if node_ids.length === 0 && svedit.editable}
+		<div
+			class="empty-node-placeholder"
+			data-path={[...path, 0].join('.')}
+			data-type="node"
+			style="anchor-name: --{[...path, 0].join(
+				'-'
+			)}; --node-array-anchor: --{path.join('-')}"
+		>
 		<NodeGap
 			array_path={path}
 			offset={0}
@@ -78,6 +67,7 @@
 			empty
 			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, 0, 0) ?? true) : false}
 		/>
+		</div>
 	{/if}
 	{#each nodes as node, index (index)}
 		<NodeGap
@@ -107,8 +97,11 @@
 </svelte:element>
 
 <style>
-	/* See `is_focused` derived state (issue #260). */
-	:global([data-type='node_array'].focused > .empty-node-placeholder + .node-gap) {
-		display: none;
-	}
+.empty-node-placeholder {
+	cursor: pointer;
+	right: anchor(var(--node-array-anchor) right);
+	left: anchor(var(--node-array-anchor) left);
+	min-height: 40px; 
+	min-width: 24px; 
+}
 </style>
