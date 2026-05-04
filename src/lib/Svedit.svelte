@@ -706,9 +706,6 @@ ${fallback_html}`;
 		const selection = /** @type {Selection} */ (session.selection);
 
 		if (!selection) {
-			// No model selection -> just leave things as they are
-			let dom_selection = window.getSelection();
-			dom_selection.removeAllRanges();
 			return;
 		}
 
@@ -884,11 +881,8 @@ ${fallback_html}`;
 
 		// Check if it's a backwards selection
 		const is_backwards = __is_dom_selection_backwards();
-		if (is_backwards) {
-			anchor_offset += 1;
-		} else {
-			focus_offset += 1;
-		}
+		if (is_backwards) anchor_offset += 1;
+		else focus_offset += 1;
 
 		// EDGE CASE: Exclude first node when anchor_node is a gap-after
 		// in a non-collapsed forward selection.

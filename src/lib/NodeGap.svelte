@@ -1,5 +1,6 @@
 <script>
 	import { serialize_path } from './utils.js';
+	import { getContext } from 'svelte';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -35,14 +36,21 @@
 	 *
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
+	 *
+	 * If you override this component via `system_components.NodeGap`, make
+	 * sure your custom component also handles read-only mode by rendering a
+	 * plain `.node-gap` placeholder without editable internals.
 	 */
+	const svedit = getContext('svedit');
 	let { array_path, offset, count, empty = false, positioned = true } = $props();
+	let is_editable = $derived(svedit.editable);
 
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
 
 	let gap_style = $derived.by(() => {
+		if (!is_editable) return '';
 		const prev_idx = offset - 1;
 		const pa = is_first
 			? `--${serialize_path([...array_path, 0])}`
@@ -53,24 +61,28 @@
 	});
 
 	let anchor_name = $derived.by(() => {
+    if (!is_editable) return '';
 		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
 		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
 	});
 </script>
 
-<div
-	class="node-gap {type}"
-	class:empty
-	class:last={is_last}
-	class:positioned
-	data-type={type}
-	data-gap-array-path={serialize_path(array_path)}
-	data-gap-offset={offset}
-	style={gap_style}
->
-	<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
-</div>
-
+{#if is_editable}
+	<div
+		class="node-gap {type}"
+		class:empty
+		class:last={is_last}
+		class:positioned
+		data-type={type}
+  	data-gap-array-path={serialize_path(array_path)}
+		data-gap-offset={offset}
+		style={gap_style}
+	>
+		<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
+	</div>
+{:else}
+	<div class="node-gap"></div>
+{/if}
 
 <style>
 	.node-gap {
