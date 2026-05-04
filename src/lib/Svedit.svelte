@@ -883,14 +883,8 @@ ${fallback_html}`;
 
 		// Check if it's a backwards selection
 		const is_backwards = __is_dom_selection_backwards();
-		// Skip the "cursor on node N" → "ends after N" bump for empty arrays:
-		// the .empty-node-placeholder sits at path-index 0 but offset 0 is the
-		// only valid offset (would otherwise validate as out-of-bounds 1).
-		const is_empty_array = session.get(parent_array_path)?.length === 0;
-		if (!is_empty_array) {
-			if (is_backwards) anchor_offset += 1;
-			else focus_offset += 1;
-		}
+		if (is_backwards) anchor_offset += 1;
+		else focus_offset += 1;
 
 		// EDGE CASE: Exclude first node when anchor_node is a gap-after
 		// in a non-collapsed forward selection.
