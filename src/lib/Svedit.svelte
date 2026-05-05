@@ -39,12 +39,10 @@
 	let NodeSelectionMarkers = $derived(session.config.system_components?.NodeSelectionMarkers ?? DefaultNodeSelectionMarkers);
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
-	const pointer_focus_window_ms = 500;
 
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
-	let last_canvas_pointerdown_at = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -233,6 +231,10 @@
 			// HACK: In order to restore the DOM state from before composition, we just run contenteditable's
 			// native undo command. Then the DOM will be in sync again with the editor's internal state.
 			document.execCommand('undo', false, null);
+
+			// Firefox may not undo native composition DOM. If the composed text is
+			// still present, remove it manually before applying the Svedit transaction.
+			__remove_native_composition_text(before_composition_selection, event.data);
 
 			// Set the selection to where the user initiated the composition, make changes, and apply.
 			// NOTE: We need to check for valid selection here, as there is a rare race condition
@@ -710,14 +712,10 @@ ${fallback_html}`;
 
 		if (!selection) {
 			// No model selection -> just leave things as they are
-			// IMPORTANT: This line is needed, so the DOM selection is hanging
-			// around without having a mapping to the model, which causes bugs.
-			// E.g. without this line, typing into an empty text property might
-			// wrongly map the cursor to postion 0 (should be 1) after typing the
-			// first character. Reason: The browser selection survived the DOM
-			// transition from “empty placeholder structure” to “real text node”
-			// on the wrong side of the inserted node.
-			window.getSelection().removeAllRanges();
+			// NOTE: removeAllRanges() makes the document lose selection on
+			// refocus of the window, hence I disable it for now.
+			// let dom_selection = window.getSelection();
+			// dom_selection.removeAllRanges();
 			return;
 		}
 
@@ -726,7 +724,10 @@ ${fallback_html}`;
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
 			__get_node_selection_from_dom();
+		const is_empty_text_selection =
+			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (
+			!is_empty_text_selection &&
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
 		) {
@@ -745,28 +746,11 @@ ${fallback_html}`;
 		}
 	}
 
-	function handle_canvas_pointerdown() {
-		last_canvas_pointerdown_at = performance.now();
-	}
-
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
-		const focus_from_pointer =
-			last_canvas_pointerdown_at > 0 &&
-			performance.now() - last_canvas_pointerdown_at < pointer_focus_window_ms;
-		last_canvas_pointerdown_at = 0;
-
 		// Use flushSync so highlight spans are removed from the DOM
 		// immediately, before the browser processes the click's selection.
 		flushSync(() => {
-			// Clear the model selection so render_selection() does not call
-			// setBaseAndExtent() with the old position, which would battle
-			// with the new selection the user is making (the click/drag that
-			// triggered this focus). The browser will place the caret and
-			// fire selectionchange, which sets the model selection correctly.
-			if (focus_from_pointer) {
-				session.selection = null;
-			}
 			canvas_focused = true;
 		});
 		key_mapper?.push_scope(session.keymap);
@@ -1070,9 +1054,10 @@ ${fallback_html}`;
 		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
 		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
-		// We detect this and return text_length instead.
-		const text_content = session.get(path).text;
-		const text_length = get_char_length(text_content);
+		// We detect this and return the current DOM text length instead.
+		// During compositionend, the browser has already inserted the composed
+		// character into the DOM, while the Svedit model still has the old text.
+		const dom_text_length = get_char_length(focus_root.textContent ?? '');
 		const child_nodes = focus_root.childNodes;
 
 		if (
@@ -1097,8 +1082,8 @@ ${fallback_html}`;
 				return {
 					type: 'text',
 					path,
-					anchor_offset: text_length,
-					focus_offset: text_length
+					anchor_offset: dom_text_length,
+					focus_offset: dom_text_length
 				};
 			}
 		}
@@ -1326,6 +1311,52 @@ ${fallback_html}`;
 	// Utils
 	// --------------------------
 
+	function __remove_native_composition_text(selection, inserted_text) {
+		if (!selection || selection.type !== 'text' || !inserted_text) return;
+
+		const text_el = canvas_el.querySelector(
+			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
+		);
+		if (!text_el) return;
+
+		const model_text = session.get(selection.path).text;
+		if ((text_el.textContent ?? '') === model_text) return;
+
+		let current_offset = 0;
+		function get_dom_text_position(root, target_offset) {
+			for (const node of root.childNodes) {
+				if (node.nodeType === Node.TEXT_NODE) {
+					const node_text = node.textContent ?? '';
+					const node_length = get_char_length(node_text);
+					if (current_offset + node_length >= target_offset) {
+						return {
+							node,
+							offset: char_to_utf16_offset(node_text, target_offset - current_offset)
+						};
+					}
+					current_offset += node_length;
+				} else if (node.nodeType === Node.ELEMENT_NODE) {
+					const position = get_dom_text_position(node, target_offset);
+					if (position) return position;
+				}
+			}
+			return null;
+		}
+
+		const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
+		const end_offset = start_offset + get_char_length(inserted_text);
+		current_offset = 0;
+		const start_position = get_dom_text_position(text_el, start_offset);
+		current_offset = 0;
+		const end_position = get_dom_text_position(text_el, end_offset);
+		if (!start_position || !end_position) return;
+
+		const range = window.document.createRange();
+		range.setStart(start_position.node, start_position.offset);
+		range.setEnd(end_position.node, end_position.offset);
+		range.deleteContents();
+	}
+
 	function __is_dom_selection_backwards() {
 		const dom_selection = window.getSelection();
 
@@ -1388,7 +1419,6 @@ ${fallback_html}`;
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
-		onpointerdowncapture={handle_canvas_pointerdown}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
 		inputmode={session.selection?.type === 'text' ? 'text' : 'none'}
