@@ -39,9 +39,12 @@
 	let NodeSelectionMarkers = $derived(session.config.system_components?.NodeSelectionMarkers ?? DefaultNodeSelectionMarkers);
 	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
 
+	const pointer_focus_window_ms = 500;
+
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
+	let last_canvas_pointerdown_at = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -706,6 +709,15 @@ ${fallback_html}`;
 		const selection = /** @type {Selection} */ (session.selection);
 
 		if (!selection) {
+			// No model selection -> just leave things as they are
+			// IMPORTANT: This line is needed, so the DOM selection is hanging
+			// around without having a mapping to the model, which causes bugs.
+			// E.g. without this line, typing into an empty text property might
+			// wrongly map the cursor to postion 0 (should be 1) after typing the
+			// first character. Reason: The browser selection survived the DOM
+			// transition from “empty placeholder structure” to “real text node”
+			// on the wrong side of the inserted node.
+			window.getSelection().removeAllRanges();
 			return;
 		}
 
@@ -733,8 +745,17 @@ ${fallback_html}`;
 		}
 	}
 
+	function handle_canvas_pointerdown() {
+		last_canvas_pointerdown_at = performance.now();
+	}
+
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
+		const focus_from_pointer =
+			last_canvas_pointerdown_at > 0 &&
+			performance.now() - last_canvas_pointerdown_at < pointer_focus_window_ms;
+		last_canvas_pointerdown_at = 0;
+
 		// Use flushSync so highlight spans are removed from the DOM
 		// immediately, before the browser processes the click's selection.
 		flushSync(() => {
@@ -743,7 +764,9 @@ ${fallback_html}`;
 			// with the new selection the user is making (the click/drag that
 			// triggered this focus). The browser will place the caret and
 			// fire selectionchange, which sets the model selection correctly.
-			session.selection = null;
+			if (focus_from_pointer) {
+				session.selection = null;
+			}
 			canvas_focused = true;
 		});
 		key_mapper?.push_scope(session.keymap);
@@ -1342,6 +1365,7 @@ ${fallback_html}`;
 		{onbeforeinput}
 		{oncompositionstart}
 		{oncompositionend}
+		onpointerdowncapture={handle_canvas_pointerdown}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
 		inputmode={session.selection?.type === 'text' ? 'text' : 'none'}
