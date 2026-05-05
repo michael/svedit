@@ -97,22 +97,20 @@
 			return;
 		}
 
+		// While composing, Svedit does nothing and lets the oncompositionend
+		// event handle the final replacement. Some browsers report deletion
+		// beforeinput events during composition without setting event.isComposing,
+		// so the component-level is_composing flag must be checked before any
+		// normal input/delete handling.
+		if (is_composing || event.isComposing) {
+			return;
+		}
+
 		// Sometimes the part that should be replaced is not the same as the current DOM selection
 		// that's why we look into event.getTargetRanges()[0] if it exists.
 		let target_selection;
 		if (event.getTargetRanges?.()?.[0]) {
 			target_selection = __get_text_selection_from_dom(event.getTargetRanges()[0]);
-		}
-
-		// While composing, Svedit does nothing and lets the oncompositionend
-		// event handle the final replacement.
-		if (event.isComposing) {
-			// NOTE: We only capture the initial selection right after the composition started
-			// We're not interested in the target selections during the composition.
-			if (!before_composition_selection) {
-				before_composition_selection = target_selection;
-			}
-			return;
 		}
 
 		// NOTE: in cases we can't reliably map event.getTargetRanges()[0] to a session selection,
@@ -210,6 +208,11 @@
 			return;
 		}
 
+		// Capture the model selection at composition start. Target ranges emitted
+		// during composition can describe the browser's temporary composition DOM,
+		// not the model range that should be replaced.
+		before_composition_selection = structuredClone(session.selection);
+
 		// Disable keydown event handling during composition. This way, you can confirm
 		// a diacritic (a->ä) with ENTER without causing a line break.
 		key_mapper.skip_onkeydown = true;
@@ -223,42 +226,37 @@
 	 */
 	function oncompositionend(event) {
 		console.log('DEBUG: oncompositionend, insert:', event.data, event);
-		if (!canvas_el?.contains(document.activeElement)) return;
-		if (session.selection?.type === 'text') {
-			// We need to remember the user's selection, as it might have changed in the process
-			// of finishing a composition. For instance, the user might have selected a different
-			// part of the text while composing.
-			const user_selection = __get_selection_from_dom();
+		const composition_selection = before_composition_selection;
 
-			// HACK: In order to restore the DOM state from before composition, we just run contenteditable's
-			// native undo command. Then the DOM will be in sync again with the editor's internal state.
-			document.execCommand('undo', false, null);
+		if (canvas_el?.contains(document.activeElement) && composition_selection?.type === 'text') {
+			if (event.data) {
+				// HACK: In order to restore the DOM state from before composition, we just run contenteditable's
+				// native undo command. Then the DOM will be in sync again with the editor's internal state.
+				document.execCommand('undo', false, null);
 
-			// Set the selection to where the user initiated the composition, make changes, and apply.
-			// NOTE: We need to check for valid selection here, as there is a rare race condition
-			// where the user had no text selection at the start of composition.
-			if (before_composition_selection) {
-				session.selection = before_composition_selection;
+				// Set the selection to where the user initiated the composition, make changes, and apply.
+				session.selection = composition_selection;
 				console.log('event.data', event.data);
 				const tr = session.tr;
 				tr.insert_text(event.data);
 				session.apply(tr);
-				// Recover user selection after composition. This assumes that document positions of natively
-				// modified DOM (before transaction applied) are equal to the positions after the transaction.
-				session.selection = user_selection;
+			} else {
+				// Composition was cancelled (e.g. dead key followed by Backspace).
+				// Restore the model selection captured at composition start.
+				session.selection = composition_selection;
 			}
-
-			// NOTE: We need a little timeout to nudge Safari into not handling the
-			// ENTER press when confirming a diacritic
-			setTimeout(() => {
-				key_mapper.skip_onkeydown = false;
-				is_composing = false;
-			}, 100);
 		}
 
 		// Reset before_composition_selection, so we are ready for capturing the starting selection
 		// of the next composition.
 		before_composition_selection = null;
+
+		// NOTE: We need a little timeout to nudge Safari into not handling the
+		// ENTER press when confirming a diacritic.
+		setTimeout(() => {
+			key_mapper.skip_onkeydown = false;
+			is_composing = false;
+		}, 100);
 		return;
 	}
 
@@ -717,7 +715,8 @@ ${fallback_html}`;
 			// first character. Reason: The browser selection survived the DOM
 			// transition from “empty placeholder structure” to “real text node”
 			// on the wrong side of the inserted node.
-			window.getSelection().removeAllRanges();
+			let dom_selection = window.getSelection();
+			dom_selection.removeAllRanges();
 			return;
 		}
 
@@ -726,7 +725,10 @@ ${fallback_html}`;
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
 			__get_node_selection_from_dom();
+		const is_empty_text_selection =
+			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (
+			!is_empty_text_selection &&
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
 		) {
