@@ -1,0 +1,8 @@
+@layer svedit-defaults {
+	@keyframes node-caret-blink {
+		0%, 60% { opacity: 1; }
+		68% { opacity: 0; }
+		88% { opacity: 0; }
+		100% { opacity: 1; }
+	}
+}
