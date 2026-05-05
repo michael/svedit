@@ -1,4 +1,5 @@
 <script>
+	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
 
 	/**
@@ -50,19 +51,19 @@
 
 	let gap_style = $derived.by(() => {
 		if (!is_editable) return '';
-		const arr = array_path.join('-');
 		const prev_idx = offset - 1;
-		const pa = is_first ? `--${arr}-0` : `--${arr}-${prev_idx}`;
-		const next = `--${arr}-${offset}`;
-		const container = `--${arr}`;
+		const pa = is_first
+			? `--${serialize_path([...array_path, 0])}`
+			: `--${serialize_path([...array_path, prev_idx])}`;
+		const next = `--${serialize_path([...array_path, offset])}`;
+		const container = `--${serialize_path(array_path)}`;
 		return `--_pa:${pa};--_next:${next};--_container:${container}`;
 	});
 
 	let anchor_name = $derived.by(() => {
-		if (!is_editable) return '';
-		const arr = array_path.join('-');
-		if (is_first) return `--g-${arr}-0-gap-before`;
-		return `--g-${arr}-${offset - 1}-gap-after`;
+    if (!is_editable) return '';
+		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
+		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
 	});
 </script>
 
@@ -73,7 +74,7 @@
 		class:last={is_last}
 		class:positioned
 		data-type={type}
-		data-gap-array-path={array_path.join('.')}
+  	data-gap-array-path={serialize_path(array_path)}
 		data-gap-offset={offset}
 		style={gap_style}
 	>
@@ -82,7 +83,6 @@
 {:else}
 	<div class="node-gap"></div>
 {/if}
-
 
 <style>
 	.node-gap {

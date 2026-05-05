@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { serialize_path } from './utils.js';
 
 	const svedit = getContext('svedit');
 	let selected_node_paths = $derived(get_selected_node_paths());
@@ -22,13 +23,13 @@
 {#if svedit.session.selection?.type === 'property'}
 	<div
 		class="selected-property-overlay"
-		style="position-anchor: --{svedit.session.selection.path.join('-')};"
+		style="position-anchor: --{serialize_path(svedit.session.selection.path)};"
 	></div>
 {/if}
 
 {#if selected_node_paths}
-	{#each selected_node_paths as path (path.join('-'))}
-		<div class="selected-node-overlay" style="position-anchor: --{path.join('-')};"></div>
+	{#each selected_node_paths as path (serialize_path(path))}
+		<div class="selected-node-overlay" style="position-anchor: --{serialize_path(path)};"></div>
 	{/each}
 {/if}
 

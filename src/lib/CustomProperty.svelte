@@ -1,12 +1,13 @@
 <script>
 	import { getContext } from 'svelte';
+	import { serialize_path } from './utils.js';
 
 	/** @import { CustomPropertyProps } from './types.d.ts'; */
 	const svedit = getContext('svedit');
 
 	/** @type {CustomPropertyProps} */
 	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
-	let path_str = $derived(path.join('.'));
+	let path_str = $derived(serialize_path(path));
 
 	// Enforce the "one path = one DOM mount per document" invariant
 	$effect(() => {
@@ -21,7 +22,7 @@
 	class={css_class}
 	data-type="property"
 	data-path={path_str}
-	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}"
+	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
 	{...rest}
 >
 	{#if svedit.editable}

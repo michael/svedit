@@ -1,7 +1,7 @@
 <script>
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
-	import { snake_to_pascal } from './utils.js';
+	import { serialize_path, snake_to_pascal } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
@@ -16,10 +16,10 @@
 
 	// Pre-joined once per path change; reused by data-path and by every
 	// NodeGap's should_position_gap call to avoid N+1 joins per render.
-	let path_str = $derived(path.join('.'));
+	let path_str = $derived(serialize_path(path));
 
 	let node_ids = $derived(svedit.session.get(path));
-	let nodes = $derived(node_ids.map(id => svedit.session.get(id)));
+	let nodes = $derived(node_ids.map((id) => svedit.session.get(id)));
 
 	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
 	// the model selection. Used by the CSS rule below to hide the empty-array
@@ -27,11 +27,13 @@
 	// second arrow-key stop (issue #260).
 	let is_focused = $derived(
 		svedit.session.selection?.type === 'node'
-		&& svedit.session.selection.path.join('.') === path_str
+		&& serialize_path(svedit.session.selection.path) === path_str
 	);
 
 	setContext('node_array_meta', {
-		get length() { return node_ids.length; }
+		get length() {
+			return node_ids.length;
+		}
 	});
 
 	// Enforce the "one path = one DOM mount per document" invariant
@@ -40,8 +42,8 @@
 		svedit.session.register_mount(current_path_str);
 		return () => svedit.session.unregister_mount(current_path_str);
 	});
-
 </script>
+
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
 <svelte:element
 	this={tag}
@@ -49,16 +51,15 @@
 	class:focused={is_focused}
 	data-type="node_array"
 	data-path={path_str}
-	style="anchor-name: --{path.join('-')};{style ? ` ${style}` : ''}" {...rest}
+	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	{...rest}
 >
 	{#if node_ids.length === 0 && svedit.editable}
 		<div
 			class="empty-node-placeholder"
-			data-path={[...path, 0].join('.')}
+			data-path={serialize_path([...path, 0])}
 			data-type="node"
-			style="anchor-name: --{[...path, 0].join(
-				'-'
-			)}; --node-array-anchor: --{path.join('-')}"
+			style="anchor-name: --{serialize_path([...path, 0])}; --node-array-anchor: --{path_str}"
 		>
 		<NodeGap
 			array_path={path}
@@ -95,7 +96,6 @@
 		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>
-
 <style>
 .empty-node-placeholder {
 	cursor: pointer;

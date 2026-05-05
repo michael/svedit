@@ -7,7 +7,13 @@
  * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document } from './types'
  */
 
-import { get_selection_range, get_char_length } from './utils.js';
+import {
+	assert_path_string_segment,
+	is_path_string_segment_valid,
+	get_selection_range,
+	get_char_length,
+	serialize_path
+} from './utils.js';
 
 /**
  * Identity function — keeps schema at runtime & makes IDE infer types.
@@ -66,6 +72,7 @@ export function validate_document_schema(document_schema) {
 	// Check that all referenced node types exist
 	for (const [node_type, node_schema] of Object.entries(document_schema)) {
 		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
+			assert_path_string_segment(prop_name, `Property name "${prop_name}"`);
 			if (prop_def.type === 'node' || prop_def.type === 'node_array') {
 				const missing_types = prop_def.node_types.filter(
 					(ref_type) => !(ref_type in document_schema)
@@ -122,8 +129,8 @@ function validate_primitive_value(type, value) {
  * @param {string} id
  * @returns {boolean}
  */
-function is_id_valid(id) {
-	return typeof id === 'string' && id.length > 0;
+export function is_id_valid(id) {
+	return typeof id === 'string' && id.length > 0 && is_path_string_segment_valid(id);
 }
 
 /**
@@ -535,7 +542,7 @@ export function validate_selection(selection, session_or_transaction) {
 		}
 	} else if (selection_type === 'property') {
 		if (!session_or_transaction.inspect(selection.path)) {
-			throw new Error(`Property selection path not found: ${selection.path.join('.')}`);
+			throw new Error(`Property selection path not found: ${serialize_path(selection.path)}`);
 		}
 	}
 }
