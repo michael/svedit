@@ -59,7 +59,7 @@
 			class="empty-node-placeholder"
 			data-path={serialize_path([...path, 0])}
 			data-type="node"
-			style="anchor-name: --{serialize_path([...path, 0])}; --node-array-anchor: --{path_str}"
+			style="anchor-name: --{serialize_path([...path, 0])};"
 		>
 		<NodeGap
 			array_path={path}
@@ -96,12 +96,16 @@
 		<NodeGapMarkers {path} />
 	{/if}
 </svelte:element>
+
 <style>
-.empty-node-placeholder {
-	cursor: pointer;
-	right: anchor(var(--node-array-anchor) right);
-	left: anchor(var(--node-array-anchor) left);
-	min-height: 40px; 
-	min-width: 24px; 
-}
+/* If you override this to position: absolute (e.g. so an empty array
+   doesn't occupy flow space), set position: relative on the parent
+   node-array container so left/right or inset resolve against it. */
+	:where(.empty-node-placeholder) {
+		position: static;
+		inset: 0;
+		min-height: 40px; 
+		min-width: 24px; 
+		cursor: pointer;
+	}
 </style>
