@@ -45,6 +45,7 @@
 		"@sveltejs/kit": "^2.55.0",
 		"@sveltejs/package": "^2.5.7",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@types/node": "^25.6.0",
 		"@typescript-eslint/eslint-plugin": "^8.57.0",
 		"@typescript-eslint/parser": "^8.57.0",
 		"@vitest/browser": "^4.1.0",
@@ -59,8 +60,8 @@
 		"publint": "^0.3.18",
 		"svelte": "^5.53.12",
 		"svelte-check": "^4.4.5",
-		"vite": "^8.0.0",
 		"typescript": "^5.9.3",
+		"vite": "^8.0.0",
 		"vitest": "^4.1.0",
 		"vitest-browser-svelte": "^2.1.0"
 	}
