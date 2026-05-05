@@ -1074,9 +1074,10 @@ ${fallback_html}`;
 		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
 		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
-		// We detect this and return text_length instead.
-		const text_content = session.get(path).text;
-		const text_length = get_char_length(text_content);
+		// We detect this and return the current DOM text length instead.
+		// During compositionend, the browser has already inserted the composed
+		// character into the DOM, while the Svedit model still has the old text.
+		const dom_text_length = get_char_length(focus_root.textContent ?? '');
 		const child_nodes = focus_root.childNodes;
 
 		if (
@@ -1101,8 +1102,8 @@ ${fallback_html}`;
 				return {
 					type: 'text',
 					path,
-					anchor_offset: text_length,
-					focus_offset: text_length
+					anchor_offset: dom_text_length,
+					focus_offset: dom_text_length
 				};
 			}
 		}
