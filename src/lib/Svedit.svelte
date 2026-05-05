@@ -630,13 +630,18 @@ ${fallback_html}`;
 				console.error('Failed to paste any content:', e);
 			}
 
-			// Try to contruct a node payload from plain text when applicable
+			// Try to construct a node payload from plain text when applicable
 			if (!pasted_json && typeof plain_text === 'string') {
 				const plain_text_fragments = plain_text
 					.split('\n\n')
 					.map((fragment) => fragment.trim())
 					.filter(Boolean);
-				if (plain_text_fragments.length > 1) {
+				// Also create a node payload for single paragraphs at a node gap —
+				// without this, insert_text bails out (requires text selection) and
+				// the paste is silently dropped.
+				const needs_node_payload = plain_text_fragments.length > 1
+					|| (plain_text_fragments.length === 1 && session.selection?.type === 'node');
+				if (needs_node_payload) {
 					pasted_json = {
 						main_nodes: [],
 						nodes: []
