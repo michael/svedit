@@ -829,6 +829,29 @@ ${fallback_html}`;
 		if (focus_node.nodeType !== Node.ELEMENT_NODE) focus_node = focus_node.parentElement;
 		if (anchor_node.nodeType !== Node.ELEMENT_NODE) anchor_node = anchor_node.parentElement;
 
+		// EDGE CASE: Collapsed selection inside an empty node placeholder.
+		// Firefox can place the DOM selection on the placeholder node itself,
+		// which otherwise looks like selecting node index 0 in an empty array.
+		const focus_empty_placeholder = /** @type {HTMLElement | null} */ (
+			focus_node.closest('.empty-node-placeholder[data-path][data-type="node"]')
+		);
+		const anchor_empty_placeholder = /** @type {HTMLElement | null} */ (
+			anchor_node.closest('.empty-node-placeholder[data-path][data-type="node"]')
+		);
+		if (focus_empty_placeholder && focus_empty_placeholder === anchor_empty_placeholder) {
+			const empty_placeholder_path = deserialize_path(focus_empty_placeholder.dataset.path);
+			const array_path = empty_placeholder_path.slice(0, -1);
+			const node_array = session.get(array_path);
+			if (Array.isArray(node_array) && node_array.length === 0) {
+				return {
+					type: 'node',
+					path: array_path,
+					anchor_offset: 0,
+					focus_offset: 0
+				};
+			}
+		}
+
 		// EDGE CASE: Collapsed selection inside a node gap (gap-after or gap-before).
 		// Gaps are siblings of nodes with data-gap-array-path and data-gap-offset.
 		const gap_el = /** @type {HTMLElement | null} */ (
