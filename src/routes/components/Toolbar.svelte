@@ -35,7 +35,6 @@
 			session.selection?.type === 'text' ||
 			session.selection?.type === 'property'
 	);
-	let can_show_select_parent_tool = $derived(!session.commands.select_parent?.disabled);
 
 	// Get default node_type for current node_array
 	let default_node_type = $derived.by(() => {
