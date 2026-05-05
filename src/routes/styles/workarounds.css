@@ -1,0 +1,12 @@
+/* Fix vertical alignment of caret due to a decade-old browser bug.
+ * https://stackoverflow.com/questions/32905957/caret-position-when-centering-with-flexbox-in-contenteditable/
+ *
+ * This is safe to use when your app/website only uses
+ * `text-box: trim-both cap alphabetic` (Svedit default) for all
+ * <AnnotatedTextProperty> instances. If you want to use other text-box
+ * trim strategies, you have to make specific overrides to
+ * `.text.editable.empty` for each case.
+ */
+.svedit-canvas .text.editable.empty {
+	line-height: 1cap !important;
+}

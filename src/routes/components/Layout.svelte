@@ -4,6 +4,7 @@
 	import '../styles/colors.css';
 	import '../styles/spacing.css';
 	import '../styles/shadows.css';
+	import '../styles/workarounds.css';
 
 	let { children } = $props();
 </script>
