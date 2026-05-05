@@ -32,18 +32,7 @@ You can also install Svedit into an existing SvelteKit project with `npm install
 
 **Chromeless canvas:** Svedit keeps the editing canvas chromeless, meaning there are no UI elements like toolbars or menus mingled with the content. You can interact with text directly, but everything else happens via tools shown in separate overlays or in the fixed toolbar.
 
-**Native-first:** Svedit favors native browser solutions over custom ones whenever possible — using browser-based rendering and the browser's selection APIs underneath, rather than reimplementing them (e.g. by building on [pretext](https://github.com/chenglou/pretext)). When we hit browser bugs, we try to get them fixed upstream (together with the W3C editing working group). Workarounds we add are intended to be temporary, until the underlying issue is fixed by browser vendors. And where we believe there's a better way to solve a problem than what's currently specified, we lobby for it to become a new (or improved) web standard.
-
-*Concrete example — caret rendering with placeholders:* Browsers don't render the caret height correctly when a placeholder is shown, and Firefox additionally fails to render placeholders correctly for centered text. We have two workarounds:
-
-- *Workaround 1:* Add CSS `line-height: 1cap !important;` (see [#261](https://github.com/michael/svedit/pull/261)) to fix the caret height. Doesn't fix the Firefox centering issue.
-- *Workaround 2:* Render a custom cursor while placeholders are shown. Fixes all the problems, but deviates from native behavior (e.g. for centered text, the caret is rendered at the start of the placeholder rather than at the center, where the first typed character would actually land).
-
-Svedit's path forward might be:
-
-- *Short term:* Use workaround 2, since it fixes all issues including Firefox.
-- *Mid term:* Once Firefox fixes its cursor rendering, switch to workaround 1, which is closer to native behavior.
-- *Long term:* Push browsers to render the caret correctly everywhere, and advocate for the improved caret placement from workaround 2 to become the new standard.
+**Native-first:** Svedit favors standardized native browser solutions over custom ones whenever possible — using browser-based rendering and the browser's selection APIs underneath, rather than reimplementing them (e.g. by building on [pretext](https://github.com/chenglou/pretext)). When we hit browser bugs, we try to get them fixed upstream (in collaboration with the W3C editing working group). Workarounds we add are intended to be temporary, until the underlying issue is fixed by browser vendors. And where we believe there's a better way to solve a problem than what's currently specified, we lobby for it to become a new (or improved) web standard.
 
 ## How it works
 
@@ -1227,25 +1216,6 @@ For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-car
 ```css
 .editor-wrapper [data-type="node_array"] {
   --node-caret-boundary-x: --editor-boundary;
-}
-```
-
-## Recomended Workarounds (e.g. browser bugs)
-
-Our goal is to report browser bugs and get them fixed, but sometimes it takes decades and nothing happens.
-This is a list of recommended workarounds for those scenarios. They are not part of Svedit itself because they can cause subtle side-effects and should be therefore applied with care and deliberation.
-
-### Fix vertical alignment of caret due to a decade-old browser bug
-https://stackoverflow.com/questions/32905957/caret-position-when-centering-with-flexbox-in-contenteditable/
-
-This is safe to use when your app/website only uses `text-box: trim-both cap
-alphabetic;` (Svedit default) for all `<AnnotatedTextProperty>` istances. If you want
-to use other text-box trim strategies, you have to make specific overrides to
-.text.editable.empty. for each case.
-
-```css
-.svedit-canvas .text.editable.empty {
-  line-height: 1cap !important;
 }
 ```
 
