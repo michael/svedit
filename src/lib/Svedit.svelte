@@ -3,7 +3,10 @@
 	import {
 		snake_to_pascal,
 		get_char_length,
-		char_to_utf16_offset
+		char_to_utf16_offset,
+		deserialize_path,
+		paths_equal,
+		serialize_path
 	} from './utils.js';
 	import { create_gap_computation } from './node_gap_computation.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -776,11 +779,11 @@ ${fallback_html}`;
 	function __resolve_node_from_gap(el) {
 		const gap = /** @type {HTMLElement | null} */ (el.closest('[data-gap-array-path]'));
 		if (!gap) return null;
-		const array_path = gap.dataset.gapArrayPath;
+		const array_path = deserialize_path(gap.dataset.gapArrayPath);
 		const offset = parseInt(gap.dataset.gapOffset, 10);
 		const node_idx = offset > 0 ? offset - 1 : 0;
 		return /** @type {HTMLElement | null} */ (
-			canvas_el.querySelector(`[data-path="${array_path}.${node_idx}"][data-type="node"]`)
+			canvas_el.querySelector(`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`)
 		);
 	}
 
@@ -809,7 +812,7 @@ ${fallback_html}`;
 			focus_node.closest('[data-gap-array-path]')
 		);
 		if (gap_el && focus_node === anchor_node) {
-			const array_path = gap_el.dataset.gapArrayPath.split('.');
+			const array_path = deserialize_path(gap_el.dataset.gapArrayPath);
 			const gap_offset = parseInt(gap_el.dataset.gapOffset, 10);
 			return {
 				type: 'node',
@@ -827,8 +830,8 @@ ${fallback_html}`;
 			?? /** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
 		if (!anchor_root) return null;
 
-		let focus_root_path = focus_root.dataset.path.split('.');
-		let anchor_root_path = anchor_root.dataset.path.split('.');
+		let focus_root_path = deserialize_path(focus_root.dataset.path);
+		let anchor_root_path = deserialize_path(anchor_root.dataset.path);
 		let focus_node_depth = focus_root_path.length;
 		let anchor_node_depth = anchor_root_path.length;
 
@@ -838,30 +841,28 @@ ${fallback_html}`;
 		// onto its index within that array.
 		let focus_walked_up = false;
 		let anchor_walked_up = false;
-		while (
-			focus_root_path.slice(0, -1).join('.') !== anchor_root_path.slice(0, -1).join('.')
-		) {
+		while (!paths_equal(focus_root_path.slice(0, -1), anchor_root_path.slice(0, -1))) {
 			if (focus_root_path.length > anchor_root_path.length) {
 				// Focus is deeper — walk it up
 				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!focus_root) return null;
-				focus_root_path = focus_root.dataset.path.split('.');
+				focus_root_path = deserialize_path(focus_root.dataset.path);
 				focus_walked_up = true;
 			} else if (anchor_root_path.length > focus_root_path.length) {
 				// Anchor is deeper — walk it up
 				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!anchor_root) return null;
-				anchor_root_path = anchor_root.dataset.path.split('.');
+				anchor_root_path = deserialize_path(anchor_root.dataset.path);
 				anchor_walked_up = true;
 			} else {
 				// Same depth but different node arrays — walk both up
 				focus_root = focus_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!focus_root) return null;
-				focus_root_path = focus_root.dataset.path.split('.');
+				focus_root_path = deserialize_path(focus_root.dataset.path);
 				focus_walked_up = true;
 				anchor_root = anchor_root.parentElement?.closest('[data-path][data-type="node"]');
 				if (!anchor_root) return null;
-				anchor_root_path = anchor_root.dataset.path.split('.');
+				anchor_root_path = deserialize_path(anchor_root.dataset.path);
 				anchor_walked_up = true;
 			}
 		}
@@ -875,8 +876,8 @@ ${fallback_html}`;
 		const parent_property = session.inspect(parent_array_path);
 		if (!parent_property || parent_property.type !== 'node_array') return null;
 
-		let anchor_offset = parseInt(anchor_root_path.at(-1));
-		let focus_offset = parseInt(focus_root_path.at(-1));
+		let anchor_offset = Number(anchor_root_path.at(-1));
+		let focus_offset = Number(focus_root_path.at(-1));
 
 		// Check if it's a backwards selection
 		const is_backwards = __is_dom_selection_backwards();
@@ -940,7 +941,7 @@ ${fallback_html}`;
 		if (focus_root === anchor_root) {
 			return {
 				type: 'property',
-				path: focus_root.dataset.path.split('.')
+				path: deserialize_path(focus_root.dataset.path)
 			};
 		}
 		return null;
@@ -1014,7 +1015,7 @@ ${fallback_html}`;
 			return null;
 		}
 
-		const path = focus_root.dataset.path.split('.');
+		const path = deserialize_path(focus_root.dataset.path);
 
 		if (!path) return null;
 
@@ -1085,18 +1086,19 @@ ${fallback_html}`;
 
 	function __get_node_element(node_array_path, node_offset) {
 		return canvas_el.querySelector(
-			`[data-path="${node_array_path}.${node_offset}"][data-type="node"]`
+			`[data-path="${serialize_path([...node_array_path, node_offset])}"][data-type="node"]`
 		);
 	}
 
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
-		const node_array_path = selection.path.join('.');
+		const node_array_path = selection.path;
+		const node_array_path_str = serialize_path(node_array_path);
 		const is_collapsed = selection.anchor_offset === selection.focus_offset;
 		const is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
 		const node_array_el = canvas_el.querySelector(
-			`[data-path="${node_array_path}"][data-type="node_array"]`
+			`[data-path="${node_array_path_str}"][data-type="node_array"]`
 		);
 		if (!node_array_el) return;
 
@@ -1104,7 +1106,7 @@ ${fallback_html}`;
 		const range = window.document.createRange();
 
 		const gap_selector = (offset) =>
-			`[data-gap-array-path="${node_array_path}"][data-gap-offset="${offset}"]`;
+			`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${offset}"]`;
 
 		if (is_collapsed) {
 			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
@@ -1153,7 +1155,7 @@ ${fallback_html}`;
 		const selection = session.selection;
 		// The element that holds the property
 		const el = canvas_el.querySelector(
-			`[data-path="${selection.path.join('.')}"][data-type="property"]`
+			`[data-path="${serialize_path(selection.path)}"][data-type="property"]`
 		);
 
 		const gap_selectable = el.querySelector('.svedit-selectable');
@@ -1176,7 +1178,7 @@ ${fallback_html}`;
 		const selection = /** @type {any} */ (session.selection);
 		// The element that holds the annotated string
 		const el = canvas_el.querySelector(
-			`[data-path="${selection.path.join('.')}"][data-type="text"]`
+			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
 		);
 		const empty_text = session.get(selection.path).text.length === 0;
 		const dom_selection = window.getSelection();

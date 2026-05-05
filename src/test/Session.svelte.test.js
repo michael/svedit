@@ -1,5 +1,52 @@
 import { describe, it, expect } from 'vitest';
+import Session from '../lib/Session.svelte.js';
+import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
+
+describe('path serialization', () => {
+	it('should preserve string and number path segment semantics', () => {
+		const path = ['page_1', 'body', 0, 'items'];
+		const serialized_path = serialize_path(path);
+
+		expect(serialized_path).toBe('page_1__body__0__items');
+		expect(deserialize_path(serialized_path)).toEqual(path);
+	});
+
+	it('should reject path string segments that cannot be represented in the unified format', () => {
+		expect(() => serialize_path(['page.1'])).toThrow('Path segment');
+		expect(() => serialize_path(['page__1'])).toThrow('Path segment');
+		expect(() => serialize_path(['1_page'])).toThrow('Path segment');
+	});
+});
+
+describe('schema path segment validation', () => {
+	it('should throw when schema property names cannot be represented in the unified path format', () => {
+		expect(
+			() =>
+				new Session(
+					{
+						page: {
+							kind: 'document',
+							properties: {
+								'bad.property': { type: 'string' }
+							}
+						}
+					},
+					{
+						document_id: 'page_1',
+						nodes: {
+							page_1: {
+								id: 'page_1',
+								type: 'page',
+								'bad.property': ''
+							}
+						}
+					},
+					{}
+				)
+		).toThrow('Property name');
+	});
+});
 
 describe('Session.svelte.js', () => {
 	it('should be traversable', () => {
@@ -67,6 +114,22 @@ describe('Session.svelte.js', () => {
 			const title_info = session.inspect(['page_1', 'body', 0, 'title']);
 			expect(title_info.kind).toBe('property');
 			expect(title_info.type).toBe('annotated_text');
+		});
+	});
+
+	describe('Node id validation', () => {
+		it('should throw when creating a node with an id that starts with a number', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+
+			expect(() =>
+				tr.create({
+					id: '1_invalid_node',
+					type: 'text',
+					layout: 1,
+					content: { text: 'Invalid node', annotations: [] }
+				})
+			).toThrow('invalid id');
 		});
 	});
 
