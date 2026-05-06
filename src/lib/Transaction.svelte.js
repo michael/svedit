@@ -223,9 +223,15 @@ export default class Transaction {
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
 		this._apply_op(op);
 
-		for (const removed_node_id of removed_node_ids) {
-			// NOTE: This implicitly deletes childnodes as well, given that they are no longer referenced.
-			this.delete(removed_node_id);
+		// Garbage-collect nodes whose only reference was via this property.
+		// We must use a ref-count-aware sweep instead of unconditional deletion
+		// because a node ID removed from this array may still be referenced
+		// elsewhere — either from a pre-existing reference (e.g. shared nodes)
+		// or from a node created earlier in the same transaction (the
+		// wrap-in-group pattern: create a wrapper that points at the children,
+		// then set the parent array to drop them).
+		if (removed_node_ids.length > 0) {
+			this._cascade_delete_unreferenced_nodes(removed_node_ids);
 		}
 
 		return this;
@@ -328,6 +334,13 @@ export default class Transaction {
 	 * Deletes a node from the document by its ID.
 	 *
 	 * The node's current state is captured for undo support before deletion.
+	 *
+	 * NOTE: This is a force-delete and intentionally does NOT check whether
+	 * the node is still referenced from elsewhere — callers (e.g.
+	 * `annotate_text`) sometimes need to remove a node while a stale
+	 * reference to it still exists in the property they are about to update.
+	 * For ref-count-aware cleanup, see how `set` calls
+	 * `_cascade_delete_unreferenced_nodes`.
 	 *
 	 * @param {any} id - The ID of the node to delete
 	 * @returns {Transaction} This transaction instance for method chaining
