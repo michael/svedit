@@ -277,7 +277,7 @@ export function snake_to_pascal(str) {
 		.join('');
 }
 
-const PATH_SEPARATOR = '__';
+export const PATH_SEPARATOR = '__';
 const PATH_STRING_SEGMENT_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 const PATH_INDEX_SEGMENT_RE = /^(0|[1-9]\d*)$/;
 

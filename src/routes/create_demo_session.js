@@ -494,6 +494,8 @@ export const session_config = {
 		Highlight,
 		Link
 	},
+	// Toggle view classes for the editor. On by default.
+	view_classes: true,
 	handle_property_deletion: (tr, path) => {
 		const property_definition = tr.inspect(path);
 		if (property_definition?.type !== 'string' || property_definition?.name !== 'image') return;

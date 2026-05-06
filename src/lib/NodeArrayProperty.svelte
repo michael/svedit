@@ -66,7 +66,6 @@
 			offset={0}
 			count={0}
 			empty
-			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, 0, 0) ?? true) : false}
 		/>
 		</div>
 	{/if}
@@ -75,7 +74,6 @@
 			array_path={path}
 			offset={index}
 			count={nodes.length}
-			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, index, nodes.length) ?? true) : false}
 		/>
 		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
 		{#if Component}
@@ -89,11 +87,10 @@
 			array_path={path}
 			offset={node_ids.length}
 			count={node_ids.length}
-			positioned={svedit.editable ? (svedit.should_position_gap?.(path_str, node_ids.length, node_ids.length) ?? true) : false}
 		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
-		<NodeGapMarkers {path} />
+		<NodeGapMarkers {path} count={node_ids.length} />
 	{/if}
 </svelte:element>
 
@@ -104,8 +101,8 @@
 	:where(.empty-node-placeholder) {
 		position: static;
 		inset: 0;
-		min-height: 40px; 
-		min-width: 24px; 
+		min-height: 40px;
+		min-width: 24px;
 		cursor: pointer;
 	}
 </style>

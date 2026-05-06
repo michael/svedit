@@ -8,7 +8,7 @@
 		paths_equal,
 		serialize_path
 	} from './utils.js';
-	import { create_gap_computation } from './node_gap_computation.svelte.js';
+	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
 	import './styles/svedit-animations.css';
@@ -75,7 +75,7 @@
 	};
 
 	setContext('svedit', context);
-	create_gap_computation(context);
+	create_node_visibility(context);
 
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');

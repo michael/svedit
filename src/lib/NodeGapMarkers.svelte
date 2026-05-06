@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
-	import { serialize_path } from './utils.js';
+	import { PATH_SEPARATOR, serialize_path } from './utils.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -23,18 +23,121 @@
 	 * Uses var(--row, 1) with the * 9999999 multiplier trick to switch between
 	 * column and row positioning/visuals in pure CSS — no container queries.
 	 *
-	 * Gap data is produced by node_gap_computation and published to the
-	 * svedit context. This component reads and renders it.
+	 * Reads visibility state directly from the registry. SvelteSet's per-key
+	 * tracking on `.has()` and iteration means this component only
+	 * re-evaluates when THIS array's visible-index set changes.
 	 */
 
-	let { path } = $props();
+	let { path, count } = $props();
 
 	const svedit = getContext('svedit');
 	let path_str = $derived(serialize_path(path));
-	// Per-path signal: only re-evaluates when THIS path's gaps change.
-	let gap_signal = $derived(svedit.insertion_gap_data?.get_gaps(path_str));
-	let my_gaps = $derived(gap_signal?.gaps ?? []);
-	let caret_gap_key = $derived(svedit.insertion_gap_data?.caret_gap_key);
+	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
+
+	let caret_gap_key = $derived.by(() => {
+		const s = svedit.session.selection;
+		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
+		return `${serialize_path(s.path)}-gap-${s.anchor_offset}`;
+	});
+
+	let my_gaps = $derived.by(() => {
+		const registry = svedit.visibility_registry;
+		const clip_map = registry.clip_map;
+		const anchor_prefix = `--${path_str}`;
+		const g_prefix = `--g-${path_str}`;
+		const container_var = `;--_c:${anchor_prefix}`;
+		const has_pair = count >= 2;
+		const pair_vars = has_pair
+			? `;--_f:${anchor_prefix}${PATH_SEPARATOR}0;--_s:${anchor_prefix}${PATH_SEPARATOR}1`
+			: '';
+
+		/** @type {Array<{key:string,offset:number,type:string,vars:string,is_first:boolean,is_last:boolean,has_pair:boolean}>} */
+		const result = [];
+
+		if (count === 0) {
+			if (visible.has(0)) {
+				result.push({
+					key: `${path_str}-gap-0`,
+					offset: 0,
+					type: 'gap-empty',
+					vars: `--_ct:${g_prefix}${PATH_SEPARATOR}0-gap-before;--_a:${anchor_prefix}${PATH_SEPARATOR}0${container_var}`,
+					is_first: true,
+					is_last: true,
+					has_pair: false
+				});
+			}
+			return result;
+		}
+
+		// Iterate visible indices (O(K)) instead of 0..count (O(N)) — at
+		// 1000 nodes with ~30 visible, this drops 1001 SvelteSet/SvelteMap
+		// reads per re-derivation to ~30. Filter stale indices >= count
+		// that may briefly remain after a node delete (until MO fires).
+		const sorted = [];
+		for (const i of visible) {
+			if (i >= 0 && i < count) sorted.push(i);
+		}
+		sorted.sort((a, b) => a - b);
+		if (sorted.length === 0) return result;
+
+		const offsets = [];
+		function add_offset(offset) {
+			if (!offsets.includes(offset)) offsets.push(offset);
+		}
+
+		// Emissions accumulate in ascending offset order, so iterating
+		// `offsets` later doesn't need a sort.
+		// Edge gap-before: emit if node 0 is visible and not leading-clipped.
+		if (sorted[0] === 0 && ((clip_map.get(`${path_str}${PATH_SEPARATOR}0`) ?? 0) & 0b01) === 0) {
+			add_offset(0);
+		}
+		// Mid gaps: between consecutive visible nodes. The gap at offset N
+		// sits between node N-1 and node N — emit when both are visible.
+		for (let i = 0; i < sorted.length - 1; i++) {
+			if (sorted[i + 1] === sorted[i] + 1) add_offset(sorted[i + 1]);
+		}
+		// Edge gap-after.last: emit if last node is visible and not trailing-clipped.
+		if (
+			sorted[sorted.length - 1] === count - 1 &&
+			((clip_map.get(`${path_str}${PATH_SEPARATOR}${count - 1}`) ?? 0) & 0b10) === 0
+		) {
+			add_offset(count);
+		}
+
+		for (const offset of offsets) {
+			const is_first = offset === 0;
+			const is_last = offset === count;
+
+			const g_anchor = is_first
+				? `${g_prefix}${PATH_SEPARATOR}0-gap-before`
+				: `${g_prefix}${PATH_SEPARATOR}${offset - 1}-gap-after`;
+
+			let type, vars;
+			if (is_first || is_last) {
+				type = 'gap-edge';
+				const adjacent = is_first
+					? `${anchor_prefix}${PATH_SEPARATOR}0`
+					: `${anchor_prefix}${PATH_SEPARATOR}${count - 1}`;
+				vars = `--_ct:${g_anchor};--_a:${adjacent}${container_var}${pair_vars}`;
+			} else {
+				type = 'gap-mid';
+				const p_anchor = `${anchor_prefix}${PATH_SEPARATOR}${offset - 1}`;
+				const n_anchor = `${anchor_prefix}${PATH_SEPARATOR}${offset}`;
+				vars = `--_ct:${g_anchor};--_p:${p_anchor};--_n:${n_anchor}${container_var}${pair_vars}`;
+			}
+
+			result.push({
+				key: `${path_str}-gap-${offset}`,
+				offset,
+				type,
+				vars,
+				is_first,
+				is_last,
+				has_pair
+			});
+		}
+		return result;
+	});
 </script>
 
 {#each my_gaps as gap (gap.key)}
