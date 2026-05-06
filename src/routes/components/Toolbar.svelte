@@ -10,8 +10,6 @@
 	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
 	let closest_switchable_type = $derived(get_closest_switchable_type(session));
 
-	let input_ref = $state();
-
 	function toggle_editable() {
 		if (editable) {
 			session.selection = null;
@@ -98,30 +96,20 @@
 		session.selection?.type === 'property' && session.selection.path.at(-1) === 'image'
 	);
 
-	// Check if we should show the link URL input
-	let show_link_input = $derived(typeof session.selected_node?.href === 'string');
-
 	// Get current image URL value
 	let current_image_url = $derived(show_image_input ? session.get(session.selection.path) : '');
 
-	// Get current link URL value
-	let current_link_url = $derived(show_link_input ? session.selected_node?.href : '');
+	function update_url(url) {
+		if (!show_image_input) return;
 
-	function update_url() {
 		const tr = session.tr;
-		if (session.selection.path.at(-1) === 'label') {
-			// We are updating the href property of a button
-			tr.set([...session.selection.path.slice(0, -1), 'href'], input_ref.value);
-		} else {
-			// Otherwise it's the image property
-			tr.set(session.selection.path, input_ref.value);
-		}
+		tr.set(session.selection.path, url);
 		session.apply(tr);
 	}
 
 	function handle_toolbar_keydown(event) {
-		if (event.key === 'Enter' && input_ref) {
-			update_url();
+		if (event.key === 'Enter' && show_image_input) {
+			update_url(event.target?.value || '');
 			event.preventDefault();
 			event.stopPropagation();
 			// Apply the change and return focus to canvas
@@ -141,7 +129,6 @@
 		<div class="contextual-input">
 			<label>
 				<input
-					bind:this={input_ref}
 					type="url"
 					value={current_image_url}
 					placeholder="Enter image URL"
@@ -206,20 +193,6 @@
 			</button>
 		{/if}
 	{/if}
-	{#if show_link_input}
-		<div class="contextual-input">
-			<label>
-				URL:
-				<input
-					bind:this={input_ref}
-					type="url"
-					value={current_link_url}
-					placeholder="Enter link URL"
-				/>
-			</label>
-		</div>
-	{/if}
-
 	{#if session.selection?.type === 'node' || session.selection?.type === 'property'}
 		{#if is_node_caret && default_node_type}
 			<button title="Insert (↵)" onmousedown={insert_default_node}>
