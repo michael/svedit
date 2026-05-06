@@ -1,6 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import Icon from './Icon.svelte';
+	import { serialize_path } from '../../lib/utils.js';
 
 	const svedit = getContext('svedit');
 	let active_link_path = $derived(get_active_link_path());
@@ -24,7 +25,7 @@
 </script>
 
 {#if active_link_path}
-	<div class="link-action-overlay" style="position-anchor: --{active_link_path.join('-')};">
+	<div class="link-action-overlay" style="position-anchor: --{serialize_path(active_link_path)};">
 		<a href={active_link?.href} target="_blank" class="small"><Icon name="external-link" /></a>
 	</div>
 {/if}

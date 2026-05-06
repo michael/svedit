@@ -11,13 +11,6 @@
 <div class="caret" role="none"></div>
 
 <style>
-	@keyframes node-caret-blink {
-		0%, 60% { opacity: 1; }
-		68% { opacity: 0; }
-		88% { opacity: 0; }
-		100% { opacity: 1; }
-	}
-
 	.caret {
 		--_R: var(--row, 1);
 		--_C: calc(1 - var(--row, 1));

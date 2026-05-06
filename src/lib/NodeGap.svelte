@@ -1,4 +1,17 @@
+<script module>
+	function cycle_z_index(/** @type {MouseEvent} */ e) {
+		const el = /** @type {HTMLElement} */ (e.currentTarget);
+		if (el.hasAttribute('data-sent-to-back')) {
+			document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach(prev => {
+				prev.removeAttribute('data-sent-to-back');
+			});
+		}
+		el.setAttribute('data-sent-to-back', '');
+	}
+</script>
+
 <script>
+	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
 
 	/**
@@ -51,19 +64,19 @@
 
 	let gap_style = $derived.by(() => {
 		if (!is_editable) return '';
-		const arr = array_path.join('-');
 		const prev_idx = offset - 1;
-		const pa = is_first ? `--${arr}-0` : `--${arr}-${prev_idx}`;
-		const next = `--${arr}-${offset}`;
-		const container = `--${arr}`;
+		const pa = is_first
+			? `--${serialize_path([...array_path, 0])}`
+			: `--${serialize_path([...array_path, prev_idx])}`;
+		const next = `--${serialize_path([...array_path, offset])}`;
+		const container = `--${serialize_path(array_path)}`;
 		return `--_pa:${pa};--_next:${next};--_container:${container}`;
 	});
 
 	let anchor_name = $derived.by(() => {
-		if (!is_editable) return '';
-		const arr = array_path.join('-');
-		if (is_first) return `--g-${arr}-0-gap-before`;
-		return `--g-${arr}-${offset - 1}-gap-after`;
+    if (!is_editable) return '';
+		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
+		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
 	});
 </script>
 
@@ -75,16 +88,16 @@
 		class:empty
 		class:last={is_last}
 		data-type={type}
-		data-gap-array-path={array_path.join('.')}
+		data-gap-array-path={serialize_path(array_path)}
 		data-gap-offset={offset}
 		style={gap_style}
 	>
-		<div class="svedit-selectable" style="anchor-name:{anchor_name}"><br /></div>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="svedit-selectable" style="anchor-name:{anchor_name}" onpointerdown={cycle_z_index}><br /></div>
 	</div>
 {:else}
 	<div class="node-gap"></div>
 {/if}
-
 
 <style>
 	.node-gap {
@@ -180,6 +193,10 @@
 		position-visibility: anchors-visible;
 		z-index: var(--node-caret-gap-z-index, 1);
 		cursor: pointer;
+	}
+
+	:global(.node-gap.positioned .svedit-selectable[data-sent-to-back]) {
+		z-index: 0;
 	}
 
 	/* ------------------------------------------------------------------ */

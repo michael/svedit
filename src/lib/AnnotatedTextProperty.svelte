@@ -1,6 +1,13 @@
 <script>
 	import { getContext } from 'svelte';
-	import { char_slice, get_char_length, snake_to_pascal, get_selection_range } from './utils.js';
+	import {
+		char_slice,
+		get_char_length,
+		paths_equal,
+		serialize_path,
+		snake_to_pascal,
+		get_selection_range
+	} from './utils.js';
 
 	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
 
@@ -9,12 +16,11 @@
 	/** @type {AnnotatedTextPropertyProps} */
 	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
 
-	let path_str = $derived(path.join('.'));
+	let path_str = $derived(serialize_path(path));
 
 	let is_focused = $derived.by(() => {
 		return (
-			svedit.session.selection?.type === 'text' &&
-			path_str === svedit.session.selection?.path.join('.')
+			svedit.session.selection?.type === 'text' && paths_equal(path, svedit.session.selection.path)
 		);
 	});
 
@@ -120,8 +126,8 @@
 <svelte:element
 	this={tag}
 	data-type="text"
-	data-path={path.join('.')}
-	style="anchor-name: --{path.join('-')};{style}"
+	data-path={path_str}
+	style="anchor-name: --{path_str};{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}
@@ -153,19 +159,35 @@
 		box-sizing: content-box;
 	}
 
-	/* Trim extra vertical space for precise padding; Considered a new baseline for typography on the web. */
-	@supports (text-box: trim-both cap alphabetic) {
-		:where(.text) {
-			text-box: trim-both cap alphabetic;
-		}
-	}
-
 	/* We switch from ::before to ::after when the element is focused. So the the caret is always before the placeholder. */
 	[placeholder].empty:not(.focused)::before,
 	[placeholder].empty.focused::after {
 		content: attr(placeholder);
 		pointer-events: none;
 		color: color-mix(in oklch, currentcolor 50%, transparent);
+	}
+
+	/* A virtual caret: to fix the caret vertical alignment issue in Chrome and Firefox for empty focused contenteditable with placeholders */
+	/* Browser BUG: iOS Safari only considers the caret color set on the top contenteditable element, not on nested elements (e.g. the second selector doesn't work in iOS Safari) */
+	:global(.svedit-canvas:has([placeholder].editable.empty.focused)),
+	[placeholder].editable.empty.focused {
+		caret-color: transparent !important;
+	}
+	[placeholder].editable.empty.focused::before {
+		content: "";
+		/* we limit width & height to avoid layout shifts in case the text has a lower natural height */
+		width: 0px;
+		height: 1cap;
+		display: inline-block;
+		/* we use box-shadow to draw the caret shape, matching the native caret */
+		box-shadow:
+			0 -0.4cap 0 0.65px var(--svedit-caret-color, AccentColor),
+			0 0 0 0.65px var(--svedit-caret-color, AccentColor),
+			0 0.4cap 0 0.65px var(--svedit-caret-color, AccentColor);
+		animation: var(
+			--node-caret-animation,
+			node-caret-blink var(--node-caret-blink-duration, 1.1s) ease-in-out infinite
+		);
 	}
 
 	/* Hide flickering: in Chrome, the caret jumps from end of placeholder string to start of text property when we focus */

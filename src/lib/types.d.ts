@@ -11,12 +11,17 @@ import type { Component, Snippet } from 'svelte';
 // ===== SELECTION TYPE DEFINITIONS =====
 
 /**
- * A unique node identifier (ideally UUID)
+ * A unique node identifier.
+ *
+ * Node ids must be valid Svedit path string segments: they must start with
+ * a letter or underscore, contain only letters, numbers, underscores, or
+ * dashes, and must not contain `__`.
  */
 export type NodeId = string;
 
 /**
- * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document
+ * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document.
+ * String segments must follow the same path segment rules as NodeId.
  */
 export type DocumentPath = Array<string | number>;
 

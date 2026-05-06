@@ -72,8 +72,12 @@
 		}
 	}
 
+	/* important: also add relative positioning to the parent container, so the placeholder occoupies the entire space*/
+	.story :global(.buttons.empty) {
+		position: relative;
+	}
 	.story :global(.buttons.empty .empty-node-placeholder) {
-		position: absolute !important;
+		position: absolute;
 	}
 
 	.story img {

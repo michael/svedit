@@ -21,7 +21,7 @@ export function is_mobile_browser() {
 	);
 }
 
-// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️ 
+// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️
 /**
  * Detect if the current browser is Chrome on desktop
  * @returns {boolean} true if Chrome desktop browser, false otherwise
@@ -54,8 +54,7 @@ export function get_char_length(str) {
 	return [...SEGMENTER.segment(str)].length;
 }
 
-
-// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️ 
+// ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️
 /**
  * Get a single character at the specified position (accounting for multi-byte characters)
  *
@@ -276,6 +275,113 @@ export function snake_to_pascal(str) {
 		.split('_')
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join('');
+}
+
+export const PATH_SEPARATOR = '__';
+const PATH_STRING_SEGMENT_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const PATH_INDEX_SEGMENT_RE = /^(0|[1-9]\d*)$/;
+
+/**
+ * Check whether a string can be used as a Svedit path segment.
+ *
+ * Path string segments include node ids and schema property names. Keeping
+ * them restricted makes serialized paths reversible, valid as HTML ids, and
+ * safe to use as CSS anchor-name suffixes.
+ *
+ * @param {string} segment
+ * @returns {boolean}
+ */
+export function is_path_string_segment_valid(segment) {
+	return (
+		typeof segment === 'string' &&
+		PATH_STRING_SEGMENT_RE.test(segment) &&
+		!segment.includes(PATH_SEPARATOR)
+	);
+}
+
+/**
+ * Assert that a string can be used as a Svedit path segment.
+ *
+ * @param {string} segment
+ * @param {string} [label]
+ * @returns {void}
+ */
+export function assert_path_string_segment(segment, label = 'Path segment') {
+	if (!is_path_string_segment_valid(segment)) {
+		throw new Error(
+			`${label} must start with a letter or underscore and contain only letters, numbers, underscores, or dashes. It must not contain "${PATH_SEPARATOR}".`
+		);
+	}
+}
+
+/**
+ * Serialize a document path while preserving whether each segment is a
+ * property/key string or an array index number.
+ *
+ * The result is reversible and safe to use as a data attribute value, HTML id,
+ * or CSS anchor-name suffix.
+ *
+ * @param {Array<string | number>} path
+ * @returns {string}
+ *
+ * @example
+ * serialize_path(['page_1', 'body', 0, 'items']) // Returns: 'page_1__body__0__items'
+ */
+export function serialize_path(path) {
+	return path
+		.map((segment) => {
+			if (typeof segment === 'number') {
+				if (!Number.isInteger(segment) || segment < 0) {
+					throw new Error(`Path index must be a non-negative integer: ${segment}`);
+				}
+				return String(segment);
+			}
+
+			assert_path_string_segment(segment);
+			return segment;
+		})
+		.join(PATH_SEPARATOR);
+}
+
+/**
+ * Deserialize a path string produced by serialize_path.
+ *
+ * @param {string} serialized_path
+ * @returns {Array<string | number>}
+ *
+ * @example
+ * deserialize_path('page_1__body__0__items') // Returns: ['page_1', 'body', 0, 'items']
+ */
+export function deserialize_path(serialized_path) {
+	if (serialized_path === '') return [];
+
+	return serialized_path.split(PATH_SEPARATOR).map((segment) => {
+		if (segment === '') {
+			throw new Error(`Invalid serialized path: ${serialized_path}`);
+		}
+
+		if (/^\d+$/.test(segment)) {
+			if (!PATH_INDEX_SEGMENT_RE.test(segment)) {
+				throw new Error(`Invalid serialized path index: ${segment}`);
+			}
+			return Number(segment);
+		}
+
+		assert_path_string_segment(segment, 'Serialized path segment');
+		return segment;
+	});
+}
+
+/**
+ * Compare two document paths segment-by-segment, preserving segment types.
+ *
+ * @param {Array<string | number>} a
+ * @param {Array<string | number>} b
+ * @returns {boolean}
+ */
+export function paths_equal(a, b) {
+	if (a.length !== b.length) return false;
+	return a.every((segment, index) => segment === b[index]);
 }
 
 export function traverse(node_id, schema, nodes) {
