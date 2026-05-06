@@ -262,6 +262,68 @@ describe('Session.svelte.js', () => {
 			expect(session.get('list_1').list_items).toEqual(['list_item_1', 'list_item_2']);
 		});
 
+		it('should preserve a node that is moved into a wrapper created earlier in the same transaction', () => {
+			// Reproduces the wrap-in-group pattern that is used by editors
+			// built on Svedit (e.g. interface-lineage):
+			//   1. tr.create({ id: wrapper, ..., children: [a, b] })
+			//   2. tr.set([parent, children_property], [...without a and b])
+			//
+			// At step (2) the IDs `a` and `b` no longer appear in the parent's
+			// array, so set()'s naive "removed = previous − new" sweep would
+			// flag them for deletion. They must NOT be deleted because the
+			// wrapper created in step (1) still references them.
+			const session = create_test_session();
+
+			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+
+			const tr = session.tr;
+
+			// Step (1): create a new list that already references list_item_1.
+			// After this, list_item_1 is referenced from BOTH list_1 and list_2.
+			tr.create({
+				id: 'list_2',
+				type: 'list',
+				layout: 1,
+				list_items: ['list_item_1']
+			});
+
+			// Step (2): drop list_item_1 from list_1.list_items. The set()
+			// call would compute removed_node_ids = ['list_item_1'], but the
+			// node is still referenced by list_2 and must survive.
+			tr.set(['list_1', 'list_items'], ['list_item_2']);
+
+			session.apply(tr);
+
+			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
+			expect(session.get(['list_2', 'list_items'])).toEqual(['list_item_1']);
+			expect(session.get('list_item_1')).toBeDefined();
+		});
+
+		it('should restore both source and destination arrays when a wrap-style move is undone', () => {
+			const session = create_test_session();
+
+			const tr = session.tr;
+			tr.create({
+				id: 'list_2',
+				type: 'list',
+				layout: 1,
+				list_items: ['list_item_1']
+			});
+			tr.set(['list_1', 'list_items'], ['list_item_2']);
+			session.apply(tr);
+
+			// Sanity-check the post-state before undoing.
+			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
+			expect(session.get('list_2')).toBeDefined();
+
+			session.undo();
+
+			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get('list_2')).toBeUndefined();
+			expect(session.get('list_item_1')).toBeDefined();
+			expect(session.get('list_item_2')).toBeDefined();
+		});
+
 		it('should handle complex nested deletion scenarios', () => {
 			const session = create_test_session();
 
