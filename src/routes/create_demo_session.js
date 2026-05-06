@@ -255,6 +255,36 @@ const doc = {
 			label: { text: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
+		button_2: {
+			id: 'button_2',
+			type: 'button',
+			label: { text: 'Edit content in place', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
+		button_3: {
+			id: 'button_3',
+			type: 'button',
+			label: { text: 'Model data as JSON', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
+		button_4: {
+			id: 'button_4',
+			type: 'button',
+			label: { text: 'Render with Svelte', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
+		button_5: {
+			id: 'button_5',
+			type: 'button',
+			label: { text: 'Test overflowing node gaps', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
+		button_6: {
+			id: 'button_6',
+			type: 'button',
+			label: { text: 'Add another CTA', annotations: [] },
+			href: 'https://github.com/michael/svedit'
+		},
 		story_1: {
 			id: 'story_1',
 			type: 'story',
@@ -265,7 +295,7 @@ const doc = {
 				text: 'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
 				annotations: []
 			},
-			buttons: []
+			buttons: ['button_2', 'button_3', 'button_4', 'button_5', 'button_6']
 		},
 		story_2: {
 			id: 'story_2',
