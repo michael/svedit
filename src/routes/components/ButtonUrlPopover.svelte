@@ -135,14 +135,20 @@
 
 <style>
 	.button-url-preview {
+		--popover-edge-gap: var(--s-4);
+		--popover-width: min(420px, calc(100vw - 2 * var(--popover-edge-gap)));
 		position: absolute;
 		position-visibility: anchors-visible;
 		top: anchor(bottom);
-		left: anchor(center);
+		left: clamp(
+			calc(var(--popover-width) * 0.5 + var(--popover-edge-gap)),
+			anchor(center),
+			calc(100vw - var(--popover-width) * 0.5 - var(--popover-edge-gap))
+		);
 		z-index: 40;
 		display: flex;
 		align-items: stretch;
-		max-width: min(420px, calc(100vw - 2 * var(--s-4)));
+		width: var(--popover-width);
 		background: var(--app-canvas-fill);
 		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 84%, var(--app-primary-text));
 		box-shadow: var(--shadow-2);
@@ -152,6 +158,7 @@
 	}
 
 	.url-preview-link {
+		flex: 1 1 auto;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -190,19 +197,27 @@
 	}
 
 	.button-url-dialog {
+		--popover-edge-gap: var(--s-4);
+		--popover-width: min(360px, calc(100vw - 2 * var(--popover-edge-gap)));
 		position: absolute;
-		position-area: block-end span-all;
-		justify-self: anchor-center;
+		position-visibility: anchors-visible;
+		top: anchor(bottom);
+		left: clamp(
+			calc(var(--popover-width) * 0.5 + var(--popover-edge-gap)),
+			anchor(center),
+			calc(100vw - var(--popover-width) * 0.5 - var(--popover-edge-gap))
+		);
 		z-index: 50;
-		width: min(360px, calc(100vw - 2 * var(--s-4)));
+		width: var(--popover-width);
 		max-height: 90vh;
-		margin: var(--s-1) 0 0;
+		margin: 0;
 		padding: 0;
 		overflow: visible;
 		background: var(--app-canvas-fill);
 		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 84%, var(--app-primary-text));
 		box-shadow: var(--shadow-2);
 		color: var(--app-primary-text);
+		transform: translate(-50%, var(--s-1));
 	}
 
 	.dialog-content {
