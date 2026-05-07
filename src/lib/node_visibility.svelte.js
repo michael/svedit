@@ -112,9 +112,15 @@ class VisibilityRegistry {
 
 	start() {
 		if (typeof window === 'undefined' || this.#io) return;
+		// Threshold [0, 1]: [0] fires on overscan entry/exit (drives near_map);
+		// [1] is needed for nested scrollers — a node can transition between
+		// fully-visible and clipped-by-scroller without ever crossing the
+		// overscan boundary, so clip_map would otherwise stay stale.
+		// #clip_bits uses entry.rootBounds to ignore clips that are just
+		// the overscan boundary itself (#272).
 		this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
 			rootMargin: `${OVERSCAN_PX}px`,
-			threshold: [0]
+			threshold: [0, 1]
 		});
 		if (this.view_classes) {
 			this.#view_io = new IntersectionObserver((entries) => this.#process_view(entries), {
@@ -294,8 +300,6 @@ class VisibilityRegistry {
 			if (!path) continue;
 
 			const is_near = entry.isIntersecting;
-			const bcr = entry.boundingClientRect;
-			const ir = entry.intersectionRect;
 
 			let any_change = false;
 
@@ -316,7 +320,7 @@ class VisibilityRegistry {
 				else set.delete(split.index);
 			}
 
-			const new_bits = is_near ? this.#clip_bits(bcr, ir) : 0b11;
+			const new_bits = is_near ? this.#clip_bits(entry) : 0b11;
 			const old_bits = this.clip_map.get(path) ?? 0;
 			if (new_bits !== old_bits) {
 				if (new_bits === 0 || new_bits === 0b11) this.clip_map.delete(path);
@@ -345,13 +349,34 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * @param {DOMRectReadOnly} bcr
-	 * @param {DOMRectReadOnly} ir
+	 * Detect whether the node is clipped at any edge by something other than
+	 * the overscan boundary itself. The IO's intersectionRect is clipped by
+	 * (a) ancestor scroll containers and (b) the overscan boundary that
+	 * rootMargin defines. We only care about (a) — clipping by the overscan
+	 * boundary is an artifact of pre-positioning gaps before the node
+	 * actually enters the viewport, not a real clip the user can see.
+	 *
+	 * `entry.rootBounds` gives us the exact rect the IO compared against
+	 * (already includes rootMargin). A real clip on an edge means `ir` was
+	 * shrunk past `bcr` AND past `rootBounds` on that side — i.e. the clip
+	 * landed strictly inside the overscan zone, where only a real ancestor
+	 * scroller could have put it.
+	 *
+	 * @param {IntersectionObserverEntry} entry
 	 */
-	#clip_bits(bcr, ir) {
-		const leading = ir.top > bcr.top + 0.5 || ir.left > bcr.left + 0.5 ? 0b01 : 0;
-		const trailing = ir.bottom < bcr.bottom - 0.5 || ir.right < bcr.right - 0.5 ? 0b10 : 0;
-		return leading | trailing;
+	#clip_bits(entry) {
+		const bcr = entry.boundingClientRect;
+		const ir = entry.intersectionRect;
+		const rb = entry.rootBounds;
+		// rootBounds is null when the IO observes a target in a cross-origin
+		// iframe. Treat as no clip — we can't reason about it safely.
+		if (!rb) return 0;
+		const tol = 0.5;
+		const top    = ir.top    > bcr.top    + tol && ir.top    > rb.top    + tol;
+		const left   = ir.left   > bcr.left   + tol && ir.left   > rb.left   + tol;
+		const bottom = ir.bottom < bcr.bottom - tol && ir.bottom < rb.bottom - tol;
+		const right  = ir.right  < bcr.right  - tol && ir.right  < rb.right  - tol;
+		return ((top || left) ? 0b01 : 0) | ((bottom || right) ? 0b10 : 0);
 	}
 }
 
