@@ -602,12 +602,10 @@ export default class Transaction {
 
 			text.annotations = new_annotations;
 
-			// Delete marked annotation nodes
-			for (const node_id of _deleted_nodes) {
-				this.delete(node_id);
-			}
-
 			this.set(path, text);
+
+			// Delete marked annotation nodes only if no other references remain.
+			this._cascade_delete_unreferenced_nodes(_deleted_nodes);
 
 			// Update the selection to the new caret position
 			this.selection = {

@@ -85,7 +85,7 @@
 			<div class="debug-panel-shell flex-column gap-y-2 w-full max-w-screen-lg mx-auto">
 				<p>Selection:</p>
 				<pre class="debug-info">{JSON.stringify(session.selection || {}, null, '  ')}</pre>
-				<p style="padding-top: 36px;">Nodes:</p>
+				<p style="padding-top: 36px;">Document:</p>
 				<pre class="debug-info">{JSON.stringify(session.doc, null, '  ')}</pre>
 			</div>
 		</div>
