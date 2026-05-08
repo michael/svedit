@@ -110,7 +110,6 @@
 		const config = { ...session_config };
 		const doc = generate_document(node_count);
 		const s = new Session(document_schema, doc, config);
-		s.validate_doc();
 		return s;
 	}
 
