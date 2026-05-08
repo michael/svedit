@@ -24,12 +24,12 @@
 			<AnnotatedTextProperty
 				class="heading2"
 				path={[...path, 'title']}
-				placeholder="xx."
+				placeholder="The CTA headline should be clear and benefit-driven."
 			/>
 			<AnnotatedTextProperty
 				class="body"
 				path={[...path, 'description']}
-				placeholder="xx."
+				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."
 			/>
 			<NodeArrayProperty
 				class="buttons{!has_buttons ? ' empty' : ''}"
