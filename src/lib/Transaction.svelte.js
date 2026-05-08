@@ -60,6 +60,13 @@ export default class Transaction {
 		this.inverse_ops = [];
 		// Remember the selection before the transaction started
 		this.selection_before = selection;
+
+		/** @type {NodeId[]} */
+		this.created_node_ids = [];
+		/** @type {NodeId[]} */
+		this.modified_node_ids = [];
+		/** @type {NodeId[]} */
+		this.deleted_node_ids = [];
 	}
 
 	/**
@@ -119,7 +126,7 @@ export default class Transaction {
 	 * @throws {Error} Throws if the node is invalid
 	 */
 	validate_node(node) {
-		validate_node(node, this.schema, this.doc.nodes);
+		validate_node(node, this.schema, this.doc.nodes, { require_references: false });
 	}
 
 	/**
@@ -164,6 +171,15 @@ export default class Transaction {
 	 */
 	_apply_op(op) {
 		this.doc = apply_op(this.doc, op);
+	}
+
+	/**
+	 * @param {NodeId[]} node_ids
+	 * @param {NodeId} node_id
+	 * @private
+	 */
+	_track_node_id(node_ids, node_id) {
+		if (!node_ids.includes(node_id)) node_ids.push(node_id);
 	}
 
 	/**
@@ -222,6 +238,7 @@ export default class Transaction {
 		this.ops.push(op);
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
 		this._apply_op(op);
+		this._track_node_id(this.modified_node_ids, node.id);
 
 		// Garbage-collect nodes whose only reference was via this property.
 		// We must use a ref-count-aware sweep instead of unconditional deletion
@@ -327,6 +344,7 @@ export default class Transaction {
 		this.ops.push(op);
 		this.inverse_ops.push(['delete', node.id]);
 		this._apply_op(op);
+		this._track_node_id(this.created_node_ids, node.id);
 		return this;
 	}
 
@@ -362,6 +380,7 @@ export default class Transaction {
 		this.ops.push(op);
 		this.inverse_ops.push(['create', previous_value]);
 		this._apply_op(op);
+		this._track_node_id(this.deleted_node_ids, id);
 		// Cascade delete any nodes that are now orphaned after removing this node
 		this._cascade_delete_unreferenced_nodes(referenced_nodes);
 		return this;
@@ -799,6 +818,7 @@ export default class Transaction {
 				this.ops.push(op);
 				this.inverse_ops.push(['create', previous_value]);
 				this._apply_op(op);
+				this._track_node_id(this.deleted_node_ids, node_id);
 			}
 		}
 	}

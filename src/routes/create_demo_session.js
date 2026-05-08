@@ -829,7 +829,5 @@ export const session_config = {
 
 export default function create_demo_session() {
 	const session = new Session(document_schema, doc, session_config);
-	// This makes sure that the document is in a valid state.
-	session.validate_doc();
 	return session;
 }

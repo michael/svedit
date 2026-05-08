@@ -8,8 +8,9 @@ import {
 	apply_op,
 	count_references as doc_count_references,
 	validate_document_schema,
-	is_id_valid,
+	validate_document,
 	validate_node,
+	get_referencing_node_ids,
 	get_active_annotation,
 	validate_selection
 } from './doc_utils.js';
@@ -110,7 +111,7 @@ export default class Session {
 		this.schema = schema;
 		this.doc = doc;
 		this.config = config;
-		this.validate_doc();
+		validate_document(this.doc, this.schema);
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
@@ -153,12 +154,41 @@ export default class Session {
 		return this.doc.document_id;
 	}
 
-	validate_doc() {
-		if (!is_id_valid(this.doc.document_id)) {
-			throw new Error(`Document ${this.doc.document_id} has an invalid id.`);
+	/**
+	 * Validates the parts of a transaction result that can be affected by the transaction.
+	 *
+	 * This is intentionally narrower than full document validation. It validates all
+	 * created/modified nodes, plus nodes that still reference created, modified, or
+	 * deleted nodes. That catches local node invariants and dangling references left
+	 * behind by deletes without scanning every node on every apply.
+	 *
+	 * @param {Transaction} transaction - The transaction result to validate
+	 * @throws {Error} Throws if the transaction result is invalid
+	 */
+	validate_transaction_result(transaction) {
+		const doc = transaction.doc;
+		/** @type {NodeId[]} */
+		const affected_node_ids = [];
+
+		function add_node_id(node_id) {
+			if (!affected_node_ids.includes(node_id)) affected_node_ids.push(node_id);
 		}
-		for (const node of Object.values(this.doc.nodes)) {
-			validate_node(node, this.schema, this.doc.nodes);
+
+		for (const node_id of transaction.created_node_ids) add_node_id(node_id);
+		for (const node_id of transaction.modified_node_ids) add_node_id(node_id);
+		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.created_node_ids)) {
+			add_node_id(node_id);
+		}
+		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.modified_node_ids)) {
+			add_node_id(node_id);
+		}
+		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.deleted_node_ids)) {
+			add_node_id(node_id);
+		}
+
+		for (const node_id of affected_node_ids) {
+			const node = doc.nodes[node_id];
+			if (node) validate_node(node, this.schema, doc.nodes);
 		}
 	}
 
@@ -235,6 +265,7 @@ export default class Session {
 	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
 	 */
 	apply(transaction, { batch = false } = {}) {
+		this.validate_transaction_result(transaction);
 		this.doc = transaction.doc;
 		// Make sure selection gets a new reference (is rerendered)
 		this.selection = structuredClone(transaction.selection);

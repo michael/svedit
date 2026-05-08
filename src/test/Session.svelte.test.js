@@ -133,6 +133,54 @@ describe('Session.svelte.js', () => {
 		});
 	});
 
+	describe('Document validation', () => {
+		it('should throw for overlapping annotations in the same annotated text property', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
+				{ start_offset: 4, end_offset: 10, node_id: 'button_1' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'overlapping annotations'
+			);
+		});
+
+		it('should allow adjacent annotations in the same annotated text property', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
+				{ start_offset: 5, end_offset: 10, node_id: 'button_1' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
+		});
+
+		it('should throw for annotated text references to missing annotation nodes', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'missing_annotation' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'references missing node missing_annotation'
+			);
+		});
+
+		it('should throw for node arrays that reference missing nodes', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.page_1.body = ['story_1', 'missing_node'];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'references missing node missing_node'
+			);
+		});
+	});
+
 	describe('Transaction.set path validation', () => {
 		it('should throw when set is called with a node path instead of a property path', () => {
 			const session = create_test_session();
@@ -144,6 +192,26 @@ describe('Session.svelte.js', () => {
 					layout: 2
 				})
 			).toThrow('Transaction.set requires a path that points to a property');
+		});
+	});
+
+	describe('Transaction result validation', () => {
+		it('should throw when applying a transaction that creates a missing node reference', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+			tr.set(['page_1', 'body'], ['missing_node']);
+
+			expect(() => session.apply(tr)).toThrow('references missing node missing_node');
+			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+		});
+
+		it('should throw when applying a transaction that deletes a still-referenced node', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+			tr.delete('story_1');
+
+			expect(() => session.apply(tr)).toThrow('references missing node story_1');
+			expect(session.get('story_1')).toBeDefined();
 		});
 	});
 
