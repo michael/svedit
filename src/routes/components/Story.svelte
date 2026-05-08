@@ -24,12 +24,12 @@
 			<AnnotatedTextProperty
 				class="heading2"
 				path={[...path, 'title']}
-				placeholder="The CTA headline should be clear and benefit-driven."
+				placeholder="xx."
 			/>
 			<AnnotatedTextProperty
 				class="body"
 				path={[...path, 'description']}
-				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."
+				placeholder="xx."
 			/>
 			<NodeArrayProperty
 				class="buttons{!has_buttons ? ' empty' : ''}"
@@ -61,8 +61,20 @@
 		padding-top: 24px;
 		display: flex;
 		flex-direction: row;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: var(--s-2);
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.story :global(.buttons:not(.empty) > [data-type='node']) {
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+
+	.story :global(.buttons:focus),
+	.story :global(.buttons:focus-visible) {
+		outline: none;
 	}
 
 	.story :global(.buttons) {
