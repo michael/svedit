@@ -20,7 +20,8 @@ export {
 	get_default_node_type,
 	validate_document_schema,
 	validate_document,
-	validate_node
+	validate_node,
+	get_referencing_node_ids
 } from './doc_utils.js';
 
 // Command system

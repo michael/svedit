@@ -195,6 +195,26 @@ describe('Session.svelte.js', () => {
 		});
 	});
 
+	describe('Transaction result validation', () => {
+		it('should throw when applying a transaction that creates a missing node reference', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+			tr.set(['page_1', 'body'], ['missing_node']);
+
+			expect(() => session.apply(tr)).toThrow('references missing node missing_node');
+			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+		});
+
+		it('should throw when applying a transaction that deletes a still-referenced node', () => {
+			const session = create_test_session();
+			const tr = session.tr;
+			tr.delete('story_1');
+
+			expect(() => session.apply(tr)).toThrow('references missing node story_1');
+			expect(session.get('story_1')).toBeDefined();
+		});
+	});
+
 	describe('Deletion scenarios', () => {
 		it('should delete unreferenced nodes and their children when deleting from node_array', () => {
 			const session = create_test_session();
