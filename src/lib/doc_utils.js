@@ -252,7 +252,12 @@ export function validate_node(node, schema, all_nodes = {}) {
 			}
 			// Check if referenced node exists and is of allowed type
 			const referenced_node = all_nodes[value];
-			if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
+			if (!referenced_node) {
+				throw new Error(
+					`Node ${node.id} property ${prop_name} references missing node ${value}.`
+				);
+			}
+			if (!prop_def.node_types.includes(referenced_node.type)) {
 				throw new Error(
 					`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${/** @type {NodeProperty} */ (prop_def).node_types.join(', ')}] are allowed.`
 				);
@@ -268,10 +273,15 @@ export function validate_node(node, schema, all_nodes = {}) {
 					`Node ${node.id} has an invalid property: ${prop_name} must be an array of node ids.`
 				);
 			}
-			// Check if all referenced nodes are of allowed types
+			// Check if all referenced nodes exist and are of allowed types
 			for (const ref_id of value) {
 				const referenced_node = all_nodes[ref_id];
-				if (referenced_node && !prop_def.node_types.includes(referenced_node.type)) {
+				if (!referenced_node) {
+					throw new Error(
+						`Node ${node.id} property ${prop_name} references missing node ${ref_id}.`
+					);
+				}
+				if (!prop_def.node_types.includes(referenced_node.type)) {
 					throw new Error(
 						`Node ${node.id} property ${prop_name} references node ${ref_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`
 					);

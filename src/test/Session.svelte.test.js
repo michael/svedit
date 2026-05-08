@@ -157,6 +157,28 @@ describe('Session.svelte.js', () => {
 
 			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
 		});
+
+		it('should throw for annotated text references to missing annotation nodes', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'missing_annotation' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'references missing node missing_annotation'
+			);
+		});
+
+		it('should throw for node arrays that reference missing nodes', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.page_1.body = ['story_1', 'missing_node'];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'references missing node missing_node'
+			);
+		});
 	});
 
 	describe('Transaction.set path validation', () => {
