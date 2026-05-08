@@ -133,6 +133,32 @@ describe('Session.svelte.js', () => {
 		});
 	});
 
+	describe('Document validation', () => {
+		it('should throw for overlapping annotations in the same annotated text property', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
+				{ start_offset: 4, end_offset: 10, node_id: 'button_1' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).toThrow(
+				'overlapping annotations'
+			);
+		});
+
+		it('should allow adjacent annotations in the same annotated text property', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
+				{ start_offset: 5, end_offset: 10, node_id: 'button_1' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
+		});
+	});
+
 	describe('Transaction.set path validation', () => {
 		it('should throw when set is called with a node path instead of a property path', () => {
 			const session = create_test_session();

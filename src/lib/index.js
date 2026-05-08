@@ -19,6 +19,7 @@ export {
 	is_primitive_type,
 	get_default_node_type,
 	validate_document_schema,
+	validate_document,
 	validate_node
 } from './doc_utils.js';
 

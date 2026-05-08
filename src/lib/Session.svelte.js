@@ -8,8 +8,7 @@ import {
 	apply_op,
 	count_references as doc_count_references,
 	validate_document_schema,
-	is_id_valid,
-	validate_node,
+	validate_document,
 	get_active_annotation,
 	validate_selection
 } from './doc_utils.js';
@@ -110,7 +109,7 @@ export default class Session {
 		this.schema = schema;
 		this.doc = doc;
 		this.config = config;
-		this.validate_doc();
+		validate_document(this.doc, this.schema);
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
@@ -151,15 +150,6 @@ export default class Session {
 	 */
 	get document_id() {
 		return this.doc.document_id;
-	}
-
-	validate_doc() {
-		if (!is_id_valid(this.doc.document_id)) {
-			throw new Error(`Document ${this.doc.document_id} has an invalid id.`);
-		}
-		for (const node of Object.values(this.doc.nodes)) {
-			validate_node(node, this.schema, this.doc.nodes);
-		}
 	}
 
 	generate_id() {

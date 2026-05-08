@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, AnnotatedTextProperty, AnnotatedText } from './types'
  */
 
 import {
@@ -126,6 +126,78 @@ function validate_primitive_value(type, value) {
 }
 
 /**
+ * Validate annotated text annotations for bounds, references, allowed types, and exclusivity.
+ *
+ * @param {string} node_id - Owner node id, used for error messages
+ * @param {string} prop_name - Owner property name, used for error messages
+ * @param {AnnotatedText} value - Annotated text value to validate
+ * @param {AnnotatedTextProperty} prop_def - Annotated text property definition
+ * @param {Record<string, any>} all_nodes - All document nodes
+ * @throws {Error} Throws if annotations are invalid
+ */
+function validate_annotated_text_property(node_id, prop_name, value, prop_def, all_nodes) {
+	const char_length = get_char_length(value.text);
+	const annotations = value.annotations;
+
+	for (const [index, annotation] of annotations.entries()) {
+		if (
+			typeof annotation !== 'object' ||
+			annotation === null ||
+			!Number.isInteger(annotation.start_offset) ||
+			!Number.isInteger(annotation.end_offset) ||
+			!is_id_valid(annotation.node_id)
+		) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} has an invalid annotation at index ${index}. Annotations must have integer start_offset/end_offset and a valid node_id.`
+			);
+		}
+
+		if (annotation.start_offset < 0 || annotation.end_offset > char_length) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} is out of bounds: ${annotation.start_offset}-${annotation.end_offset}, text length is ${char_length}.`
+			);
+		}
+
+		if (annotation.start_offset >= annotation.end_offset) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} must not be empty or reversed: ${annotation.start_offset}-${annotation.end_offset}.`
+			);
+		}
+
+		const referenced_node = all_nodes[annotation.node_id];
+		if (!referenced_node) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} annotation references missing node ${annotation.node_id}.`
+			);
+		}
+
+		if (prop_def.node_types?.length && !prop_def.node_types.includes(referenced_node.type)) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`
+			);
+		}
+	}
+
+	const sorted_annotations = annotations
+		.map((annotation, index) => ({ annotation, index }))
+		.sort((a, b) =>
+			a.annotation.start_offset - b.annotation.start_offset ||
+			a.annotation.end_offset - b.annotation.end_offset
+		);
+
+	for (let index = 1; index < sorted_annotations.length; index++) {
+		const previous = sorted_annotations[index - 1];
+		const current = sorted_annotations[index];
+
+		if (current.annotation.start_offset < previous.annotation.end_offset) {
+			throw new Error(
+				`Node ${node_id} property ${prop_name} has overlapping annotations: annotation index ${previous.index} (${previous.annotation.node_id}, ${previous.annotation.start_offset}-${previous.annotation.end_offset}) overlaps annotation index ${current.index} (${current.annotation.node_id}, ${current.annotation.start_offset}-${current.annotation.end_offset}). Annotations must be exclusive.`
+			);
+		}
+	}
+}
+
+/**
  * @param {string} id
  * @returns {boolean}
  */
@@ -162,6 +234,15 @@ export function validate_node(node, schema, all_nodes = {}) {
 				);
 			}
 		}
+		if (prop_def.type === 'annotated_text') {
+			validate_annotated_text_property(
+				node.id,
+				prop_name,
+				value,
+				/** @type {AnnotatedTextProperty} */ (prop_def),
+				all_nodes
+			);
+		}
 		// Check node references
 		if (prop_def.type === 'node') {
 			if (!is_id_valid(value)) {
@@ -197,6 +278,22 @@ export function validate_node(node, schema, all_nodes = {}) {
 				}
 			}
 		}
+	}
+}
+
+/**
+ * Validate a document against its schema.
+ *
+ * @param {Document} doc - The document to validate
+ * @param {DocumentSchema} schema - The document schema
+ * @throws {Error} Throws if the document is invalid
+ */
+export function validate_document(doc, schema) {
+	if (!is_id_valid(doc.document_id)) {
+		throw new Error(`Document ${doc.document_id} has an invalid id.`);
+	}
+	for (const node of Object.values(doc.nodes)) {
+		validate_node(node, schema, doc.nodes);
 	}
 }
 
