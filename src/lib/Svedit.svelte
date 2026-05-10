@@ -1403,7 +1403,7 @@ ${fallback_html}`;
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
 	<!-- Overlays must be before canvas so they initialize first. -->
-	<NodeSelectionMarkers />
+	{#if editable}<NodeSelectionMarkers />{/if}
 	{#if Overlays}<Overlays />{/if}
 	<!--
 		inputmode is derived from the model selection: when a custom property
