@@ -57,6 +57,11 @@
 		padding: var(--s-10) var(--s-6);
 	}
 
+	/* Prevent overflow issues when e.g. the buttons array grows larger than the container */
+	.story .caption {
+		min-width: 0;
+	}
+
 	.story :global(.buttons:not(.empty)) {
 		padding-top: 24px;
 		display: flex;
@@ -65,6 +70,7 @@
 		gap: var(--s-2);
 		max-width: 100%;
 		overflow-x: auto;
+		overscroll-behavior: contain;
 	}
 
 	.story :global(.buttons:not(.empty) > [data-type='node']) {
