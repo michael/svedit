@@ -725,7 +725,12 @@ ${fallback_html}`;
 			return;
 		}
 
-		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
+		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas.
+		// Node selections are excluded from the skip — after an insert, the
+		// gap element data-gap-offset shifts in lockstep with the model, so
+		// the equality check would skip even though the cursor anchor node
+		// has just changed and the array needs a fresh scrollIntoView to
+		// keep the new node and its caret in view.
 		let prev_selection =
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
@@ -734,6 +739,7 @@ ${fallback_html}`;
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (
 			!is_empty_text_selection &&
+			selection.type !== 'node' &&
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
 		) {
@@ -762,8 +768,14 @@ ${fallback_html}`;
 		key_mapper?.push_scope(session.keymap);
 	}
 
-	// Handle blur - pop document's keymap from stack
-	function handle_canvas_blur() {
+	// Handle blur - pop document's keymap from stack.
+	// Do NOT pop when focus moved to a descendant of the canvas (e.g. the
+	// node-array container that __render_node_selection focuses). Otherwise
+	// Enter and other keymap-bound shortcuts would go inert as soon as the
+	// node-array grabs focus, even though the user is still visibly editing.
+	function handle_canvas_blur(event) {
+		const next_focus = event?.relatedTarget;
+		if (next_focus && canvas_el?.contains(next_focus)) return;
 		// Use flushSync so the selection highlight span (with its CSS anchor)
 		// is in the DOM immediately, before any popover/dialog tries to
 		// position itself.

@@ -42,7 +42,7 @@
 
 	let my_gaps = $derived.by(() => {
 		const registry = svedit.visibility_registry;
-		const clip_map = registry.clip_map;
+		const edge_state = registry.edge_map.get(path_str);
 		const anchor_prefix = `--${path_str}`;
 		const g_prefix = `--g-${path_str}`;
 		const container_var = `;--_c:${anchor_prefix}`;
@@ -87,8 +87,11 @@
 
 		// Emissions accumulate in ascending offset order, so iterating
 		// `offsets` later doesn't need a sort.
-		// Edge gap-before: emit if node 0 is visible and not leading-clipped.
-		if (sorted[0] === 0 && ((clip_map.get(`${path_str}${PATH_SEPARATOR}0`) ?? 0) & 0b01) === 0) {
+		// Edge gap-before: emit if node 0 is in the near set AND the
+		// edge_map says the first node has reached the array's leading
+		// edge. edge_map is the scroll-aware BCR check that replaces
+		// the stale IO clip_map for edge nodes.
+		if (sorted[0] === 0 && edge_state?.first === true) {
 			add_offset(0);
 		}
 		// Mid gaps: between consecutive visible nodes. The gap at offset N
@@ -96,11 +99,8 @@
 		for (let i = 0; i < sorted.length - 1; i++) {
 			if (sorted[i + 1] === sorted[i] + 1) add_offset(sorted[i + 1]);
 		}
-		// Edge gap-after.last: emit if last node is visible and not trailing-clipped.
-		if (
-			sorted[sorted.length - 1] === count - 1 &&
-			((clip_map.get(`${path_str}${PATH_SEPARATOR}${count - 1}`) ?? 0) & 0b10) === 0
-		) {
+		// Edge gap-after.last: same gate as gap-before but on the trailing edge.
+		if (sorted[sorted.length - 1] === count - 1 && edge_state?.last === true) {
 			add_offset(count);
 		}
 
@@ -473,8 +473,7 @@
 		right: max(
 			calc(var(--_b-r) + var(--_C) * -9999999px),
 			calc(anchor(var(--_a) right) + var(--_R) * -9999999px),
-			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -9999999px),
-			calc(anchor(var(--_c) right) + var(--_C) * -9999999px)
+			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -9999999px)
 		);
 	}
 

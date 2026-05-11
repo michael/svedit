@@ -60,6 +60,15 @@ const GAP_SELECTOR = '.node-gap[data-gap-array-path]';
 const OVERSCAN_PX = 500;
 
 /**
+ * Distance (in CSS pixels) the leading/trailing edge of an edge node is
+ * allowed to overshoot the array container's matching edge while still
+ * counting as "at the edge". Picks up small overflow from sub-pixel
+ * layout and gives a forgiving hit area near the boundary so a 1-2px
+ * jitter from scroll/animation doesn't cause the edge gap to flicker.
+ */
+const EDGE_TOLERANCE_PX = 10;
+
+/**
  * Single source of truth for "which node DOM elements are near or in
  * the viewport". Owns the IntersectionObserver and the reactive maps
  * consumed by NodeGap and NodeGapMarkers.
@@ -83,6 +92,23 @@ class VisibilityRegistry {
 	 * @type {Map<string, SvelteSet<number>>}
 	 */
 	#array_indices = new Map();
+
+	/**
+	 * Per-array edge-proximity state. `first` is true when the first
+	 * node's leading edge is within EDGE_TOLERANCE_PX of the array
+	 * container's leading edge; `last` is the symmetric trailing-edge
+	 * check on the last node. Recomputed on scroll/resize via BCR
+	 * because IntersectionObserver only fires on intersection-ratio
+	 * threshold crossings and would otherwise miss horizontal-overflow
+	 * scroll changes that don't change the visibility ratio.
+	 *
+	 * NodeGap and NodeGapMarkers read this to gate edge gaps so they
+	 * only render when the edge node has actually reached the matching
+	 * end of its container.
+	 *
+	 * @type {SvelteMap<string, { first: boolean, last: boolean }>}
+	 */
+	edge_map = new SvelteMap();
 
 	/** @type {IntersectionObserver | null} */
 	#io = null;
@@ -110,19 +136,38 @@ class VisibilityRegistry {
 	 */
 	view_classes = true;
 
+	/**
+	 * When true, the overscan IO populates near_map / clip_map and gates
+	 * `.positioned` on gap elements by viewport proximity. When false,
+	 * the overscan IO is skipped entirely: observe() pre-populates the
+	 * maps as if every node were always in the overscan zone with no
+	 * clipping, so every gap is `.positioned` and every marker renders.
+	 * Useful for diagnosing whether a layout bug originates in the IO
+	 * culling logic vs. the underlying CSS / anchor positioning.
+	 *
+	 * Disabling makes anchor positioning O(N) over every node in the
+	 * document and is intended for debugging only; large documents
+	 * (hundreds of nodes) can become unresponsive without the culling.
+	 *
+	 * Opt out via `session.config.visibility_culling = false`.
+	 */
+	visibility_culling = true;
+
 	start() {
-		if (typeof window === 'undefined' || this.#io) return;
+		if (typeof window === 'undefined') return;
 		// Threshold [0, 1]: [0] fires on overscan entry/exit (drives near_map);
 		// [1] is needed for nested scrollers — a node can transition between
 		// fully-visible and clipped-by-scroller without ever crossing the
 		// overscan boundary, so clip_map would otherwise stay stale.
 		// #clip_bits uses entry.rootBounds to ignore clips that are just
 		// the overscan boundary itself (#272).
-		this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
-			rootMargin: `${OVERSCAN_PX}px`,
-			threshold: [0, 1]
-		});
-		if (this.view_classes) {
+		if (this.visibility_culling && !this.#io) {
+			this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
+				rootMargin: `${OVERSCAN_PX}px`,
+				threshold: [0, 1]
+			});
+		}
+		if (this.view_classes && !this.#view_io) {
 			this.#view_io = new IntersectionObserver((entries) => this.#process_view(entries), {
 				threshold: [0, 1]
 			});
@@ -139,6 +184,7 @@ class VisibilityRegistry {
 		this.#pending_view_sync.clear();
 		this.near_map.clear();
 		this.clip_map.clear();
+		this.edge_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
 	}
 
@@ -162,7 +208,44 @@ class VisibilityRegistry {
 
 	/** @param {HTMLElement} el */
 	observe(el) {
-		this.#io?.observe(el);
+		if (this.visibility_culling) {
+			this.#io?.observe(el);
+		} else {
+			// No overscan IO: treat every node as always near with no
+			// clipping. near_map / array_indices population mirrors what
+			// the IO would write on its first callback, just without the
+			// per-node viewport check. Sibling gaps still need a sync
+			// pass because no IO callback will fire to drive it.
+			//
+			// untrack() is critical: the bootstrap loop calls observe()
+			// from inside the create_node_visibility $effect, and the
+			// .has() reads on reactive Map/Set would subscribe that
+			// effect to the same maps we then write to — invalidating
+			// itself and re-running the cleanup→start cycle infinitely.
+			const path = el.dataset?.path;
+			if (path) {
+				untrack(() => {
+					let any_change = false;
+					if (!this.near_map.has(path)) {
+						this.near_map.set(path, true);
+						any_change = true;
+					}
+					const split = this.#split_path(path);
+					if (split) {
+						const set = this.get_array_indices(split.array_path);
+						if (!set.has(split.index)) {
+							set.add(split.index);
+							any_change = true;
+						}
+					}
+					if (this.clip_map.has(path)) {
+						this.clip_map.delete(path);
+						any_change = true;
+					}
+					if (any_change) this.sync_gaps_around_node(el);
+				});
+			}
+		}
 		this.#view_io?.observe(el);
 	}
 
@@ -206,6 +289,66 @@ class VisibilityRegistry {
 		if (prev?.classList.contains('node-gap')) this.sync_gap_class(prev);
 		const next = node_el.nextElementSibling;
 		if (next?.classList.contains('node-gap')) this.sync_gap_class(next);
+	}
+
+	/**
+	 * Update edge_map for an array from its scrollLeft/scrollWidth/
+	 * clientWidth (and the y-axis equivalents). Returns true when the
+	 * state actually changed. Uses only the array's own scroll metrics
+	 * — no BCRs, no per-node measurements, no querying children — so
+	 * each call is ~6 property reads on one element regardless of how
+	 * many nodes the array has.
+	 *
+	 * For a non-overflowing array (scrollWidth === clientWidth, etc.)
+	 * both checks pass, so first/last gaps stay visible as expected.
+	 * For an overflowing array, first is true only when scrolled to
+	 * the start and last only when scrolled to the end (within
+	 * EDGE_TOLERANCE_PX).
+	 *
+	 * Writes to edge_map are wrapped in untrack() so this can be
+	 * called transitively from $effect contexts without self-
+	 * invalidation.
+	 *
+	 * @param {Element} array_el
+	 * @returns {boolean}
+	 */
+	sync_edge_state(array_el) {
+		if (!array_el) return false;
+		const path = /** @type {HTMLElement} */ (array_el).dataset.path;
+		if (!path) return false;
+
+		const sl = array_el.scrollLeft;
+		const sw = array_el.scrollWidth;
+		const cw = array_el.clientWidth;
+		const st = array_el.scrollTop;
+		const sh = array_el.scrollHeight;
+		const ch = array_el.clientHeight;
+
+		const first =
+			sl <= EDGE_TOLERANCE_PX && st <= EDGE_TOLERANCE_PX;
+		const last =
+			sl + cw >= sw - EDGE_TOLERANCE_PX && st + ch >= sh - EDGE_TOLERANCE_PX;
+
+		return untrack(() => {
+			const prev = this.edge_map.get(path);
+			if (prev && prev.first === first && prev.last === last) return false;
+			this.edge_map.set(path, { first, last });
+			return true;
+		});
+	}
+
+	/**
+	 * Sync edge state for an array and toggle .positioned on its
+	 * first/last gap elements if the state changed.
+	 *
+	 * @param {Element} array_el
+	 */
+	sync_array_edge_gaps(array_el) {
+		if (!this.sync_edge_state(array_el)) return;
+		const first_gap = array_el.querySelector(':scope > .node-gap.gap-before:not(.empty)');
+		const last_gap = array_el.querySelector(':scope > .node-gap.gap-after.last');
+		if (first_gap) this.sync_gap_class(first_gap);
+		if (last_gap) this.sync_gap_class(last_gap);
 	}
 
 	/**
@@ -390,6 +533,7 @@ class VisibilityRegistry {
 export function create_node_visibility(svedit) {
 	const registry = new VisibilityRegistry();
 	registry.view_classes = svedit.session?.config?.view_classes !== false;
+	registry.visibility_culling = svedit.session?.config?.visibility_culling !== false;
 	svedit.visibility_registry = registry;
 
 	$effect(() => {
@@ -407,14 +551,60 @@ export function create_node_visibility(svedit) {
 			registry.observe(/** @type {HTMLElement} */ (el));
 		}
 
+		// No explicit edge-state bootstrap: the IO will fire ~1 frame
+		// after observe() and #process_near's dirty_arrays loop fills
+		// edge_map for every array whose first or last node is in the
+		// initial overscan zone. Off-screen arrays correctly stay out
+		// of edge_map until they scroll into view.
+
+		// Bootstrap edge_map for arrays already in the DOM. One-time
+		// scrollLeft/clientWidth pass — cheap (one element, six property
+		// reads each) and never repeated outside this mount.
+		for (const arr of document.querySelectorAll('[data-type="node_array"]')) {
+			registry.sync_array_edge_gaps(arr);
+		}
+
 		const canvas =
 			untrack(() => svedit.canvas_el) || document.querySelector('.svedit-canvas');
 		/** @type {MutationObserver | null} */
 		let mo = null;
 		let raf = 0;
 
+		/**
+		 * Scroll listener for nested scroll containers. IntersectionObserver
+		 * doesn't reliably re-fire when the user scrolls inside a non-root
+		 * scrollable element (Chrome's IO samples on viewport scroll, not on
+		 * intermediate scroll-container scrolls), so we listen for scroll
+		 * events on the document in capture phase. The handler is hot but
+		 * cheap: a single `.closest()` check exits in O(1) for the common
+		 * case (page scroll → target is document/body, not an array) and
+		 * coalesces array scrolls into one RAF that reads only scrollLeft /
+		 * scrollWidth / clientWidth — no per-node BCRs.
+		 */
+		/** @type {Set<Element>} */
+		const pending_scroll_arrays = new Set();
+		let scroll_raf = 0;
+		function flush_scroll_sync() {
+			scroll_raf = 0;
+			for (const arr of pending_scroll_arrays) {
+				if (arr.isConnected) registry.sync_array_edge_gaps(arr);
+			}
+			pending_scroll_arrays.clear();
+		}
+		/** @param {Event} event */
+		function on_scroll(event) {
+			const target = /** @type {Element | null} */ (event.target);
+			const arr = target?.closest?.('[data-type="node_array"]');
+			if (!arr) return;
+			pending_scroll_arrays.add(arr);
+			if (!scroll_raf) scroll_raf = requestAnimationFrame(flush_scroll_sync);
+		}
+		document.addEventListener('scroll', on_scroll, { capture: true, passive: true });
+
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
+				/** @type {Set<Element>} */
+				const dirty_arrays = new Set();
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
@@ -422,6 +612,8 @@ export function create_node_visibility(svedit) {
 						if (el.matches(NODE_SELECTOR)) {
 							registry.observe(el);
 							registry.schedule_view_sync(el);
+							const arr = el.closest('[data-type="node_array"]');
+							if (arr) dirty_arrays.add(arr);
 						}
 						// Newly-mounted gaps need immediate .positioned sync —
 						// the IO won't fire for the EXISTING adjacent node
@@ -434,6 +626,8 @@ export function create_node_visibility(svedit) {
 							const node_el = /** @type {HTMLElement} */ (child);
 							registry.observe(node_el);
 							registry.schedule_view_sync(node_el);
+							const arr = node_el.closest('[data-type="node_array"]');
+							if (arr) dirty_arrays.add(arr);
 						}
 						for (const child of el.querySelectorAll(GAP_SELECTOR)) {
 							registry.sync_gap_class(child);
@@ -448,6 +642,9 @@ export function create_node_visibility(svedit) {
 						}
 					}
 				}
+				// Nodes were added/removed — first/last may have changed,
+				// re-sync via scrollLeft (no BCR).
+				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr);
 			});
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.
@@ -457,7 +654,10 @@ export function create_node_visibility(svedit) {
 		}
 
 		return () => {
+			document.removeEventListener('scroll', on_scroll, true);
 			cancelAnimationFrame(raf);
+			cancelAnimationFrame(scroll_raf);
+			pending_scroll_arrays.clear();
 			mo?.disconnect();
 			registry.stop();
 		};
@@ -481,23 +681,37 @@ export function create_node_visibility(svedit) {
 function should_position_gap_imperative(registry, array_path_str, offset, is_last, empty) {
 	if (!registry) return false;
 
-	if (empty) {
-		return registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`);
-	}
+	// untrack() is critical: this function is called transitively from
+	// the bootstrap $effect (via sync_array_edge_gaps → sync_gap_class),
+	// and the reactive-Map `.has()` / `.get()` reads here would
+	// otherwise subscribe that effect to the same maps the bootstrap
+	// then writes to — infinite re-run cycle that empties near_map
+	// every time the IO tries to populate it.
+	return untrack(() => {
+		if (empty) {
+			return registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`);
+		}
 
-	if (offset === 0) {
-		if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`)) return false;
-		return ((registry.clip_map.get(`${array_path_str}${PATH_SEPARATOR}0`) ?? 0) & 0b01) === 0;
-	}
+		// Edge gaps gate on near_map AND edge_map. edge_map is the
+		// scroll-aware BCR-based check that the adjacent edge node has
+		// actually reached the matching end of its array container
+		// (within EDGE_TOLERANCE_PX). We can't rely on IO clip_map here
+		// because IO only fires on intersection-ratio threshold
+		// crossings and misses scroll changes within a horizontal-
+		// overflow container that don't change the visibility ratio.
+		if (offset === 0) {
+			if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`)) return false;
+			return registry.edge_map.get(array_path_str)?.first === true;
+		}
 
-	if (is_last) {
-		const last = offset - 1;
-		if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${last}`)) return false;
-		return ((registry.clip_map.get(`${array_path_str}${PATH_SEPARATOR}${last}`) ?? 0) & 0b10) === 0;
-	}
+		if (is_last) {
+			if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`)) return false;
+			return registry.edge_map.get(array_path_str)?.last === true;
+		}
 
-	return (
-		registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`) &&
-		registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset}`)
-	);
+		return (
+			registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`) &&
+			registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset}`)
+		);
+	});
 }

@@ -289,28 +289,17 @@
 		);
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 9999999px),
-			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 9999999px),
-			/* Safety clamp for wrap: pins gap inside CB when the last
-			   node sits within the CB. Disabled in nowrap/horizontal-scroll
-			   where the trailing node extends past CB right (s-r > 100%) —
-			   there the anchor-based branches position correctly and this
-			   clamp would wrongly force the gap to CB right minus eg. */
 			calc(
-				100% - var(--_eg)
-				+ max(0px, var(--_s-r) - 100% + 0.5px) * 9999
-				+ var(--_C) * 9999999px
+				min(
+					var(--_s-r),
+					calc(var(--_b-rl) - var(--_eg))
+				) + var(--_C) * 9999999px
 			)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(
-				max(
-					var(--_b-r),
-					min(
-						calc(var(--_c-r) - var(--_eg)),
-						calc(var(--_s-r) - var(--_eg))
-					)
-				)
+				max(var(--_b-r), var(--_s-r) - var(--_eg))
 				+ var(--_C) * 9999999px
 			)
 		);
