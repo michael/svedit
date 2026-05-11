@@ -137,11 +137,11 @@ const session_config = {
 		list_item: 1
 	},
 	inserters: {
-		button: function (tr) {
+		button: function (tr, label_content) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
+				label: label_content || { text: '', annotations: [] },
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);

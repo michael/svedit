@@ -20,16 +20,39 @@ export function break_text_node(tr) {
 	// First we need to ensure we have a text selection
 	if (selection.type !== 'text') return false;
 
-	// Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
-	// which is wrapped inside a node_array (e.g. page.body)
+	// Next, we need to determine if the enclosing node is a pure text node
+	// (e.g. paragraph) OR a single-text-field block node (e.g. button),
+	// which is wrapped inside a node_array.
 
-	// Owner of the text property (e.g. paragraph)
+	// Owner of the text property (e.g. paragraph or button)
 	const node = tr.get(selection.path.slice(0, -1));
-	if (tr.kind(node) !== 'text') return false;
+	const kind = tr.kind(node);
+	const text_prop = selection.path.at(-1);
+
+	// Determine which text property holds the content to split. For a
+	// 'text' kind node it's always 'content'. For a 'block' kind node
+	// we only proceed when this is the node's SOLE text-shaped property
+	// (annotated_text / text). Multi-text-field blocks (story, hero)
+	// stay caret-at-gap — the user picks which field by gap selection,
+	// per the project rule.
+	if (kind === 'text') {
+		// existing behaviour
+	} else if (kind === 'block') {
+		const node_schema = tr.schema[node.type];
+		if (!node_schema?.properties) return false;
+		const text_props = Object.entries(node_schema.properties).filter(
+			([_, def]) => def.type === 'annotated_text' || def.type === 'text'
+		);
+		if (text_props.length !== 1) return false;
+		if (text_props[0][0] !== text_prop) return false;
+	} else {
+		return false;
+	}
+
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 	const node_array_prop = selection.path.at(-3);
-	// Get the node that owns the node_array property (e.g. a page.body)
+	// Get the node that owns the node_array property (e.g. a page.body or a story)
 	const node_array_node = tr.get(selection.path.slice(0, -3));
 
 
@@ -42,7 +65,7 @@ export function break_text_node(tr) {
 	const content = tr.get(selection.path);
 	const [left_text, right_text] = split_annotated_text(content, split_at_position);
 
-	tr.set([node.id, 'content'], left_text);
+	tr.set([node.id, text_prop], left_text);
 
 	const node_insert_position = {
 		type: 'node',

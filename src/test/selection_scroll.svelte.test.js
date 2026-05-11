@@ -34,6 +34,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { break_text_node, insert_default_node } from '../lib/transforms.svelte.js';
 import SveditTest from './testing_components/SveditTest.svelte';
 import {
 	settle,
@@ -61,6 +62,20 @@ function delete_selection(session) {
 	const tr = session.tr;
 	tr.delete_selection();
 	session.apply(tr);
+}
+
+/** Apply the Enter-key behaviour from the demo keymap:
+ * try break_text_node first, fall back to insert_default_node. */
+function press_enter(session) {
+	const tr = session.tr;
+	if (break_text_node(tr)) {
+		session.apply(tr);
+		return;
+	}
+	const tr2 = session.tr;
+	if (insert_default_node(tr2)) {
+		session.apply(tr2);
+	}
 }
 
 describe('node-selection scroll-into-view (row buttons array)', () => {
@@ -290,5 +305,81 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		// Model-driven (inserter) → render runs → array rescrolls to
 		// new max → new node + trailing cursor visible.
 		expect(arr.scrollLeft).toBeGreaterThan(scroll_before);
+	});
+});
+
+describe('break_text_node on single-text-field block (button)', () => {
+	it('Enter at the end of a button label creates a new empty button after it', async () => {
+		const session = make_story_session(3);
+		const { container } = render(SveditTest, { session });
+		await settle();
+
+		// Caret at the end of button 1's label ("Action 2")
+		const target_index = 1;
+		const label_text = session.doc.nodes[`btn_${target_index}`].label.text;
+		const canvas = container.querySelector('.svedit-canvas');
+		canvas.focus();
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'buttons', target_index, 'label'],
+			anchor_offset: label_text.length,
+			focus_offset: label_text.length
+		};
+		await settle();
+
+		const count_before = session.doc.nodes.story_1.buttons.length;
+		press_enter(session);
+		await settle();
+
+		// Array grew by one
+		expect(session.doc.nodes.story_1.buttons.length).toBe(count_before + 1);
+
+		// New button is at offset target_index + 1, has an empty label
+		// (cursor was at the END so right_text is empty).
+		const new_btn_id = session.doc.nodes.story_1.buttons[target_index + 1];
+		const new_btn = session.doc.nodes[new_btn_id];
+		expect(new_btn.type).toBe('button');
+		expect(new_btn.label.text).toBe('');
+
+		// The original button still has its original label intact.
+		const orig_btn = session.doc.nodes[`btn_${target_index}`];
+		expect(orig_btn.label.text).toBe(label_text);
+
+		// Caret is now inside the new button's label at offset 0.
+		const sel = session.selection;
+		expect(sel.type).toBe('text');
+		expect(sel.path[sel.path.length - 1]).toBe('label');
+		expect(sel.path[sel.path.length - 2]).toBe(target_index + 1);
+		expect(sel.anchor_offset).toBe(0);
+	});
+
+	it('Enter in the MIDDLE of a button label splits text into left/right buttons', async () => {
+		const session = make_story_session(3);
+		const { container } = render(SveditTest, { session });
+		await settle();
+
+		// Caret mid-label of button 1: "Action 2" → split at offset 6
+		// ("Action") so left = "Action", right = " 2".
+		const target_index = 1;
+		const split_at = 6;
+		const canvas = container.querySelector('.svedit-canvas');
+		canvas.focus();
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'buttons', target_index, 'label'],
+			anchor_offset: split_at,
+			focus_offset: split_at
+		};
+		await settle();
+
+		press_enter(session);
+		await settle();
+
+		const orig_btn = session.doc.nodes[`btn_${target_index}`];
+		expect(orig_btn.label.text).toBe('Action');
+
+		const new_btn_id = session.doc.nodes.story_1.buttons[target_index + 1];
+		const new_btn = session.doc.nodes[new_btn_id];
+		expect(new_btn.label.text).toBe(' 2');
 	});
 });

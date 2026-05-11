@@ -740,11 +740,11 @@ export const session_config = {
 				focus_offset: tr.selection.focus_offset
 			});
 		},
-		button: function (tr) {
+		button: function (tr, label_content) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
+				label: label_content || { text: '', annotations: [] },
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);
