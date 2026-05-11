@@ -749,11 +749,17 @@ export const session_config = {
 			};
 			tr.create(new_button);
 			tr.insert_nodes([new_button.id]);
+			// Buttons have a single editable property (label). Put the caret
+			// inside the empty label so the user immediately sees a blinking
+			// cursor on the just-inserted button and can type its text —
+			// same pattern as the text / list_item inserters. Block-type
+			// nodes with multiple text fields leave the caret at the gap
+			// instead so the user can choose which field to start with.
 			tr.set_selection({
-				type: 'node',
-				path: [...tr.selection.path],
-				anchor_offset: tr.selection.focus_offset,
-				focus_offset: tr.selection.focus_offset
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'label'],
+				anchor_offset: 0,
+				focus_offset: 0
 			});
 		},
 		hero: function (tr) {

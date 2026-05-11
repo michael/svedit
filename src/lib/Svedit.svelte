@@ -77,6 +77,14 @@
 	setContext('svedit', context);
 	create_node_visibility(context);
 
+	// Test-only hook: expose the svedit context so test specs can read
+	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
+	// so it never leaks into production. Stripped at build time when
+	// Vite tree-shakes branches guarded by a constant `false`.
+	if (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test') {
+		/** @type {any} */ (globalThis).__svedit_ctx_for_test = context;
+	}
+
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
 
@@ -725,12 +733,16 @@ ${fallback_html}`;
 			return;
 		}
 
-		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas.
-		// Node selections are excluded from the skip — after an insert, the
-		// gap element data-gap-offset shifts in lockstep with the model, so
-		// the equality check would skip even though the cursor anchor node
-		// has just changed and the array needs a fresh scrollIntoView to
-		// keep the new node and its caret in view.
+		// NOTE: Skip rerender only when the selection is the same and the
+		// focus is already within the canvas.
+		// Node selections are deliberately INCLUDED in the skip: a re-emit
+		// of an identical {type:'node', path, anchor_offset, focus_offset}
+		// is a genuine no-op — neither the cursor target nor the visible
+		// gap changes. Auto-scrolling the new node into view after an
+		// insert is handled at the inserter level (the inserter moves the
+		// selection to a `text` caret inside the new node's editable
+		// property, which is a DIFFERENT selection than the pre-insert
+		// node caret, so this skip doesn't apply to it).
 		let prev_selection =
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
@@ -739,7 +751,6 @@ ${fallback_html}`;
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (
 			!is_empty_text_selection &&
-			selection.type !== 'node' &&
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
 		) {
