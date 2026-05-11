@@ -473,7 +473,14 @@
 		right: max(
 			calc(var(--_b-r) + var(--_C) * -9999999px),
 			calc(anchor(var(--_a) right) + var(--_R) * -9999999px),
-			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -9999999px)
+			calc(anchor(var(--_a) right) - var(--_gm) + var(--_C) * -9999999px),
+			/* Column / wrap-layout fill: when the last item sits within
+			   the container (non-overflow), max picks anchor(--_c right)
+			   and the marker stretches to the containers trailing edge.
+			   In row-overflow this branch is dominated by anchor(--_a right)
+			   which is smaller, so the marker follows the trailing node
+			   past the container. */
+			calc(anchor(var(--_c) right) + var(--_C) * -9999999px)
 		);
 	}
 
@@ -630,11 +637,11 @@
 	}
 
 	/* Debugging styles - DO NOT CHANGE OR REMOVE */
-	/* :global([data-type="node_array"]) {
+	:global([data-type="node_array"]) {
 		outline: 0.1px solid green;
 	}
 	.gap-marker {
 		outline: 1px solid blue;
 		outline-offset: 0.5px;
-	} */
+	}
 </style>

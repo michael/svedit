@@ -15,28 +15,36 @@
  * by viewport visibility. Off-screen NodeGaps remain as zero-size
  * absolute elements with no anchor cost.
  *
- * ## Two observers, separated by root
+ * ## Two observers + a scroll listener
  *
- * **Overscan IO** (`rootMargin: 500px`, threshold `[0]`):
- * 1. **near_map** — entry.isIntersecting is true for the rootMargin'd
- *    overscan zone. Drives `.positioned` activation on adjacent gaps.
- * 2. **clip_map** — computed from intersectionRect vs boundingClientRect
- *    for nested-scroller edge clip detection.
+ * **Overscan IO** (`rootMargin: 500px`, threshold `[0, 1]`) — fills
+ * `near_map` and per-array `array_indices`. Drives `.positioned`
+ * activation on adjacent gaps via `sync_gaps_around_node`.
  *
- * **Viewport IO** (`rootMargin: 0`, threshold `[0, 1]`):
- * 3. **view classes** — `.in-view`, `.fully-in-view`, `.visible-top`,
- *    `.visible-bottom`, `.seen`. OPT-IN via `session.config.view_classes`.
- *    A separate observer is required because the overscan IO fires its
- *    thresholds while nodes are still 500px outside the real viewport —
- *    by the time a node scrolls into view, both thresholds have already
- *    been crossed and no further callback fires.
+ * **Viewport IO** (`rootMargin: 0`, threshold `[0, 1]`) — toggles
+ * view classes (`.in-view`, `.fully-in-view`, …) on node elements.
+ * OPT-IN via `session.config.view_classes`. A separate observer is
+ * required because the overscan IO fires its thresholds while nodes
+ * are still 500px outside the real viewport.
+ *
+ * **Document scroll listener** (capture, passive) — fills `edge_map`,
+ * a per-array `{first, last}` flag indicating whether the leading/
+ * trailing node has reached the matching container edge within
+ * EDGE_TOLERANCE_PX. IntersectionObserver doesn't re-fire on scrolls
+ * inside non-root scroll containers (the intersection ratio doesn't
+ * cross any threshold), so this is the only reliable way to track
+ * horizontal-overflow scroll position. The handler is hot but cheap:
+ * a single `.closest()` early-out (page scroll → null → returns
+ * immediately) and a RAF flush that reads only scrollLeft / scrollWidth /
+ * clientWidth on the dirty array.
  *
  * ## Reactivity
  *
- * State lives in SvelteMap (near_map, clip_map) and per-array SvelteSet
- * (array_indices). Consumers (NodeGap, NodeGapMarkers) read via
- * .has()/.get() — Svelte's runtime tracks at per-key granularity, so
- * only consumers whose specific dependencies changed re-evaluate.
+ * State lives in SvelteMap (near_map, edge_map) and per-array SvelteSet
+ * (array_indices). Consumers (NodeGap via sync_gap_class, NodeGapMarkers
+ * via $derived) read via .has()/.get() — Svelte's runtime tracks at
+ * per-key granularity, so only consumers whose specific dependencies
+ * changed re-evaluate.
  *
  * View classes are toggled imperatively (no Svelte consumers — they're
  * pure CSS hooks for app code).
@@ -76,13 +84,6 @@ const EDGE_TOLERANCE_PX = 10;
 class VisibilityRegistry {
 	/** Per-node "in overscan zone" flag. NodeGap reads via `.has(path)`. */
 	near_map = new SvelteMap();
-
-	/**
-	 * Per-node edge clip state for nested scrollers.
-	 * 0b01 = leading edge clipped (top|left)
-	 * 0b10 = trailing edge clipped (bottom|right)
-	 */
-	clip_map = new SvelteMap();
 
 	/**
 	 * Per-array set of near child indices. NodeGapMarkers iterates the
@@ -137,13 +138,14 @@ class VisibilityRegistry {
 	view_classes = true;
 
 	/**
-	 * When true, the overscan IO populates near_map / clip_map and gates
+	 * When true, the overscan IO populates near_map and gates
 	 * `.positioned` on gap elements by viewport proximity. When false,
-	 * the overscan IO is skipped entirely: observe() pre-populates the
-	 * maps as if every node were always in the overscan zone with no
-	 * clipping, so every gap is `.positioned` and every marker renders.
-	 * Useful for diagnosing whether a layout bug originates in the IO
-	 * culling logic vs. the underlying CSS / anchor positioning.
+	 * the overscan IO is skipped entirely: observe() pre-populates
+	 * near_map / array_indices as if every node were always in the
+	 * overscan zone, so every gap is `.positioned` and every marker
+	 * renders. Useful for diagnosing whether a layout bug originates
+	 * in the IO culling logic vs. the underlying CSS / anchor
+	 * positioning.
 	 *
 	 * Disabling makes anchor positioning O(N) over every node in the
 	 * document and is intended for debugging only; large documents
@@ -155,12 +157,11 @@ class VisibilityRegistry {
 
 	start() {
 		if (typeof window === 'undefined') return;
-		// Threshold [0, 1]: [0] fires on overscan entry/exit (drives near_map);
-		// [1] is needed for nested scrollers — a node can transition between
-		// fully-visible and clipped-by-scroller without ever crossing the
-		// overscan boundary, so clip_map would otherwise stay stale.
-		// #clip_bits uses entry.rootBounds to ignore clips that are just
-		// the overscan boundary itself (#272).
+		// Threshold [0, 1]: [0] fires on overscan entry/exit (drives
+		// near_map); [1] is retained for symmetry but no longer required
+		// now that clip_map is gone — kept because it's harmless and
+		// helps `array_indices` stay consistent at the fully-visible
+		// transition for nested scrollers.
 		if (this.visibility_culling && !this.#io) {
 			this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
 				rootMargin: `${OVERSCAN_PX}px`,
@@ -183,7 +184,6 @@ class VisibilityRegistry {
 		this.#pending_view_raf = 0;
 		this.#pending_view_sync.clear();
 		this.near_map.clear();
-		this.clip_map.clear();
 		this.edge_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
 	}
@@ -238,10 +238,6 @@ class VisibilityRegistry {
 							any_change = true;
 						}
 					}
-					if (this.clip_map.has(path)) {
-						this.clip_map.delete(path);
-						any_change = true;
-					}
 					if (any_change) this.sync_gaps_around_node(el);
 				});
 			}
@@ -259,7 +255,7 @@ class VisibilityRegistry {
 
 	/**
 	 * Imperatively toggle .positioned on a single gap element based on
-	 * current near_map / clip_map state. Reads dataset + classList for
+	 * current near_map / edge_map state. Reads dataset + classList for
 	 * gap context (no Svelte reactivity).
 	 *
 	 * @param {Element} gap_el
@@ -279,8 +275,8 @@ class VisibilityRegistry {
 
 	/**
 	 * Toggle .positioned on the two gap elements adjacent to a node
-	 * element. Used after near_map / clip_map writes triggered by IO,
-	 * MO, or bootstrap. O(1) DOM sibling traversal.
+	 * element. Used after near_map writes triggered by IO, MO, or
+	 * bootstrap. O(1) DOM sibling traversal.
 	 *
 	 * @param {Element} node_el
 	 */
@@ -408,7 +404,6 @@ class VisibilityRegistry {
 	/** @param {string} path */
 	#forget(path) {
 		this.near_map.delete(path);
-		this.clip_map.delete(path);
 		const split = this.#split_path(path);
 		if (split) {
 			const set = this.#array_indices.get(split.array_path);
@@ -431,8 +426,8 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Overscan IO callback. Manages near_map, clip_map, array_indices,
-	 * and imperative .positioned toggling on adjacent gaps.
+	 * Overscan IO callback. Manages near_map and array_indices, then
+	 * imperatively toggles .positioned on adjacent gaps.
 	 *
 	 * @param {IntersectionObserverEntry[]} entries
 	 */
@@ -463,14 +458,6 @@ class VisibilityRegistry {
 				else set.delete(split.index);
 			}
 
-			const new_bits = is_near ? this.#clip_bits(entry) : 0b11;
-			const old_bits = this.clip_map.get(path) ?? 0;
-			if (new_bits !== old_bits) {
-				if (new_bits === 0 || new_bits === 0b11) this.clip_map.delete(path);
-				else this.clip_map.set(path, new_bits);
-				any_change = true;
-			}
-
 			if (any_change) this.sync_gaps_around_node(el);
 		}
 	}
@@ -491,36 +478,12 @@ class VisibilityRegistry {
 		}
 	}
 
-	/**
-	 * Detect whether the node is clipped at any edge by something other than
-	 * the overscan boundary itself. The IO's intersectionRect is clipped by
-	 * (a) ancestor scroll containers and (b) the overscan boundary that
-	 * rootMargin defines. We only care about (a) — clipping by the overscan
-	 * boundary is an artifact of pre-positioning gaps before the node
-	 * actually enters the viewport, not a real clip the user can see.
-	 *
-	 * `entry.rootBounds` gives us the exact rect the IO compared against
-	 * (already includes rootMargin). A real clip on an edge means `ir` was
-	 * shrunk past `bcr` AND past `rootBounds` on that side — i.e. the clip
-	 * landed strictly inside the overscan zone, where only a real ancestor
-	 * scroller could have put it.
-	 *
-	 * @param {IntersectionObserverEntry} entry
-	 */
-	#clip_bits(entry) {
-		const bcr = entry.boundingClientRect;
-		const ir = entry.intersectionRect;
-		const rb = entry.rootBounds;
-		// rootBounds is null when the IO observes a target in a cross-origin
-		// iframe. Treat as no clip — we can't reason about it safely.
-		if (!rb) return 0;
-		const tol = 0.5;
-		const top    = ir.top    > bcr.top    + tol && ir.top    > rb.top    + tol;
-		const left   = ir.left   > bcr.left   + tol && ir.left   > rb.left   + tol;
-		const bottom = ir.bottom < bcr.bottom - tol && ir.bottom < rb.bottom - tol;
-		const right  = ir.right  < bcr.right  - tol && ir.right  < rb.right  - tol;
-		return ((top || left) ? 0b01 : 0) | ((bottom || right) ? 0b10 : 0);
-	}
+	// #clip_bits and clip_map were removed: their only consumer was the
+	// edge-gap visibility check, and they went stale on nested horizontal
+	// scroll (IO doesn't re-fire when the intersection ratio doesn't
+	// cross a threshold). Replaced by edge_map, derived from the array's
+	// own scrollLeft / clientWidth / scrollWidth — one element, six
+	// property reads per dirty array per RAF, no per-node BCRs.
 }
 
 /**
@@ -544,18 +507,12 @@ export function create_node_visibility(svedit) {
 		// would force layout on each call, and at 2000+ nodes the
 		// bootstrap interleaves with Svelte's mount work, retriggering
 		// layout for the growing DOM (~1.5 s of forced reflow when
-		// traced). IO populates near_map / array_indices / clip_map on
-		// its first callback, ~1 frame after observe(). The lag is
-		// invisible: un-positioned NodeGaps have zero layout presence.
+		// traced). IO populates near_map / array_indices on its first
+		// callback, ~1 frame after observe(). The lag is invisible:
+		// un-positioned NodeGaps have zero layout presence.
 		for (const el of document.querySelectorAll(NODE_SELECTOR)) {
 			registry.observe(/** @type {HTMLElement} */ (el));
 		}
-
-		// No explicit edge-state bootstrap: the IO will fire ~1 frame
-		// after observe() and #process_near's dirty_arrays loop fills
-		// edge_map for every array whose first or last node is in the
-		// initial overscan zone. Off-screen arrays correctly stay out
-		// of edge_map until they scroll into view.
 
 		// Bootstrap edge_map for arrays already in the DOM. One-time
 		// scrollLeft/clientWidth pass — cheap (one element, six property
@@ -666,11 +623,12 @@ export function create_node_visibility(svedit) {
 
 /**
  * Non-reactive visibility check used by the imperative .positioned
- * toggle. Reads near_map / clip_map directly without going through
- * SvelteMap's per-key tracking — we only call this from the IO/MO
- * callbacks and the bootstrap, never from a $derived. `is_last` and
- * `empty` come from the gap element's classList, so we don't need
- * `count` here.
+ * toggle. Reads near_map / edge_map inside untrack() because this is
+ * called from sync_gap_class which can run transitively from the
+ * bootstrap $effect, and a subscription here would self-invalidate
+ * (the same effect writes to these maps and would re-run forever).
+ * `is_last` and `empty` come from the gap element's classList, so we
+ * don't need `count` here.
  *
  * @param {VisibilityRegistry} registry
  * @param {string} array_path_str
