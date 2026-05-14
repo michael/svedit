@@ -85,9 +85,6 @@
 
 	.story :global(.buttons) {
 		--row: 1;
-		@media (max-width: 380px) {
-			--row: 0;
-		}
 	}
 
 	/* important: also add relative positioning to the parent container, so the placeholder occoupies the entire space*/
