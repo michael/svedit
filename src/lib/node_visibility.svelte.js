@@ -335,12 +335,25 @@ class VisibilityRegistry {
 
 	/**
 	 * Sync edge state for an array and toggle .positioned on its
-	 * first/last gap elements if the state changed.
+	 * first/last gap elements.
+	 *
+	 * By default early-exits when edge_map didn't change — the scroll
+	 * listener calls this on every RAF flush, and re-querying gaps for
+	 * a no-op state change wastes work. Pass `{ force: true }` for the
+	 * structural-mutation path (add/remove of a node): the DOM element
+	 * that's NOW first/last may be a different element than before
+	 * (Svelte transferred the `.last` class to a reused gap component
+	 * when the trailing node was removed), but MO can't see that as a
+	 * mutation because it only tracks childList, not attribute changes.
+	 * Without the force, the reused gap stays stuck in its previous
+	 * `.positioned` state.
 	 *
 	 * @param {Element} array_el
+	 * @param {{ force?: boolean }} [opts]
 	 */
-	sync_array_edge_gaps(array_el) {
-		if (!this.sync_edge_state(array_el)) return;
+	sync_array_edge_gaps(array_el, opts) {
+		const changed = this.sync_edge_state(array_el);
+		if (!changed && !opts?.force) return;
 		const first_gap = array_el.querySelector(':scope > .node-gap.gap-before:not(.empty)');
 		const last_gap = array_el.querySelector(':scope > .node-gap.gap-after.last');
 		if (first_gap) this.sync_gap_class(first_gap);
@@ -599,9 +612,15 @@ export function create_node_visibility(svedit) {
 						}
 					}
 				}
-				// Nodes were added/removed — first/last may have changed,
-				// re-sync via scrollLeft (no BCR).
-				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr);
+				// Nodes were added/removed — first/last may have changed.
+				// force:true so we re-evaluate first/last gaps even when
+				// edge_map didn't change. The trailing gap is a reused
+				// Svelte component (its DOM element survives the remove of
+				// the trailing node, with `.last` toggled on by Svelte's
+				// reactivity), and MO doesn't see attribute changes, so
+				// the reused element would otherwise be stuck in its
+				// previous `.positioned` state.
+				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr, { force: true });
 			});
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.

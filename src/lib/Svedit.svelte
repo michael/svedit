@@ -735,14 +735,15 @@ ${fallback_html}`;
 
 		// NOTE: Skip rerender only when the selection is the same and the
 		// focus is already within the canvas.
-		// Node selections are deliberately INCLUDED in the skip: a re-emit
-		// of an identical {type:'node', path, anchor_offset, focus_offset}
-		// is a genuine no-op — neither the cursor target nor the visible
-		// gap changes. Auto-scrolling the new node into view after an
-		// insert is handled at the inserter level (the inserter moves the
-		// selection to a `text` caret inside the new node's editable
-		// property, which is a DIFFERENT selection than the pre-insert
-		// node caret, so this skip doesn't apply to it).
+		// Node selections are EXCLUDED from the skip: after a structural
+		// mutation (insert/delete), Svelte reuses gap DOM elements with
+		// shifted `data-gap-offset` attributes. The native selection
+		// continues pointing at the reused element, so reading it back
+		// via __get_node_selection_from_dom() yields the new offset —
+		// JSON-matching the model — even though the array hasn't been
+		// scrolled to expose the gap yet. Always rerunning
+		// __render_node_selection ensures the cursor's scroll-into-view
+		// logic fires on every model-driven node-selection change.
 		let prev_selection =
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
@@ -751,6 +752,7 @@ ${fallback_html}`;
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (
 			!is_empty_text_selection &&
+			selection.type !== 'node' &&
 			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 			canvas_el?.contains(document.activeElement)
 		) {
@@ -1200,15 +1202,66 @@ ${fallback_html}`;
 		}
 
 		node_array_el.focus();
-		const scroll_node_offset = is_collapsed
-			? Math.max(0, selection.anchor_offset - 1)
-			: (is_backward ? selection.focus_offset : selection.anchor_offset);
-		const scroll_node = __get_node_element(node_array_path, scroll_node_offset);
-		if (scroll_node) {
-			setTimeout(() => {
-				scroll_node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			}, 0);
-		}
+
+		// Scroll the cursor location into view.
+		//
+		// The gap at offset N sits immediately BEFORE node[N] (or at the
+		// trailing edge when N === array.length). The previous version
+		// scrolled node[N-1] into view, which puts that node flush at the
+		// scroll-container edge — leaving the gap immediately to its
+		// right (the cursor) just past the edge, still hidden in an
+		// overflowing horizontal container.
+		//
+		// New strategy, indexed off the gap location:
+		// - Leading cursor (offset 0): scroll the array to its start so
+		//   the gap-before-first-node is exposed.
+		// - Trailing cursor (offset === array.length): scroll the array
+		//   to its end so the trailing gap is exposed. As a fallback
+		//   for column-flow arrays where the array itself isn't the
+		//   scroll container (e.g. page body — the document scrolls),
+		//   also scrollIntoView on the last node with end alignment.
+		// - Mid cursor: scroll node[offset] into view; the gap immediately
+		//   to its leading side comes into view alongside it.
+		//
+		// For range selections, use the focus end as the cursor location
+		// (mirrors __render_text_selection's scroll-the-focus behaviour).
+		setTimeout(() => {
+			const cursor_offset = is_collapsed
+				? selection.focus_offset
+				: (is_backward ? selection.anchor_offset : selection.focus_offset);
+			const node_array = session.get(node_array_path);
+			const array_length = Array.isArray(node_array) ? node_array.length : 0;
+
+			if (cursor_offset === 0) {
+				node_array_el.scrollLeft = 0;
+				node_array_el.scrollTop = 0;
+				return;
+			}
+			if (cursor_offset >= array_length) {
+				const max_left = Math.max(
+					0,
+					node_array_el.scrollWidth - node_array_el.clientWidth
+				);
+				const max_top = Math.max(
+					0,
+					node_array_el.scrollHeight - node_array_el.clientHeight
+				);
+				node_array_el.scrollLeft = max_left;
+				node_array_el.scrollTop = max_top;
+				// Fallback for arrays that aren't their own scroll container
+				// (e.g. page body in a column flow — the document scrolls
+				// instead). When the array had no scroll headroom on either
+				// axis, ask the document to scroll the last node into view
+				// at end alignment so the trailing-gap area gets revealed.
+				if (max_left === 0 && max_top === 0) {
+					const last_node = __get_node_element(node_array_path, cursor_offset - 1);
+					last_node?.scrollIntoView({ block: 'end', inline: 'end' });
+				}
+				return;
+			}
+			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
+			node_at_cursor?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		}, 0);
 	}
 
 	function __render_property_selection() {
