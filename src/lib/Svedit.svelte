@@ -44,6 +44,11 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
+	// Tracks whether the user is currently dragging. While the pointer
+	// is held, render_selection's scroll-into-view path is suppressed —
+	// otherwise scrollIntoView fights the user's drag and pulls the
+	// viewport away mid-selection.
+	let pointer_down = false;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -737,7 +742,9 @@ ${fallback_html}`;
 		// canvas. Node selections are excluded: Svelte reuses gap DOM
 		// across inserts/deletes (the same element answers offset N
 		// before and N+1 after), so a JSON-identical readback can still
-		// need scroll-into-view.
+		// need scroll-into-view. The pointer_down guard inside
+		// __render_node_selection prevents the rerender from fighting
+		// the user's drag.
 		let prev_selection =
 			__get_property_selection_from_dom() ||
 			__get_text_selection_from_dom() ||
@@ -1197,27 +1204,57 @@ ${fallback_html}`;
 
 		node_array_el.focus();
 
-		// Scroll the cursor (gap) into view. Targets the node AFTER the
-		// gap so the gap immediately to its leading side comes into view
-		// alongside it. For the trailing gap there's no such node — scroll
-		// the array to its end so the gap's anchor space is exposed (a
-		// no-op when the array isn't scrollable), AND scrollIntoView on
-		// the now-last node so document/ancestor scroll also kicks in
-		// when the array isn't its own scroll container (image grid,
-		// page body).
+		// Bring the cursor into view.
+		//
+		// Strategy is indexed off the gap location (where the cursor
+		// visibly sits), not the adjacent node:
+		// - Leading cursor (offset 0): scroll the array to start so the
+		//   gap-before-first-node is exposed.
+		// - Trailing cursor (offset === array.length): scroll the array
+		//   to end. When the array isn't its own scroll container (image
+		//   grid, page body), fall back to scrollIntoView on the now-
+		//   last node so the document scrolls instead.
+		// - Mid cursor: scrollIntoView on node[offset]; the gap to its
+		//   leading side comes into view alongside it.
+		//
+		// `nearest` everywhere — only scrolls when the target isn't
+		// already fully in view, so fully-visible scenarios are a no-op.
+		//
+		// pointer_down guard: suppress scroll-into-view while the user
+		// is mid-drag — otherwise scrollIntoView fights the drag and
+		// pulls the viewport away.
 		setTimeout(() => {
+			if (pointer_down) return;
 			const cursor_offset = is_collapsed
 				? selection.focus_offset
 				: (is_backward ? selection.anchor_offset : selection.focus_offset);
-			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
-			if (node_at_cursor) {
-				node_at_cursor.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			} else if (cursor_offset > 0) {
-				node_array_el.scrollLeft = node_array_el.scrollWidth;
-				node_array_el.scrollTop = node_array_el.scrollHeight;
-				const last_node = __get_node_element(node_array_path, cursor_offset - 1);
-				last_node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			const node_array = session.get(node_array_path);
+			const array_length = Array.isArray(node_array) ? node_array.length : 0;
+
+			if (cursor_offset === 0) {
+				node_array_el.scrollLeft = 0;
+				node_array_el.scrollTop = 0;
+				return;
 			}
+			if (cursor_offset >= array_length) {
+				const max_left = Math.max(
+					0,
+					node_array_el.scrollWidth - node_array_el.clientWidth
+				);
+				const max_top = Math.max(
+					0,
+					node_array_el.scrollHeight - node_array_el.clientHeight
+				);
+				node_array_el.scrollLeft = max_left;
+				node_array_el.scrollTop = max_top;
+				if (max_left === 0 && max_top === 0) {
+					const last_node = __get_node_element(node_array_path, cursor_offset - 1);
+					last_node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				}
+				return;
+			}
+			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
+			node_at_cursor?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
@@ -1431,7 +1468,15 @@ ${fallback_html}`;
   TODO: We must get rid of the global handlers here, so Svedit doesn't conflict
   with any app-specific event handling.
 -->
-<svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
+<svelte:document
+	{onselectionchange}
+	{oncut}
+	{oncopy}
+	{onpaste}
+	onpointerdown={() => (pointer_down = true)}
+	onpointerup={() => (pointer_down = false)}
+	onpointercancel={() => (pointer_down = false)}
+/>
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
