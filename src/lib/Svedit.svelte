@@ -1199,9 +1199,12 @@ ${fallback_html}`;
 
 		// Scroll the cursor (gap) into view. Targets the node AFTER the
 		// gap so the gap immediately to its leading side comes into view
-		// alongside it. For the trailing gap there's no such node, so
-		// scroll the array to its end instead (browser clamps if the
-		// array isn't actually scrollable).
+		// alongside it. For the trailing gap there's no such node — scroll
+		// the array to its end so the gap's anchor space is exposed (a
+		// no-op when the array isn't scrollable), AND scrollIntoView on
+		// the now-last node so document/ancestor scroll also kicks in
+		// when the array isn't its own scroll container (image grid,
+		// page body).
 		setTimeout(() => {
 			const cursor_offset = is_collapsed
 				? selection.focus_offset
@@ -1209,9 +1212,11 @@ ${fallback_html}`;
 			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
 			if (node_at_cursor) {
 				node_at_cursor.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			} else {
+			} else if (cursor_offset > 0) {
 				node_array_el.scrollLeft = node_array_el.scrollWidth;
 				node_array_el.scrollTop = node_array_el.scrollHeight;
+				const last_node = __get_node_element(node_array_path, cursor_offset - 1);
+				last_node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 			}
 		}, 0);
 	}
