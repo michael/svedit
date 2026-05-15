@@ -280,77 +280,82 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 	});
 });
 
-describe('node-selection skip during user drag', () => {
+describe('node-selection: DOM-driven vs. model-driven', () => {
 	beforeEach(() => {
 		window.scrollTo(0, 0);
 	});
 
-	it('does not scrollIntoView while the pointer is held (mid-drag)', async () => {
-		// Regression for the drag-loop scroll. While dragging, render
-		// still runs (Svelte can't tell DOM-driven from model-driven),
-		// but the scroll-into-view path is guarded by pointer_down so
-		// the viewport doesn't get yanked away mid-drag.
+	it('does not scrollIntoView when a DOM-driven selection change leaves the DOM in sync (drag-loop guard)', async () => {
+		// Regression for the drag-loop scroll. During drag the browser
+		// updates the DOM selection and onselectionchange echoes it to
+		// the model. The DOM already reflects the new selection, so
+		// rerunning scrollIntoView is wasted work and (worse) yanks the
+		// viewport away while the user is still dragging.
+		//
+		// The fix: onselectionchange marks the model update as
+		// DOM-driven, and render_selection only applies the skip in
+		// that case — if the DOM already matches, no rerender.
 		const session = make_story_session(20);
 		const { container } = render(SveditTest, { session });
 		await settle();
 
 		const arr = buttons_array(container);
 		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
-
-		// Start NOT at the end so the trailing-gap scroll, if it fires,
-		// would move scrollLeft.
 		arr.scrollLeft = 0;
 		await settle();
 
 		const canvas = container.querySelector('.svedit-canvas');
 		canvas.focus();
 
-		// Simulate the user being mid-drag.
-		document.dispatchEvent(new PointerEvent('pointerdown'));
-		await settle();
-
+		// Simulate the DOM-driven path: set the DOM selection directly,
+		// then dispatch selectionchange so the editor's handler echoes
+		// it into the model. By the time render_selection runs the
+		// model already matches the DOM and the skip should fire.
+		const trailing_gap = arr.querySelector(':scope > .node-gap.gap-after.last .svedit-selectable');
+		expect(trailing_gap).not.toBeNull();
+		const range = document.createRange();
+		range.setStart(trailing_gap, 1);
+		range.setEnd(trailing_gap, 1);
+		window.getSelection().removeAllRanges();
+		window.getSelection().addRange(range);
+		document.dispatchEvent(new Event('selectionchange'));
 		const scroll_before = arr.scrollLeft;
-		session.selection = {
-			type: 'node',
-			path: ['page_1', 'body', 0, 'buttons'],
-			anchor_offset: 20,
-			focus_offset: 20
-		};
 		await settle();
 
-		// The pointer_down guard prevents the scroll from firing.
+		// DOM-driven path → skip fires → no scroll.
 		expect(arr.scrollLeft).toBe(scroll_before);
+	});
 
-		// Releasing the pointer re-enables scroll-into-view for
-		// subsequent selection changes.
-		document.dispatchEvent(new PointerEvent('pointerup'));
+	it('does scrollIntoView when a model-driven selection change leaves the DOM at a stale scroll (insert)', async () => {
+		// Regression for the original bug: Svelte reuses the trailing
+		// gap DOM element with a shifted data-gap-offset after an
+		// insert, so a DOM readback matches the new model — but the
+		// scroll position is stale and the new node + cursor are off-
+		// screen. Model-driven path must skip the skip.
+		const session = make_story_session(20);
+		const { container } = render(SveditTest, { session });
 		await settle();
 
+		const arr = buttons_array(container);
+		arr.scrollLeft = arr.scrollWidth;
+		await settle();
+		const scroll_before = arr.scrollLeft;
+
+		const canvas = container.querySelector('.svedit-canvas');
+		canvas.focus();
 		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body', 0, 'buttons'],
 			anchor_offset: 20,
 			focus_offset: 20
 		};
-		// Trigger render again (re-emit the same selection forces the
-		// $effect to fire; the JSON compare will still bypass skip for
-		// node selections, and pointer_down is now false).
-		// To ensure a fresh render, briefly change and restore:
-		session.selection = {
-			type: 'node',
-			path: ['page_1', 'body', 0, 'buttons'],
-			anchor_offset: 19,
-			focus_offset: 19
-		};
-		await settle();
-		session.selection = {
-			type: 'node',
-			path: ['page_1', 'body', 0, 'buttons'],
-			anchor_offset: 20,
-			focus_offset: 20
-		};
 		await settle();
 
+		insert_button(session);
+		await settle();
+
+		// Model-driven (inserter) → render runs → array rescrolls to
+		// new max → new node + trailing cursor visible.
 		expect(arr.scrollLeft).toBeGreaterThan(scroll_before);
 	});
 });

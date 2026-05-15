@@ -44,11 +44,14 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
-	// Tracks whether the user is currently dragging. While the pointer
-	// is held, render_selection's scroll-into-view path is suppressed —
-	// otherwise scrollIntoView fights the user's drag and pulls the
-	// viewport away mid-selection.
-	let pointer_down = false;
+	// Marked true by onselectionchange right before it commits a model
+	// update derived from the DOM (mouse drag, click, keyboard nav).
+	// render_selection consumes-and-clears it to decide whether the
+	// upcoming model change is DOM-driven (DOM already reflects the
+	// new selection → skip rerender when it matches) or model-driven
+	// (insert/undo/transform → DOM may match by coincidence via Svelte
+	// element reuse, so always rerender to scroll the cursor into view).
+	let selection_source_is_dom = false;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -295,6 +298,7 @@
 			// structurally identical — prevents a redundant $effect cycle
 			// (render_selection → scrollIntoView) on every DOM layout change.
 			if (JSON.stringify(selection) === JSON.stringify(session.selection)) return;
+			selection_source_is_dom = true;
 			session.selection = selection;
 		}
 	}
@@ -738,27 +742,30 @@ ${fallback_html}`;
 			return;
 		}
 
-		// Skip rerender when the DOM already matches and focus is in the
-		// canvas. Node selections are excluded: Svelte reuses gap DOM
-		// across inserts/deletes (the same element answers offset N
-		// before and N+1 after), so a JSON-identical readback can still
-		// need scroll-into-view. The pointer_down guard inside
-		// __render_node_selection prevents the rerender from fighting
-		// the user's drag.
-		let prev_selection =
-			__get_property_selection_from_dom() ||
-			__get_text_selection_from_dom() ||
-			__get_node_selection_from_dom();
+		// Consume the source flag set by onselectionchange. When true,
+		// the model update echoed the DOM (mouse drag, click, keyboard
+		// nav) and the DOM is already at the right place — rerunning
+		// would just fight the user. When false, the change came from a
+		// model mutation (insert, undo, transform): the DOM may LOOK
+		// like it matches (Svelte reuses gap elements across inserts
+		// with shifted data-gap-offset attrs) but the scroll position
+		// almost certainly needs updating, so always rerender.
+		const dom_driven = selection_source_is_dom;
+		selection_source_is_dom = false;
+
 		const is_empty_text_selection =
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
-		if (
-			!is_empty_text_selection &&
-			selection.type !== 'node' &&
-			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
-			canvas_el?.contains(document.activeElement)
-		) {
-			// Skip. No need to rerender.
-			return;
+		if (dom_driven && !is_empty_text_selection) {
+			const prev_selection =
+				__get_property_selection_from_dom() ||
+				__get_text_selection_from_dom() ||
+				__get_node_selection_from_dom();
+			if (
+				JSON.stringify(selection) === JSON.stringify(prev_selection) &&
+				canvas_el?.contains(document.activeElement)
+			) {
+				return;
+			}
 		}
 
 		if (selection?.type === 'text') {
@@ -1204,10 +1211,9 @@ ${fallback_html}`;
 
 		node_array_el.focus();
 
-		// Bring the cursor into view.
-		//
-		// Strategy is indexed off the gap location (where the cursor
-		// visibly sits), not the adjacent node:
+		// Bring the cursor into view. Strategy indexed off the gap
+		// location (where the cursor visibly sits), not the adjacent
+		// node:
 		// - Leading cursor (offset 0): scroll the array to start so the
 		//   gap-before-first-node is exposed.
 		// - Trailing cursor (offset === array.length): scroll the array
@@ -1218,13 +1224,8 @@ ${fallback_html}`;
 		//   leading side comes into view alongside it.
 		//
 		// `nearest` everywhere — only scrolls when the target isn't
-		// already fully in view, so fully-visible scenarios are a no-op.
-		//
-		// pointer_down guard: suppress scroll-into-view while the user
-		// is mid-drag — otherwise scrollIntoView fights the drag and
-		// pulls the viewport away.
+		// already fully in view, so fully-visible scenarios are no-ops.
 		setTimeout(() => {
-			if (pointer_down) return;
 			const cursor_offset = is_collapsed
 				? selection.focus_offset
 				: (is_backward ? selection.anchor_offset : selection.focus_offset);
@@ -1468,15 +1469,7 @@ ${fallback_html}`;
   TODO: We must get rid of the global handlers here, so Svedit doesn't conflict
   with any app-specific event handling.
 -->
-<svelte:document
-	{onselectionchange}
-	{oncut}
-	{oncopy}
-	{onpaste}
-	onpointerdown={() => (pointer_down = true)}
-	onpointerup={() => (pointer_down = false)}
-	onpointercancel={() => (pointer_down = false)}
-/>
+<svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit">
