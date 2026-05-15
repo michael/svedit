@@ -334,26 +334,18 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Sync edge state for an array and toggle .positioned on its
-	 * first/last gap elements.
-	 *
-	 * By default early-exits when edge_map didn't change — the scroll
-	 * listener calls this on every RAF flush, and re-querying gaps for
-	 * a no-op state change wastes work. Pass `{ force: true }` for the
-	 * structural-mutation path (add/remove of a node): the DOM element
-	 * that's NOW first/last may be a different element than before
-	 * (Svelte transferred the `.last` class to a reused gap component
-	 * when the trailing node was removed), but MO can't see that as a
-	 * mutation because it only tracks childList, not attribute changes.
-	 * Without the force, the reused gap stays stuck in its previous
-	 * `.positioned` state.
+	 * Sync edge state and toggle .positioned on first/last gaps.
+	 * Early-exits when edge_map is unchanged; pass force after a
+	 * structural mutation, where a previously-positioned trailing gap
+	 * may need its `.positioned` state re-derived against a now-stale
+	 * near_map / edge_map combination that didn't trigger an edge_map
+	 * change but did move the cursor's anchor relationship.
 	 *
 	 * @param {Element} array_el
-	 * @param {{ force?: boolean }} [opts]
+	 * @param {boolean} [force]
 	 */
-	sync_array_edge_gaps(array_el, opts) {
-		const changed = this.sync_edge_state(array_el);
-		if (!changed && !opts?.force) return;
+	sync_array_edge_gaps(array_el, force) {
+		if (!this.sync_edge_state(array_el) && !force) return;
 		const first_gap = array_el.querySelector(':scope > .node-gap.gap-before:not(.empty)');
 		const last_gap = array_el.querySelector(':scope > .node-gap.gap-after.last');
 		if (first_gap) this.sync_gap_class(first_gap);
@@ -612,15 +604,11 @@ export function create_node_visibility(svedit) {
 						}
 					}
 				}
-				// Nodes were added/removed — first/last may have changed.
-				// force:true so we re-evaluate first/last gaps even when
-				// edge_map didn't change. The trailing gap is a reused
-				// Svelte component (its DOM element survives the remove of
-				// the trailing node, with `.last` toggled on by Svelte's
-				// reactivity), and MO doesn't see attribute changes, so
-				// the reused element would otherwise be stuck in its
-				// previous `.positioned` state.
-				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr, { force: true });
+				// Nodes added/removed — force re-evaluation; the trailing
+				// gap is a reused Svelte component whose `.positioned`
+				// state may need re-deriving even when edge_map is
+				// unchanged.
+				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr, true);
 			});
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.
