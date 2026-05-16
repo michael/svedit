@@ -1207,8 +1207,6 @@ ${fallback_html}`;
 			}
 		}
 
-		node_array_el.focus();
-
 		// Scroll the gap (cursor) into view. Indexed off the gap
 		// location, not an adjacent node, so the gap itself ends up
 		// exposed — not just the neighbour. `nearest` everywhere makes
