@@ -196,6 +196,32 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		expect(lg.classList.contains('positioned')).toBe(true);
 	});
 
+	it('scrolls the array back to its start when the cursor moves to offset 0', async () => {
+		// Covers the leading-cursor branch in __render_node_selection.
+		const session = make_story_session(20);
+		const { container } = render(SveditTest, { session });
+		await settle();
+
+		const arr = buttons_array(container);
+		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
+		// Start scrolled away from the leading edge.
+		arr.scrollLeft = arr.scrollWidth;
+		await settle();
+		expect(arr.scrollLeft).toBeGreaterThan(0);
+
+		const canvas = container.querySelector('.svedit-canvas');
+		canvas.focus();
+		session.selection = {
+			type: 'node',
+			path: ['page_1', 'body', 0, 'buttons'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		await settle();
+
+		expect(arr.scrollLeft).toBe(0);
+	});
+
 	it('keeps the trailing gap .positioned through a delete-cycle back to non-overflow', async () => {
 		const session = make_story_session(20);
 		const { container } = render(SveditTest, { session });

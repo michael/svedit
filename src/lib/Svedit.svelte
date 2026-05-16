@@ -44,13 +44,9 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
-	// Marked true by onselectionchange right before it commits a model
-	// update derived from the DOM (mouse drag, click, keyboard nav).
-	// render_selection consumes-and-clears it to decide whether the
-	// upcoming model change is DOM-driven (DOM already reflects the
-	// new selection → skip rerender when it matches) or model-driven
-	// (insert/undo/transform → DOM may match by coincidence via Svelte
-	// element reuse, so always rerender to scroll the cursor into view).
+	// Set by onselectionchange before it commits a DOM-derived selection
+	// to the model. render_selection consumes-and-clears it to skip
+	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
 
 
@@ -742,14 +738,11 @@ ${fallback_html}`;
 			return;
 		}
 
-		// Consume the source flag set by onselectionchange. When true,
-		// the model update echoed the DOM (mouse drag, click, keyboard
-		// nav) and the DOM is already at the right place — rerunning
-		// would just fight the user. When false, the change came from a
-		// model mutation (insert, undo, transform): the DOM may LOOK
-		// like it matches (Svelte reuses gap elements across inserts
-		// with shifted data-gap-offset attrs) but the scroll position
-		// almost certainly needs updating, so always rerender.
+		// DOM-driven updates already reflect the new selection — skip
+		// the rerender when DOM matches model. Model-driven updates
+		// (insert/undo) can ALSO have DOM matching by coincidence (Svelte
+		// reuses gap elements with shifted data-gap-offset), so for those
+		// we always rerender to scroll the cursor into view.
 		const dom_driven = selection_source_is_dom;
 		selection_source_is_dom = false;
 
@@ -1211,26 +1204,15 @@ ${fallback_html}`;
 
 		node_array_el.focus();
 
-		// Bring the cursor into view. Strategy indexed off the gap
-		// location (where the cursor visibly sits), not the adjacent
-		// node:
-		// - Leading cursor (offset 0): scroll the array to start so the
-		//   gap-before-first-node is exposed.
-		// - Trailing cursor (offset === array.length): scroll the array
-		//   to end. When the array isn't its own scroll container (image
-		//   grid, page body), fall back to scrollIntoView on the now-
-		//   last node so the document scrolls instead.
-		// - Mid cursor: scrollIntoView on node[offset]; the gap to its
-		//   leading side comes into view alongside it.
-		//
-		// `nearest` everywhere — only scrolls when the target isn't
-		// already fully in view, so fully-visible scenarios are no-ops.
+		// Scroll the gap (cursor) into view. Indexed off the gap
+		// location, not an adjacent node, so the gap itself ends up
+		// exposed — not just the neighbour. `nearest` everywhere makes
+		// fully-visible scenarios a no-op.
 		setTimeout(() => {
 			const cursor_offset = is_collapsed
 				? selection.focus_offset
 				: (is_backward ? selection.anchor_offset : selection.focus_offset);
-			const node_array = session.get(node_array_path);
-			const array_length = Array.isArray(node_array) ? node_array.length : 0;
+			const array_length = session.get(node_array_path).length;
 
 			if (cursor_offset === 0) {
 				node_array_el.scrollLeft = 0;
