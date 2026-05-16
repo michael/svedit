@@ -12,9 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"test": "vitest --run",
-		"test:watch": "vitest",
-		"test:visual": "vitest --config vitest.visual.config.js --run"
+		"test:unit": "vitest",
+		"test": "npm run test:unit -- --run"
 	},
 	"files": [
 		"dist",
@@ -56,7 +55,6 @@
 		"eslint-plugin-svelte": "^3.15.1",
 		"globals": "^17.4.0",
 		"nanoid": "^5.1.6",
-		"playwright": "^1.60.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.5.1",
 		"publint": "^0.3.18",

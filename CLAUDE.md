@@ -15,14 +15,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run preview` - Preview production build
 
 **Testing:**
-- `npm test` - Run all tests once, headless (no visible browser, no focus stealing)
-- `npm run test:watch` - Run tests and re-run on file changes, headless
-- `npm run test:visual` - Run tests in the user's actual browser (for debugging only)
+- `npm run test:unit` - Run unit tests with Vitest
+- `npm run test:e2e` - Run end-to-end tests with Playwright
+- `npm run test` - Run both unit and e2e tests
 
-**Testing guidelines for AI agents:**
-- Prefer `npm test` over `npm run test:visual`. The visual variant opens a tab in the user's actual browser every invocation and does not close it — repeated runs accumulate tabs and steal focus.
-- Do not run tests in tight loops to "characterize flakiness." If a test fails once and passes when re-run alone, that's the test harness, not the code.
-- The user generally prefers to run tests themselves. Default to making code changes and letting them verify.
+**Testing Guidelines:**
+- DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
+- The user prefers to run all tests manually
+- Focus on implementing code changes and let the user handle testing
 
 **Implementation Guidelines:**
 - Do exactly what the user asks for - one step at a time
