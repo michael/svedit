@@ -346,40 +346,6 @@ describe('NodeGap visibility & placement', () => {
 		});
 	});
 
-	describe('data-path attribute mutation', () => {
-		// Defensive coverage: NodeArrayProperty currently keys its each
-		// by `(index)`, so surviving siblings retain their data-path
-		// after a structural mutation. If anyone ever re-keys to
-		// `(node.id)` (or anything that lets Svelte renumber indices on
-		// reused elements), the MO attribute path below transfers
-		// near_map / array_indices entries so the system stays
-		// consistent.
-		it('transfers near_map entries when a node element re-keys its data-path', async () => {
-			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
-			await settle();
-
-			const array_el = find_buttons_array(container);
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
-			const near_map = ctx.visibility_registry.near_map;
-			const array_path = 'page_1__body__0__buttons';
-
-			expect(near_map.has(`${array_path}__1`)).toBe(true);
-			expect(near_map.has(`${array_path}__99`)).toBe(false);
-
-			// Simulate Svelte re-numbering the element at index 1 to a new
-			// data-path. The MO attribute handler should transfer the
-			// near_map entry.
-			const el = array_el.querySelector(`:scope > [data-type="node"][data-path="${array_path}__1"]`);
-			expect(el).not.toBeNull();
-			el.setAttribute('data-path', `${array_path}__99`);
-			await settle();
-
-			expect(near_map.has(`${array_path}__1`)).toBe(false);
-			expect(near_map.has(`${array_path}__99`)).toBe(true);
-		});
-	});
-
 	describe('view-class application on inserted nodes', () => {
 		// `.in-view` / `.seen` / `.fully-in-view` are part of the
 		// library's public contract — user apps wire animations to them.

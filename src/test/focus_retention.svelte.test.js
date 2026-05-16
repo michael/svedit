@@ -56,19 +56,6 @@ describe('canvas focus retention', () => {
 		canvas.dispatchEvent(event);
 		await settle();
 
-		// The exposed `canvas_focused` getter on the registered context
-		// reflects the internal state. Read it via the visibility_registry,
-		// which is the only piece of the svedit context attached to the
-		// Session at runtime.
-		const reg = session.visibility_registry ?? null;
-		// Falling back to a DOM-side assertion if the registry isn't on the
-		// session: render_selection's $effect only runs when canvas_focused
-		// is true, and setting the selection should still take effect.
-		// (Direct private state check isn't available without exposing it.)
-		if (reg) {
-			// no-op — the registry doesn't carry canvas_focused
-		}
-
 		// Functional check: after the descendant-blur, programmatically
 		// move the selection. render_selection should still execute, which
 		// means canvas_focused is still true.

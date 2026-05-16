@@ -157,17 +157,18 @@ class VisibilityRegistry {
 
 	start() {
 		if (typeof window === 'undefined') return;
-		// Threshold [0, 1]: [0] fires on overscan entry/exit (drives
-		// near_map); [1] is retained for symmetry but no longer required
-		// now that clip_map is gone — kept because it's harmless and
-		// helps `array_indices` stay consistent at the fully-visible
-		// transition for nested scrollers.
+		// Overscan IO: threshold [0] is enough — #process_near only reads
+		// entry.isIntersecting (a boolean) and writes are change-detected,
+		// so extra firings at threshold[1] would be no-ops.
 		if (this.visibility_culling && !this.#io) {
 			this.#io = new IntersectionObserver((entries) => this.#process_near(entries), {
 				rootMargin: `${OVERSCAN_PX}px`,
-				threshold: [0, 1]
+				threshold: [0]
 			});
 		}
+		// View IO: threshold [0, 1] is load-bearing — #apply_view_classes
+		// toggles .fully-in-view, which flips when the node crosses the
+		// fully-visible boundary at ratio 1.
 		if (this.view_classes && !this.#view_io) {
 			this.#view_io = new IntersectionObserver((entries) => this.#process_view(entries), {
 				threshold: [0, 1]
@@ -429,36 +430,6 @@ class VisibilityRegistry {
 		}
 	}
 
-	/**
-	 * Transfer a node's near_map / array_indices entries from one path
-	 * to another. Called when an element's `data-path` attribute
-	 * changes — e.g. if NodeArrayProperty is ever re-keyed away from
-	 * `(index)` and Svelte re-numbers surviving siblings after a
-	 * structural mutation. Wrapped in untrack so the transitive
-	 * caller (the MO callback) doesn't subscribe to the maps.
-	 *
-	 * @param {string} old_path
-	 * @param {string} new_path
-	 */
-	transfer_path(old_path, new_path) {
-		if (!old_path || !new_path || old_path === new_path) return;
-		untrack(() => {
-			const was_near = this.near_map.has(old_path);
-			if (was_near) {
-				this.near_map.delete(old_path);
-				this.near_map.set(new_path, true);
-			}
-			const old_split = this.#split_path(old_path);
-			if (old_split) {
-				this.#array_indices.get(old_split.array_path)?.delete(old_split.index);
-			}
-			const new_split = this.#split_path(new_path);
-			if (new_split && was_near) {
-				this.get_array_indices(new_split.array_path).add(new_split.index);
-			}
-		});
-	}
-
 	/** @param {string} path */
 	#forget(path) {
 		this.near_map.delete(path);
@@ -621,23 +592,6 @@ export function create_node_visibility(svedit) {
 				/** @type {Set<Element>} */
 				const dirty_arrays = new Set();
 				for (const m of mutations) {
-					if (m.type === 'attributes' && m.attributeName === 'data-path') {
-						// A node element's data-path changed (e.g. if
-						// NodeArrayProperty is ever re-keyed away from
-						// `(index)`, Svelte may re-number surviving siblings'
-						// indices, mutating data-path on the same DOM element).
-						// Transfer near_map / array_indices to the new key.
-						const el = /** @type {HTMLElement} */ (m.target);
-						if (!el.matches(NODE_SELECTOR)) continue;
-						const new_path = el.dataset.path;
-						if (m.oldValue && new_path && m.oldValue !== new_path) {
-							registry.transfer_path(m.oldValue, new_path);
-							registry.sync_gaps_around_node(el);
-							const arr = el.closest('[data-type="node_array"]');
-							if (arr) dirty_arrays.add(arr);
-						}
-						continue;
-					}
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
@@ -679,13 +633,7 @@ export function create_node_visibility(svedit) {
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.
 			raf = requestAnimationFrame(() => {
-				mo.observe(canvas, {
-					childList: true,
-					subtree: true,
-					attributes: true,
-					attributeFilter: ['data-path'],
-					attributeOldValue: true
-				});
+				mo.observe(canvas, { childList: true, subtree: true });
 			});
 		}
 
