@@ -6,7 +6,8 @@
 		char_to_utf16_offset,
 		deserialize_path,
 		paths_equal,
-		serialize_path
+		serialize_path,
+		is_selection_collapsed
 	} from './utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -83,10 +84,20 @@
 
 	// Test-only hook: expose the svedit context so test specs can read
 	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
-	// so it never leaks into production. Stripped at build time when
-	// Vite tree-shakes branches guarded by a constant `false`.
-	if (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test') {
-		/** @type {any} */ (globalThis).__svedit_ctx_for_test = context;
+	// — Vite replaces the literal so the comparison is constant-false in
+	// production and the branch is dead-code-eliminated. Wrapped in an
+	// effect so unmount clears the reference and tests don't leak state
+	// across remounts.
+	if (import.meta.env?.MODE === 'test') {
+		$effect(() => {
+			const g = /** @type {any} */ (globalThis);
+			g.__svedit_ctx_for_test = context;
+			return () => {
+				if (g.__svedit_ctx_for_test === context) {
+					delete g.__svedit_ctx_for_test;
+				}
+			};
+		});
 	}
 
 	// Get KeyMapper from context (may be undefined if not provided)
@@ -726,7 +737,7 @@ ${fallback_html}`;
 		}
 	}
 
-	function render_selection() {
+	function render_selection(dom_driven = false) {
 		const selection = /** @type {Selection} */ (session.selection);
 
 		if (!selection) {
@@ -740,19 +751,13 @@ ${fallback_html}`;
 
 		// DOM-driven updates already reflect the new selection — skip
 		// the rerender when DOM matches model. Model-driven updates
-		// (insert/undo) can ALSO have DOM matching by coincidence (Svelte
+		// (insert/undo) can have DOM matching by coincidence (Svelte
 		// reuses gap elements with shifted data-gap-offset), so for those
 		// we always rerender to scroll the cursor into view.
-		const dom_driven = selection_source_is_dom;
-		selection_source_is_dom = false;
-
 		const is_empty_text_selection =
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
 		if (dom_driven && !is_empty_text_selection) {
-			const prev_selection =
-				__get_property_selection_from_dom() ||
-				__get_text_selection_from_dom() ||
-				__get_node_selection_from_dom();
+			const prev_selection = __get_selection_from_dom();
 			if (
 				JSON.stringify(selection) === JSON.stringify(prev_selection) &&
 				canvas_el?.contains(document.activeElement)
@@ -1157,7 +1162,7 @@ ${fallback_html}`;
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
 		const node_array_path_str = serialize_path(node_array_path);
-		const is_collapsed = selection.anchor_offset === selection.focus_offset;
+		const is_collapsed = is_selection_collapsed(selection);
 		const is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
 		const node_array_el = canvas_el.querySelector(
@@ -1209,9 +1214,9 @@ ${fallback_html}`;
 		// exposed — not just the neighbour. `nearest` everywhere makes
 		// fully-visible scenarios a no-op.
 		setTimeout(() => {
-			const cursor_offset = is_collapsed
-				? selection.focus_offset
-				: (is_backward ? selection.anchor_offset : selection.focus_offset);
+			// Collapsed: anchor === focus, so focus is the gap offset.
+			// Range: cursor sits at the focus end (anchor when backward).
+			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
 			const array_length = session.get(node_array_path).length;
 
 			if (cursor_offset === 0) {
@@ -1438,12 +1443,17 @@ ${fallback_html}`;
 		return comparisonRange.collapsed;
 	}
 
-	// Whenever the model selection changes, render the selection
+	// Whenever the model selection changes, render the selection.
 	// Skip when canvas is not focused to avoid stealing focus back
-	// (e.g., when a dialog is open and selection highlight fragments re-render)
+	// (e.g., when a dialog is open and selection highlight fragments re-render).
+	// Consume the dom-driven flag at the top so it never carries stale
+	// state into the next change, even when we early-return.
 	$effect(() => {
+		session.selection;
+		const dom_driven = selection_source_is_dom;
+		selection_source_is_dom = false;
 		if (!canvas_focused) return;
-		render_selection();
+		render_selection(dom_driven);
 	});
 </script>
 

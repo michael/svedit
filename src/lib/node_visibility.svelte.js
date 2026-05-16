@@ -334,18 +334,32 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Sync edge state and toggle .positioned on first/last gaps.
-	 * Early-exits when edge_map is unchanged; pass force after a
-	 * structural mutation, where a previously-positioned trailing gap
-	 * may need its `.positioned` state re-derived against a now-stale
-	 * near_map / edge_map combination that didn't trigger an edge_map
-	 * change but did move the cursor's anchor relationship.
+	 * Sync edge state and toggle .positioned on first/last gaps. Early-
+	 * exits when edge_map is unchanged — for the structural-mutation
+	 * path where the edge gap may need re-evaluation regardless of
+	 * edge_map, see resync_array_edge_gaps below.
 	 *
 	 * @param {Element} array_el
-	 * @param {boolean} [force]
 	 */
-	sync_array_edge_gaps(array_el, force) {
-		if (!this.sync_edge_state(array_el) && !force) return;
+	sync_array_edge_gaps(array_el) {
+		if (!this.sync_edge_state(array_el)) return;
+		this.#sync_first_last_gaps(array_el);
+	}
+
+	/**
+	 * Force-resync first/last gaps after a structural mutation. The
+	 * trailing gap is a reused Svelte component whose `.positioned`
+	 * state may need re-deriving even when edge_map didn't change.
+	 *
+	 * @param {Element} array_el
+	 */
+	resync_array_edge_gaps(array_el) {
+		this.sync_edge_state(array_el);
+		this.#sync_first_last_gaps(array_el);
+	}
+
+	/** @param {Element} array_el */
+	#sync_first_last_gaps(array_el) {
 		const first_gap = array_el.querySelector(':scope > .node-gap.gap-before:not(.empty)');
 		const last_gap = array_el.querySelector(':scope > .node-gap.gap-after.last');
 		if (first_gap) this.sync_gap_class(first_gap);
@@ -604,11 +618,7 @@ export function create_node_visibility(svedit) {
 						}
 					}
 				}
-				// Nodes added/removed — force re-evaluation; the trailing
-				// gap is a reused Svelte component whose `.positioned`
-				// state may need re-deriving even when edge_map is
-				// unchanged.
-				for (const arr of dirty_arrays) registry.sync_array_edge_gaps(arr, true);
+				for (const arr of dirty_arrays) registry.resync_array_edge_gaps(arr);
 			});
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.

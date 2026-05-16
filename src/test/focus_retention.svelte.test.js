@@ -18,27 +18,9 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import create_test_session from './create_test_session.js';
-
-function raf(times = 1) {
-	return new Promise((resolve) => {
-		let remaining = times;
-		function step() {
-			remaining -= 1;
-			if (remaining <= 0) resolve();
-			else requestAnimationFrame(step);
-		}
-		requestAnimationFrame(step);
-	});
-}
-
-async function settle() {
-	await tick();
-	await raf(2);
-	await new Promise((r) => setTimeout(r, 40));
-}
+import { settle } from './test_utils.js';
 
 describe('canvas focus retention', () => {
 	beforeEach(() => {

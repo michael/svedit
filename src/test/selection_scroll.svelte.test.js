@@ -27,110 +27,23 @@
  *
  * 4. Drag-selecting across nodes scrolled the document on every frame
  *    because render_selection re-ran scrollIntoView while the user was
- *    still dragging. Mitigation: a pointer_down guard inside the
- *    scroll path.
+ *    still dragging. Fix: distinguish DOM-driven updates (onselectionchange)
+ *    from model-driven updates (insert / undo) and skip rerender on the
+ *    former when the DOM already matches the model.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { tick } from 'svelte';
-import Session from '../lib/Session.svelte.js';
 import SveditTest from './testing_components/SveditTest.svelte';
-import { document_schema, session_config } from '../routes/create_demo_session.js';
-
-function raf(times = 1) {
-	return new Promise((resolve) => {
-		let remaining = times;
-		function step() {
-			remaining -= 1;
-			if (remaining <= 0) resolve();
-			else requestAnimationFrame(step);
-		}
-		requestAnimationFrame(step);
-	});
-}
-
-async function settle() {
-	await tick();
-	await raf(3);
-	await new Promise((r) => setTimeout(r, 60));
-}
-
-function make_story_session(n_buttons) {
-	const button_ids = [];
-	const nodes = {};
-	for (let i = 0; i < n_buttons; i++) {
-		const id = `btn_${i}`;
-		nodes[id] = {
-			id,
-			type: 'button',
-			label: { text: `Action ${i + 1}`, annotations: [] },
-			href: '#'
-		};
-		button_ids.push(id);
-	}
-	nodes.story_1 = {
-		id: 'story_1',
-		type: 'story',
-		layout: 1,
-		image: '',
-		title: { text: 'Test story', annotations: [] },
-		description: { text: 'desc', annotations: [] },
-		buttons: button_ids
-	};
-	nodes.page_1 = {
-		id: 'page_1',
-		type: 'page',
-		body: ['story_1'],
-		keywords: [],
-		daily_visitors: [],
-		created_at: '2025-05-30T10:39:59.987Z'
-	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
-}
-
-function make_image_grid_session(n_items) {
-	const item_ids = [];
-	const nodes = {};
-	for (let i = 0; i < n_items; i++) {
-		const id = `igi_${i}`;
-		nodes[id] = {
-			id,
-			type: 'image_grid_item',
-			image: '',
-			title: { text: `Item ${i + 1}`, annotations: [] },
-			description: { text: 'desc', annotations: [] }
-		};
-		item_ids.push(id);
-	}
-	nodes.image_grid_1 = {
-		id: 'image_grid_1',
-		type: 'image_grid',
-		layout: 1,
-		image_grid_items: item_ids
-	};
-	nodes.page_1 = {
-		id: 'page_1',
-		type: 'page',
-		body: ['image_grid_1'],
-		keywords: [],
-		daily_visitors: [],
-		created_at: '2025-05-30T10:39:59.987Z'
-	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
-}
-
-function buttons_array(container) {
-	return container.querySelector('[data-type="node_array"][data-path$="buttons"]:not(.empty)');
-}
-
-function image_grid_array(container) {
-	return container.querySelector('[data-type="node_array"][data-path$="image_grid_items"]');
-}
-
-function last_gap(array_el) {
-	return array_el.querySelector(':scope > .node-gap.gap-after.last');
-}
+import {
+	settle,
+	settle_grid,
+	make_story_session,
+	make_image_grid_session,
+	find_buttons_array,
+	find_image_grid_array,
+	find_last_gap
+} from './test_utils.js';
 
 function insert_button(session) {
 	const tr = session.tr;
@@ -160,7 +73,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		const { container } = render(SveditTest, { session });
 		await settle();
 
-		const arr = buttons_array(container);
+		const arr = find_buttons_array(container);
 		expect(arr).not.toBeNull();
 		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
 
@@ -191,7 +104,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		const new_max = arr.scrollWidth - arr.clientWidth;
 		expect(arr.scrollLeft).toBeGreaterThanOrEqual(new_max - 5);
 
-		const lg = last_gap(arr);
+		const lg = find_last_gap(arr);
 		expect(lg).not.toBeNull();
 		expect(lg.classList.contains('positioned')).toBe(true);
 	});
@@ -202,7 +115,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		const { container } = render(SveditTest, { session });
 		await settle();
 
-		const arr = buttons_array(container);
+		const arr = find_buttons_array(container);
 		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
 		// Start scrolled away from the leading edge.
 		arr.scrollLeft = arr.scrollWidth;
@@ -227,7 +140,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		const { container } = render(SveditTest, { session });
 		await settle();
 
-		const arr = buttons_array(container);
+		const arr = find_buttons_array(container);
 		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
 		arr.scrollLeft = arr.scrollWidth;
 		await settle();
@@ -251,19 +164,13 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		}
 
 		expect(arr.scrollWidth).toBeLessThanOrEqual(arr.clientWidth + 5);
-		const lg = last_gap(arr);
+		const lg = find_last_gap(arr);
 		expect(lg).not.toBeNull();
 		expect(lg.classList.contains('positioned')).toBe(true);
 	});
 });
 
 describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
-	async function settle_grid() {
-		await tick();
-		await raf(8);
-		await new Promise((r) => setTimeout(r, 150));
-	}
-
 	beforeEach(() => {
 		window.scrollTo(0, 0);
 	});
@@ -273,7 +180,7 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 		const { container } = render(SveditTest, { session });
 		await settle_grid();
 
-		const arr = image_grid_array(container);
+		const arr = find_image_grid_array(container);
 		expect(arr).not.toBeNull();
 		const arr_rect = arr.getBoundingClientRect();
 		// Sanity: trailing items are below the fold before we insert.
@@ -325,7 +232,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		const { container } = render(SveditTest, { session });
 		await settle();
 
-		const arr = buttons_array(container);
+		const arr = find_buttons_array(container);
 		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
 		arr.scrollLeft = 0;
 		await settle();
@@ -362,7 +269,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		const { container } = render(SveditTest, { session });
 		await settle();
 
-		const arr = buttons_array(container);
+		const arr = find_buttons_array(container);
 		arr.scrollLeft = arr.scrollWidth;
 		await settle();
 		const scroll_before = arr.scrollLeft;
