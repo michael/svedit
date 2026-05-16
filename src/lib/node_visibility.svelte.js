@@ -388,9 +388,18 @@ class VisibilityRegistry {
 		this.#pending_view_raf = 0;
 		const vh = window.innerHeight;
 		const vw = window.innerWidth;
+		// Read all BCRs first, then write all classes. A read-write-read
+		// interleave (the natural single-pass shape) forces a layout
+		// flush on every iteration when the toggled classes affect
+		// layout — which user apps are free to do via `.in-view` /
+		// `.fully-in-view` / etc. Two passes batch the layout reads into
+		// one flush regardless of what the consumer wires up.
+		/** @type {Array<{el: HTMLElement, bcr: DOMRectReadOnly}>} */
+		const items = [];
 		for (const el of this.#pending_view_sync) {
-			if (!el.isConnected) continue;
-			const bcr = el.getBoundingClientRect();
+			if (el.isConnected) items.push({ el, bcr: el.getBoundingClientRect() });
+		}
+		for (const { el, bcr } of items) {
 			const in_viewport =
 				bcr.bottom > 0 && bcr.top < vh && bcr.right > 0 && bcr.left < vw;
 			this.#apply_view_classes(el, in_viewport, bcr, vh);
@@ -418,6 +427,36 @@ class VisibilityRegistry {
 		} else {
 			cl.remove('fully-in-view', 'visible-top', 'visible-bottom');
 		}
+	}
+
+	/**
+	 * Transfer a node's near_map / array_indices entries from one path
+	 * to another. Called when an element's `data-path` attribute
+	 * changes — e.g. if NodeArrayProperty is ever re-keyed away from
+	 * `(index)` and Svelte re-numbers surviving siblings after a
+	 * structural mutation. Wrapped in untrack so the transitive
+	 * caller (the MO callback) doesn't subscribe to the maps.
+	 *
+	 * @param {string} old_path
+	 * @param {string} new_path
+	 */
+	transfer_path(old_path, new_path) {
+		if (!old_path || !new_path || old_path === new_path) return;
+		untrack(() => {
+			const was_near = this.near_map.has(old_path);
+			if (was_near) {
+				this.near_map.delete(old_path);
+				this.near_map.set(new_path, true);
+			}
+			const old_split = this.#split_path(old_path);
+			if (old_split) {
+				this.#array_indices.get(old_split.array_path)?.delete(old_split.index);
+			}
+			const new_split = this.#split_path(new_path);
+			if (new_split && was_near) {
+				this.get_array_indices(new_split.array_path).add(new_split.index);
+			}
+		});
 	}
 
 	/** @param {string} path */
@@ -582,6 +621,23 @@ export function create_node_visibility(svedit) {
 				/** @type {Set<Element>} */
 				const dirty_arrays = new Set();
 				for (const m of mutations) {
+					if (m.type === 'attributes' && m.attributeName === 'data-path') {
+						// A node element's data-path changed (e.g. if
+						// NodeArrayProperty is ever re-keyed away from
+						// `(index)`, Svelte may re-number surviving siblings'
+						// indices, mutating data-path on the same DOM element).
+						// Transfer near_map / array_indices to the new key.
+						const el = /** @type {HTMLElement} */ (m.target);
+						if (!el.matches(NODE_SELECTOR)) continue;
+						const new_path = el.dataset.path;
+						if (m.oldValue && new_path && m.oldValue !== new_path) {
+							registry.transfer_path(m.oldValue, new_path);
+							registry.sync_gaps_around_node(el);
+							const arr = el.closest('[data-type="node_array"]');
+							if (arr) dirty_arrays.add(arr);
+						}
+						continue;
+					}
 					for (const added of m.addedNodes) {
 						if (added.nodeType !== Node.ELEMENT_NODE) continue;
 						const el = /** @type {HTMLElement} */ (added);
@@ -623,7 +679,13 @@ export function create_node_visibility(svedit) {
 			// Defer one frame to skip the initial Svelte mount burst,
 			// which the bootstrap above already covered.
 			raf = requestAnimationFrame(() => {
-				mo.observe(canvas, { childList: true, subtree: true });
+				mo.observe(canvas, {
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: ['data-path'],
+					attributeOldValue: true
+				});
 			});
 		}
 

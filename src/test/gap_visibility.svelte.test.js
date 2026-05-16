@@ -287,4 +287,131 @@ describe('NodeGap visibility & placement', () => {
 			expect(state.last).toBe(true);
 		});
 	});
+
+	describe('mid-delete', () => {
+		// NodeArrayProperty's `{#each ... (index)}` keys by index, so a
+		// mid-delete unmounts ONLY the trailing-index element. Surviving
+		// siblings keep their DOM nodes and data-path attributes; their
+		// content shifts but `near_map` entries remain valid. If anyone
+		// ever changes that keying to e.g. `(node.id)`, this invariant
+		// breaks and this test fails — pointing straight at the cause.
+		it('removes only the trailing path from near_map, keeps adjacent gaps positioned', async () => {
+			// 3 buttons fit the narrow vitest viewport. The mid-delete
+			// invariant holds regardless of overflow, but a non-
+			// overflowing array makes the edge-gap assertions
+			// deterministic.
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			expect(array_el.scrollWidth).toBeLessThanOrEqual(array_el.clientWidth + 5);
+
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const near_map = ctx.visibility_registry.near_map;
+			const array_path = 'page_1__body__0__buttons';
+
+			for (let i = 0; i < 3; i++) {
+				expect(near_map.has(`${array_path}__${i}`)).toBe(true);
+			}
+
+			// Delete the button at offset 1 (mid).
+			const canvas = container.querySelector('.svedit-canvas');
+			canvas.focus();
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 0, 'buttons'],
+				anchor_offset: 1,
+				focus_offset: 2
+			};
+			const tr = session.tr;
+			tr.delete_selection();
+			session.apply(tr);
+			await settle();
+
+			expect(session.doc.nodes.story_1.buttons.length).toBe(2);
+
+			// near_map: __0 and __1 remain (surviving DOM elements
+			// kept their data-path attributes — the element at __1 now
+			// renders what was at __2). __2 is gone (trailing index
+			// unmounted by Svelte's keyed-each-by-index).
+			expect(near_map.has(`${array_path}__0`)).toBe(true);
+			expect(near_map.has(`${array_path}__1`)).toBe(true);
+			expect(near_map.has(`${array_path}__2`)).toBe(false);
+
+			// Edge gaps stay positioned (no overflow → edge_map.first
+			// and .last both true).
+			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+		});
+	});
+
+	describe('data-path attribute mutation', () => {
+		// Defensive coverage: NodeArrayProperty currently keys its each
+		// by `(index)`, so surviving siblings retain their data-path
+		// after a structural mutation. If anyone ever re-keys to
+		// `(node.id)` (or anything that lets Svelte renumber indices on
+		// reused elements), the MO attribute path below transfers
+		// near_map / array_indices entries so the system stays
+		// consistent.
+		it('transfers near_map entries when a node element re-keys its data-path', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const near_map = ctx.visibility_registry.near_map;
+			const array_path = 'page_1__body__0__buttons';
+
+			expect(near_map.has(`${array_path}__1`)).toBe(true);
+			expect(near_map.has(`${array_path}__99`)).toBe(false);
+
+			// Simulate Svelte re-numbering the element at index 1 to a new
+			// data-path. The MO attribute handler should transfer the
+			// near_map entry.
+			const el = array_el.querySelector(`:scope > [data-type="node"][data-path="${array_path}__1"]`);
+			expect(el).not.toBeNull();
+			el.setAttribute('data-path', `${array_path}__99`);
+			await settle();
+
+			expect(near_map.has(`${array_path}__1`)).toBe(false);
+			expect(near_map.has(`${array_path}__99`)).toBe(true);
+		});
+	});
+
+	describe('view-class application on inserted nodes', () => {
+		// `.in-view` / `.seen` / `.fully-in-view` are part of the
+		// library's public contract — user apps wire animations to them.
+		// schedule_view_sync → #flush_view_sync must apply them
+		// reliably for nodes inserted after mount.
+		it('applies in-view and seen classes to newly-inserted nodes', async () => {
+			const session = make_story_session(2);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			const before_count = array_el.querySelectorAll(':scope > [data-type="node"]').length;
+
+			// The button inserter reads tr.selection.path — set a node
+			// selection at the trailing gap before calling it.
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 0, 'buttons'],
+				anchor_offset: 2,
+				focus_offset: 2
+			};
+			await settle();
+			const tr = session.tr;
+			session.config.inserters.button(tr);
+			session.apply(tr);
+			await settle();
+
+			const nodes = array_el.querySelectorAll(':scope > [data-type="node"]');
+			expect(nodes.length).toBe(before_count + 1);
+			const new_node = nodes[nodes.length - 1];
+			expect(new_node.classList.contains('in-view')).toBe(true);
+			expect(new_node.classList.contains('seen')).toBe(true);
+		});
+	});
 });
