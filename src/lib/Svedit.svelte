@@ -788,13 +788,7 @@ ${fallback_html}`;
 	}
 
 	// Handle blur - pop document's keymap from stack.
-	// Do NOT pop when focus moved to a descendant of the canvas (e.g. the
-	// node-array container that __render_node_selection focuses). Otherwise
-	// Enter and other keymap-bound shortcuts would go inert as soon as the
-	// node-array grabs focus, even though the user is still visibly editing.
-	function handle_canvas_blur(event) {
-		const next_focus = event?.relatedTarget;
-		if (next_focus && canvas_el?.contains(next_focus)) return;
+	function handle_canvas_blur() {
 		// Use flushSync so the selection highlight span (with its CSS anchor)
 		// is in the DOM immediately, before any popover/dialog tries to
 		// position itself.
@@ -1358,7 +1352,6 @@ ${fallback_html}`;
 				focus_node,
 				focus_node_offset
 			);
-			el.focus(); // needed?
 
 			// Scroll the selection into view
 			setTimeout(() => {
