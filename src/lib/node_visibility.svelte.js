@@ -321,10 +321,20 @@ class VisibilityRegistry {
 		const sh = array_el.scrollHeight;
 		const ch = array_el.clientHeight;
 
+		const style = getComputedStyle(array_el);
+		const clips_x = style.overflowX !== 'visible';
+		const clips_y = style.overflowY !== 'visible';
+
+		// Only use scroll metrics on axes where this array actually clips/scrolls.
+		// Normal wrapping/grid node arrays often have harmless layout overflow
+		// (scrollWidth > clientWidth) while overflow remains visible; treating
+		// that as scroll position would incorrectly hide edge gaps.
 		const first =
-			sl <= EDGE_TOLERANCE_PX && st <= EDGE_TOLERANCE_PX;
+			(!clips_x || sl <= EDGE_TOLERANCE_PX) &&
+			(!clips_y || st <= EDGE_TOLERANCE_PX);
 		const last =
-			sl + cw >= sw - EDGE_TOLERANCE_PX && st + ch >= sh - EDGE_TOLERANCE_PX;
+			(!clips_x || sl + cw >= sw - EDGE_TOLERANCE_PX) &&
+			(!clips_y || st + ch >= sh - EDGE_TOLERANCE_PX);
 
 		return untrack(() => {
 			const prev = this.edge_map.get(path);
