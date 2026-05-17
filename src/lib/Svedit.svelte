@@ -16,7 +16,6 @@
 
 	/** @import {
 	 *   SveditProps,
-	 *   DocumentPath,
 	 *   Selection,
 	 *   TextSelection,
 	 *   NodeSelection,

@@ -578,6 +578,7 @@ export function create_node_visibility(svedit) {
 		 * scrollWidth / clientWidth — no per-node BCRs.
 		 */
 		/** @type {Set<Element>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive RAF queue.
 		const pending_scroll_arrays = new Set();
 		let scroll_raf = 0;
 		function flush_scroll_sync() {
@@ -600,6 +601,7 @@ export function create_node_visibility(svedit) {
 		if (canvas) {
 			mo = new MutationObserver((mutations) => {
 				/** @type {Set<Element>} */
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive per-mutation queue.
 				const dirty_arrays = new Set();
 				for (const m of mutations) {
 					for (const added of m.addedNodes) {
