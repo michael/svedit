@@ -1459,7 +1459,11 @@ ${fallback_html}`;
 		}
 	}
 
-	.svedit-canvas :global(::selection) {
+	/* Selection paint — wrapped in :where() so consumers can override with
+	   a plain `::selection` rule. Svelte still adds the scope hash inside
+	   the :where(), but the wrapper zeroes its specificity contribution.
+	   Final specificity is just (0,0,1), trivially beatable. */
+	:where(.svedit-canvas) :global(::selection) {
 		background: var(--svedit-editing-fill);
 	}
 
@@ -1477,7 +1481,7 @@ ${fallback_html}`;
 
 	@media not (pointer: coarse) {
 		@supports (anchor-name: --test) {
-			.svedit-canvas.hide-selection :global(::selection) {
+			:where(.svedit-canvas.hide-selection) :global(::selection) {
 				background: transparent;
 			}
 		}
