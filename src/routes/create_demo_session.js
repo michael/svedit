@@ -750,10 +750,10 @@ export const session_config = {
 			tr.create(new_button);
 			tr.insert_nodes([new_button.id]);
 			tr.set_selection({
-				type: 'node',
-				path: [...tr.selection.path],
-				anchor_offset: tr.selection.focus_offset,
-				focus_offset: tr.selection.focus_offset
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'label'],
+				anchor_offset: 0,
+				focus_offset: 0
 			});
 		},
 		hero: function (tr) {
