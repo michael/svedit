@@ -277,7 +277,24 @@
 	/* After last node: col extends down, row extends right.
 	   top also clamps to boundary_bottom - eg so that min-height
 	   (which wins over bottom in overconstrained abs-pos) cannot
-	   push the element past the boundary. */
+	   push the element past the boundary.
+
+	   left's third branch (100% - --_eg + max(0, --_s-r - 100% + 0.5px) * 9999)
+	   is the wrap-layout safety clamp: in column or row+wrap layouts
+	   where the last node sits WITHIN the CB (--_s-r < 100%), it pins
+	   the gap inside the CB so it doesn't extend past the right edge.
+	   The * 9999 multiplier disables this branch in nowrap horizontal-
+	   scroll (where --_s-r > 100% — the trailing node has overflowed
+	   the CB and the gap is expected to follow it).
+
+	   right's `min(--_c-r - --_eg, --_s-r - --_eg)` is what fills the
+	   gap into the whitespace between the last node and the container
+	   in non-overflow layouts. In non-overflow, --_c-r < --_s-r in the
+	   `right` axis (container right is further left than node right
+	   from the CB right edge), so min picks --_c-r - --_eg and the gap
+	   ends at container.right + --_eg (the MUST-RULE overshoot). In
+	   overflow, --_s-r < --_c-r and min picks --_s-r - --_eg — the gap
+	   follows the node out past the container. */
 	:global(.node-gap.positioned.gap-after.last .svedit-selectable) {
 		top: min(
 			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 9999999px),
@@ -290,11 +307,6 @@
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 9999999px),
 			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 9999999px),
-			/* Safety clamp for wrap: pins gap inside CB when the last
-			   node sits within the CB. Disabled in nowrap/horizontal-scroll
-			   where the trailing node extends past CB right (s-r > 100%) —
-			   there the anchor-based branches position correctly and this
-			   clamp would wrongly force the gap to CB right minus eg. */
 			calc(
 				100% - var(--_eg)
 				+ max(0px, var(--_s-r) - 100% + 0.5px) * 9999

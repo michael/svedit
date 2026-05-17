@@ -6,7 +6,8 @@
 		char_to_utf16_offset,
 		deserialize_path,
 		paths_equal,
-		serialize_path
+		serialize_path,
+		is_selection_collapsed
 	} from './utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -15,7 +16,6 @@
 
 	/** @import {
 	 *   SveditProps,
-	 *   DocumentPath,
 	 *   Selection,
 	 *   TextSelection,
 	 *   NodeSelection,
@@ -44,6 +44,10 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection = null;
+	// Set by onselectionchange before it commits a DOM-derived selection
+	// to the model. render_selection consumes-and-clears it to skip
+	// rerender on DOM-driven changes (the DOM is already in place).
+	let selection_source_is_dom = false;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -76,6 +80,24 @@
 
 	setContext('svedit', context);
 	create_node_visibility(context);
+
+	// Test-only hook: expose the svedit context so test specs can read
+	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
+	// — Vite replaces the literal so the comparison is constant-false in
+	// production and the branch is dead-code-eliminated. Wrapped in an
+	// effect so unmount clears the reference and tests don't leak state
+	// across remounts.
+	if (import.meta.env?.MODE === 'test') {
+		$effect(() => {
+			const g = /** @type {any} */ (globalThis);
+			g.__svedit_ctx_for_test = context;
+			return () => {
+				if (g.__svedit_ctx_for_test === context) {
+					delete g.__svedit_ctx_for_test;
+				}
+			};
+		});
+	}
 
 	// Get KeyMapper from context (may be undefined if not provided)
 	const key_mapper = getContext('key_mapper');
@@ -282,6 +304,7 @@
 			// structurally identical — prevents a redundant $effect cycle
 			// (render_selection → scrollIntoView) on every DOM layout change.
 			if (JSON.stringify(selection) === JSON.stringify(session.selection)) return;
+			selection_source_is_dom = true;
 			session.selection = selection;
 		}
 	}
@@ -713,7 +736,7 @@ ${fallback_html}`;
 		}
 	}
 
-	function render_selection() {
+	function render_selection(dom_driven = false) {
 		const selection = /** @type {Selection} */ (session.selection);
 
 		if (!selection) {
@@ -725,20 +748,21 @@ ${fallback_html}`;
 			return;
 		}
 
-		// NOTE: Skip rerender only when the selection is the same and the focus is already within the canvas
-		let prev_selection =
-			__get_property_selection_from_dom() ||
-			__get_text_selection_from_dom() ||
-			__get_node_selection_from_dom();
+		// DOM-driven updates already reflect the new selection — skip
+		// the rerender when DOM matches model. Model-driven updates
+		// (insert/undo) can have DOM matching by coincidence (Svelte
+		// reuses gap elements with shifted data-gap-offset), so for those
+		// we always rerender to scroll the cursor into view.
 		const is_empty_text_selection =
 			selection.type === 'text' && session.get(selection.path).text.length === 0;
-		if (
-			!is_empty_text_selection &&
-			JSON.stringify(selection) === JSON.stringify(prev_selection) &&
-			canvas_el?.contains(document.activeElement)
-		) {
-			// Skip. No need to rerender.
-			return;
+		if (dom_driven && !is_empty_text_selection) {
+			const prev_selection = __get_selection_from_dom();
+			if (
+				JSON.stringify(selection) === JSON.stringify(prev_selection) &&
+				canvas_el?.contains(document.activeElement)
+			) {
+				return;
+			}
 		}
 
 		if (selection?.type === 'text') {
@@ -762,7 +786,7 @@ ${fallback_html}`;
 		key_mapper?.push_scope(session.keymap);
 	}
 
-	// Handle blur - pop document's keymap from stack
+	// Handle blur - pop document's keymap from stack.
 	function handle_canvas_blur() {
 		// Use flushSync so the selection highlight span (with its CSS anchor)
 		// is in the DOM immediately, before any popover/dialog tries to
@@ -1131,7 +1155,7 @@ ${fallback_html}`;
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
 		const node_array_path_str = serialize_path(node_array_path);
-		const is_collapsed = selection.anchor_offset === selection.focus_offset;
+		const is_collapsed = is_selection_collapsed(selection);
 		const is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
 		const node_array_el = canvas_el.querySelector(
@@ -1176,16 +1200,41 @@ ${fallback_html}`;
 			}
 		}
 
-		node_array_el.focus();
-		const scroll_node_offset = is_collapsed
-			? Math.max(0, selection.anchor_offset - 1)
-			: (is_backward ? selection.focus_offset : selection.anchor_offset);
-		const scroll_node = __get_node_element(node_array_path, scroll_node_offset);
-		if (scroll_node) {
-			setTimeout(() => {
-				scroll_node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			}, 0);
-		}
+		// Scroll the gap (cursor) into view. Indexed off the gap
+		// location, not an adjacent node, so the gap itself ends up
+		// exposed — not just the neighbour. `nearest` everywhere makes
+		// fully-visible scenarios a no-op.
+		setTimeout(() => {
+			// Collapsed: anchor === focus, so focus is the gap offset.
+			// Range: cursor sits at the focus end (anchor when backward).
+			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
+			const array_length = session.get(node_array_path).length;
+
+			if (cursor_offset === 0) {
+				node_array_el.scrollLeft = 0;
+				node_array_el.scrollTop = 0;
+				return;
+			}
+			if (cursor_offset >= array_length) {
+				const max_left = Math.max(
+					0,
+					node_array_el.scrollWidth - node_array_el.clientWidth
+				);
+				const max_top = Math.max(
+					0,
+					node_array_el.scrollHeight - node_array_el.clientHeight
+				);
+				node_array_el.scrollLeft = max_left;
+				node_array_el.scrollTop = max_top;
+				if (max_left === 0 && max_top === 0) {
+					const last_node = __get_node_element(node_array_path, cursor_offset - 1);
+					last_node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				}
+				return;
+			}
+			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
+			node_at_cursor?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		}, 0);
 	}
 
 	function __render_property_selection() {
@@ -1302,7 +1351,6 @@ ${fallback_html}`;
 				focus_node,
 				focus_node_offset
 			);
-			el.focus(); // needed?
 
 			// Scroll the selection into view
 			setTimeout(() => {
@@ -1385,12 +1433,17 @@ ${fallback_html}`;
 		return comparisonRange.collapsed;
 	}
 
-	// Whenever the model selection changes, render the selection
+	// Whenever the model selection changes, render the selection.
 	// Skip when canvas is not focused to avoid stealing focus back
-	// (e.g., when a dialog is open and selection highlight fragments re-render)
+	// (e.g., when a dialog is open and selection highlight fragments re-render).
+	// Consume the dom-driven flag at the top so it never carries stale
+	// state into the next change, even when we early-return.
 	$effect(() => {
+		session.selection;
+		const dom_driven = selection_source_is_dom;
+		selection_source_is_dom = false;
 		if (!canvas_focused) return;
-		render_selection();
+		render_selection(dom_driven);
 	});
 </script>
 
