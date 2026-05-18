@@ -47,7 +47,7 @@
 					const bid = nanoid();
 					nodes[bid] = {
 						id: bid, type: 'button',
-						label: { text: `Action ${b + 1}`, annotations: [] },
+						content: { text: `Action ${b + 1}`, annotations: [] },
 						href: '#'
 					};
 					btn_ids.push(bid);
@@ -315,7 +315,7 @@
 				if (i < count) {
 					const id = nanoid();
 					const tr = session.tr;
-					tr.create({ id, type: 'button', label: { text: `Btn ${i + 1}`, annotations: [] }, href: '#' });
+					tr.create({ id, type: 'button', content: { text: `Btn ${i + 1}`, annotations: [] }, href: '#' });
 					const current = [...session.doc.nodes[target.node_id][target.prop]];
 					current.push(id);
 					tr.set([target.node_id, target.prop], current);

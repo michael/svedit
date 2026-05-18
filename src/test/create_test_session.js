@@ -31,9 +31,9 @@ const document_schema = define_document_schema({
 		}
 	},
 	button: {
-		kind: 'block',
+		kind: 'text',
 		properties: {
-			label: { type: 'annotated_text', allow_newlines: false },
+			content: { type: 'annotated_text', allow_newlines: false },
 			href: { type: 'string' }
 		}
 	},
@@ -79,7 +79,7 @@ const doc = {
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			label: { text: 'Get started', annotations: [] },
+			content: { text: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -137,20 +137,20 @@ const session_config = {
 		list_item: 1
 	},
 	inserters: {
-		button: function (tr) {
+		button: function (tr, content = { text: '', annotations: [] }) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
+				content,
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);
 			tr.insert_nodes([new_button.id]);
 			tr.set_selection({
-				type: 'node',
-				path: [...tr.selection.path],
-				anchor_offset: tr.selection.focus_offset,
-				focus_offset: tr.selection.focus_offset
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
 			});
 		},
 		text: function (tr, content) {
@@ -174,7 +174,7 @@ const session_config = {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
+				content: { text: '', annotations: [] },
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);

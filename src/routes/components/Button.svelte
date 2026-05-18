@@ -13,7 +13,7 @@
 		href={svedit.editable ? undefined : node.href}
 		class="button"
 	>
-		<AnnotatedTextProperty class="body" path={[...path, 'label']} placeholder="Call to Action" />
+		<AnnotatedTextProperty class="body" path={[...path, 'content']} placeholder="Call to Action" />
 	</svelte:element>
 </Node>
 

@@ -109,7 +109,7 @@
 
 	function update_url() {
 		const tr = session.tr;
-		if (session.selection.path.at(-1) === 'label') {
+		if (session.selection.path.at(-1) === 'content') {
 			// We are updating the href property of a button
 			tr.set([...session.selection.path.slice(0, -1), 'href'], input_ref.value);
 		} else {
