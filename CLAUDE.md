@@ -15,14 +15,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run preview` - Preview production build
 
 **Testing:**
-- `npm run test:unit` - Run unit tests with Vitest
-- `npm run test:e2e` - Run end-to-end tests with Playwright
-- `npm run test` - Run both unit and e2e tests
+- `npm run test:unit` - Run unit tests with Vitest (preview provider, opens in user's real browser)
+- `npm run test:headless` - Run unit tests with Vitest (playwright provider, headless background browser)
+- `npm run test` - Run unit tests once (preview provider)
 
-**Testing Guidelines:**
-- DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
-- The user prefers to run all tests manually
-- Focus on implementing code changes and let the user handle testing
+First time setup for `test:headless`: run `npx playwright install chromium` once after `npm install` to download the playwright chromium binary (~90 MB).
+
+**Testing guidelines for AI agents:**
+- ALWAYS use `npm run test:headless` when running tests. It runs in a background browser — no tabs in the user's real browser, no focus stealing, safe to invoke repeatedly.
+- Do NOT use `npm test` or `npm run test:unit`. Both use the preview provider, which opens a new tab in the user's real browser on every invocation and does not close it. Multiple runs accumulate tabs and steal focus.
+- Do not run tests in tight loops to "characterize flakiness." If a test fails once and passes when re-run alone, that's the test harness, not the code.
+- The user generally prefers to run tests themselves. Default to making code changes and letting them verify.
 
 **Implementation Guidelines:**
 - Do exactly what the user asks for - one step at a time
