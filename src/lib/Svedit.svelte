@@ -1534,7 +1534,7 @@ ${fallback_html}`;
 
 	@media not (pointer: coarse) {
 		@supports (anchor-name: --test) {
-			:where(.svedit-canvas.hide-selection) :global(::selection) {
+			.svedit-canvas.hide-selection :global(::selection) {
 				background: transparent;
 			}
 		}
