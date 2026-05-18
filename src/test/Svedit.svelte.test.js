@@ -81,7 +81,7 @@ describe('Svedit.svelte', () => {
 
 		expect(original_story.title).toEqual({ text: 'First story', annotations: [] });
 		expect(original_story.buttons).toEqual(['button_1']);
-		expect(original_button.label).toEqual({ text: 'Get started', annotations: [] });
+		expect(original_button.content).toEqual({ text: 'Get started', annotations: [] });
 
 		// Initial body state: ['story_1, 'story_1, 'list_1]
 		const initial_body = session.get(['page_1', 'body']);
@@ -177,7 +177,7 @@ describe('Svedit.svelte', () => {
 			text: 'First story description.',
 			annotations: []
 		});
-		expect(first_new_button.label).toEqual({ text: 'Get started', annotations: [] });
+		expect(first_new_button.content).toEqual({ text: 'Get started', annotations: [] });
 		expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different
@@ -225,7 +225,7 @@ describe('Svedit.svelte', () => {
 			text: 'First story description.',
 			annotations: []
 		});
-		expect(second_new_button.label).toEqual({ text: 'Get started', annotations: [] });
+		expect(second_new_button.content).toEqual({ text: 'Get started', annotations: [] });
 		expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different from both original and first paste

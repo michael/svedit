@@ -49,7 +49,7 @@ export function make_story_session(n_buttons) {
 		nodes[id] = {
 			id,
 			type: 'button',
-			label: { text: `Action ${i + 1}`, annotations: [] },
+			content: { text: `Action ${i + 1}`, annotations: [] },
 			href: '#'
 		};
 		button_ids.push(id);

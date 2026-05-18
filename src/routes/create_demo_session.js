@@ -88,9 +88,9 @@ export const document_schema = define_document_schema({
 		}
 	},
 	button: {
-		kind: 'block',
+		kind: 'text',
 		properties: {
-			label: {
+			content: {
 				type: 'annotated_text',
 				node_types: [],
 				allow_newlines: false
@@ -252,7 +252,7 @@ const doc = {
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			label: { text: 'Get started', annotations: [] },
+			content: { text: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -584,7 +584,7 @@ export const session_config = {
 			return `<${tag_name}>${node.content.text}</${tag_name}>\n`;
 		},
 		button: (node) => {
-			return `<a href="${node.href}">${node.label.text}</a>\n`;
+			return `<a href="${node.href}">${node.content.text}</a>\n`;
 		},
 		image_grid_item: (node) => {
 			let html = '<div class="image-grid-item">\n';
@@ -640,8 +640,8 @@ export const session_config = {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
-				href: 'https://editable.website'
+				content: { text: '', annotations: [] },
+				href: ''
 			};
 			tr.create(new_button);
 			const new_story = {
@@ -740,20 +740,20 @@ export const session_config = {
 				focus_offset: tr.selection.focus_offset
 			});
 		},
-		button: function (tr) {
+		button: function (tr, content = { text: '', annotations: [] }) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				label: { text: '', annotations: [] },
-				href: 'https://editable.website'
+				content,
+				href: ''
 			};
 			tr.create(new_button);
 			tr.insert_nodes([new_button.id]);
 			tr.set_selection({
-				type: 'node',
-				path: [...tr.selection.path],
-				anchor_offset: tr.selection.focus_offset,
-				focus_offset: tr.selection.focus_offset
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
 			});
 		},
 		hero: function (tr) {
