@@ -19,7 +19,8 @@ import {
 	count_references_excluding_deleted,
 	validate_node,
 	get_active_annotation,
-	validate_selection
+	validate_selection,
+	can_switch_annotation_type
 } from './doc_utils.js';
 
 /**
@@ -438,6 +439,8 @@ export default class Transaction {
 		const annotations = annotated_text.annotations;
 		const existing_annotation = this.active_annotation();
 		const existing_annotation_same_type = this.active_annotation(annotation_type);
+		const has_annotation_properties =
+			annotation_properties && Object.keys(annotation_properties).length > 0;
 
 		if (existing_annotation) {
 			// If there's an existing annotation of the same type, remove it
@@ -453,7 +456,22 @@ export default class Transaction {
 					annotations.splice(index, 1);
 				}
 			} else {
-				// If there's an annotation of a different type, don't add a new one
+				const existing_annotation_node = this.get(existing_annotation.node_id);
+				const can_switch_annotation =
+					!has_annotation_properties &&
+					this.available_annotation_types.includes(annotation_type) &&
+					can_switch_annotation_type(
+						this.schema,
+						existing_annotation_node,
+						annotation_type
+					);
+
+				if (can_switch_annotation) {
+					this.set([existing_annotation.node_id, 'type'], annotation_type);
+					return this;
+				}
+
+				// If there's an annotation of a different incompatible type, don't add a new one
 				return this;
 			}
 		} else {

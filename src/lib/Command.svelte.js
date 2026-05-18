@@ -1,4 +1,5 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
+import { can_switch_annotation_type } from './doc_utils.js';
 import { is_selection_collapsed, is_mobile_browser, get_char_length } from './utils.js';
 
 /**
@@ -123,14 +124,24 @@ export class ToggleAnnotationCommand extends Command {
 
 	is_enabled() {
 		const { session, editable } = this.context;
+		const active_annotation = session.active_annotation();
 		const has_annotation = session.active_annotation(this.node_type);
+		const can_switch_annotation =
+			active_annotation &&
+			!has_annotation &&
+			session.available_annotation_types.includes(this.node_type) &&
+			can_switch_annotation_type(
+				session.schema,
+				session.get(active_annotation.node_id),
+				this.node_type
+			);
 		const no_annotation_and_caret_not_collapsed =
-			!session.active_annotation() && !is_selection_collapsed(session.selection);
+			!active_annotation && !is_selection_collapsed(session.selection);
 
 		return (
 			editable &&
 			session.selection?.type === 'text' &&
-			(has_annotation || no_annotation_and_caret_not_collapsed)
+			(has_annotation || can_switch_annotation || no_annotation_and_caret_not_collapsed)
 		);
 	}
 
