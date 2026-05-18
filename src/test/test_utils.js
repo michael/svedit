@@ -43,6 +43,7 @@ export const settle_grid = () => settle({ rafs: 8, ms: 150 });
 /** Build a session with a single story whose `buttons` array holds `n` buttons. */
 export function make_story_session(n_buttons) {
 	const button_ids = [];
+	/** @type {import('../lib/types.d.ts').Document['nodes']} */
 	const nodes = {};
 	for (let i = 0; i < n_buttons; i++) {
 		const id = `btn_${i}`;
@@ -77,6 +78,7 @@ export function make_story_session(n_buttons) {
 /** Build a session with a single image_grid containing `n` items. */
 export function make_image_grid_session(n_items) {
 	const item_ids = [];
+	/** @type {import('../lib/types.d.ts').Document['nodes']} */
 	const nodes = {};
 	for (let i = 0; i < n_items; i++) {
 		const id = `igi_${i}`;
