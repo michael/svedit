@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, AnnotatedTextProperty, AnnotatedText } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, AnnotatedTextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
  */
 
 import {
@@ -20,7 +20,7 @@ import {
  * Similar to your define_schema pattern but for document schemas.
  *
  * @template {Record<string, NodeSchema>} S
- * @param {S} schema - The document schema to validate
+ * @param {S & ValidateDocumentSchema<S>} schema - The document schema to validate
  * @returns {S} The same schema, but with type information preserved
  */
 export function define_document_schema(schema) {

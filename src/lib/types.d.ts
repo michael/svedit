@@ -274,13 +274,51 @@ export type PropertyDefinition =
 export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
 
 /**
- * Schema for text nodes - must have a content property of type annotated_text
+ * Schema for text nodes - must have a content property of type annotated_text.
+ * Use define_document_schema to also check that content is the only annotated_text property.
  */
 export type TextNodeSchema = {
 	kind: 'text';
 	properties: {
 		content: AnnotatedTextProperty;
 	} & Record<string, PropertyDefinition>;
+};
+
+export type AnnotatedTextPropertyNames<Properties> = {
+	[PropertyName in keyof Properties]: Properties[PropertyName] extends { type: 'annotated_text' }
+		? PropertyName
+		: never;
+}[keyof Properties];
+
+export type TextNodeSchemaError<Message extends string> = {
+	[SchemaError in `Svedit schema error: ${Message}`]: never;
+};
+
+export type TextNodeMissingContentError = TextNodeSchemaError<
+	'Text node schemas must define a "content" property of type annotated_text.'
+>;
+
+export type TextNodeExtraAnnotatedTextError<ExtraProperty extends string> = TextNodeSchemaError<
+	`Text node schemas must not define annotated_text property "${ExtraProperty}". Use "content" as the only annotated_text property.`
+>;
+
+export type ValidateTextNodeSchema<Schema> = Schema extends {
+	kind: 'text';
+	properties: infer Properties;
+}
+	? string extends keyof Properties
+		? Schema
+		: Properties extends { content: AnnotatedTextProperty }
+			? Exclude<AnnotatedTextPropertyNames<Properties>, 'content'> extends infer ExtraProperties
+				? [ExtraProperties] extends [never]
+					? Schema
+					: TextNodeExtraAnnotatedTextError<Extract<ExtraProperties, string>>
+				: never
+			: TextNodeMissingContentError
+	: Schema;
+
+export type ValidateDocumentSchema<Schema extends Record<string, NodeSchema>> = {
+	[NodeType in keyof Schema]: ValidateTextNodeSchema<Schema[NodeType]>;
 };
 
 /**
