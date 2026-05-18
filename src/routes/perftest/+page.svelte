@@ -346,18 +346,16 @@
 		const debounce_values = [0, 5, 10, 20];
 		const node_counts = [200, 500, 1000, 6000];
 		const results = [];
-		
+
 		is_testing = true;
-		
+
 		for (const overscan of overscan_values) {
 			for (const debounce of debounce_values) {
 				/** @type {any} */ (window).__culling_config.overscan = overscan;
 				/** @type {any} */ (window).__culling_config.debounce = debounce;
-				
+
 				for (const count of node_counts) {
 					node_count = count;
-					
-					const t0 = performance.now();
 					session = make_session();
 					mount_key++;
 					await tick();
@@ -365,26 +363,26 @@
 					await new Promise(r => requestAnimationFrame(r));
 					await new Promise(r => setTimeout(r, 1000));
 					if (count >= 2000) await new Promise(r => setTimeout(r, 3000));
-					
+
 					const scroll = await quick_scroll_test(2000);
 					await new Promise(r => setTimeout(r, 200));
-					
+
 					const dom = document.querySelectorAll('.svedit *').length;
 					const gap_mk = document.querySelectorAll('.gap-marker').length;
 					const perf = /** @type {any} */ (performance);
 					const mem = perf.memory ? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024) : null;
-					
+
 					results.push({
 						overscan, debounce, nodes: count,
 						scroll_avg: scroll.avg, scroll_min: scroll.min,
 						dom, gaps: gap_mk, mem
 					});
-					
+
 					console.log(`overscan=${overscan} debounce=${debounce} nodes=${count}: scroll=${scroll.avg}/${scroll.min} dom=${dom} gaps=${gap_mk}`);
 				}
 			}
 		}
-		
+
 		/** @type {any} */ (window).__matrix_results = results;
 		console.log('DONE', JSON.stringify(results));
 		is_testing = false;
