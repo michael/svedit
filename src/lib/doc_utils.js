@@ -438,6 +438,31 @@ export function kind(schema, node) {
 }
 
 /**
+ * Checks whether an annotation node can be switched to another annotation type
+ * without losing data.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {any} annotation_node - The annotation node to switch
+ * @param {string} target_annotation_type - The target annotation type
+ * @returns {boolean} True if the annotation can be switched safely
+ */
+export function can_switch_annotation_type(schema, annotation_node, target_annotation_type) {
+	if (!annotation_node || annotation_node.type === target_annotation_type) return false;
+
+	const source_schema = schema[annotation_node.type];
+	const target_schema = schema[target_annotation_type];
+	if (source_schema?.kind !== 'annotation' || target_schema?.kind !== 'annotation') return false;
+
+	const source_has_properties = Object.keys(source_schema.properties ?? {}).length > 0;
+	const target_has_properties = Object.keys(target_schema.properties ?? {}).length > 0;
+	if (source_has_properties || target_has_properties) return false;
+
+	// eslint-disable-next-line no-unused-vars
+	const { id, type, ...extra_properties } = annotation_node;
+	return Object.keys(extra_properties).length === 0;
+}
+
+/**
  * Inspects a path to get metadata about the value at that location.
  *
  * @param {DocumentSchema} schema - The document schema
