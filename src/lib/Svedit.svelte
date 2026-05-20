@@ -1200,10 +1200,9 @@ ${fallback_html}`;
 			}
 		}
 
-		// Scroll the gap (cursor) into view. Indexed off the gap
-		// location, not an adjacent node, so the gap itself ends up
-		// exposed — not just the neighbour. `nearest` everywhere makes
-		// fully-visible scenarios a no-op.
+		// Scroll the cursor into view. cursor_offset is a gap offset; the
+		// gap has no box of its own, so this works off the leading edge of
+		// the node at that index (see the guard below).
 		setTimeout(() => {
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
@@ -1233,7 +1232,18 @@ ${fallback_html}`;
 				return;
 			}
 			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
-			node_at_cursor?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			if (!node_at_cursor) return;
+			// scrollIntoView({ block: 'nearest' }) is a no-op only for a
+			// *fully* visible element — a node taller or wider than the
+			// viewport never qualifies, so it always aligns an edge and
+			// scrolls the page even when the cursor (the node's leading edge)
+			// is already on screen. Skip the scroll when that edge is in view.
+			const rect = node_at_cursor.getBoundingClientRect();
+			const edge_in_view =
+				rect.top >= 0 && rect.top <= window.innerHeight &&
+				rect.left >= 0 && rect.left <= window.innerWidth;
+			if (edge_in_view) return;
+			node_at_cursor.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
