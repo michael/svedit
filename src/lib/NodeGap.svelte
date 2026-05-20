@@ -358,12 +358,21 @@
 		min-width: calc(var(--_eg) * var(--_R));
 	}
 
-	/* Empty array: spans the outermost edges of placeholder and container. */
-	:global(.node-gap.positioned.gap-before.empty .svedit-selectable) {
-		top: min(var(--_s-t), var(--_c-t));
-		bottom: min(var(--_s-b), var(--_c-b));
-		left: min(var(--_s-l), var(--_c-l));
-		right: min(var(--_s-r), var(--_c-r));
+	/* Empty array: the gap fills its placeholder, which is this
+	   selectable's containing block (NodeArrayProperty sets it
+	   position: relative). inset:0 fills it with no anchor() — so no
+	   .positioned gating and no anchor cost. The width:auto, height:auto
+	   and pointer-events:auto override the :not(.positioned) 0×0
+	   collapse; position-visibility:always overrides the .positioned
+	   rule's anchors-visible, so a transient positioned toggle can't
+	   hide the gap. */
+	:global(.node-gap.gap-before.empty .svedit-selectable) {
+		position: absolute;
+		inset: 0;
+		width: auto;
+		height: auto;
+		pointer-events: auto;
+		position-visibility: always;
 	}
 
 	/* Debugging styles - DO NOT CHANGE OR REMOVE */
