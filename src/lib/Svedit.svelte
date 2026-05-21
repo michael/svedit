@@ -1230,8 +1230,12 @@ ${fallback_html}`;
 
 			// If either node flanking the cursor is already (even
 			// partially) on screen, the cursor is visible — keep the
-			// viewport stable and scroll nothing.
-			const node_before = __get_node_element(node_array_path, cursor_offset - 1);
+			// viewport stable and scroll nothing. node_before is null at
+			// offset 0: cursor_offset - 1 would be -1, and serialize_path
+			// rejects a negative index.
+			const node_before = cursor_offset > 0
+				? __get_node_element(node_array_path, cursor_offset - 1)
+				: null;
 			const node_after = __get_node_element(node_array_path, cursor_offset);
 			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
@@ -1256,7 +1260,12 @@ ${fallback_html}`;
 				}
 				return;
 			}
-			node_after?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			// A range selection's selected node IS node_before; scrolling
+			// node_after would reveal the following node and leave the
+			// selection itself off-screen. For a collapsed caret node_after's
+			// leading edge is the cursor, so that stays the right target.
+			const target = is_collapsed ? node_after : node_before;
+			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
