@@ -96,11 +96,14 @@
 </svelte:element>
 
 <style>
-/* If you override this to position: absolute (e.g. so an empty array
-   doesn't occupy flow space), set position: relative on the parent
-   node-array container so left/right or inset resolve against it. */
+/* position: relative makes this the containing block for the gap's
+   .svedit-selectable, which fills it via inset:0. You may override to
+   position: absolute (e.g. so an empty array doesn't occupy flow space)
+   — still a containing block; then also set position: relative on the
+   parent node-array container so this placeholder's inset:0 resolves
+   against it. */
 	:where(.empty-node-placeholder) {
-		position: static;
+		position: relative;
 		inset: 0;
 		min-height: 40px;
 		min-width: 24px;
