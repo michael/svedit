@@ -1151,6 +1151,22 @@ ${fallback_html}`;
 		);
 	}
 
+	/**
+	 * True when any part of the element's border box overlaps the window
+	 * viewport. Used to keep node-selection re-renders from scrolling a
+	 * cursor that is already on screen. Tests the window viewport, so a
+	 * node clipped only by an inner scroll container still counts visible.
+	 * @param {Element | null | undefined} el
+	 */
+	function __intersects_viewport(el) {
+		if (!el) return false;
+		const r = el.getBoundingClientRect();
+		return (
+			r.bottom > 0 && r.top < window.innerHeight &&
+			r.right > 0 && r.left < window.innerWidth
+		);
+	}
+
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
@@ -1200,14 +1216,24 @@ ${fallback_html}`;
 			}
 		}
 
-		// Scroll the cursor into view. cursor_offset is a gap offset; the
-		// gap has no box of its own, so this works off the leading edge of
-		// the node at that index (see the guard below).
+		// Scroll the cursor into view, but only when it is genuinely
+		// off-screen. This runs on every node-selection re-render — a
+		// transaction (type/layout change), select-parent, window refocus
+		// — so an unconditional scroll would yank the viewport on each of
+		// them. cursor_offset is a gap offset and the gap has no box of
+		// its own, so visibility is judged from the nodes flanking it.
 		setTimeout(() => {
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
 			const array_length = session.get(node_array_path).length;
+
+			// If either node flanking the cursor is already (even
+			// partially) on screen, the cursor is visible — keep the
+			// viewport stable and scroll nothing.
+			const node_before = __get_node_element(node_array_path, cursor_offset - 1);
+			const node_after = __get_node_element(node_array_path, cursor_offset);
+			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
 			if (cursor_offset === 0) {
 				node_array_el.scrollLeft = 0;
@@ -1226,24 +1252,11 @@ ${fallback_html}`;
 				node_array_el.scrollLeft = max_left;
 				node_array_el.scrollTop = max_top;
 				if (max_left === 0 && max_top === 0) {
-					const last_node = __get_node_element(node_array_path, cursor_offset - 1);
-					last_node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+					node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}
 				return;
 			}
-			const node_at_cursor = __get_node_element(node_array_path, cursor_offset);
-			if (!node_at_cursor) return;
-			// scrollIntoView({ block: 'nearest' }) is a no-op only for a
-			// *fully* visible element — a node taller or wider than the
-			// viewport never qualifies, so it always aligns an edge and
-			// scrolls the page even when the cursor (the node's leading edge)
-			// is already on screen. Skip the scroll when that edge is in view.
-			const rect = node_at_cursor.getBoundingClientRect();
-			const edge_in_view =
-				rect.top >= 0 && rect.top <= window.innerHeight &&
-				rect.left >= 0 && rect.left <= window.innerWidth;
-			if (edge_in_view) return;
-			node_at_cursor.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			node_after?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
