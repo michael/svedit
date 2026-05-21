@@ -1186,17 +1186,27 @@ ${fallback_html}`;
 		);
 	}
 
-	function __render_node_selection() {
+	function __render_node_selection(retry_count = 0) {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
 		const node_array_path_str = serialize_path(node_array_path);
 		const is_collapsed = is_selection_collapsed(selection);
 		const is_backward = !is_collapsed && selection.anchor_offset > selection.focus_offset;
 
+		// The change that triggered this render (an undo or insert) may not
+		// have mounted its nodes/gaps yet. Retry on the next frame until the
+		// DOM is there — bounded so a genuinely missing target can't loop
+		// forever (~1s at 60fps).
+		const retry_when_dom_settles = () => {
+			if (retry_count < 60 && session.selection?.type === 'node') {
+				requestAnimationFrame(() => __render_node_selection(retry_count + 1));
+			}
+		};
+
 		const node_array_el = canvas_el.querySelector(
 			`[data-path="${node_array_path_str}"][data-type="node_array"]`
 		);
-		if (!node_array_el) return;
+		if (!node_array_el) return retry_when_dom_settles();
 
 		const dom_selection = window.getSelection();
 		const range = window.document.createRange();
@@ -1206,12 +1216,11 @@ ${fallback_html}`;
 
 		if (is_collapsed) {
 			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
-			if (!gap_el) return;
 			// Target .svedit-selectable (has a box), not gap_el which is
 			// display:contents and would cause the browser to normalize
 			// the range into the parent, breaking read-back.
-			const selectable = gap_el.querySelector('.svedit-selectable');
-			if (!selectable) return;
+			const selectable = gap_el?.querySelector('.svedit-selectable');
+			if (!selectable) return retry_when_dom_settles();
 			range.setStart(selectable, 1);
 			range.setEnd(selectable, 1);
 			dom_selection.removeAllRanges();
@@ -1219,10 +1228,9 @@ ${fallback_html}`;
 		} else {
 			const anchor_gap = node_array_el.querySelector(gap_selector(selection.anchor_offset));
 			const focus_gap = node_array_el.querySelector(gap_selector(selection.focus_offset));
-			if (!anchor_gap || !focus_gap) return;
-			const anchor_sel = anchor_gap.querySelector('.svedit-selectable');
-			const focus_sel = focus_gap.querySelector('.svedit-selectable');
-			if (!anchor_sel || !focus_sel) return;
+			const anchor_sel = anchor_gap?.querySelector('.svedit-selectable');
+			const focus_sel = focus_gap?.querySelector('.svedit-selectable');
+			if (!anchor_sel || !focus_sel) return retry_when_dom_settles();
 
 			if (is_backward) {
 				dom_selection.removeAllRanges();
@@ -1236,20 +1244,30 @@ ${fallback_html}`;
 		}
 
 		// Scroll the cursor into view, but only when it is genuinely
-		// off-screen. This runs on every node-selection re-render — a
-		// transaction (type/layout change), select-parent, window refocus
-		// — so an unconditional scroll would yank the viewport on each of
-		// them. cursor_offset is a gap offset and the gap has no box of
-		// its own, so visibility is judged from the nodes flanking it.
-		setTimeout(() => {
+		// off-screen. cursor_offset is a gap offset and the gap has no box
+		// of its own, so visibility is judged from the nodes flanking it.
+		//
+		// Re-run on each animation frame while the cursor stays off-screen:
+		// an undo/insert mounts content whose images and sizing settle
+		// across several frames, so a single scroll computed against the
+		// un-settled layout strands the cursor (this is why a second undo
+		// appeared to "fix" it — by then the layout had settled). The
+		// visibility guard ends the loop the moment the cursor is on
+		// screen; the deadline bounds it otherwise.
+		const selection_snapshot = JSON.stringify(selection);
+		const scroll_deadline = performance.now() + 1000;
+		const scroll_cursor_into_view = () => {
+			// The selection moved on while the layout was settling — stop.
+			if (JSON.stringify(session.selection) !== selection_snapshot) return;
+
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
 			const array_length = session.get(node_array_path).length;
 
-			// If either node flanking the cursor is already (even
-			// partially) on screen, the cursor is visible — keep the
-			// viewport stable and scroll nothing. node_before is null at
+			// If either node flanking the cursor is already (even partially)
+			// on screen, the cursor is visible — keep the viewport stable,
+			// scroll nothing, and end the loop. node_before is null at
 			// offset 0: cursor_offset - 1 would be -1, and serialize_path
 			// rejects a negative index.
 			const node_before = cursor_offset > 0
@@ -1261,31 +1279,30 @@ ${fallback_html}`;
 			if (cursor_offset === 0) {
 				node_array_el.scrollLeft = 0;
 				node_array_el.scrollTop = 0;
-				return;
-			}
-			if (cursor_offset >= array_length) {
-				const max_left = Math.max(
+			} else if (cursor_offset >= array_length) {
+				node_array_el.scrollLeft = Math.max(
 					0,
 					node_array_el.scrollWidth - node_array_el.clientWidth
 				);
-				const max_top = Math.max(
+				node_array_el.scrollTop = Math.max(
 					0,
 					node_array_el.scrollHeight - node_array_el.clientHeight
 				);
-				node_array_el.scrollLeft = max_left;
-				node_array_el.scrollTop = max_top;
-				if (max_left === 0 && max_top === 0) {
-					node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				}
-				return;
+				node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			} else {
+				// A range selection's selected node IS node_before; scrolling
+				// node_after would reveal the following node and leave the
+				// selection itself off-screen. For a collapsed caret
+				// node_after's leading edge is the cursor.
+				const target = is_collapsed ? node_after : node_before;
+				target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 			}
-			// A range selection's selected node IS node_before; scrolling
-			// node_after would reveal the following node and leave the
-			// selection itself off-screen. For a collapsed caret node_after's
-			// leading edge is the cursor, so that stays the right target.
-			const target = is_collapsed ? node_after : node_before;
-			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+
+			if (performance.now() < scroll_deadline) {
+				requestAnimationFrame(scroll_cursor_into_view);
+			}
+		};
+		requestAnimationFrame(scroll_cursor_into_view);
 	}
 
 	function __render_property_selection() {
