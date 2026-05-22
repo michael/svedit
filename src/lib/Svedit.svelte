@@ -1,5 +1,5 @@
 <script>
-	import { flushSync, getContext, setContext } from 'svelte';
+	import { flushSync, getContext, setContext, tick } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -48,6 +48,7 @@
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
+	let layout_scroll_job_id = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -1167,6 +1168,76 @@ ${fallback_html}`;
 		);
 	}
 
+	function __next_animation_frame() {
+		return new Promise((resolve) => requestAnimationFrame(resolve));
+	}
+
+	function __get_layout_signature(elements) {
+		return elements
+			.filter(Boolean)
+			.map((el) => {
+				const r = el.getBoundingClientRect();
+				return [
+					r.top.toFixed(2),
+					r.right.toFixed(2),
+					r.bottom.toFixed(2),
+					r.left.toFixed(2),
+					r.width.toFixed(2),
+					r.height.toFixed(2),
+					el.scrollWidth,
+					el.scrollHeight,
+					el.clientWidth,
+					el.clientHeight
+				].join(',');
+			})
+			.join('|');
+	}
+
+	async function __wait_for_layout_to_settle(get_elements, is_current) {
+		await tick();
+
+		const deadline = performance.now() + 1000;
+		let previous_signature = '';
+		let matching_frame_count = 0;
+
+		while (performance.now() < deadline && is_current()) {
+			await __next_animation_frame();
+
+			const elements = get_elements().filter(Boolean);
+			if (elements.length === 0) {
+				previous_signature = '';
+				matching_frame_count = 0;
+				continue;
+			}
+
+			const signature = __get_layout_signature(elements);
+			if (signature === previous_signature) {
+				matching_frame_count += 1;
+				if (matching_frame_count >= 1) return;
+			} else {
+				previous_signature = signature;
+				matching_frame_count = 0;
+			}
+		}
+	}
+
+	function __run_after_layout_settles(get_elements, callback, is_current = () => true) {
+		const job_id = ++layout_scroll_job_id;
+		void (async () => {
+			const still_current = () => job_id === layout_scroll_job_id && is_current();
+			await __wait_for_layout_to_settle(get_elements, still_current);
+			if (still_current()) callback();
+		})();
+	}
+
+	function __scroll_element_into_view_after_layout_settles(get_element, options, is_current = () => true) {
+		__run_after_layout_settles(
+			() => [get_element()],
+			() => get_element()?.scrollIntoView(options),
+			is_current
+		);
+	}
+
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
@@ -1222,51 +1293,65 @@ ${fallback_html}`;
 		// — so an unconditional scroll would yank the viewport on each of
 		// them. cursor_offset is a gap offset and the gap has no box of
 		// its own, so visibility is judged from the nodes flanking it.
-		setTimeout(() => {
+		const selection_snapshot = JSON.stringify(selection);
+		const get_cursor_context = () => {
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
-			const array_length = session.get(node_array_path).length;
-
-			// If either node flanking the cursor is already (even
-			// partially) on screen, the cursor is visible — keep the
-			// viewport stable and scroll nothing. node_before is null at
-			// offset 0: cursor_offset - 1 would be -1, and serialize_path
-			// rejects a negative index.
 			const node_before = cursor_offset > 0
 				? __get_node_element(node_array_path, cursor_offset - 1)
 				: null;
 			const node_after = __get_node_element(node_array_path, cursor_offset);
-			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
-			if (cursor_offset === 0) {
-				node_array_el.scrollLeft = 0;
-				node_array_el.scrollTop = 0;
-				return;
-			}
-			if (cursor_offset >= array_length) {
-				const max_left = Math.max(
-					0,
-					node_array_el.scrollWidth - node_array_el.clientWidth
-				);
-				const max_top = Math.max(
-					0,
-					node_array_el.scrollHeight - node_array_el.clientHeight
-				);
-				node_array_el.scrollLeft = max_left;
-				node_array_el.scrollTop = max_top;
-				if (max_left === 0 && max_top === 0) {
-					node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			return { cursor_offset, node_before, node_after };
+		};
+		const is_current_selection = () => JSON.stringify(session.selection) === selection_snapshot;
+
+		__run_after_layout_settles(
+			() => {
+				const { node_before, node_after } = get_cursor_context();
+				return [node_array_el, node_before, node_after];
+			},
+			() => {
+				const { cursor_offset, node_before, node_after } = get_cursor_context();
+				// If either node flanking the cursor is already (even
+				// partially) on screen, the cursor is visible — keep the
+				// viewport stable and scroll nothing. node_before is null at
+				// offset 0: cursor_offset - 1 would be -1, and serialize_path
+				// rejects a negative index.
+				if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
+
+				const array_length = session.get(node_array_path).length;
+				if (cursor_offset === 0) {
+					node_array_el.scrollLeft = 0;
+					node_array_el.scrollTop = 0;
+					return;
 				}
-				return;
-			}
-			// A range selection's selected node IS node_before; scrolling
-			// node_after would reveal the following node and leave the
-			// selection itself off-screen. For a collapsed caret node_after's
-			// leading edge is the cursor, so that stays the right target.
-			const target = is_collapsed ? node_after : node_before;
-			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+				if (cursor_offset >= array_length) {
+					const max_left = Math.max(
+						0,
+						node_array_el.scrollWidth - node_array_el.clientWidth
+					);
+					const max_top = Math.max(
+						0,
+						node_array_el.scrollHeight - node_array_el.clientHeight
+					);
+					node_array_el.scrollLeft = max_left;
+					node_array_el.scrollTop = max_top;
+					if (max_left === 0 && max_top === 0) {
+						node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+					}
+					return;
+				}
+				// A range selection's selected node IS node_before; scrolling
+				// node_after would reveal the following node and leave the
+				// selection itself off-screen. For a collapsed caret node_after's
+				// leading edge is the cursor, so that stays the right target.
+				const target = is_collapsed ? node_after : node_before;
+				target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			},
+			is_current_selection
+		);
 	}
 
 	function __render_property_selection() {
@@ -1286,10 +1371,12 @@ ${fallback_html}`;
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
 
-		// Scroll the selection into view
-		setTimeout(() => {
-			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+		const selection_snapshot = JSON.stringify(selection);
+		__scroll_element_into_view_after_layout_settles(
+			() => el,
+			{ block: 'nearest', inline: 'nearest' },
+			() => JSON.stringify(session.selection) === selection_snapshot
+		);
 	}
 
 	function __render_text_selection() {
@@ -1384,13 +1471,12 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the selection into view
-			setTimeout(() => {
-				const selectedElement = dom_selection.focusNode.parentElement;
-				if (selectedElement) {
-					selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				}
-			}, 0);
+			const selection_snapshot = JSON.stringify(selection);
+			__scroll_element_into_view_after_layout_settles(
+				() => dom_selection.focusNode?.parentElement,
+				{ block: 'nearest', inline: 'nearest' },
+				() => JSON.stringify(session.selection) === selection_snapshot
+			);
 		}
 	}
 
