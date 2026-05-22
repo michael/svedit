@@ -48,7 +48,7 @@
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
-	let layout_scroll_job_id = 0;
+	let deferred_scroll_job_id = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -1172,67 +1172,22 @@ ${fallback_html}`;
 		return new Promise((resolve) => requestAnimationFrame(resolve));
 	}
 
-	function __get_layout_signature(elements) {
-		return elements
-			.filter(Boolean)
-			.map((el) => {
-				const r = el.getBoundingClientRect();
-				return [
-					r.top.toFixed(2),
-					r.right.toFixed(2),
-					r.bottom.toFixed(2),
-					r.left.toFixed(2),
-					r.width.toFixed(2),
-					r.height.toFixed(2),
-					el.scrollWidth,
-					el.scrollHeight,
-					el.clientWidth,
-					el.clientHeight
-				].join(',');
-			})
-			.join('|');
-	}
-
-	async function __wait_for_layout_to_settle(get_elements, is_current) {
+	async function __wait_for_scroll_frame() {
 		await tick();
-
-		const deadline = performance.now() + 1000;
-		let previous_signature = '';
-		let matching_frame_count = 0;
-
-		while (performance.now() < deadline && is_current()) {
-			await __next_animation_frame();
-
-			const elements = get_elements().filter(Boolean);
-			if (elements.length === 0) {
-				previous_signature = '';
-				matching_frame_count = 0;
-				continue;
-			}
-
-			const signature = __get_layout_signature(elements);
-			if (signature === previous_signature) {
-				matching_frame_count += 1;
-				if (matching_frame_count >= 1) return;
-			} else {
-				previous_signature = signature;
-				matching_frame_count = 0;
-			}
-		}
+		await __next_animation_frame();
+		await __next_animation_frame();
 	}
 
-	function __run_after_layout_settles(get_elements, callback, is_current = () => true) {
-		const job_id = ++layout_scroll_job_id;
+	function __run_after_scroll_frame(callback, is_current = () => true) {
+		const job_id = ++deferred_scroll_job_id;
 		void (async () => {
-			const still_current = () => job_id === layout_scroll_job_id && is_current();
-			await __wait_for_layout_to_settle(get_elements, still_current);
-			if (still_current()) callback();
+			await __wait_for_scroll_frame();
+			if (job_id === deferred_scroll_job_id && is_current()) callback();
 		})();
 	}
 
-	function __scroll_element_into_view_after_layout_settles(get_element, options, is_current = () => true) {
-		__run_after_layout_settles(
-			() => [get_element()],
+	function __scroll_element_into_view_after_scroll_frame(get_element, options, is_current = () => true) {
+		__run_after_scroll_frame(
 			() => get_element()?.scrollIntoView(options),
 			is_current
 		);
@@ -1307,11 +1262,7 @@ ${fallback_html}`;
 		};
 		const is_current_selection = () => JSON.stringify(session.selection) === selection_snapshot;
 
-		__run_after_layout_settles(
-			() => {
-				const { node_before, node_after } = get_cursor_context();
-				return [node_array_el, node_before, node_after];
-			},
+		__run_after_scroll_frame(
 			() => {
 				const { cursor_offset, node_before, node_after } = get_cursor_context();
 				// If either node flanking the cursor is already (even
@@ -1372,7 +1323,7 @@ ${fallback_html}`;
 		dom_selection.addRange(range);
 
 		const selection_snapshot = JSON.stringify(selection);
-		__scroll_element_into_view_after_layout_settles(
+		__scroll_element_into_view_after_scroll_frame(
 			() => el,
 			{ block: 'nearest', inline: 'nearest' },
 			() => JSON.stringify(session.selection) === selection_snapshot
@@ -1472,7 +1423,7 @@ ${fallback_html}`;
 			);
 
 			const selection_snapshot = JSON.stringify(selection);
-			__scroll_element_into_view_after_layout_settles(
+			__scroll_element_into_view_after_scroll_frame(
 				() => dom_selection.focusNode?.parentElement,
 				{ block: 'nearest', inline: 'nearest' },
 				() => JSON.stringify(session.selection) === selection_snapshot
