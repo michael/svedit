@@ -1190,19 +1190,18 @@ ${fallback_html}`;
 		await __next_animation_frame_or_timeout();
 	}
 
-	function __run_after_scroll_frame(callback, is_current = () => true) {
+	function __run_after_scroll_frame(callback) {
 		const job_id = ++deferred_scroll_job_id;
 		void (async () => {
 			await __wait_for_scroll_frame();
-			if (job_id === deferred_scroll_job_id && is_current()) callback();
+			if (job_id === deferred_scroll_job_id) callback();
 		})();
 	}
 
-	function __scroll_element_into_view_after_scroll_frame(get_element, options, is_current = () => true) {
-		__run_after_scroll_frame(
-			() => get_element()?.scrollIntoView(options),
-			is_current
-		);
+	function __scroll_element_into_view_after_scroll_frame(element, options) {
+		__run_after_scroll_frame(() => {
+			element?.scrollIntoView(options);
+		});
 	}
 
 	function __render_node_selection() {
@@ -1260,7 +1259,6 @@ ${fallback_html}`;
 		// — so an unconditional scroll would yank the viewport on each of
 		// them. cursor_offset is a gap offset and the gap has no box of
 		// its own, so visibility is judged from the nodes flanking it.
-		const selection_snapshot = JSON.stringify(selection);
 		const get_cursor_context = () => {
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
@@ -1272,49 +1270,45 @@ ${fallback_html}`;
 
 			return { cursor_offset, node_before, node_after };
 		};
-		const is_current_selection = () => JSON.stringify(session.selection) === selection_snapshot;
 
-		__run_after_scroll_frame(
-			() => {
-				const { cursor_offset, node_before, node_after } = get_cursor_context();
-				// If either node flanking the cursor is already (even
-				// partially) on screen, the cursor is visible — keep the
-				// viewport stable and scroll nothing. node_before is null at
-				// offset 0: cursor_offset - 1 would be -1, and serialize_path
-				// rejects a negative index.
-				if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
+		__run_after_scroll_frame(() => {
+			const { cursor_offset, node_before, node_after } = get_cursor_context();
+			// If either node flanking the cursor is already (even
+			// partially) on screen, the cursor is visible — keep the
+			// viewport stable and scroll nothing. node_before is null at
+			// offset 0: cursor_offset - 1 would be -1, and serialize_path
+			// rejects a negative index.
+			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
-				const array_length = session.get(node_array_path).length;
-				if (cursor_offset === 0) {
-					node_array_el.scrollLeft = 0;
-					node_array_el.scrollTop = 0;
-					return;
+			const array_length = session.get(node_array_path).length;
+			if (cursor_offset === 0) {
+				node_array_el.scrollLeft = 0;
+				node_array_el.scrollTop = 0;
+				return;
+			}
+			if (cursor_offset >= array_length) {
+				const max_left = Math.max(
+					0,
+					node_array_el.scrollWidth - node_array_el.clientWidth
+				);
+				const max_top = Math.max(
+					0,
+					node_array_el.scrollHeight - node_array_el.clientHeight
+				);
+				node_array_el.scrollLeft = max_left;
+				node_array_el.scrollTop = max_top;
+				if (max_left === 0 && max_top === 0) {
+					node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}
-				if (cursor_offset >= array_length) {
-					const max_left = Math.max(
-						0,
-						node_array_el.scrollWidth - node_array_el.clientWidth
-					);
-					const max_top = Math.max(
-						0,
-						node_array_el.scrollHeight - node_array_el.clientHeight
-					);
-					node_array_el.scrollLeft = max_left;
-					node_array_el.scrollTop = max_top;
-					if (max_left === 0 && max_top === 0) {
-						node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-					}
-					return;
-				}
-				// A range selection's selected node IS node_before; scrolling
-				// node_after would reveal the following node and leave the
-				// selection itself off-screen. For a collapsed caret node_after's
-				// leading edge is the cursor, so that stays the right target.
-				const target = is_collapsed ? node_after : node_before;
-				target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			},
-			is_current_selection
-		);
+				return;
+			}
+			// A range selection's selected node IS node_before; scrolling
+			// node_after would reveal the following node and leave the
+			// selection itself off-screen. For a collapsed caret node_after's
+			// leading edge is the cursor, so that stays the right target.
+			const target = is_collapsed ? node_after : node_before;
+			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		});
 	}
 
 	function __render_property_selection() {
@@ -1334,11 +1328,9 @@ ${fallback_html}`;
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
 
-		const selection_snapshot = JSON.stringify(selection);
 		__scroll_element_into_view_after_scroll_frame(
-			() => el,
-			{ block: 'nearest', inline: 'nearest' },
-			() => JSON.stringify(session.selection) === selection_snapshot
+			el,
+			{ block: 'nearest', inline: 'nearest' }
 		);
 	}
 
@@ -1434,11 +1426,10 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			const selection_snapshot = JSON.stringify(selection);
+			const selected_element = dom_selection.focusNode?.parentElement;
 			__scroll_element_into_view_after_scroll_frame(
-				() => dom_selection.focusNode?.parentElement,
-				{ block: 'nearest', inline: 'nearest' },
-				() => JSON.stringify(session.selection) === selection_snapshot
+				selected_element,
+				{ block: 'nearest', inline: 'nearest' }
 			);
 		}
 	}
