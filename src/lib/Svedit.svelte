@@ -1187,7 +1187,6 @@ ${fallback_html}`;
 	async function __wait_for_scroll_frame() {
 		await tick();
 		await __next_animation_frame_or_timeout();
-		await __next_animation_frame_or_timeout();
 	}
 
 	function __run_after_scroll_frame(callback) {
