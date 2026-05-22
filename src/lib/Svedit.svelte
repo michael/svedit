@@ -1168,14 +1168,26 @@ ${fallback_html}`;
 		);
 	}
 
-	function __next_animation_frame() {
-		return new Promise((resolve) => requestAnimationFrame(resolve));
+	function __next_animation_frame_or_timeout(timeout_ms = 50) {
+		return new Promise((resolve) => {
+			let done = false;
+			const timeout_id = setTimeout(finish, timeout_ms);
+
+			function finish() {
+				if (done) return;
+				done = true;
+				clearTimeout(timeout_id);
+				resolve();
+			}
+
+			requestAnimationFrame(finish);
+		});
 	}
 
 	async function __wait_for_scroll_frame() {
 		await tick();
-		await __next_animation_frame();
-		await __next_animation_frame();
+		await __next_animation_frame_or_timeout();
+		await __next_animation_frame_or_timeout();
 	}
 
 	function __run_after_scroll_frame(callback, is_current = () => true) {
