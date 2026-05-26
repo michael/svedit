@@ -147,7 +147,9 @@
 		class:first={gap.is_first}
 		class:last={gap.is_last}
 		class:pair={gap.has_pair}
-		style={gap.vars}
+		style={`${gap.vars};anchor-name:--gm-${gap.key}`}
+		data-gap-array-path={path_str}
+		data-gap-offset={gap.offset}
 		contenteditable="false"
 	>
 		{#if gap.key === caret_gap_key}
