@@ -541,6 +541,10 @@ export function create_node_visibility(svedit) {
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
+		// Empty node-array placeholders only exist in edit mode, so re-run
+		// the bootstrap when editability changes to observe them reliably.
+		svedit.editable;
+
 		registry.start();
 		// Observe every existing node. NO getBoundingClientRect — it
 		// would force layout on each call, and at 2000+ nodes the
