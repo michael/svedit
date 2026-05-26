@@ -1,5 +1,5 @@
 <script>
-	import { flushSync, getContext, setContext } from 'svelte';
+	import { flushSync, getContext, setContext, tick } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -48,6 +48,14 @@
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
+	// Bumped on every deferred scroll-into-view enqueue (property + text
+	// selections); a callback only runs if its id still matches the
+	// counter. Lets a fresh render cancel an older still-pending scroll
+	// without the older one yanking the viewport. Node selections use
+	// their own IO-based cancellation via `cancel_node_scroll_watch`,
+	// and also bump this counter so a node render kills any pending
+	// property/text scroll that was queued just before it.
+	let deferred_scroll_job_id = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -1186,6 +1194,68 @@ ${fallback_html}`;
 		);
 	}
 
+	/**
+	 * Resolves on the next animation frame, or after `timeout_ms` if rAF
+	 * doesn't fire (background tabs throttle rAF to ~1Hz; the timeout keeps
+	 * scroll-into-view responsive in that case). Either way, exactly one
+	 * scroll attempt happens. Used by property + text selections, where
+	 * the scroll target is a known element and one well-timed shot is
+	 * enough — multi-frame settling correction is the node-selection
+	 * case (see `__scroll_node_cursor_into_view`).
+	 * @param {number} [timeout_ms]
+	 * @returns {Promise<void>}
+	 */
+	function __next_animation_frame_or_timeout(timeout_ms = 50) {
+		return new Promise((resolve) => {
+			let done = false;
+			const timeout_id = setTimeout(finish, timeout_ms);
+			function finish() {
+				if (done) return;
+				done = true;
+				clearTimeout(timeout_id);
+				resolve();
+			}
+			requestAnimationFrame(finish);
+		});
+	}
+
+	/**
+	 * `tick()` waits for Svelte to flush its effect queue, so the new
+	 * subtree from the triggering transaction is mounted. The animation
+	 * frame after that gives the browser one layout/paint pass to size
+	 * the new content before we measure. The bug pattern this fixes is
+	 * `setTimeout(fn, 0)` — that fires on the macrotask queue before
+	 * Svelte's microtask flush, leaving the scroll computed against the
+	 * old DOM.
+	 */
+	async function __wait_for_scroll_frame() {
+		await tick();
+		await __next_animation_frame_or_timeout();
+	}
+
+	/**
+	 * Queue a callback to fire one settled frame from now, with stale-
+	 * scroll cancellation: each call bumps `deferred_scroll_job_id`, and
+	 * the callback only runs if its captured id is still current when
+	 * the frame arrives. A new render between enqueue and fire wins.
+	 * @param {() => void} callback
+	 */
+	function __run_after_scroll_frame(callback) {
+		const job_id = ++deferred_scroll_job_id;
+		void (async () => {
+			await __wait_for_scroll_frame();
+			if (job_id === deferred_scroll_job_id) callback();
+		})();
+	}
+
+	/**
+	 * Cancels the in-flight node-selection scroll watch (ResizeObserver +
+	 * wheel/touch listeners), if one is running. A new node render replaces
+	 * it; the editor unmounting clears it.
+	 * @type {(() => void) | null}
+	 */
+	let cancel_node_scroll_watch = null;
+
 	function __render_node_selection(retry_count = 0) {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
@@ -1243,33 +1313,56 @@ ${fallback_html}`;
 			}
 		}
 
+		__scroll_node_cursor_into_view(selection, node_array_el, is_collapsed, is_backward);
+	}
+
+	/**
+	 * Keeps the cursor of a node selection in view while it is off-screen.
+	 *
+	 * The change that triggered the render (an undo or insert) mounts nodes
+	 * whose images and sizing settle across several frames. A scroll
+	 * computed once against that un-settled layout strands the cursor — by
+	 * the time the nodes above finish laying out, the target has moved far
+	 * down the document. (This is why a second undo used to "fix" it: the
+	 * layout had settled by then.)
+	 *
+	 * The cursor sits in a gap flanked by two nodes, so an IntersectionObserver
+	 * watches those nodes against the viewport. It reports both scrolling and
+	 * layout shifts that move a node, so each settling-relayout frame that
+	 * pushes the cursor off-screen re-triggers the scroll until the layout
+	 * stabilises. The watch ends on the first of: a deliberate user scroll
+	 * (honoured only after a short grace period, so the settling relayout and
+	 * any inertial scroll trailing the triggering action do not abort it),
+	 * the selection moving on, or a safety timeout.
+	 *
+	 * @param {NodeSelection} selection
+	 * @param {Element} node_array_el
+	 * @param {boolean} is_collapsed
+	 * @param {boolean} is_backward
+	 */
+	function __scroll_node_cursor_into_view(selection, node_array_el, is_collapsed, is_backward) {
+		// Replace any watch still running from an earlier node render,
+		// and invalidate any pending property/text scroll-into-view from
+		// a render that landed just before this one.
+		cancel_node_scroll_watch?.();
+		deferred_scroll_job_id++;
+
+		const node_array_path = selection.path;
+		const selection_snapshot = JSON.stringify(selection);
+
 		// Scroll the cursor into view, but only when it is genuinely
 		// off-screen. cursor_offset is a gap offset and the gap has no box
 		// of its own, so visibility is judged from the nodes flanking it.
-		//
-		// Re-run on each animation frame while the cursor stays off-screen:
-		// an undo/insert mounts content whose images and sizing settle
-		// across several frames, so a single scroll computed against the
-		// un-settled layout strands the cursor (this is why a second undo
-		// appeared to "fix" it — by then the layout had settled). The
-		// visibility guard ends the loop the moment the cursor is on
-		// screen; the deadline bounds it otherwise.
-		const selection_snapshot = JSON.stringify(selection);
-		const scroll_deadline = performance.now() + 1000;
 		const scroll_cursor_into_view = () => {
-			// The selection moved on while the layout was settling — stop.
-			if (JSON.stringify(session.selection) !== selection_snapshot) return;
-
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
 			const array_length = session.get(node_array_path).length;
 
 			// If either node flanking the cursor is already (even partially)
-			// on screen, the cursor is visible — keep the viewport stable,
-			// scroll nothing, and end the loop. node_before is null at
-			// offset 0: cursor_offset - 1 would be -1, and serialize_path
-			// rejects a negative index.
+			// on screen, the cursor is visible — keep the viewport stable and
+			// scroll nothing. node_before is null at offset 0: cursor_offset
+			// - 1 would be -1, and serialize_path rejects a negative index.
 			const node_before = cursor_offset > 0
 				? __get_node_element(node_array_path, cursor_offset - 1)
 				: null;
@@ -1279,30 +1372,83 @@ ${fallback_html}`;
 			if (cursor_offset === 0) {
 				node_array_el.scrollLeft = 0;
 				node_array_el.scrollTop = 0;
-			} else if (cursor_offset >= array_length) {
-				node_array_el.scrollLeft = Math.max(
+				return;
+			}
+			if (cursor_offset >= array_length) {
+				const max_left = Math.max(
 					0,
 					node_array_el.scrollWidth - node_array_el.clientWidth
 				);
-				node_array_el.scrollTop = Math.max(
+				const max_top = Math.max(
 					0,
 					node_array_el.scrollHeight - node_array_el.clientHeight
 				);
-				node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			} else {
-				// A range selection's selected node IS node_before; scrolling
-				// node_after would reveal the following node and leave the
-				// selection itself off-screen. For a collapsed caret
-				// node_after's leading edge is the cursor.
-				const target = is_collapsed ? node_after : node_before;
-				target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				node_array_el.scrollLeft = max_left;
+				node_array_el.scrollTop = max_top;
+				if (max_left === 0 && max_top === 0) {
+					node_before?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				}
+				return;
 			}
-
-			if (performance.now() < scroll_deadline) {
-				requestAnimationFrame(scroll_cursor_into_view);
-			}
+			// A range selection's selected node IS node_before; scrolling
+			// node_after would reveal the following node and leave the
+			// selection itself off-screen. For a collapsed caret node_after's
+			// leading edge is the cursor, so that stays the right target.
+			const target = is_collapsed ? node_after : node_before;
+			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		};
-		requestAnimationFrame(scroll_cursor_into_view);
+
+		// The two nodes flanking the cursor gap — the cursor is on screen
+		// when either of them is, so the observer watches both.
+		const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
+		const flank_before = cursor_offset > 0
+			? __get_node_element(node_array_path, cursor_offset - 1)
+			: null;
+		const flank_after = __get_node_element(node_array_path, cursor_offset);
+
+		// With no node to anchor an observer to, nothing's reflow could
+		// re-strand the cursor — a single scroll is all that is possible.
+		if (!flank_before && !flank_after) return scroll_cursor_into_view();
+
+		/** @type {IntersectionObserver | null} */
+		let observer = null;
+		let grace_timeout = 0;
+		let safety_timeout = 0;
+
+		const stop = () => {
+			observer?.disconnect();
+			observer = null;
+			window.clearTimeout(grace_timeout);
+			window.clearTimeout(safety_timeout);
+			window.removeEventListener('wheel', on_user_scroll);
+			window.removeEventListener('touchmove', on_user_scroll);
+			if (cancel_node_scroll_watch === stop) cancel_node_scroll_watch = null;
+		};
+
+		// A deliberate scroll by the user wins over our reveal. These
+		// listeners are attached only once the grace period is over, so the
+		// settling relayout — and any inertial scroll still trailing from the
+		// action that triggered this render — cannot abort the watch.
+		const on_user_scroll = () => stop();
+
+		// Fires when a flanking node crosses the viewport edge — whether the
+		// page scrolled or the settling relayout moved the node. Re-run the
+		// scroll check on each crossing; stop once the selection moves on.
+		const on_intersection = () => {
+			if (JSON.stringify(session.selection) !== selection_snapshot) return stop();
+			scroll_cursor_into_view();
+		};
+
+		observer = new IntersectionObserver(on_intersection);
+		if (flank_before) observer.observe(flank_before);
+		if (flank_after) observer.observe(flank_after);
+		grace_timeout = window.setTimeout(() => {
+			window.addEventListener('wheel', on_user_scroll, { passive: true });
+			window.addEventListener('touchmove', on_user_scroll, { passive: true });
+		}, 500);
+		// A live editor can keep reflowing; don't watch indefinitely.
+		safety_timeout = window.setTimeout(stop, 2000);
+		cancel_node_scroll_watch = stop;
 	}
 
 	function __render_property_selection() {
@@ -1322,10 +1468,12 @@ ${fallback_html}`;
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
 
-		// Scroll the selection into view
-		setTimeout(() => {
-			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+		// Wait one settled frame before scrolling so layout reflects the
+		// transaction that triggered this render (was `setTimeout(fn, 0)`
+		// before, which fired before Svelte's microtask flush).
+		__run_after_scroll_frame(() => {
+			el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		});
 	}
 
 	function __render_text_selection() {
@@ -1420,13 +1568,15 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the selection into view
-			setTimeout(() => {
-				const selectedElement = dom_selection.focusNode.parentElement;
-				if (selectedElement) {
-					selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				}
-			}, 0);
+			// Wait one settled frame before scrolling so layout reflects
+			// the transaction that triggered this render (was `setTimeout
+			// (fn, 0)` before, which fired before Svelte's microtask flush).
+			// Capture focusNode.parentElement at run-time, not enqueue-time:
+			// the focus node may move during the settle window.
+			__run_after_scroll_frame(() => {
+				const selected_element = window.getSelection()?.focusNode?.parentElement;
+				selected_element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			});
 		}
 	}
 
@@ -1512,6 +1662,11 @@ ${fallback_html}`;
 		selection_source_is_dom = false;
 		if (!canvas_focused) return;
 		render_selection(dom_driven);
+	});
+
+	// Stop any in-flight node-selection scroll watch when the editor unmounts.
+	$effect(() => {
+		return () => cancel_node_scroll_watch?.();
 	});
 </script>
 
