@@ -95,6 +95,21 @@ describe('Session.svelte.js', () => {
 		expect(first_list_item_content).toEqual({ text: 'first list item', annotations: [] });
 	});
 
+	describe('Selected node', () => {
+		it('should use the lower edge of a backwards node selection', () => {
+			const session = create_test_session();
+
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body'],
+				anchor_offset: 3,
+				focus_offset: 2
+			};
+
+			expect(session.selected_node?.id).toBe('list_1');
+		});
+	});
+
 	describe('Path inspection', () => {
 		it('should report node and property kinds correctly', () => {
 			const session = create_test_session();
