@@ -66,35 +66,62 @@ export default class Session {
 	available_annotation_types = $derived(this.get_available_annotation_types());
 
 	/**
-	 * Tracks paths currently mounted in the DOM. Within one Svedit document, each
-	 * path may be mounted exactly once. Used by NodeArrayProperty to detect
-	 * duplicate mounts in dev mode.
-	 * @type {Record<string, true>}
+	 * Tracks paths currently mounted in the DOM, by reference count. Within
+	 * one Svedit document a given path may be mounted exactly once at steady
+	 * state — but a transient overlap of 2 (one mounting, one unmounting on
+	 * the same microtask) is legal during a consumer-driven swap, e.g. a
+	 * `{#key …}<Svedit … />{/key}` flip where Svelte builds the new subtree
+	 * before the old one's $effect cleanups run. We refcount the mounts and
+	 * defer the duplicate check to a microtask so genuine overlaps that
+	 * resolve themselves don't fire a false-positive console error.
+	 * @type {Map<string, number>}
 	 */
-	#mounted_paths = $state.raw({});
+	#mounted_paths = new Map();
+
+	/** Set of paths with a pending overlap check queued. Keeps us from
+	 *  enqueueing one microtask per registration when the same path
+	 *  bounces register → unregister → register inside a single sync block.
+	 * @type {Set<string>}
+	 */
+	#pending_overlap_checks = new Set();
 
 	/**
-	 * Registers a path as mounted. Logs an error if the path is
-	 * already mounted (a duplicate mount breaks anchor positioning, IO tracking,
-	 * id uniqueness, gap signals and selection mapping).
+	 * Registers a path as mounted. A second concurrent mount of the same
+	 * path schedules a microtask check — if the count is still > 1 once
+	 * Svelte has drained pending effect cleanups, that's a real duplicate
+	 * (two mounts living side-by-side, which breaks anchor positioning,
+	 * IO tracking, id uniqueness, gap signals and selection mapping) and
+	 * we log. A swap window unwinds the count before the check fires.
 	 * @param {string} path_str
 	 */
 	register_mount(path_str) {
-		if (this.#mounted_paths[path_str]) {
-			console.error(
-				`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
-			);
-			return;
+		const next = (this.#mounted_paths.get(path_str) || 0) + 1;
+		this.#mounted_paths.set(path_str, next);
+		if (next > 1 && !this.#pending_overlap_checks.has(path_str)) {
+			this.#pending_overlap_checks.add(path_str);
+			queueMicrotask(() => {
+				this.#pending_overlap_checks.delete(path_str);
+				const count = this.#mounted_paths.get(path_str) || 0;
+				if (count > 1) {
+					console.error(
+						`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
+					);
+				}
+			});
 		}
-		this.#mounted_paths[path_str] = true;
 	}
 
 	/**
-	 * Unregisters a previously registered path on unmount.
+	 * Unregisters a previously registered path on unmount. Decrements the
+	 * refcount; deletes the entry when it drops to zero so the map stays
+	 * bounded by the live mount set, not the lifetime mount set.
 	 * @param {string} path_str
 	 */
 	unregister_mount(path_str) {
-		delete this.#mounted_paths[path_str];
+		const count = this.#mounted_paths.get(path_str);
+		if (!count) return;
+		if (count <= 1) this.#mounted_paths.delete(path_str);
+		else this.#mounted_paths.set(path_str, count - 1);
 	}
 
 	/**
