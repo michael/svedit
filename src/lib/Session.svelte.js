@@ -65,37 +65,6 @@ export default class Session {
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
 
-	/**
-	 * Tracks paths currently mounted in the DOM. Within one Svedit document, each
-	 * path may be mounted exactly once. Used by NodeArrayProperty to detect
-	 * duplicate mounts in dev mode.
-	 * @type {Record<string, true>}
-	 */
-	#mounted_paths = $state.raw({});
-
-	/**
-	 * Registers a path as mounted. Logs an error if the path is
-	 * already mounted (a duplicate mount breaks anchor positioning, IO tracking,
-	 * id uniqueness, gap signals and selection mapping).
-	 * @param {string} path_str
-	 */
-	register_mount(path_str) {
-		if (this.#mounted_paths[path_str]) {
-			console.error(
-				`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
-			);
-			return;
-		}
-		this.#mounted_paths[path_str] = true;
-	}
-
-	/**
-	 * Unregisters a previously registered path on unmount.
-	 * @param {string} path_str
-	 */
-	unregister_mount(path_str) {
-		delete this.#mounted_paths[path_str];
-	}
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
