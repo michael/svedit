@@ -131,6 +131,29 @@ export default class Transaction {
 	}
 
 	/**
+	 * @param {any} node
+	 * @returns {any}
+	 */
+	with_default_properties(node) {
+		const node_schema = this.schema[node.type];
+		if (!node_schema) return node;
+
+		const node_with_defaults = { ...node };
+
+		for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
+			const property_definition_any = /** @type {any} */ (property_definition);
+			if (
+				node_with_defaults[property_name] === undefined &&
+				Object.prototype.hasOwnProperty.call(property_definition_any, 'default')
+			) {
+				node_with_defaults[property_name] = structuredClone(property_definition_any.default);
+			}
+		}
+
+		return node_with_defaults;
+	}
+
+	/**
 	 * Gets all nodes referenced by a given node (recursively).
 	 *
 	 * @param {NodeId} node_id - The node ID to get references for
@@ -266,13 +289,13 @@ export default class Transaction {
 		for (const node of depth_first_nodes) {
 			const new_id = this.generate_id();
 			id_map[node.id] = new_id;
-			const new_node = { ...node, id: new_id };
+			const new_node = this.with_default_properties({ ...node, id: new_id });
 			const node_schema = this.schema[node.type];
 
 			// Update all property references to use new IDs
 			for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
 				const prop_type = property_definition.type;
-				const value = node[property_name];
+				const value = new_node[property_name];
 
 				// Apply default values
 				if (prop_type === 'node_array') {
@@ -318,9 +341,9 @@ export default class Transaction {
 	 * Creates a new node in the document.
 	 *
 	 * The node must have a valid id and must not already exist in the document.
-	 * The node is validated against the document schema before creation.
+	 * Omitted properties with schema defaults are filled before validation.
 	 *
-	 * @param {any} node - The node object to create (must include id, type, and other properties)
+	 * @param {any} node - The node object to create (must include id, type, and required properties)
 	 * @returns {Transaction} This transaction instance for method chaining
 	 * @throws {Error} If the node ID is invalid or if the node already exists
 	 *
@@ -334,18 +357,20 @@ export default class Transaction {
 	 * ```
 	 */
 	create(node) {
-		// Validate node against schema
-		this.validate_node(node);
+		const node_with_defaults = this.with_default_properties(node);
 
-		if (this.get(node.id)) {
-			throw new Error('Node with id ' + node.id + ' already exists');
+		// Validate node against schema
+		this.validate_node(node_with_defaults);
+
+		if (this.get(node_with_defaults.id)) {
+			throw new Error('Node with id ' + node_with_defaults.id + ' already exists');
 		}
 
-		const op = ['create', node];
+		const op = ['create', node_with_defaults];
 		this.ops.push(op);
-		this.inverse_ops.push(['delete', node.id]);
+		this.inverse_ops.push(['delete', node_with_defaults.id]);
 		this._apply_op(op);
-		this._track_node_id(this.created_node_ids, node.id);
+		this._track_node_id(this.created_node_ids, node_with_defaults.id);
 		return this;
 	}
 

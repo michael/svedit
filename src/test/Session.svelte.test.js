@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
+import { define_document_schema } from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -49,6 +50,46 @@ describe('schema path segment validation', () => {
 });
 
 describe('Session.svelte.js', () => {
+	function create_default_property_session() {
+		const schema = define_document_schema({
+			page: {
+				kind: 'document',
+				properties: {
+					body: {
+						type: 'node_array',
+						node_types: ['text']
+					}
+				}
+			},
+			text: {
+				kind: 'text',
+				properties: {
+					layout: { type: 'integer', default: 1 },
+					content: { type: 'annotated_text', allow_newlines: true }
+				}
+			}
+		});
+
+		let next_id = 0;
+
+		return new Session(
+			schema,
+			{
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: []
+					}
+				}
+			},
+			{
+				generate_id: () => `generated_${++next_id}`
+			}
+		);
+	}
+
 	it('should be traversable', () => {
 		const session = create_test_session();
 
@@ -145,6 +186,36 @@ describe('Session.svelte.js', () => {
 					content: { text: 'Invalid node', annotations: [] }
 				})
 			).toThrow('invalid id');
+		});
+	});
+
+	describe('Property defaults', () => {
+		it('should fill omitted default properties when creating a node', () => {
+			const session = create_default_property_session();
+			const tr = session.tr;
+
+			tr.create({
+				id: 'text_1',
+				type: 'text',
+				content: { text: 'Text with default layout', annotations: [] }
+			});
+
+			expect(tr.doc.nodes.text_1.layout).toBe(1);
+		});
+
+		it('should fill omitted default properties when building a node', () => {
+			const session = create_default_property_session();
+			const tr = session.tr;
+
+			const new_id = tr.build('source_text', {
+				source_text: {
+					id: 'source_text',
+					type: 'text',
+					content: { text: 'Built text with default layout', annotations: [] }
+				}
+			});
+
+			expect(tr.doc.nodes[new_id].layout).toBe(1);
 		});
 	});
 
