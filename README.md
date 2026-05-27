@@ -257,6 +257,38 @@ const doc = {
 };
 ```
 
+### Document schema changes
+
+Svedit validates documents against the current schema when you create a `Session`. If you change the schema, you are responsible for migrating existing documents before loading them.
+
+For simple additive changes, schema defaults can help. When you add a new property with a `default`, you can call `fill_document_defaults` before creating the session:
+
+```js
+import { Session, fill_document_defaults } from 'svedit';
+
+const document_schema = {
+  paragraph: {
+    kind: 'text',
+    properties: {
+      layout: { type: 'integer', default: 1 },
+      content: {
+        type: 'annotated_text',
+        allow_newlines: true
+      }
+    }
+  }
+};
+
+const migrated_doc = fill_document_defaults(existing_doc, document_schema);
+const session = new Session(document_schema, migrated_doc, config);
+```
+
+This only fills properties that are missing and have an explicit `default` in the schema. Existing values are preserved, and the original document object is not mutated.
+
+Defaults make it safe to add new defaultable properties, but they are not a replacement for real document migrations. If you rename a property, remove a property, split one property into several, change node types, or need to transform existing data, write your own migration first and use `fill_document_defaults` only as a helper where appropriate.
+
+`tr.create` and `tr.build` also fill omitted schema defaults for newly-created nodes. Properties without defaults are still required and will fail validation if missing.
+
 ## Config
 
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
