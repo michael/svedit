@@ -50,7 +50,7 @@ Svedit connects eight key pieces:
 **The flow:**
 - Define a schema → create a session → provide config → render with `<Svedit>` component
 - User interactions trigger commands → commands create transactions → which run transforms to modify the document → session applies the transaction → Svelte's reactivity updates the UI
-- Selection state syncs bidirectionally with the DOM
+- Native DOM selections are mapped to Svedit's internal selection model
 
 ## Schema
 
@@ -380,6 +380,18 @@ session.active_annotation('strong')     // Check if annotation is active at care
 session.can_insert('paragraph')         // Check if node type can be inserted
 session.available_annotation_types      // Annotation types allowed at current selection (derived)
 ```
+
+#### Native selection as source of truth
+
+Every selection that can exist in Svedit must have a DOM representation. This is a core design decision: the browser's native selection determines where the selection is, and `session.selection` is derived from it — not the other way around. If the DOM selection stops being the source of truth, selection mapping becomes ambiguous and Svedit loses the simplicity and determinism that the editor is built on.
+
+This applies to all selection types:
+
+- Text selections are native selections inside an `annotated_text` property.
+- Node selections are native selections whose anchor and focus land inside the selected node range.
+- Property selections are native selections inside the DOM representation of that property.
+
+For example, a multi-node selection is still represented as a native browser selection that starts somewhere inside one node and ends somewhere inside another. Svedit maps that DOM selection to an internal node selection, hides the browser's visual selection, and renders `NodeSelectionMarkers` instead. The native selection remains in the DOM behind the scenes because `contenteditable` still needs it to do its job: pressing an arrow key should move the cursor from the current focus point to the closest valid next position, and Shift+Arrow should expand the selection from that same focus point. Without a native selection rendered at all times, the browser has no reliable starting point for cursor movement, selection expansion, or other editing behavior.
 
 ### Making changes
 
