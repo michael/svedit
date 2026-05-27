@@ -242,10 +242,9 @@
 	/**
 	 * Handles composition start events for input methods like dead keys
 	 * This occurs when user starts typing a composed character (e.g., backtick for accents)
-	 * @param {CompositionEvent} event
 	 */
-	function oncompositionstart(event) {
-		console.log('DEBUG: oncompositionstart', event.data);
+	function oncompositionstart(/*event*/) {
+		// console.log('DEBUG: oncompositionstart', event.data);
 		if (session.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
 			window.getSelection()?.removeAllRanges();
@@ -269,7 +268,7 @@
 	 * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
 	 */
 	function oncompositionend(event) {
-		console.log('DEBUG: oncompositionend, insert:', event.data, event);
+		// console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (session.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
@@ -290,7 +289,7 @@
 			// where the user had no text selection at the start of composition.
 			if (before_composition_selection) {
 				session.selection = before_composition_selection;
-				console.log('event.data', event.data);
+				// console.log('event.data', event.data);
 				const tr = session.tr;
 				tr.insert_text(event.data);
 				session.apply(tr);
@@ -500,25 +499,24 @@ ${fallback_html}`;
 			annotated_text = session.get_selected_annotated_text();
 			const fallback_html = `<span>${annotated_text.text}</span>`;
 
-			console.log('Text copy:', {
-				annotated_text,
-				plain_text,
-				html
-			});
+			// console.log('Text copy:', {
+			// 	annotated_text,
+			// 	plain_text,
+			// 	html
+			// });
 
 			html = create_svedit_html_format(annotated_text, fallback_html);
 		} else if (session.selection?.type === 'node') {
 			const selected_nodes = session.get_selected_nodes();
 			const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
-
 			const json_data = { nodes, main_nodes };
 
-			console.log('Node copy:', {
-				selected_nodes,
-				nodes,
-				total_nodes: Object.keys(nodes).length,
-				operation: delete_selection ? 'cut' : 'copy'
-			});
+			// console.log('Node copy:', {
+			// 	selected_nodes,
+			// 	nodes,
+			// 	total_nodes: Object.keys(nodes).length,
+			// 	operation: delete_selection ? 'cut' : 'copy'
+			// });
 
 			// Generate fallback HTML for cross-app compatibility
 			const selected_node_objects = main_nodes.map((id) => nodes[id]);
@@ -537,7 +535,6 @@ ${fallback_html}`;
 				type: property_definition.type,
 				value
 			};
-			console.log('Property copy:', json_data);
 			html = create_svedit_html_format(json_data, `<span>${value}</span>`);
 			plain_text = String(value);
 		}
@@ -546,7 +543,6 @@ ${fallback_html}`;
 		try {
 			event.clipboardData?.setData('text/plain', plain_text || '');
 			event.clipboardData?.setData('text/html', html || '');
-			console.log('Data copied to clipboard successfully');
 		} catch (err) {
 			console.error('Failed to copy data: ', err);
 		}
@@ -602,9 +598,9 @@ ${fallback_html}`;
 					});
 					nodes_to_insert.push(new_node_id);
 				} else {
-					console.log(
-						`rejected ${node.type}. Only ${property_definition.node_types.join(', ')} allowed.`
-					);
+					// console.log(
+					// 	`rejected ${node.type}. Only ${property_definition.node_types.join(', ')} allowed.`
+					// );
 					rejected = true;
 					break;
 				}
@@ -657,7 +653,6 @@ ${fallback_html}`;
 		if (pasted_media.length > 0) {
 			const handle_media_paste = session.config.handle_media_paste || session.config.handle_image_paste
 			pasted_json = await handle_media_paste(session, pasted_media);
-			console.log('pasted_json_after_media_paste', pasted_json);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
 			// handled inside handle_media_paste already.
 			if (!pasted_json) return;
@@ -668,8 +663,8 @@ ${fallback_html}`;
 				if (html_content) {
 					pasted_json = extract_svedit_data_from_html(html_content);
 				}
-			} catch (e) {
-				console.log('No HTML format available or failed to extract svedit data:', e);
+			} catch {
+				// No HTML format available or failed to extract svedit data
 				pasted_json = undefined;
 			}
 
@@ -757,8 +752,6 @@ ${fallback_html}`;
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
 			session.apply(session.tr.insert_text(plain_text.trim()));
-		} else {
-			console.log('Could not paste.');
 		}
 	}
 
@@ -798,7 +791,7 @@ ${fallback_html}`;
 		} else if (selection?.type === 'property') {
 			__render_property_selection();
 		} else {
-			console.log('unsupported selection', $state.snapshot(selection));
+			console.warn('unsupported selection', $state.snapshot(selection));
 		}
 	}
 

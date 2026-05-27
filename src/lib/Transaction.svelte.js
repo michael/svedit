@@ -476,11 +476,10 @@ export default class Transaction {
 			}
 		} else {
 			if (is_selection_collapsed(this.selection)) {
-				console.log('Annotations can only be added to expanded text selections.');
 				return this;
 			}
 			if (!this.available_annotation_types.includes(annotation_type)) {
-				console.log(`Annotation type ${annotation_type} is not allowed here.`);
+				console.warn(`Annotation type ${annotation_type} is not allowed here.`);
 				return this;
 			}
 			const new_annotation_node = {
