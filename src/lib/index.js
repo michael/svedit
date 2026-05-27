@@ -18,6 +18,8 @@ export {
 	define_document_schema,
 	is_primitive_type,
 	get_default_node_type,
+	fill_node_defaults,
+	fill_document_defaults,
 	validate_document_schema,
 	validate_document,
 	validate_node,

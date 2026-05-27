@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
+import { define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -49,6 +50,49 @@ describe('schema path segment validation', () => {
 });
 
 describe('Session.svelte.js', () => {
+	function create_default_property_schema() {
+		return define_document_schema({
+			page: {
+				kind: 'document',
+				properties: {
+					body: {
+						type: 'node_array',
+						node_types: ['text']
+					}
+				}
+			},
+			text: {
+				kind: 'text',
+				properties: {
+					layout: { type: 'integer', default: 1 },
+					content: { type: 'annotated_text', allow_newlines: true }
+				}
+			}
+		});
+	}
+
+	function create_default_property_session() {
+		const schema = create_default_property_schema();
+		let next_id = 0;
+
+		return new Session(
+			schema,
+			{
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: []
+					}
+				}
+			},
+			{
+				generate_id: () => `generated_${++next_id}`
+			}
+		);
+	}
+
 	it('should be traversable', () => {
 		const session = create_test_session();
 
@@ -145,6 +189,105 @@ describe('Session.svelte.js', () => {
 					content: { text: 'Invalid node', annotations: [] }
 				})
 			).toThrow('invalid id');
+		});
+	});
+
+	describe('Property defaults', () => {
+		it('should fill omitted default properties across a document copy', () => {
+			const schema = create_default_property_schema();
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: ['text_1']
+					},
+					text_1: {
+						id: 'text_1',
+						type: 'text',
+						content: { text: 'Existing text with default layout', annotations: [] }
+					}
+				}
+			};
+
+			const upgraded_doc = fill_document_defaults(doc, schema);
+
+			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
+			expect(doc.nodes.text_1.layout).toBeUndefined();
+			expect(() => new Session(schema, upgraded_doc, {})).not.toThrow();
+		});
+
+		it('should leave missing node references to validation', () => {
+			const schema = define_document_schema({
+				page: {
+					kind: 'document',
+					properties: {
+						body: {
+							type: 'node_array',
+							node_types: ['text']
+						},
+						featured: {
+							type: 'node',
+							node_types: ['text']
+						}
+					}
+				},
+				text: {
+					kind: 'text',
+					properties: {
+						content: { type: 'annotated_text', allow_newlines: true }
+					}
+				}
+			});
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: ['text_1']
+					},
+					text_1: {
+						id: 'text_1',
+						type: 'text',
+						content: { text: 'Existing text', annotations: [] }
+					}
+				}
+			};
+
+			const upgraded_doc = fill_document_defaults(doc, schema);
+
+			expect(upgraded_doc.nodes.page_1.featured).toBeUndefined();
+			expect(() => new Session(schema, upgraded_doc, {})).toThrow('featured must be a valid node id');
+		});
+
+		it('should fill omitted default properties when creating a node', () => {
+			const session = create_default_property_session();
+			const tr = session.tr;
+
+			tr.create({
+				id: 'text_1',
+				type: 'text'
+			});
+
+			expect(tr.doc.nodes.text_1.layout).toBe(1);
+			expect(tr.doc.nodes.text_1.content).toEqual({ text: '', annotations: [] });
+		});
+
+		it('should fill omitted default properties when building a node', () => {
+			const session = create_default_property_session();
+			const tr = session.tr;
+
+			const new_id = tr.build('source_text', {
+				source_text: {
+					id: 'source_text',
+					type: 'text'
+				}
+			});
+
+			expect(tr.doc.nodes[new_id].layout).toBe(1);
+			expect(tr.doc.nodes[new_id].content).toEqual({ text: '', annotations: [] });
 		});
 	});
 
