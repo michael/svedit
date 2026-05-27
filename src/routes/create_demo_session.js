@@ -620,13 +620,13 @@ export const session_config = {
 	// Custom functions to insert new "blank" nodes and setting the selection depening on the
 	// intended behavior.
 	inserters: {
-		text: function (tr, content = { text: '', annotations: [] }, layout = 1) {
+		text: function (tr, content, layout) {
 			const new_text = {
 				id: nanoid(),
-				type: 'text',
-				layout,
-				content
+				type: 'text'
 			};
+			if (content !== undefined) new_text.content = content;
+			if (layout !== undefined) new_text.layout = layout;
 			tr.create(new_text);
 			tr.insert_nodes([new_text.id]);
 			// NOTE: Relies on insert_nodes selecting the newly inserted node(s)
@@ -640,35 +640,21 @@ export const session_config = {
 		story: function (tr) {
 			const new_button = {
 				id: nanoid(),
-				type: 'button',
-				content: { text: '', annotations: [] },
-				href: ''
+				type: 'button'
 			};
 			tr.create(new_button);
 			const new_story = {
 				id: nanoid(),
 				type: 'story',
-				layout: 1,
-				image: '',
-				title: { text: '', annotations: [] },
-				description: { text: '', annotations: [] },
 				buttons: [new_button.id]
 			};
 			tr.create(new_story);
 			tr.insert_nodes([new_story.id]);
-			// NOTE: Relies on insert_nodes selecting the newly inserted node(s)
-			// tr.set_selection({
-			//   type: 'text',
-			//   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'title'],
-			//   anchor_offset: 0,
-			//   focus_offset: 0
-			// });
 		},
 		list: function (tr) {
 			const new_list_item = {
 				id: nanoid(),
-				type: 'list_item',
-				content: { text: '', annotations: [] }
+				type: 'list_item'
 			};
 			tr.create(new_list_item);
 			const new_list = {
@@ -679,19 +665,13 @@ export const session_config = {
 			};
 			tr.create(new_list);
 			tr.insert_nodes([new_list.id]);
-			// tr.set_selection({
-			//   type: 'text',
-			//   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'list_items', 0, 'content'],
-			//   anchor_offset: 0,
-			//   focus_offset: 0
-			// });
 		},
-		list_item: function (tr, content = { text: '', annotations: [] }) {
+		list_item: function (tr, content) {
 			const new_list_item = {
 				id: nanoid(),
-				type: 'list_item',
-				content
+				type: 'list_item'
 			};
+			if (content !== undefined) new_list_item.content = content;
 			tr.create(new_list_item);
 			tr.insert_nodes([new_list_item.id]);
 			tr.set_selection({
@@ -707,10 +687,7 @@ export const session_config = {
 			for (let i = 0; i < 6; i++) {
 				const image_grid_item = {
 					id: nanoid(),
-					type: 'image_grid_item',
-					title: { text: '', annotations: [] },
-					description: { text: '', annotations: [] },
-					image: ''
+					type: 'image_grid_item'
 				};
 				tr.create(image_grid_item);
 				new_image_grid_items.push(image_grid_item.id);
@@ -718,7 +695,6 @@ export const session_config = {
 			const new_image_grid = {
 				id: nanoid(),
 				type: 'image_grid',
-				layout: 1,
 				image_grid_items: new_image_grid_items
 			};
 			tr.create(new_image_grid);
@@ -727,10 +703,7 @@ export const session_config = {
 		image_grid_item: function (tr) {
 			const new_image_grid_item = {
 				id: nanoid(),
-				type: 'image_grid_item',
-				title: { text: '', annotations: [] },
-				description: { text: '', annotations: [] },
-				image: ''
+				type: 'image_grid_item'
 			};
 			tr.create(new_image_grid_item);
 			tr.insert_nodes([new_image_grid_item.id]);
@@ -741,13 +714,12 @@ export const session_config = {
 				focus_offset: tr.selection.focus_offset
 			});
 		},
-		button: function (tr, content = { text: '', annotations: [] }) {
+		button: function (tr, content) {
 			const new_button = {
 				id: nanoid(),
-				type: 'button',
-				content,
-				href: ''
+				type: 'button'
 			};
+			if (content !== undefined) new_button.content = content;
 			tr.create(new_button);
 			tr.insert_nodes([new_button.id]);
 			tr.set_selection({
@@ -760,20 +732,10 @@ export const session_config = {
 		hero: function (tr) {
 			const new_hero = {
 				id: nanoid(),
-				type: 'hero',
-				layout: 1,
-				title: { text: '', annotations: [] },
-				description: { text: '', annotations: [] },
-				image: ''
+				type: 'hero'
 			};
 			tr.create(new_hero);
 			tr.insert_nodes([new_hero.id]);
-			// tr.set_selection({
-			//   type: 'text',
-			//   path: [...tr.selection.path, tr.selection.focus_offset - 1, 'title'],
-			//   anchor_offset: 0,
-			//   focus_offset: 0
-			// });
 		}
 	},
 
