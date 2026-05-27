@@ -110,13 +110,6 @@
 		return fragments;
 	}
 
-	// Enforce the "one path = one DOM mount per document" invariant
-	$effect(() => {
-		const current_session = svedit.session;
-		const current_path_str = path_str;
-		current_session.register_mount(current_path_str);
-		return () => current_session.unregister_mount(current_path_str);
-	});
 </script>
 
 <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->

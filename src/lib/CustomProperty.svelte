@@ -9,13 +9,6 @@
 	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
 	let path_str = $derived(serialize_path(path));
 
-	// Enforce the "one path = one DOM mount per document" invariant
-	$effect(() => {
-		const current_session = svedit.session;
-		const current_path_str = path_str;
-		current_session.register_mount(current_path_str);
-		return () => current_session.unregister_mount(current_path_str);
-	});
 </script>
 
 <svelte:element

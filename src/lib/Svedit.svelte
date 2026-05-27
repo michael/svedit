@@ -81,6 +81,32 @@
 	setContext('svedit', context);
 	create_node_visibility(context);
 
+	$effect(() => {
+		check_duplicate_paths();
+	});
+
+	function check_duplicate_paths() {
+		if (!canvas_el) return;
+
+		/** @type {Record<string, true>} */
+		const mounted_paths = Object.create(null);
+
+		for (const element of canvas_el.querySelectorAll('[data-path]')) {
+			if (element.closest('.svedit-canvas') !== canvas_el) continue;
+
+			const path_str = element.getAttribute('data-path');
+			if (!path_str) continue;
+
+			if (mounted_paths[path_str]) {
+				console.warn(
+					`[svedit] Path "${path_str}" is mounted more than once. Within a single Svedit document, each path may be mounted exactly once. To render shared content in multiple places (e.g. header + footer nav), use distinct node_arrays or separate Svedit instances.`
+				);
+			}
+
+			mounted_paths[path_str] = true;
+		}
+	}
+
 	// Test-only hook: expose the svedit context so test specs can read
 	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
 	// — Vite replaces the literal so the comparison is constant-false in
