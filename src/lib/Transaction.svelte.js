@@ -18,6 +18,7 @@ import {
 	apply_op,
 	count_references_excluding_deleted,
 	validate_node,
+	fill_node_defaults,
 	get_active_annotation,
 	validate_selection,
 	can_switch_annotation_type
@@ -130,28 +131,6 @@ export default class Transaction {
 		validate_node(node, this.schema, this.doc.nodes, { require_references: false });
 	}
 
-	/**
-	 * @param {any} node
-	 * @returns {any}
-	 */
-	with_default_properties(node) {
-		const node_schema = this.schema[node.type];
-		if (!node_schema) return node;
-
-		const node_with_defaults = { ...node };
-
-		for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
-			const property_definition_any = /** @type {any} */ (property_definition);
-			if (
-				node_with_defaults[property_name] === undefined &&
-				Object.prototype.hasOwnProperty.call(property_definition_any, 'default')
-			) {
-				node_with_defaults[property_name] = structuredClone(property_definition_any.default);
-			}
-		}
-
-		return node_with_defaults;
-	}
 
 	/**
 	 * Gets all nodes referenced by a given node (recursively).
@@ -289,7 +268,7 @@ export default class Transaction {
 		for (const node of depth_first_nodes) {
 			const new_id = this.generate_id();
 			id_map[node.id] = new_id;
-			const new_node = this.with_default_properties({ ...node, id: new_id });
+			const new_node = fill_node_defaults({ ...node, id: new_id }, this.schema);
 			const node_schema = this.schema[node.type];
 
 			// Update all property references to use new IDs
@@ -357,7 +336,7 @@ export default class Transaction {
 	 * ```
 	 */
 	create(node) {
-		const node_with_defaults = this.with_default_properties(node);
+		const node_with_defaults = fill_node_defaults(node, this.schema);
 
 		// Validate node against schema
 		this.validate_node(node_with_defaults);

@@ -9,6 +9,7 @@ import {
 	RedoCommand,
 	SelectParentCommand,
 	define_document_schema,
+	fill_document_defaults,
 	define_keymap
 } from 'svedit';
 import {
@@ -828,6 +829,7 @@ export const session_config = {
 };
 
 export default function create_demo_session() {
-	const session = new Session(document_schema, doc, session_config);
+	const demo_doc = fill_document_defaults(doc, document_schema);
+	const session = new Session(document_schema, demo_doc, session_config);
 	return session;
 }

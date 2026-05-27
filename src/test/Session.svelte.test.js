@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
-import { define_document_schema } from '../lib/doc_utils.js';
+import { define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -50,8 +50,8 @@ describe('schema path segment validation', () => {
 });
 
 describe('Session.svelte.js', () => {
-	function create_default_property_session() {
-		const schema = define_document_schema({
+	function create_default_property_schema() {
+		return define_document_schema({
 			page: {
 				kind: 'document',
 				properties: {
@@ -69,7 +69,10 @@ describe('Session.svelte.js', () => {
 				}
 			}
 		});
+	}
 
+	function create_default_property_session() {
+		const schema = create_default_property_schema();
 		let next_id = 0;
 
 		return new Session(
@@ -190,6 +193,55 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Property defaults', () => {
+		it('should fill omitted default properties across a document copy', () => {
+			const schema = create_default_property_schema();
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: ['text_1']
+					},
+					text_1: {
+						id: 'text_1',
+						type: 'text',
+						content: { text: 'Existing text with default layout', annotations: [] }
+					}
+				}
+			};
+
+			const upgraded_doc = fill_document_defaults(doc, schema);
+
+			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
+			expect(doc.nodes.text_1.layout).toBeUndefined();
+			expect(() => new Session(schema, upgraded_doc, {})).not.toThrow();
+		});
+
+		it('should leave missing properties without schema defaults to validation', () => {
+			const schema = create_default_property_schema();
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'page_1',
+						type: 'page',
+						body: ['text_1']
+					},
+					text_1: {
+						id: 'text_1',
+						type: 'text'
+					}
+				}
+			};
+
+			const upgraded_doc = fill_document_defaults(doc, schema);
+
+			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
+			expect(upgraded_doc.nodes.text_1.content).toBeUndefined();
+			expect(() => new Session(schema, upgraded_doc, {})).toThrow('content must be of type annotated_text');
+		});
+
 		it('should fill omitted default properties when creating a node', () => {
 			const session = create_default_property_session();
 			const tr = session.tr;

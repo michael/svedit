@@ -64,6 +64,62 @@ export function get_default_node_type(property_definition) {
 }
 
 /**
+ * Fill omitted properties that have explicit schema defaults.
+ *
+ * This is a convenience helper for schema evolution, not a complete document
+ * migration system. Callers are still responsible for proper migrations when
+ * schema changes cannot be represented by defaults, such as property renames or
+ * data transformations.
+ *
+ * @param {any} node - The node to fill defaults for
+ * @param {DocumentSchema} schema - The document schema
+ * @returns {any} A shallow copy of the node with cloned default values filled in
+ */
+export function fill_node_defaults(node, schema) {
+	const node_schema = schema[node.type];
+	if (!node_schema) return { ...node };
+
+	const node_with_defaults = { ...node };
+
+	for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
+		const property_definition_any = /** @type {any} */ (property_definition);
+		if (
+			node_with_defaults[property_name] === undefined &&
+			Object.prototype.hasOwnProperty.call(property_definition_any, 'default')
+		) {
+			node_with_defaults[property_name] = structuredClone(property_definition_any.default);
+		}
+	}
+
+	return node_with_defaults;
+}
+
+/**
+ * Fill omitted properties with explicit schema defaults across a document.
+ *
+ * This only fills properties that declare a `default` in the schema. It does not
+ * infer values, rename fields, or make an invalid migration valid by itself.
+ * Call this as one step in an explicit document migration when it is appropriate.
+ *
+ * @param {Document} doc - The document to fill defaults for
+ * @param {DocumentSchema} schema - The document schema
+ * @returns {Document} A document copy with cloned default values filled in
+ */
+export function fill_document_defaults(doc, schema) {
+	/** @type {Record<string, any>} */
+	const nodes = {};
+
+	for (const [node_id, node] of Object.entries(doc.nodes)) {
+		nodes[node_id] = fill_node_defaults(node, schema);
+	}
+
+	return {
+		...doc,
+		nodes
+	};
+}
+
+/**
  * Validate a document schema to ensure all referenced node types exist.
  * @param {DocumentSchema} document_schema - The document schema to validate
  * @throws {Error} Throws if the document schema is invalid
