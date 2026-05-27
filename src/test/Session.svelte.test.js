@@ -218,8 +218,28 @@ describe('Session.svelte.js', () => {
 			expect(() => new Session(schema, upgraded_doc, {})).not.toThrow();
 		});
 
-		it('should leave missing properties without schema defaults to validation', () => {
-			const schema = create_default_property_schema();
+		it('should leave missing node references to validation', () => {
+			const schema = define_document_schema({
+				page: {
+					kind: 'document',
+					properties: {
+						body: {
+							type: 'node_array',
+							node_types: ['text']
+						},
+						featured: {
+							type: 'node',
+							node_types: ['text']
+						}
+					}
+				},
+				text: {
+					kind: 'text',
+					properties: {
+						content: { type: 'annotated_text', allow_newlines: true }
+					}
+				}
+			});
 			const doc = {
 				document_id: 'page_1',
 				nodes: {
@@ -230,16 +250,16 @@ describe('Session.svelte.js', () => {
 					},
 					text_1: {
 						id: 'text_1',
-						type: 'text'
+						type: 'text',
+						content: { text: 'Existing text', annotations: [] }
 					}
 				}
 			};
 
 			const upgraded_doc = fill_document_defaults(doc, schema);
 
-			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
-			expect(upgraded_doc.nodes.text_1.content).toBeUndefined();
-			expect(() => new Session(schema, upgraded_doc, {})).toThrow('content must be of type annotated_text');
+			expect(upgraded_doc.nodes.page_1.featured).toBeUndefined();
+			expect(() => new Session(schema, upgraded_doc, {})).toThrow('featured must be a valid node id');
 		});
 
 		it('should fill omitted default properties when creating a node', () => {
@@ -248,11 +268,11 @@ describe('Session.svelte.js', () => {
 
 			tr.create({
 				id: 'text_1',
-				type: 'text',
-				content: { text: 'Text with default layout', annotations: [] }
+				type: 'text'
 			});
 
 			expect(tr.doc.nodes.text_1.layout).toBe(1);
+			expect(tr.doc.nodes.text_1.content).toEqual({ text: '', annotations: [] });
 		});
 
 		it('should fill omitted default properties when building a node', () => {
@@ -262,12 +282,12 @@ describe('Session.svelte.js', () => {
 			const new_id = tr.build('source_text', {
 				source_text: {
 					id: 'source_text',
-					type: 'text',
-					content: { text: 'Built text with default layout', annotations: [] }
+					type: 'text'
 				}
 			});
 
 			expect(tr.doc.nodes[new_id].layout).toBe(1);
+			expect(tr.doc.nodes[new_id].content).toEqual({ text: '', annotations: [] });
 		});
 	});
 

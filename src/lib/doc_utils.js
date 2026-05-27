@@ -64,7 +64,32 @@ export function get_default_node_type(property_definition) {
 }
 
 /**
- * Fill omitted properties that have explicit schema defaults.
+ * @param {import('./types').PropertyDefinition} property_definition
+ * @returns {any}
+ */
+function get_property_default(property_definition) {
+	if ('default' in property_definition) return structuredClone(property_definition.default);
+
+	if (property_definition.type === 'string') return '';
+	if (property_definition.type === 'integer') return 0;
+	if (property_definition.type === 'number') return 0;
+	if (property_definition.type === 'boolean') return false;
+	if (property_definition.type === 'annotated_text') return { text: '', annotations: [] };
+	if (property_definition.type === 'node_array') return [];
+	if (
+		property_definition.type === 'string_array' ||
+		property_definition.type === 'number_array' ||
+		property_definition.type === 'boolean_array' ||
+		property_definition.type === 'integer_array'
+	) {
+		return [];
+	}
+
+	return undefined;
+}
+
+/**
+ * Fill omitted properties with schema defaults and Svedit's built-in type defaults.
  *
  * This is a convenience helper for schema evolution, not a complete document
  * migration system. Callers are still responsible for proper migrations when
@@ -82,12 +107,9 @@ export function fill_node_defaults(node, schema) {
 	const node_with_defaults = { ...node };
 
 	for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
-		const property_definition_any = /** @type {any} */ (property_definition);
-		if (
-			node_with_defaults[property_name] === undefined &&
-			Object.prototype.hasOwnProperty.call(property_definition_any, 'default')
-		) {
-			node_with_defaults[property_name] = structuredClone(property_definition_any.default);
+		if (node_with_defaults[property_name] === undefined) {
+			const property_default = get_property_default(property_definition);
+			if (property_default !== undefined) node_with_defaults[property_name] = property_default;
 		}
 	}
 
@@ -95,11 +117,11 @@ export function fill_node_defaults(node, schema) {
 }
 
 /**
- * Fill omitted properties with explicit schema defaults across a document.
+ * Fill omitted properties with schema defaults and Svedit's built-in type defaults across a document.
  *
- * This only fills properties that declare a `default` in the schema. It does not
- * infer values, rename fields, or make an invalid migration valid by itself.
- * Call this as one step in an explicit document migration when it is appropriate.
+ * This does not infer values, rename fields, or make an invalid migration valid
+ * by itself. Call this as one step in an explicit document migration when it is
+ * appropriate.
  *
  * @param {Document} doc - The document to fill defaults for
  * @param {DocumentSchema} schema - The document schema

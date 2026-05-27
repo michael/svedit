@@ -268,7 +268,7 @@ export default class Transaction {
 		for (const node of depth_first_nodes) {
 			const new_id = this.generate_id();
 			id_map[node.id] = new_id;
-			const new_node = fill_node_defaults({ ...node, id: new_id }, this.schema);
+			let new_node = { ...node, id: new_id };
 			const node_schema = this.schema[node.type];
 
 			// Update all property references to use new IDs
@@ -276,40 +276,20 @@ export default class Transaction {
 				const prop_type = property_definition.type;
 				const value = new_node[property_name];
 
-				// Apply default values
-				if (prop_type === 'node_array') {
-					// [] is the default value for node arrays
-					new_node[property_name] = Array.isArray(value)
-						? value.map((ref_id) => id_map[ref_id])
-						: [];
-				} else if (prop_type === 'node') {
-					// null is the default value for node references
-					new_node[property_name] = typeof value === 'string' ? id_map[value] : null;
-				} else if (prop_type === 'annotated_text') {
-					if (value) {
-						const annotations = value.annotations.map((annotation) => {
-							const { start_offset, end_offset, node_id } = annotation;
-							return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
-						});
-						new_node[property_name] = { text: value.text, annotations };
-					} else {
-						new_node[property_name] = { text: '', annotations: [] };
-					}
-				} else if (prop_type === 'string') {
-					new_node[property_name] = value ?? property_definition.default ?? '';
-				} else if (prop_type === 'integer') {
-					new_node[property_name] = value ?? property_definition.default ?? 0;
-				} else if (prop_type === 'number') {
-					new_node[property_name] = value ?? property_definition.default ?? 0;
-				} else if (prop_type === 'boolean') {
-					new_node[property_name] = value ?? property_definition.default ?? false;
-				} else if (['integer_array', 'number_array'].includes(prop_type)) {
-					new_node[property_name] = value ?? property_definition.default ?? [];
-				} else if (prop_type === 'string_array') {
-					new_node[property_name] = value ?? property_definition.default ?? [];
+				if (prop_type === 'node_array' && Array.isArray(value)) {
+					new_node[property_name] = value.map((ref_id) => id_map[ref_id]);
+				} else if (prop_type === 'node' && typeof value === 'string') {
+					new_node[property_name] = id_map[value];
+				} else if (prop_type === 'annotated_text' && value) {
+					const annotations = value.annotations.map((annotation) => {
+						const { start_offset, end_offset, node_id } = annotation;
+						return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
+					});
+					new_node[property_name] = { text: value.text, annotations };
 				}
 			}
 
+			new_node = fill_node_defaults(new_node, this.schema);
 			this.create(new_node);
 		}
 
