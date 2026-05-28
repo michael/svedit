@@ -125,7 +125,6 @@
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}
-	class:editable={svedit.editable}
 	{placeholder}
 	{...rest}
 >
@@ -163,11 +162,11 @@
 
 	/* A virtual caret: to fix the caret vertical alignment issue in Chrome and Firefox for empty focused contenteditable with placeholders */
 	/* Browser BUG: iOS Safari only considers the caret color set on the top contenteditable element, not on nested elements (e.g. the second selector doesn't work in iOS Safari) */
-	:global(.svedit-canvas:has([placeholder].editable.empty.focused)),
-	[placeholder].editable.empty.focused {
+	:global(.svedit.editable .svedit-canvas:has([placeholder].empty.focused)),
+	:global(.svedit.editable) [placeholder].empty.focused {
 		caret-color: transparent !important;
 	}
-	[placeholder].editable.empty.focused::before {
+	:global(.svedit.editable) [placeholder].empty.focused::before {
 		content: "";
 		/* we limit width & height to avoid layout shifts in case the text has a lower natural height */
 		width: 0px;
@@ -190,7 +189,7 @@
 	}
 
 	/* Disable text-transform when editable and focused so users see original text */
-	.text.editable.focused {
+	:global(.svedit.editable) .text.focused {
 		text-transform: none !important;
 	}
 
