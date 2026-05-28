@@ -102,4 +102,23 @@
 		min-width: 24px;
 		cursor: pointer;
 	}
+
+	/* Reserve room at the scroll edges so the browser's caret-follow scroll
+	   (when typing at the end of an overflowing node) can't pin the caret
+	   flush against the array's clip edge. Without this padding, scrollLeft
+	   stops just short of `scrollWidth - clientWidth - EDGE_TOLERANCE_PX`,
+	   leaving `edge_map.last` false; the trailing gap never gains
+	   `.positioned`, and the user sees the caret at the edge with no gap to
+	   click. The default is 2 × edge-gap (≈ enough for the gap plus a
+	   click margin); override per-array via the custom properties. */
+	:global([data-type="node_array"]) {
+		scroll-padding-inline: var(
+			--node-caret-scroll-padding-inline,
+			calc(var(--node-caret-edge-gap, 24px) * 2)
+		);
+		scroll-padding-block: var(
+			--node-caret-scroll-padding-block,
+			calc(var(--node-caret-edge-gap, 24px) * 2)
+		);
+	}
 </style>
