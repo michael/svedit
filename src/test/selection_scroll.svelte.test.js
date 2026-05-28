@@ -213,6 +213,65 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 	});
 });
 
+describe('node-selection scroll-into-view (offscreen array)', () => {
+	beforeEach(() => {
+		window.scrollTo(0, 0);
+	});
+
+	// Regression for issue #288: user adds 10 buttons, deletes them,
+	// scrolls to the bottom of the page, then presses undo. The restored
+	// buttons used to land off-screen and require a SECOND undo to scroll
+	// back into view — because the trailing-branch only set the array's
+	// own scrollLeft/Top (which doesn't move ancestors), and the previous
+	// `if (max_left === 0 && max_top === 0)` gate skipped `scrollIntoView`
+	// in horizontally-overflowing arrays even when the array itself was
+	// off-screen vertically. The new condition gates on the flanking node
+	// not being in viewport AFTER the inside-array scroll adjustment.
+	it('reveals an offscreen horizontally-overflowing array when a model-driven node selection lands on it', async () => {
+		const session = make_story_session(10);
+		const { container } = render(SveditTest, { session });
+		await settle();
+
+		const arr = find_buttons_array(container);
+		expect(arr).not.toBeNull();
+		expect(arr.scrollWidth).toBeGreaterThan(arr.clientWidth + 100);
+
+		// vitest's default viewport is small — the story alone may not be
+		// taller than the viewport, so window.scrollTo would no-op. Inject
+		// a tall sentinel below the editor so the page is scrollable past
+		// the buttons array.
+		const sentinel = document.createElement('div');
+		sentinel.style.height = '5000px';
+		sentinel.id = '__svedit_scroll_test_sentinel';
+		document.body.appendChild(sentinel);
+
+		try {
+			window.scrollTo(0, document.documentElement.scrollHeight);
+			await settle();
+			const before = arr.getBoundingClientRect();
+			expect(before.bottom, `array should be above viewport before; rect=${JSON.stringify({t:before.top, b:before.bottom})}`).toBeLessThan(0);
+
+			// Model-driven selection landing on the (offscreen) array —
+			// equivalent to undo restoring buttons + selection.
+			const canvas = container.querySelector('.svedit-canvas');
+			canvas.focus();
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 0, 'buttons'],
+				anchor_offset: 0,
+				focus_offset: 10
+			};
+			await settle();
+
+			const after = arr.getBoundingClientRect();
+			const in_viewport = after.bottom > 0 && after.top < window.innerHeight;
+			expect(in_viewport, `array rect=${JSON.stringify({ t: after.top, b: after.bottom, vh: window.innerHeight })}`).toBe(true);
+		} finally {
+			sentinel.remove();
+		}
+	});
+});
+
 describe('node-selection: DOM-driven vs. model-driven', () => {
 	beforeEach(() => {
 		window.scrollTo(0, 0);

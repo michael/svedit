@@ -269,6 +269,106 @@ describe('NodeGap visibility & placement', () => {
 				expect(gap.classList.contains('positioned')).toBe(true);
 			}
 		});
+
+		// Regression for the wrap/grid layout case (figma-config-presentation):
+		// when a row's height exceeds the 500 px overscan, the next row's first
+		// node never enters `near_map` even while the previous row's trailing
+		// node is right under the user. The mid-gap gate USED to require both
+		// flanks to be in near_map and stranded the between-row gap; the fix
+		// gates on prev only (the gap's CSS position-anchor + position-visibility
+		// already hide it when the anchor is off-viewport).
+		it('positions mid gaps when only the previous flank is in near_map', async () => {
+			const session = make_image_grid_session(5);
+			const { container } = render(SveditTest, { session });
+			await settle_grid();
+
+			const array_el = find_image_grid_array(container);
+			expect(array_el).not.toBeNull();
+
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			expect(ctx).toBeTruthy();
+			const near_map = ctx.visibility_registry.near_map;
+			const array_path = array_el.dataset.path;
+
+			// Force state: only item 1 is near (e.g. the user is scrolled
+			// such that row 1 is in view but row 2 is far below overscan).
+			near_map.clear();
+			near_map.set(`${array_path}__1`, true);
+
+			const gap = array_el.querySelector(
+				':scope > .node-gap.gap-after[data-gap-offset="2"]:not(.last)'
+			);
+			expect(gap).not.toBeNull();
+			ctx.visibility_registry.sync_gap_class(gap);
+
+			expect(
+				gap.classList.contains('positioned'),
+				'mid gap should be positioned when only prev flank is in near_map'
+			).toBe(true);
+		});
+
+		// Companion to the gap-positioning regression above: NodeGapMarkers
+		// emit a mid `.gap-marker` based on `array_indices` (the per-array
+		// view of near_map). The marker logic USED to require two consecutive
+		// indices and silently dropped the between-row marker even after the
+		// underlying gap had `.positioned`. This test pins the matching
+		// "prev-only" rule on the marker.
+		it('emits a mid gap-marker when only the previous flank is in array_indices', async () => {
+			const session = make_image_grid_session(5);
+			const { container } = render(SveditTest, { session });
+			await settle_grid();
+
+			const array_el = find_image_grid_array(container);
+			expect(array_el).not.toBeNull();
+
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			expect(ctx).toBeTruthy();
+			const array_path = array_el.dataset.path;
+			const indices = ctx.visibility_registry.get_array_indices(array_path);
+
+			// Force state: only item 1 is in the visible-indices set.
+			indices.clear();
+			indices.add(1);
+			await settle_grid();
+
+			const marker = container.querySelector(
+				`.gap-marker.gap-mid[data-gap-offset="2"]`
+			);
+			expect(
+				marker,
+				'mid gap-marker should be emitted when only prev is in array_indices'
+			).not.toBeNull();
+		});
+	});
+
+	// Regression for the typing-at-overflow-edge issue: when a button's text
+	// overflows the array's horizontal scroll, the browser's caret-follow
+	// scroll lands `scrollLeft` flush against the array edge — leaving
+	// edge_map.last false (it requires reaching scrollWidth - clientWidth
+	// within EDGE_TOLERANCE_PX) and stranding the trailing gap as
+	// unpositioned. The fix is `scroll-padding-inline/block` on every
+	// node-array, so the browser leaves room when scrolling the caret into
+	// view. This test pins the default and its computed value.
+	describe('scroll-padding defaults on node arrays', () => {
+		it('applies non-zero scroll-padding-inline and -block on every node-array', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			expect(array_el).not.toBeNull();
+
+			const cs = getComputedStyle(array_el);
+			// 2 × --node-caret-edge-gap = 48 px default. Don't pin an exact
+			// value here — the default is intentionally configurable via
+			// `--node-caret-scroll-padding-inline/block` — but non-zero is
+			// the load-bearing assertion: zero would let the caret-follow
+			// scroll pin flush against the edge and re-introduce the bug.
+			expect(parseFloat(cs.scrollPaddingInlineStart)).toBeGreaterThan(0);
+			expect(parseFloat(cs.scrollPaddingInlineEnd)).toBeGreaterThan(0);
+			expect(parseFloat(cs.scrollPaddingBlockStart)).toBeGreaterThan(0);
+			expect(parseFloat(cs.scrollPaddingBlockEnd)).toBeGreaterThan(0);
+		});
 	});
 
 	describe('edge_map state', () => {
