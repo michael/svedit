@@ -1505,7 +1505,7 @@ ${fallback_html}`;
 <svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
-<div class="svedit">
+<div class="svedit" class:editable>
 	<!-- Overlays must be before canvas so they initialize first. -->
 	{#if editable}<NodeSelectionMarkers />{/if}
 	{#if Overlays}<Overlays />{/if}
