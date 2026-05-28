@@ -710,9 +710,15 @@ function should_position_gap_imperative(registry, array_path_str, offset, is_las
 			return registry.edge_map.get(array_path_str)?.last === true;
 		}
 
-		return (
-			registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`) &&
-			registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset}`)
-		);
+		// Anchor to prev: gap-after's `position-anchor` is the previous node,
+		// and `position-visibility: anchors-visible` already hides the gap
+		// once that anchor is off-viewport. Gating `.positioned` on the next
+		// flank being near as well would strand every between-row gap in a
+		// wrap/grid layout whose row height exceeds ~OVERSCAN_PX (the next
+		// row's leading node sits far outside the overscan even when the
+		// previous row's trailing node is right under the user's cursor).
+		// Checking prev alone is sufficient — visibility is handled by the
+		// CSS rule, not by withholding `.positioned`.
+		return registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`);
 	});
 }

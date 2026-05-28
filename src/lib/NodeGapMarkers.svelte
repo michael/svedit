@@ -94,10 +94,14 @@
 		if (sorted[0] === 0 && edge_state?.first === true) {
 			add_offset(0);
 		}
-		// Mid gaps: between consecutive visible nodes. The gap at offset N
-		// sits between node N-1 and node N — emit when both are visible.
-		for (let i = 0; i < sorted.length - 1; i++) {
-			if (sorted[i + 1] === sorted[i] + 1) add_offset(sorted[i + 1]);
+		// Mid gaps: anchor to the previous node. Emit a marker whenever the
+		// prev flank is visible, even if next falls outside the overscan —
+		// mirrors the NodeGap gate in node_visibility.svelte.js. Wrap/grid
+		// layouts whose row height exceeds the overscan (e.g. tetris with
+		// tall cells) would otherwise lose every between-row marker even
+		// while the user can see and click the underlying NodeGap.
+		for (const i of sorted) {
+			if (i + 1 > 0 && i + 1 < count) add_offset(i + 1);
 		}
 		// Edge gap-after.last: same gate as gap-before but on the trailing edge.
 		if (sorted[sorted.length - 1] === count - 1 && edge_state?.last === true) {
