@@ -1,9 +1,7 @@
 <script>
-	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
 
 	/** @import { CustomPropertyProps } from './types.d.ts'; */
-	const svedit = getContext('svedit');
 
 	/** @type {CustomPropertyProps} */
 	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
@@ -19,11 +17,9 @@
 	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
 	{...rest}
 >
-	{#if svedit.editable}
-		<div class="property-selectable">
-			<div class="svedit-selectable"><br /></div>
-		</div>
-	{/if}
+	<div class="property-selectable">
+		<div class="svedit-selectable"><br /></div>
+	</div>
 
 	{@render children()}
 </svelte:element>
@@ -43,9 +39,12 @@
 		/* Position the hidden selectable element at the bottom so the
 		   browser's native scroll-to-caret ensures the full property
 		   is visible, not just the top edge. */
-		display: flex;
+		display: none;
 		align-items: flex-end;
 		justify-content: center;
+	}
+	:global(.svedit.editable) .property-selectable {
+		display: flex;
 	}
 	.svedit-selectable {
 		caret-color: transparent;
