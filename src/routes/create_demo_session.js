@@ -4,6 +4,7 @@ import {
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
+	ExitBreakCommand,
 	ToggleAnnotationCommand,
 	UndoCommand,
 	RedoCommand,
@@ -753,6 +754,7 @@ export const session_config = {
 			insert_default_node: new InsertDefaultNodeCommand(context),
 			add_new_line: new AddNewLineCommand(context),
 			break_text_node: new BreakTextNodeCommand(context),
+			exit_break: new ExitBreakCommand(context),
 			toggle_strong: new ToggleAnnotationCommand('strong', context),
 			toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
 			toggle_highlight: new ToggleAnnotationCommand('highlight', context),
@@ -773,6 +775,7 @@ export const session_config = {
 			// In case of a node caret, fall back to inserting a default node. This is needed
 			// because on iOS selecting a node caret triggers auto capitalization (shift pressed)
 			'shift+enter': [commands.add_new_line, commands.insert_default_node],
+			'meta+enter,ctrl+enter': [commands.exit_break],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
 			'meta+u,ctrl+u': [commands.toggle_highlight],

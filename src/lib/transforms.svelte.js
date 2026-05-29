@@ -163,3 +163,52 @@ export function insert_default_node(tr) {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);
 	}
 }
+
+/**
+ * Exit-break: leaves the current node property or nested node_array and inserts
+ * a new default node after the outermost ancestor that's inside the document's
+ * top-level node_array. Useful for escaping nested content like list items.
+ */
+export function exit_break(tr) {
+	const selection = tr.selection;
+	if (!selection?.path || selection.path.length < 3) return false;
+
+	const path = selection.path;
+
+	// Walk the path from the root and find the OUTERMOST node_array.
+	// The path alternates between property names and array indices, so each
+	// even-length prefix ends on a property name we can inspect.
+	let outer_array_path = null;
+	let outer_node_index = null;
+
+	for (let i = 1; i < path.length - 1; i++) {
+		const candidate = path.slice(0, i + 1);
+		if (tr.inspect(candidate)?.type === 'node_array') {
+			outer_array_path = candidate;
+			outer_node_index = parseInt(path[i + 1], 10);
+			break;
+		}
+	}
+
+	if (!outer_array_path || Number.isNaN(outer_node_index)) return false;
+
+	const insert_offset = outer_node_index + 1;
+	const node_array_node = tr.get(outer_array_path.slice(0, -1));
+	const property_name = outer_array_path.at(-1);
+	const property_definition = tr.schema[node_array_node.type].properties[property_name];
+	const default_type = get_default_node_type(property_definition);
+
+	if (!tr.config?.inserters?.[default_type]) {
+		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	}
+
+	tr.set_selection({
+		type: 'node',
+		path: outer_array_path,
+		anchor_offset: insert_offset,
+		focus_offset: insert_offset
+	});
+
+	tr.config.inserters[default_type](tr);
+	return true;
+}
