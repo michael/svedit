@@ -163,3 +163,45 @@ export function insert_default_node(tr) {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);
 	}
 }
+
+export function insert_default_node_before(tr) {
+	const selection = tr.selection;
+
+	let node_array_path;
+	let insert_offset;
+
+	if (selection?.type === 'text') {
+		// "Current node" is the node containing the text. Insert at its index.
+		const node_path = selection.path.slice(0, -1);
+		node_array_path = node_path.slice(0, -1);
+		if (tr.inspect(node_array_path)?.type !== 'node_array') return false;
+		insert_offset = parseInt(node_path.at(-1), 10);
+	} else if (selection?.type === 'node' && selection.anchor_offset === selection.focus_offset) {
+		// In a node gap, "current node" is the node above the caret (offset - 1).
+		// Inserting before it means inserting at offset - 1.
+		if (selection.anchor_offset === 0) return false;
+		node_array_path = selection.path;
+		insert_offset = selection.anchor_offset - 1;
+	} else {
+		return false;
+	}
+
+	const node_array_node = tr.get(node_array_path.slice(0, -1));
+	const property_name = node_array_path.at(-1);
+	const property_definition = tr.schema[node_array_node.type].properties[property_name];
+	const default_type = get_default_node_type(property_definition);
+
+	if (!tr.config?.inserters?.[default_type]) {
+		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	}
+
+	tr.set_selection({
+		type: 'node',
+		path: node_array_path,
+		anchor_offset: insert_offset,
+		focus_offset: insert_offset
+	});
+
+	tr.config.inserters[default_type](tr);
+	return true;
+}

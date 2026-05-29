@@ -1,4 +1,8 @@
-import { insert_default_node, break_text_node } from './transforms.svelte.js';
+import {
+	insert_default_node,
+	insert_default_node_before,
+	break_text_node
+} from './transforms.svelte.js';
 import { can_switch_annotation_type } from './doc_utils.js';
 import { is_selection_collapsed, is_mobile_browser, get_char_length } from './utils.js';
 
@@ -325,5 +329,28 @@ export class InsertDefaultNodeCommand extends Command {
 		const tr = this.context.session.tr;
 		insert_default_node(tr);
 		this.context.session.apply(tr);
+	}
+}
+
+/**
+ * Command that inserts a default node before the current node.
+ * Only works in text selections, where "the current node" is well defined.
+ */
+export class InsertDefaultNodeBeforeCommand extends Command {
+	is_enabled() {
+		const selection = this.context.session.selection;
+		if (!this.context.editable) return false;
+		if (selection?.type === 'text') return true;
+		if (selection?.type === 'node' && selection.anchor_offset === selection.focus_offset) {
+			return selection.anchor_offset > 0;
+		}
+		return false;
+	}
+
+	execute() {
+		const tr = this.context.session.tr;
+		if (insert_default_node_before(tr)) {
+			this.context.session.apply(tr);
+		}
 	}
 }
