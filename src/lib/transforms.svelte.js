@@ -163,3 +163,40 @@ export function insert_default_node(tr) {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);
 	}
 }
+
+export function insert_default_node_before(tr) {
+	const selection = tr.selection;
+
+	// Only work with text selections (where "the current node" is well defined)
+	if (selection?.type !== 'text') return false;
+
+	// Path to the containing node (e.g. paragraph)
+	const node_path = selection.path.slice(0, -1);
+
+	// Ensure the containing node lives inside a node_array
+	const parent_path = node_path.slice(0, -1);
+	if (tr.inspect(parent_path)?.type !== 'node_array') return false;
+
+	const node_index = parseInt(node_path.at(-1), 10);
+	const node_array_node = tr.get(parent_path.slice(0, -1));
+	const property_name = parent_path.at(-1);
+
+	const property_definition = tr.schema[node_array_node.type].properties[property_name];
+	const default_type = get_default_node_type(property_definition);
+
+	if (!tr.config?.inserters?.[default_type]) {
+		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	}
+
+	// Position a node caret at the current node's index so the inserter places
+	// the new node before it (existing node shifts to index + 1).
+	tr.set_selection({
+		type: 'node',
+		path: parent_path,
+		anchor_offset: node_index,
+		focus_offset: node_index
+	});
+
+	tr.config.inserters[default_type](tr);
+	return true;
+}

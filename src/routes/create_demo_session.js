@@ -2,6 +2,7 @@ import {
 	Session,
 	SelectAllCommand,
 	InsertDefaultNodeCommand,
+	InsertDefaultNodeBeforeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
 	ToggleAnnotationCommand,
@@ -751,6 +752,7 @@ export const session_config = {
 		const commands = {
 			select_all: new SelectAllCommand(context),
 			insert_default_node: new InsertDefaultNodeCommand(context),
+			insert_default_node_before: new InsertDefaultNodeBeforeCommand(context),
 			add_new_line: new AddNewLineCommand(context),
 			break_text_node: new BreakTextNodeCommand(context),
 			toggle_strong: new ToggleAnnotationCommand('strong', context),
@@ -773,6 +775,7 @@ export const session_config = {
 			// In case of a node caret, fall back to inserting a default node. This is needed
 			// because on iOS selecting a node caret triggers auto capitalization (shift pressed)
 			'shift+enter': [commands.add_new_line, commands.insert_default_node],
+			'meta+shift+enter,ctrl+shift+enter': [commands.insert_default_node_before],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
 			'meta+u,ctrl+u': [commands.toggle_highlight],
