@@ -167,20 +167,27 @@ export function insert_default_node(tr) {
 export function insert_default_node_before(tr) {
 	const selection = tr.selection;
 
-	// Only work with text selections (where "the current node" is well defined)
-	if (selection?.type !== 'text') return false;
+	let node_array_path;
+	let insert_offset;
 
-	// Path to the containing node (e.g. paragraph)
-	const node_path = selection.path.slice(0, -1);
+	if (selection?.type === 'text') {
+		// "Current node" is the node containing the text. Insert at its index.
+		const node_path = selection.path.slice(0, -1);
+		node_array_path = node_path.slice(0, -1);
+		if (tr.inspect(node_array_path)?.type !== 'node_array') return false;
+		insert_offset = parseInt(node_path.at(-1), 10);
+	} else if (selection?.type === 'node' && selection.anchor_offset === selection.focus_offset) {
+		// In a node gap, "current node" is the node above the caret (offset - 1).
+		// Inserting before it means inserting at offset - 1.
+		if (selection.anchor_offset === 0) return false;
+		node_array_path = selection.path;
+		insert_offset = selection.anchor_offset - 1;
+	} else {
+		return false;
+	}
 
-	// Ensure the containing node lives inside a node_array
-	const parent_path = node_path.slice(0, -1);
-	if (tr.inspect(parent_path)?.type !== 'node_array') return false;
-
-	const node_index = parseInt(node_path.at(-1), 10);
-	const node_array_node = tr.get(parent_path.slice(0, -1));
-	const property_name = parent_path.at(-1);
-
+	const node_array_node = tr.get(node_array_path.slice(0, -1));
+	const property_name = node_array_path.at(-1);
 	const property_definition = tr.schema[node_array_node.type].properties[property_name];
 	const default_type = get_default_node_type(property_definition);
 
@@ -188,13 +195,11 @@ export function insert_default_node_before(tr) {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);
 	}
 
-	// Position a node caret at the current node's index so the inserter places
-	// the new node before it (existing node shifts to index + 1).
 	tr.set_selection({
 		type: 'node',
-		path: parent_path,
-		anchor_offset: node_index,
-		focus_offset: node_index
+		path: node_array_path,
+		anchor_offset: insert_offset,
+		focus_offset: insert_offset
 	});
 
 	tr.config.inserters[default_type](tr);

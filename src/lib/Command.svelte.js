@@ -338,7 +338,13 @@ export class InsertDefaultNodeCommand extends Command {
  */
 export class InsertDefaultNodeBeforeCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.session.selection?.type === 'text';
+		const selection = this.context.session.selection;
+		if (!this.context.editable) return false;
+		if (selection?.type === 'text') return true;
+		if (selection?.type === 'node' && selection.anchor_offset === selection.focus_offset) {
+			return selection.anchor_offset > 0;
+		}
+		return false;
 	}
 
 	execute() {
