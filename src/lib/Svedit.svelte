@@ -1,5 +1,5 @@
 <script>
-	import { flushSync, getContext, setContext } from 'svelte';
+	import { flushSync, getContext, setContext, tick } from 'svelte';
 	import {
 		snake_to_pascal,
 		get_char_length,
@@ -48,6 +48,7 @@
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
+	let deferred_scroll_job_id = 0;
 
 
 	// let is_mobile = $derived(is_mobile_browser());
@@ -1186,6 +1187,41 @@ ${fallback_html}`;
 		);
 	}
 
+	function __next_animation_frame_or_timeout(timeout_ms = 50) {
+		return new Promise((resolve) => {
+			let done = false;
+			const timeout_id = setTimeout(finish, timeout_ms);
+
+			function finish() {
+				if (done) return;
+				done = true;
+				clearTimeout(timeout_id);
+				resolve();
+			}
+
+			requestAnimationFrame(finish);
+		});
+	}
+
+	async function __wait_for_scroll_frame() {
+		await tick();
+		await __next_animation_frame_or_timeout();
+	}
+
+	function __run_after_scroll_frame(callback) {
+		const job_id = ++deferred_scroll_job_id;
+		void (async () => {
+			await __wait_for_scroll_frame();
+			if (job_id === deferred_scroll_job_id) callback();
+		})();
+	}
+
+	function __scroll_element_into_view_after_scroll_frame(element, options) {
+		__run_after_scroll_frame(() => {
+			element?.scrollIntoView(options);
+		});
+	}
+
 	function __render_node_selection() {
 		const selection = /** @type {NodeSelection} */ (session.selection);
 		const node_array_path = selection.path;
@@ -1241,23 +1277,28 @@ ${fallback_html}`;
 		// — so an unconditional scroll would yank the viewport on each of
 		// them. cursor_offset is a gap offset and the gap has no box of
 		// its own, so visibility is judged from the nodes flanking it.
-		setTimeout(() => {
+		const get_cursor_context = () => {
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
-			const array_length = session.get(node_array_path).length;
+			const node_before = cursor_offset > 0
+				? __get_node_element(node_array_path, cursor_offset - 1)
+				: null;
+			const node_after = __get_node_element(node_array_path, cursor_offset);
 
+			return { cursor_offset, node_before, node_after };
+		};
+
+		__run_after_scroll_frame(() => {
+			const { cursor_offset, node_before, node_after } = get_cursor_context();
 			// If either node flanking the cursor is already (even
 			// partially) on screen, the cursor is visible — keep the
 			// viewport stable and scroll nothing. node_before is null at
 			// offset 0: cursor_offset - 1 would be -1, and serialize_path
 			// rejects a negative index.
-			const node_before = cursor_offset > 0
-				? __get_node_element(node_array_path, cursor_offset - 1)
-				: null;
-			const node_after = __get_node_element(node_array_path, cursor_offset);
 			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
+			const array_length = session.get(node_array_path).length;
 			if (cursor_offset === 0) {
 				node_array_el.scrollLeft = 0;
 				node_array_el.scrollTop = 0;
@@ -1285,7 +1326,7 @@ ${fallback_html}`;
 			// leading edge is the cursor, so that stays the right target.
 			const target = is_collapsed ? node_after : node_before;
 			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+		});
 	}
 
 	function __render_property_selection() {
@@ -1305,10 +1346,10 @@ ${fallback_html}`;
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
 
-		// Scroll the selection into view
-		setTimeout(() => {
-			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+		__scroll_element_into_view_after_scroll_frame(
+			el,
+			{ block: 'nearest', inline: 'nearest' }
+		);
 	}
 
 	function __render_text_selection() {
@@ -1403,13 +1444,11 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the selection into view
-			setTimeout(() => {
-				const selectedElement = dom_selection.focusNode.parentElement;
-				if (selectedElement) {
-					selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				}
-			}, 0);
+			const selected_element = dom_selection.focusNode?.parentElement;
+			__scroll_element_into_view_after_scroll_frame(
+				selected_element,
+				{ block: 'nearest', inline: 'nearest' }
+			);
 		}
 	}
 
