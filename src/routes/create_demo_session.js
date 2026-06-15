@@ -12,11 +12,7 @@ import {
 	fill_document_defaults,
 	define_keymap
 } from 'svedit';
-import {
-	CycleLayoutCommand,
-	CycleNodeTypeCommand,
-	ToggleLinkCommand
-} from './commands.svelte.js';
+import { CycleLayoutCommand, CycleNodeTypeCommand, ToggleLinkCommand } from './commands.svelte.js';
 import nanoid from './nanoid.js';
 
 // System components
@@ -474,26 +470,26 @@ const doc = {
 export const session_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
-	// Provide overrides for system components (NodeGap, NodeGapMarkers,
-	// NodeSelectionMarkers) or user-land overlays (link previews, etc.)
+	// Provide overrides for system components (node_gap, node_gap_markers,
+	// node_selection_markers) or user-land overlays (link previews, etc.)
 	system_components: {
-		Overlays
+		overlays: Overlays
 	},
 	// Registry of components for each node type
 	node_components: {
-		Page,
-		Button,
-		Text,
-		Story,
-		List,
-		ListItem,
-		ImageGrid,
-		ImageGridItem,
-		Hero,
-		Strong,
-		Emphasis,
-		Highlight,
-		Link
+		page: Page,
+		button: Button,
+		text: Text,
+		story: Story,
+		list: List,
+		list_item: ListItem,
+		image_grid: ImageGrid,
+		image_grid_item: ImageGridItem,
+		hero: Hero,
+		strong: Strong,
+		emphasis: Emphasis,
+		highlight: Highlight,
+		link: Link
 	},
 	// Toggle view classes for the editor. On by default.
 	view_classes: true,
@@ -557,7 +553,7 @@ export const session_config = {
 			for (const list_item_id of node.list_items) {
 				html += list_item(doc.get(list_item_id), doc, html_exporters);
 			}
-			return (html + '</ul>');
+			return html + '</ul>';
 		},
 		story: (node, doc, html_exporters) => {
 			const { button } = html_exporters;
@@ -598,7 +594,7 @@ export const session_config = {
 			if (node.description.text.trim()) {
 				html += `<p>${node.description.text}</p>\n`;
 			}
-			return (html + '</div>');
+			return html + '</div>';
 		},
 		list_item: (node) => {
 			const content =

@@ -48,6 +48,7 @@ Svedit connects eight key pieces:
 8. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
 
 **The flow:**
+
 - Define a schema → create a session → provide config → render with `<Svedit>` component
 - User interactions trigger commands → commands create transactions → which run transforms to modify the document → session applies the transaction → Svelte's reactivity updates the UI
 - Native DOM selections are mapped to Svedit's internal selection model
@@ -59,6 +60,7 @@ You can use a simple JSON-compatible schema definition language to enforce const
 First off, everything is a node. The page is a node, and so is a paragraph, a list, a list item, a nav and a nav item.
 
 Each node has a `kind` that determines its behavior:
+
 - `document`: A top-level node accessible via a route (e.g. a page, event)
 - `block`: A structured node that contains other nodes or properties
 - `text`: A node with editable text content (can be split and joined)
@@ -67,6 +69,7 @@ Each node has a `kind` that determines its behavior:
 ### Choosing between `text` and `block`
 
 `kind: 'text'` opts into the split/join system (`break_text_node`, `join_text_node`), which assumes:
+
 - The node has exactly **one** `annotated_text` property named **`content`**
 - Pressing Enter splits the node into two nodes of the same type
 - Pressing Backspace at position 0 joins it with the previous node
@@ -108,6 +111,7 @@ flowchart TD
 </details>
 
 Properties of nodes can hold values:
+
 - `string`: A good old JavaScript string
 - `number`: Just like a number in JavaScript
 - `integer`: A number for which Number.isInteger(number) returns true
@@ -120,83 +124,83 @@ Properties of nodes can hold values:
 - `annotated_text`: A plain text string with annotations (bold, italic, link etc.). Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
 
 Or references:
+
 - `node`: References a single node (e.g. an image node can reference a global asset node)
 - `node_array`: References a sequence of nodes (e.g. page.body references paragraph and list nodes)
 
-
 ```js
 const document_schema = {
-  page: {
-    kind: 'document',
-    properties: {
-      body: {
-        type: 'node_array',
-        node_types: ['nav', 'paragraph', 'list'],
-        default_node_type: 'paragraph',
-      }
-    }
-  },
-  paragraph: {
-    kind: 'text',
-    properties: {
-      content: {
-        type: 'annotated_text',
-        node_types: ['strong', 'emphasis', 'link'],
-        allow_newlines: true
-      }
-    }
-  },
-  list_item: {
-    kind: 'text',
-    properties: {
-      content: {
-        type: 'annotated_text',
-        node_types: ['strong', 'emphasis', 'link'],
-        allow_newlines: true
-      },
-    }
-  },
-  list: {
-    kind: 'block',
-    properties: {
-      list_items: {
-        type: 'node_array',
-        node_types: ['list_item'],
-        default_node_type: 'list_item',
-      }
-    }
-  },
-  nav: {
-    kind: 'block',
-    properties: {
-      nav_items: {
-        type: 'node_array',
-        node_types: ['nav_item'],
-        default_node_type: 'nav_item',
-      }
-    }
-  },
-  nav_item: {
-    kind: 'block',
-    properties: {
-      url: { type: 'string' },
-      label: { type: 'string' },
-    }
-  },
-  strong: {
-    kind: 'annotation',
-    properties: {}
-  },
-  emphasis: {
-    kind: 'annotation',
-    properties: {}
-  },
-  link: {
-    kind: 'annotation',
-    properties: {
-      href: { type: 'string' }
-    }
-  }
+	page: {
+		kind: 'document',
+		properties: {
+			body: {
+				type: 'node_array',
+				node_types: ['nav', 'paragraph', 'list'],
+				default_node_type: 'paragraph'
+			}
+		}
+	},
+	paragraph: {
+		kind: 'text',
+		properties: {
+			content: {
+				type: 'annotated_text',
+				node_types: ['strong', 'emphasis', 'link'],
+				allow_newlines: true
+			}
+		}
+	},
+	list_item: {
+		kind: 'text',
+		properties: {
+			content: {
+				type: 'annotated_text',
+				node_types: ['strong', 'emphasis', 'link'],
+				allow_newlines: true
+			}
+		}
+	},
+	list: {
+		kind: 'block',
+		properties: {
+			list_items: {
+				type: 'node_array',
+				node_types: ['list_item'],
+				default_node_type: 'list_item'
+			}
+		}
+	},
+	nav: {
+		kind: 'block',
+		properties: {
+			nav_items: {
+				type: 'node_array',
+				node_types: ['nav_item'],
+				default_node_type: 'nav_item'
+			}
+		}
+	},
+	nav_item: {
+		kind: 'block',
+		properties: {
+			url: { type: 'string' },
+			label: { type: 'string' }
+		}
+	},
+	strong: {
+		kind: 'annotation',
+		properties: {}
+	},
+	emphasis: {
+		kind: 'annotation',
+		properties: {}
+	},
+	link: {
+		kind: 'annotation',
+		properties: {
+			href: { type: 'string' }
+		}
+	}
 };
 ```
 
@@ -207,6 +211,7 @@ Annotation types are defined as nodes with `kind: 'annotation'`. Simple annotati
 A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes.
 
 Rules:
+
 - All nodes must be reachable from the document node (unreachable nodes are discarded)
 - No cyclic references allowed
 - Text content uses `{ text: '', annotations: [] }` format
@@ -215,45 +220,45 @@ Here's an example document:
 
 ```js
 const doc = {
-  document_id: 'page_1',
-  nodes: {
-    nav_item_1: {
-      id: 'nav_item_1',
-      type: 'nav_item',
-      url: '/homepage',
-      label: 'Home'
-    },
-    nav_1: {
-      id: 'nav_1',
-      type: 'nav',
-      nav_items: ['nav_item_1']
-    },
-    paragraph_1: {
-      id: 'paragraph_1',
-      type: 'paragraph',
-      content: { text: 'Hello world.', annotations: [] }
-    },
-    list_item_1: {
-      id: 'list_item_1',
-      type: 'list_item',
-      content: { text: 'First list item', annotations: [] }
-    },
-    list_item_2: {
-      id: 'list_item_2',
-      type: 'list_item',
-      content: { text: 'Second list item', annotations: [] }
-    },
-    list_1: {
-      id: 'list_1',
-      type: 'list',
-      list_items: ['list_item_1', 'list_item_2']
-    },
-    page_1: {
-      id: 'page_1',
-      type: 'page',
-      body: ['nav_1', 'paragraph_1', 'list_1']
-    }
-  }
+	document_id: 'page_1',
+	nodes: {
+		nav_item_1: {
+			id: 'nav_item_1',
+			type: 'nav_item',
+			url: '/homepage',
+			label: 'Home'
+		},
+		nav_1: {
+			id: 'nav_1',
+			type: 'nav',
+			nav_items: ['nav_item_1']
+		},
+		paragraph_1: {
+			id: 'paragraph_1',
+			type: 'paragraph',
+			content: { text: 'Hello world.', annotations: [] }
+		},
+		list_item_1: {
+			id: 'list_item_1',
+			type: 'list_item',
+			content: { text: 'First list item', annotations: [] }
+		},
+		list_item_2: {
+			id: 'list_item_2',
+			type: 'list_item',
+			content: { text: 'Second list item', annotations: [] }
+		},
+		list_1: {
+			id: 'list_1',
+			type: 'list',
+			list_items: ['list_item_1', 'list_item_2']
+		},
+		page_1: {
+			id: 'page_1',
+			type: 'page',
+			body: ['nav_1', 'paragraph_1', 'list_1']
+		}
+	}
 };
 ```
 
@@ -267,16 +272,16 @@ For simple additive changes, defaults can help. When you add a new property, you
 import { Session, fill_document_defaults } from 'svedit';
 
 const document_schema = {
-  paragraph: {
-    kind: 'text',
-    properties: {
-      layout: { type: 'integer', default: 1 },
-      content: {
-        type: 'annotated_text',
-        allow_newlines: true
-      }
-    }
-  }
+	paragraph: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer', default: 1 },
+			content: {
+				type: 'annotated_text',
+				allow_newlines: true
+			}
+		}
+	}
 };
 
 const migrated_doc = fill_document_defaults(existing_doc, document_schema);
@@ -307,13 +312,13 @@ Two optional hooks are especially useful when integrating custom media workflows
 const session_config = {
   // ID generator for creating new nodes
   generate_id: () => nanoid(),
-  
+
   // User-land overlays and optional system component overrides
-  system_components: { Overlays },
-  
+  system_components: { overlays: Overlays },
+
   // Map node types to Svelte components
-  node_components: { Page, Text, Story, List, Button, ... },
-  
+  node_components: { page: Page, text: Text, story: Story, list: List, button: Button, ... },
+
   // Functions that create and insert new nodes
   inserters: {
     text: (tr, content = {text: '', annotations: []}) => {
@@ -322,10 +327,10 @@ const session_config = {
       tr.insert_nodes([text_id]);
     }
   },
-  
+
   // Returns { commands, keymap } for the editor instance
   create_commands_and_keymap: (context) => { ... },
-  
+
   // Optional: handle image paste events
   handle_image_paste: (session, images) => { ... }
 };
@@ -336,8 +341,8 @@ const session_config = {
 - **`generate_id`** - Function that generates unique IDs for new nodes
 - **`node_components`** - Maps each node type from your schema to a Svelte component
 - **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
-  - `Overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
-  - `NodeGap`, `NodeGapMarkers`, `NodeSelectionMarkers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
+  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
+  - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events
@@ -364,21 +369,21 @@ const session = new Session(schema, doc, config);
 ### Reading the graph
 
 ```js
-session.get(['page_1', 'body'])         // => ['nav_1', 'paragraph_1', 'list_1']
-session.get(['nav_1'])                  // => { id: 'nav_1', type: 'nav', ... }
-session.get('nav_1')                    // => shorthand for above (single node ID)
-session.inspect(['page_1', 'body'])     // => { kind: 'property', type: 'node_array', node_types: [...] }
-session.kind(node)                      // => 'text', 'block', or 'annotation'
+session.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
+session.get(['nav_1']); // => { id: 'nav_1', type: 'nav', ... }
+session.get('nav_1'); // => shorthand for above (single node ID)
+session.inspect(['page_1', 'body']); // => { kind: 'property', type: 'node_array', node_types: [...] }
+session.kind(node); // => 'text', 'block', or 'annotation'
 ```
 
 ### Selection and state
 
 ```js
-session.selection                       // Current selection (text, node, or property)
-session.selected_node                   // The currently selected node (derived)
-session.active_annotation('strong')     // Check if annotation is active at caret
-session.can_insert('paragraph')         // Check if node type can be inserted
-session.available_annotation_types      // Annotation types allowed at current selection (derived)
+session.selection; // Current selection (text, node, or property)
+session.selected_node; // The currently selected node (derived)
+session.active_annotation('strong'); // Check if annotation is active at caret
+session.can_insert('paragraph'); // Check if node type can be inserted
+session.available_annotation_types; // Annotation types allowed at current selection (derived)
 ```
 
 #### Native selection as source of truth
@@ -396,10 +401,10 @@ For example, a multi-node selection is still represented as a native browser sel
 ### Making changes
 
 ```js
-const tr = session.tr;                  // Create a transaction
+const tr = session.tr; // Create a transaction
 tr.set(['nav_1', 'label'], 'Home');
 tr.insert_nodes(['new_node_id']);
-session.apply(tr);                      // Apply the transaction
+session.apply(tr); // Apply the transaction
 ```
 
 #### Batching history entries
@@ -419,10 +424,10 @@ session.last_batch_started = undefined;
 ### History
 
 ```js
-session.can_undo                        // Boolean (derived)
-session.can_redo                        // Boolean (derived)
-session.undo()
-session.redo()
+session.can_undo; // Boolean (derived)
+session.can_redo; // Boolean (derived)
+session.undo();
+session.redo();
 ```
 
 ### Detecting unsaved changes
@@ -432,18 +437,18 @@ Because document state is immutable, you can detect unsaved changes by comparing
 ```js
 let last_saved_doc = $state(null);
 let has_unsaved_changes = $derived.by(() => {
-  if (!last_saved_doc) {
-    // No save yet — use undo history as indicator
-    return session.can_undo;
-  } else {
-    // Compare current doc reference against last saved
-    return last_saved_doc !== session.doc;
-  }
+	if (!last_saved_doc) {
+		// No save yet — use undo history as indicator
+		return session.can_undo;
+	} else {
+		// Compare current doc reference against last saved
+		return last_saved_doc !== session.doc;
+	}
 });
 
 function save() {
-  // ... save to server ...
-  last_saved_doc = session.doc;
+	// ... save to server ...
+	last_saved_doc = session.doc;
 }
 ```
 
@@ -452,12 +457,12 @@ This works because of Svedit's copy-on-write strategy: only modified parts of th
 ### Utilities
 
 ```js
-session.doc.document_id                 // The document's root ID
-session.generate_id()                   // Generate a new unique ID
-session.config                          // Access the config object
-session.validate_doc()                  // Validate all nodes against schema
-session.traverse(node_id)               // Get all nodes reachable from a node
-session.select_parent()                 // Select parent of current selection
+session.doc.document_id; // The document's root ID
+session.generate_id(); // Generate a new unique ID
+session.config; // Access the config object
+session.validate_doc(); // Validate all nodes against schema
+session.traverse(node_id); // Get all nodes reachable from a node
+session.select_parent(); // Select parent of current selection
 ```
 
 ## Transforms
@@ -473,7 +478,7 @@ import { break_text_node } from 'svedit';
 const tr = session.tr;
 const success = break_text_node(tr);
 if (success) {
-  session.apply(tr);
+	session.apply(tr);
 }
 ```
 
@@ -491,10 +496,10 @@ Transforms are composable. You can build higher-level transforms from lower-leve
 
 ```js
 function custom_transform(tr) {
-  // Compose multiple transforms
-  if (!break_text_node(tr)) return false;
-  if (!insert_default_node(tr)) return false;
-  return true;
+	// Compose multiple transforms
+	if (!break_text_node(tr)) return false;
+	if (!insert_default_node(tr)) return false;
+	return true;
 }
 ```
 
@@ -504,16 +509,16 @@ You're encouraged to write custom transforms for your application's specific nee
 
 ```js
 function insert_heading(tr) {
-  const selection = tr.selection;
-  
-  if (selection?.type !== 'node') return false;
-  
-  // Create and insert a heading node
-  const heading_id = tr.generate_id();
-  tr.create({ id: heading_id, type: 'heading', content: { text: '', annotations: [] } });
-  tr.insert_nodes([heading_id]);
-  
-  return true;
+	const selection = tr.selection;
+
+	if (selection?.type !== 'node') return false;
+
+	// Create and insert a heading node
+	const heading_id = tr.generate_id();
+	tr.create({ id: heading_id, type: 'heading', content: { text: '', annotations: [] } });
+	tr.insert_nodes([heading_id]);
+
+	return true;
 }
 ```
 
@@ -524,9 +529,9 @@ Transactions group multiple operations into atomic units that can be applied and
 ### Basic usage
 
 ```js
-const tr = session.tr;                      // Create a new transaction
-tr.set(['node_1', 'title'], 'New Title');   // Modify properties
-session.apply(tr);                          // Apply atomically
+const tr = session.tr; // Create a new transaction
+tr.set(['node_1', 'title'], 'New Title'); // Modify properties
+session.apply(tr); // Apply atomically
 ```
 
 ### Node operations
@@ -543,7 +548,7 @@ tr.insert_nodes(['paragraph_1', 'list_1']);
 
 // Build a subgraph from existing nodes (generates new IDs)
 const new_node_id = tr.build('the_list', {
-  first_item: {
+	first_item: {
 		id: 'first_item',
 		type: 'list_item',
 		content: node.content
@@ -575,19 +580,17 @@ tr.delete_selection();
 ```js
 // Set the selection after operations
 tr.set_selection({
-  type: 'text',
-  path: ['node_1', 'content'],
-  anchor_offset: 0,
-  focus_offset: 5
+	type: 'text',
+	path: ['node_1', 'content'],
+	anchor_offset: 0,
+	focus_offset: 5
 });
 ```
 
 All transaction methods return `this` for chaining:
 
 ```js
-tr.create(node)
-  .insert_nodes([node.id])
-  .set_selection(new_selection);
+tr.create(node).insert_nodes([node.id]).set_selection(new_selection);
 ```
 
 ## Commands
@@ -595,6 +598,7 @@ tr.create(node)
 Commands provide a structured way to implement user actions. Commands are stateful and UI-aware, unlike transforms which are pure functions.
 
 There are two types of commands in Svedit:
+
 - **Document-scoped commands** - Bound to a specific Svedit instance/document and only active when that editor has focus
 - **App-level commands** - Operate at the application level, independent of any specific document
 
@@ -612,13 +616,13 @@ Extend the `Command` base class and implement the `is_enabled()` and `execute()`
 import { Command } from 'svedit';
 
 class ToggleStrongCommand extends Command {
-  is_enabled() {
-    return this.context.editable && this.context.session.selection?.type === 'text';
-  }
+	is_enabled() {
+		return this.context.editable && this.context.session.selection?.type === 'text';
+	}
 
-  execute() {
-    this.context.session.apply(this.context.session.tr.annotate_text('strong'));
-  }
+	execute() {
+		this.context.session.apply(this.context.session.tr.annotate_text('strong'));
+	}
 }
 ```
 
@@ -674,32 +678,33 @@ Commands are created by passing them a context object from the Svedit component.
 
 ```js
 create_commands_and_keymap: (context) => {
-  const commands = {
-    undo: new UndoCommand(context),
-    redo: new RedoCommand(context),
-    toggle_strong: new ToggleAnnotationCommand('strong', context),
-    toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
-    // ... more commands
-  };
+	const commands = {
+		undo: new UndoCommand(context),
+		redo: new RedoCommand(context),
+		toggle_strong: new ToggleAnnotationCommand('strong', context),
+		toggle_emphasis: new ToggleAnnotationCommand('emphasis', context)
+		// ... more commands
+	};
 
-  const keymap = define_keymap({
-    'meta+z,ctrl+z': [commands.undo],
-    'meta+b,ctrl+b': [commands.toggle_strong],
-    // ... more keybindings
-  });
+	const keymap = define_keymap({
+		'meta+z,ctrl+z': [commands.undo],
+		'meta+b,ctrl+b': [commands.toggle_strong]
+		// ... more keybindings
+	});
 
-  return { commands, keymap };
-}
+	return { commands, keymap };
+};
 ```
 
 Bind commands to UI elements in your components:
 
 ```svelte
-<button 
-  disabled={document_commands.toggle_strong.disabled}
-  class:active={document_commands.toggle_strong.active}
-  onclick={() => document_commands.toggle_strong.execute()}>
-  Bold
+<button
+	disabled={document_commands.toggle_strong.disabled}
+	class:active={document_commands.toggle_strong.active}
+	onclick={() => document_commands.toggle_strong.execute()}
+>
+	Bold
 </button>
 ```
 
@@ -709,21 +714,20 @@ Commands can have derived state for reactive UI binding. The `active` property i
 
 ```js
 class ToggleEmphasisCommand extends Command {
-  // Automatically recomputes when annotation state changes
-  active = $derived(this.context.session.active_annotation('emphasis'));
+	// Automatically recomputes when annotation state changes
+	active = $derived(this.context.session.active_annotation('emphasis'));
 
-  is_enabled() {
-    return this.context.editable && this.context.session.selection?.type === 'text';
-  }
+	is_enabled() {
+		return this.context.editable && this.context.session.selection?.type === 'text';
+	}
 
-  execute() {
-    this.context.session.apply(this.context.session.tr.annotate_text('emphasis'));
-  }
+	execute() {
+		this.context.session.apply(this.context.session.tr.annotate_text('emphasis'));
+	}
 }
 ```
 
 The `disabled` property is automatically derived from `is_enabled()` on all commands.
-
 
 #### DOM access in commands
 
@@ -731,12 +735,12 @@ Commands can access the DOM through the context or global APIs:
 
 ```js
 class FocusNextSelectableCommand extends Command {
-  execute() {
-    const selectables = this.context.canvas_el.querySelectorAll('.svedit-selectable');
-    const next = selectables[0]; // Find next based on current selection
-    const path = next.closest('[data-path]').dataset.path.split('.');
-    this.context.session.selection = { type: 'text', path, anchor_offset: 0, focus_offset: 0 };
-  }
+	execute() {
+		const selectables = this.context.canvas_el.querySelectorAll('.svedit-selectable');
+		const next = selectables[0]; // Find next based on current selection
+		const path = next.closest('[data-path]').dataset.path.split('.');
+		this.context.session.selection = { type: 'text', path, anchor_offset: 0, focus_offset: 0 };
+	}
 }
 ```
 
@@ -752,6 +756,7 @@ Svedit uses a scope hierarchy (scope stack) to manage which commands are active 
 2. **Document-level scope** (per Svedit instance) - Commands bound to a specific document/editor
 
 When a Svedit instance gains focus:
+
 - The previous document's scope is **popped** from the stack (its commands become inactive)
 - The newly focused document's scope is **pushed** onto the stack (its commands become active)
 
@@ -765,24 +770,24 @@ App-level commands have their own context, separate from any specific document:
 import { Command } from 'svedit';
 
 class SaveCommand extends Command {
-  is_enabled() {
-    return this.context.editable;
-  }
+	is_enabled() {
+		return this.context.editable;
+	}
 
-  async execute() {
-    await this.context.save_all_documents();
-    this.context.show_notification('All changes saved');
-  }
+	async execute() {
+		await this.context.save_all_documents();
+		this.context.show_notification('All changes saved');
+	}
 }
 
 class ToggleEditModeCommand extends Command {
-  is_enabled() {
-    return !this.context.editable;
-  }
+	is_enabled() {
+		return !this.context.editable;
+	}
 
-  execute() {
-    this.context.editable = true;
-  }
+	execute() {
+		this.context.editable = true;
+	}
 }
 ```
 
@@ -792,23 +797,23 @@ The app-level context contains application-wide state and methods:
 
 ```js
 const app_context = {
-  get editable() {
-    return editable; // App-level editable state
-  },
-  set editable(value) {
-    editable = value;
-  },
-  get session() {
-    return session;
-  },
-  get app_el() {
-    return app_el;
-  }
+	get editable() {
+		return editable; // App-level editable state
+	},
+	set editable(value) {
+		editable = value;
+	},
+	get session() {
+		return session;
+	},
+	get app_el() {
+		return app_el;
+	}
 };
 
 const app_commands = {
-  save: new SaveCommand(app_context),
-  toggle_edit: new ToggleEditCommand(app_context)
+	save: new SaveCommand(app_context),
+	toggle_edit: new ToggleEditCommand(app_context)
 };
 ```
 
@@ -825,9 +830,9 @@ const key_mapper = new KeyMapper();
 
 // Define a keymap
 const keymap = define_keymap({
-  'meta+z,ctrl+z': [document_commands.undo],
-  'meta+b,ctrl+b': [document_commands.bold],
-  'enter': [document_commands.break_text_node]
+	'meta+z,ctrl+z': [document_commands.undo],
+	'meta+b,ctrl+b': [document_commands.bold],
+	enter: [document_commands.break_text_node]
 });
 
 // Push the keymap onto the scope stack
@@ -835,7 +840,7 @@ key_mapper.push_scope(keymap);
 
 // Handle keydown events
 window.addEventListener('keydown', (event) => {
-  key_mapper.handle_keydown(event);
+	key_mapper.handle_keydown(event);
 });
 ```
 
@@ -852,10 +857,10 @@ Commands are wrapped in arrays to support fallback behavior:
 
 ```js
 define_keymap({
-  'meta+b,ctrl+b': [
-    document_commands.bold,      // Try this first
-    document_commands.fallback   // Use this if first is disabled
-  ]
+	'meta+b,ctrl+b': [
+		document_commands.bold, // Try this first
+		document_commands.fallback // Use this if first is disabled
+	]
 });
 ```
 
@@ -866,15 +871,15 @@ Use `push_scope()` and `pop_scope()` to manage different keyboard contexts:
 ```js
 // App-level keymap (always active)
 const app_keymap = define_keymap({
-  'meta+s,ctrl+s': [app_commands.save],
-  'meta+n,ctrl+n': [app_commands.new_document]
+	'meta+s,ctrl+s': [app_commands.save],
+	'meta+n,ctrl+n': [app_commands.new_document]
 });
 key_mapper.push_scope(app_keymap);
 
 // Document-level keymap (active when editor has focus)
 const doc_keymap = define_keymap({
-  'meta+z,ctrl+z': [document_commands.undo],
-  'meta+b,ctrl+b': [document_commands.bold]
+	'meta+z,ctrl+z': [document_commands.undo],
+	'meta+b,ctrl+b': [document_commands.bold]
 });
 
 // When editor gains focus:
@@ -885,7 +890,6 @@ key_mapper.pop_scope();
 ```
 
 The KeyMapper tries scopes from top to bottom, so push more specific keymaps last.
-
 
 ## Selection
 
@@ -899,39 +903,39 @@ Selections are at the heart of Svedit. There are just three types of selections:
 
 1. **Text Selection**: A text selection spans across a range of characters in a string. E.g. the below example has a collapsed caret at position 1 in a text property 'content'.
 
-  ```js
-  {
-    type: 'text',
-    path: ['page_1234', 'body', 0, 'content'],
-    anchor_offset: 1,
-    focus_offset: 1
-  }
-  ```
+```js
+{
+  type: 'text',
+  path: ['page_1234', 'body', 0, 'content'],
+  anchor_offset: 1,
+  focus_offset: 1
+}
+```
 
 2. **Node Selection**: A node selection spans across a range of nodes inside a node_array. The below example selects the nodes at index 3 and 4.
 
-  ```js
-  {
-    type: 'node',
-    path: ['page_1234', 'body'],
-    anchor_offset: 2,
-    focus_offset: 4
-  }
-  ```
+```js
+{
+  type: 'node',
+  path: ['page_1234', 'body'],
+  anchor_offset: 2,
+  focus_offset: 4
+}
+```
 
 3. **Property Selection**: A property selection addresses one particular property of a node.
 
-  ```js
-  {
-    type: "property",
-    path: [
-      "page_1",
-      "body",
-      11,
-      "image"
-    ]
-  }
-  ```
+```js
+{
+  type: "property",
+  path: [
+    "page_1",
+    "body",
+    11,
+    "image"
+  ]
+}
+```
 
 You can access the current selection through `session.selection` anytime. And you can programmatically set the selection using `session.selection = new_selection`.
 
@@ -953,20 +957,21 @@ A typical node component follows this pattern:
 
 ```svelte
 <script>
-  import { Node, AnnotatedTextProperty } from 'svedit';
-  let { path } = $props();
+	import { Node, AnnotatedTextProperty } from 'svedit';
+	let { path } = $props();
 </script>
 
 <Node {path}>
-  <div class="my-node">
-    <AnnotatedTextProperty path={[...path, 'content']} />
-  </div>
+	<div class="my-node">
+		<AnnotatedTextProperty path={[...path, 'content']} />
+	</div>
 </Node>
 ```
 
 ### The `<Node>` wrapper
 
 Every node component must wrap its content in the `<Node>` component. This wrapper:
+
 - Registers the node with the editor
 - Handles selection and caret behavior
 - Provides the foundation for editing interactions
@@ -979,20 +984,17 @@ Svedit provides specialized components for rendering different property types:
 
 ```svelte
 <AnnotatedTextProperty
-  tag="p"
-  class="body"
-  path={[...path, 'content']}
-  placeholder="Enter text here"
+	tag="p"
+	class="body"
+	path={[...path, 'content']}
+	placeholder="Enter text here"
 />
 ```
 
 **`<NodeArrayProperty>`** - For container properties that hold multiple nodes:
 
 ```svelte
-<NodeArrayProperty 
-  class="list-items"
-  path={[...path, 'list_items']} 
-/>
+<NodeArrayProperty class="list-items" path={[...path, 'list_items']} />
 ```
 
 > **One path = one DOM mount.** Within a single Svedit document, each node path
@@ -1009,9 +1011,9 @@ Svedit provides specialized components for rendering different property types:
 
 ```svelte
 <CustomProperty class="image-wrapper" path={[...path, 'image']}>
-  <div contenteditable="false">
-    <img src={node.image} alt={node.title.text} />
-  </div>
+	<div contenteditable="false">
+		<img src={node.image} alt={node.title.text} />
+	</div>
 </CustomProperty>
 ```
 
@@ -1021,12 +1023,12 @@ Use the Svedit context to access node data:
 
 ```svelte
 <script>
-  import { getContext } from 'svelte';
-  const svedit = getContext('svedit');
-  
-  let { path } = $props();
-  let node = $derived(svedit.session.get(path));
-  let layout = $derived(node.layout || 1);
+	import { getContext } from 'svelte';
+	const svedit = getContext('svedit');
+
+	let { path } = $props();
+	let node = $derived(svedit.session.get(path));
+	let layout = $derived(node.layout || 1);
 </script>
 ```
 
@@ -1036,25 +1038,25 @@ Here's a complete example of a text node component that supports multiple layout
 
 ```svelte
 <script>
-  import { getContext } from 'svelte';
-  import { Node, AnnotatedTextProperty } from 'svedit';
+	import { getContext } from 'svelte';
+	import { Node, AnnotatedTextProperty } from 'svedit';
 
-  const svedit = getContext('svedit');
-  let { path } = $props();
-  let node = $derived(svedit.session.get(path));
-  let layout = $derived(node.layout || 1);
-  let tag = $derived(layout === 1 ? 'p' : `h${layout - 1}`);
+	const svedit = getContext('svedit');
+	let { path } = $props();
+	let node = $derived(svedit.session.get(path));
+	let layout = $derived(node.layout || 1);
+	let tag = $derived(layout === 1 ? 'p' : `h${layout - 1}`);
 </script>
 
 <Node {path}>
-  <div class="text layout-{layout}">
-    <AnnotatedTextProperty
-      {tag}
-      class="body"
-      path={[...path, 'content']}
-      placeholder="Enter text"
-    />
-  </div>
+	<div class="text layout-{layout}">
+		<AnnotatedTextProperty
+			{tag}
+			class="body"
+			path={[...path, 'content']}
+			placeholder="Enter text"
+		/>
+	</div>
 </Node>
 ```
 
@@ -1064,14 +1066,14 @@ A simple list component that renders child items:
 
 ```svelte
 <script>
-  import { Node, NodeArrayProperty } from 'svedit';
-  let { path } = $props();
+	import { Node, NodeArrayProperty } from 'svedit';
+	let { path } = $props();
 </script>
 
 <Node {path}>
-  <div class="list">
-    <NodeArrayProperty path={[...path, 'list_items']} />
-  </div>
+	<div class="list">
+		<NodeArrayProperty path={[...path, 'list_items']} />
+	</div>
 </Node>
 ```
 
@@ -1081,17 +1083,17 @@ Node components are registered in the document config's `node_components` map:
 
 ```js
 const session_config = {
-  node_components: {
-    Text,
-    Story,
-    List,
-    ListItem,
-    // ... other components
-  }
-}
+	node_components: {
+		text: Text,
+		story: Story,
+		list: List,
+		list_item: ListItem
+		// ... other components
+	}
+};
 ```
 
-The keys must be PascalCase versions of the snake_case node types in your schema. Svedit converts node types automatically (e.g. `list_item` → `ListItem`, `image_grid` → `ImageGrid`), so a node with `type: "list_item"` will look for a component registered as `ListItem`.
+The keys must be the snake_case node types in your schema. Svedit looks up node components directly by node type, so a node with `type: "list_item"` will look for a component registered as `list_item`.
 
 ## Mastering contenteditable
 
@@ -1100,8 +1102,8 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
 
 ```html
 <div contenteditable="true">
-  <div class="some-wrapper">
-    <!--
+	<div class="some-wrapper">
+		<!--
       Putting a <br> tag into a div gives you a single addressable caret position.
 
       Adding a &ZeroWidthSpace; (or any character) here will lead to 2 caret
@@ -1113,8 +1115,8 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
       Svedit uses this behavior for node gaps, and when an
       <AnnotatedTextProperty> is empty.
     -->
-    <div class="node-gap"><br></div>
-    <!--
+		<div class="node-gap"><br /></div>
+		<!--
       If you create a contenteditable="false" island, there needs to be some content in it,
       otherwise it will create two additional caret positions. One before, and another one
       after the island.
@@ -1122,8 +1124,8 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
       The Svedit demo uses this technique in `<NodeGap>` to create a node-caret
       visualization, that doesn't mess with the contenteditable caret positions.
     -->
-    <div contenteditable="false" class="node-caret">&ZeroWidthSpace;</div>
-  </div>
+		<div contenteditable="false" class="node-caret">&ZeroWidthSpace;</div>
+	</div>
 </div>
 ```
 
@@ -1145,12 +1147,14 @@ This means the DOM structure is identical in both modes:
 ```html
 <!-- Same structure in edit and read-only mode -->
 <div data-type="node_array">
-  <div class="node-gap">...</div><!-- First element is a node-gap -->
-  <div data-type="node"><!-- first node --></div>
-  <div class="node-gap">...</div>
-  <div data-type="node"><!-- second node --></div>
-  ...
-  <div class="node-gap">...</div><!-- Last element is a node-gap -->
+	<div class="node-gap">...</div>
+	<!-- First element is a node-gap -->
+	<div data-type="node"><!-- first node --></div>
+	<div class="node-gap">...</div>
+	<div data-type="node"><!-- second node --></div>
+	...
+	<div class="node-gap">...</div>
+	<!-- Last element is a node-gap -->
 </div>
 ```
 
@@ -1163,7 +1167,7 @@ CSS sibling selectors that target node adjacency only need one form:
 ```css
 /* Works in both edit and read-only mode */
 .node-text + .node-gap + .node-media {
-  margin-block-start: 1rem;
+	margin-block-start: 1rem;
 }
 ```
 
@@ -1171,18 +1175,18 @@ For `:nth-child` selectors, use the `of <selector>` syntax to skip over `.node-g
 
 ```css
 /* Even nodes */
-.list-node-array > :nth-child(2n of [data-type="node"]) {
-  background: var(--zebra-stripe);
+.list-node-array > :nth-child(2n of [data-type='node']) {
+	background: var(--zebra-stripe);
 }
 
 /* Odd nodes */
-.list-node-array > :nth-child(2n-1 of [data-type="node"]) {
-  background: var(--zebra-stripe);
+.list-node-array > :nth-child(2n-1 of [data-type='node']) {
+	background: var(--zebra-stripe);
 }
 
 /* Last node */
-.list-node-array > :nth-last-child(1 of [data-type="node"]) {
-  border-bottom: none;
+.list-node-array > :nth-last-child(1 of [data-type='node']) {
+	border-bottom: none;
 }
 ```
 
@@ -1196,9 +1200,9 @@ Without the `of` filter, plain `:nth-child(even)` would count `.node-gap` divs a
 
 ```css
 .my-horizontal-layout :global(.grid-items) {
-  --row: 1;
-  display: flex;
-  flex-wrap: wrap;
+	--row: 1;
+	display: flex;
+	flex-wrap: wrap;
 }
 ```
 
@@ -1207,11 +1211,11 @@ Without the `of` filter, plain `:nth-child(even)` would count `.node-gap` divs a
 ```
 Without --node-caret-boundary                  With --node-caret-boundary
 
-: . . . . . . . . . . . . . . . :      
+: . . . . . . . . . . . . . . . :
 : +---------------------------+ :             +-----------------------------+
 : | Toolbar / UI              | : ← overlap   | Toolbar / UI                |
 : +---------------------------+ :             +-----------------------------+
-:                               :      
+:                               :
 :     edge gap (unbounded)      :   boudary → +-----------------------------+
 : . . . . . . . . . . . . . . . :             | : . . . . . . . . . . . . : |
                                               | :   edge gap (clamped)    : |
@@ -1227,22 +1231,22 @@ Without --node-caret-boundary                  With --node-caret-boundary
                                               | :   edge gap (clamped)    : |
 : . . . . . . . . . . . . . . . :             | : . . . . . . . . . . . . : |
 :     edge gap (unbounded)      :   boudary → +-----------------------------+
-:                               :      
+:                               :
 : +---------------------------+ :             +-----------------------------+
 : | Footer / UI               | : ← overlap   | Footer / UI                 |
 : +---------------------------+ :             +-----------------------------+
-: . . . . . . . . . . . . . . . : 
+: . . . . . . . . . . . . . . . :
 ```
 
 Set `--node-caret-boundary` to the `anchor-name` of a parent element to clamp edge gaps to that element's edges:
 
 ```css
 .editor-wrapper {
-  anchor-name: --editor-boundary;
-  padding: 24px;
+	anchor-name: --editor-boundary;
+	padding: 24px;
 }
-.editor-wrapper [data-type="node_array"] {
-  --node-caret-boundary: --editor-boundary;
+.editor-wrapper [data-type='node_array'] {
+	--node-caret-boundary: --editor-boundary;
 }
 ```
 
@@ -1251,19 +1255,18 @@ When set, edge gaps clamp to the boundary element's edges instead. When not set,
 Since `--node-caret-boundary` inherits to nested node arrays, you may need to unset it on inner containers that should not be clamped:
 
 ```css
-.inner-container [data-type="node_array"] {
-  --node-caret-boundary: initial;
+.inner-container [data-type='node_array'] {
+	--node-caret-boundary: initial;
 }
 ```
 
 For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-caret-boundary-y` (top/bottom). They take precedence over `--node-caret-boundary` when set:
 
 ```css
-.editor-wrapper [data-type="node_array"] {
-  --node-caret-boundary-x: --editor-boundary;
+.editor-wrapper [data-type='node_array'] {
+	--node-caret-boundary-x: --editor-boundary;
 }
 ```
-
 
 ## Beyond the README
 

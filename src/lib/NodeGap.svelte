@@ -2,7 +2,7 @@
 	function cycle_z_index(/** @type {MouseEvent} */ e) {
 		const el = /** @type {HTMLElement} */ (e.currentTarget);
 		if (el.hasAttribute('data-sent-to-back')) {
-			document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach(prev => {
+			document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach((prev) => {
 				prev.removeAttribute('data-sent-to-back');
 			});
 		}
@@ -50,7 +50,7 @@
 	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
 	 * trick — no @container style() queries, works in all browsers.
 	 *
-	 * If you override this component via `system_components.NodeGap`, make
+	 * If you override this component via `system_components.node_gap`, make
 	 * sure your custom component also handles read-only mode by rendering a
 	 * plain `.node-gap` placeholder without editable internals.
 	 */
@@ -74,7 +74,7 @@
 	});
 
 	let anchor_name = $derived.by(() => {
-    if (!is_editable) return '';
+		if (!is_editable) return '';
 		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
 		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
 	});
@@ -93,7 +93,9 @@
 		style={gap_style}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="svedit-selectable" style="anchor-name:{anchor_name}" onpointerdown={cycle_z_index}><br /></div>
+		<div class="svedit-selectable" style="anchor-name:{anchor_name}" onpointerdown={cycle_z_index}>
+			<br />
+		</div>
 	</div>
 {:else}
 	<div class="node-gap"></div>
@@ -161,8 +163,14 @@
 		--_s-r: anchor(var(--_pa) right, 9999999px);
 	}
 	:global(.node-gap.positioned.gap-before:not(.empty)) {
-		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
-		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
+		--_b-t: anchor(
+			var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top,
+			0px
+		);
+		--_b-l: anchor(
+			var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left,
+			0px
+		);
 	}
 	:global(.node-gap.positioned.gap-after:not(.last)) {
 		--_n-t: anchor(var(--_next) top);
@@ -175,10 +183,22 @@
 		--_c-b: anchor(var(--_container) bottom);
 		--_c-l: anchor(var(--_container) left);
 		--_c-r: anchor(var(--_container) right);
-		--_b-b: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 0px);
-		--_b-r: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 0px);
-		--_b-bt: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom, 9999999px);
-		--_b-rl: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right, 9999999px);
+		--_b-b: anchor(
+			var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom,
+			0px
+		);
+		--_b-r: anchor(
+			var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right,
+			0px
+		);
+		--_b-bt: anchor(
+			var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom,
+			9999999px
+		);
+		--_b-rl: anchor(
+			var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right,
+			9999999px
+		);
 	}
 
 	:global(.node-gap.positioned .svedit-selectable) {
@@ -226,10 +246,8 @@
 			calc(var(--_s-l) + var(--_R) * 9999999px),
 			calc(var(--_s-r) + var(--_C) * 9999999px),
 			calc(
-				(var(--_s-r) + var(--_n-l)) / 2
-				- var(--_gm) / 2
-				+ max(0px, var(--_s-r) - var(--_n-l)) * 999
-				+ var(--_C) * 9999999px
+				(var(--_s-r) + var(--_n-l)) / 2 - var(--_gm) / 2 + max(0px, var(--_s-r) - var(--_n-l)) *
+					999 + var(--_C) * 9999999px
 			),
 			/* Safety clamp for wrap: pins gap inside CB when current/next
 			   wrap across rows. Disabled in nowrap/horizontal-scroll where
@@ -237,35 +255,25 @@
 			   the other branches position correctly and this clamp would
 			   wrongly force the gap to CB right minus eg. */
 			calc(
-				100% - var(--_eg)
-				+ max(0px, var(--_n-l) - var(--_s-r) + 0.5px) * 9999
-				+ var(--_C) * 9999999px
-			)
+					100% - var(--_eg) + max(0px, var(--_n-l) - var(--_s-r) + 0.5px) * 9999 + var(--_C) *
+						9999999px
+				)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(
 				max(
-					0px,
-					min(
-						var(--_n-l),
-						calc(
-							(var(--_s-r) + var(--_n-l)) / 2
-							- var(--_gm) / 2
-						),
-						max(
-							min(
-								calc(var(--_c-r) - var(--_eg)),
-								calc(var(--_s-r) - var(--_eg))
-							),
-							calc(
-								var(--_s-r)
-								- (var(--_n-l) - var(--_s-r)) * 999
+						0px,
+						min(
+							var(--_n-l),
+							calc((var(--_s-r) + var(--_n-l)) / 2 - var(--_gm) / 2),
+							max(
+								min(calc(var(--_c-r) - var(--_eg)), calc(var(--_s-r) - var(--_eg))),
+								calc(var(--_s-r) - (var(--_n-l) - var(--_s-r)) * 999)
 							)
 						)
-					)
-				)
-				+ var(--_C) * 9999999px
+					) +
+					var(--_C) * 9999999px
 			)
 		);
 		min-height: calc(var(--_gm) * var(--_C));
@@ -307,23 +315,13 @@
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 9999999px),
 			calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 9999999px),
-			calc(
-				100% - var(--_eg)
-				+ max(0px, var(--_s-r) - 100% + 0.5px) * 9999
-				+ var(--_C) * 9999999px
-			)
+			calc(100% - var(--_eg) + max(0px, var(--_s-r) - 100% + 0.5px) * 9999 + var(--_C) * 9999999px)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(
-				max(
-					var(--_b-r),
-					min(
-						calc(var(--_c-r) - var(--_eg)),
-						calc(var(--_s-r) - var(--_eg))
-					)
-				)
-				+ var(--_C) * 9999999px
+				max(var(--_b-r), min(calc(var(--_c-r) - var(--_eg)), calc(var(--_s-r) - var(--_eg)))) +
+					var(--_C) * 9999999px
 			)
 		);
 		min-height: calc(var(--_eg) * var(--_C));
@@ -333,10 +331,7 @@
 	/* Before first node: col extends up, row extends left */
 	:global(.node-gap.positioned.gap-before:not(.empty) .svedit-selectable) {
 		top: min(
-			calc(
-				max(var(--_b-t), var(--_s-t) - var(--_eg))
-				+ var(--_R) * 9999999px
-			),
+			calc(max(var(--_b-t), var(--_s-t) - var(--_eg)) + var(--_R) * 9999999px),
 			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
@@ -345,10 +340,7 @@
 		);
 		left: min(
 			calc(var(--_s-l) + var(--_R) * 9999999px),
-			calc(
-				max(var(--_b-l), var(--_s-l) - var(--_eg))
-				+ var(--_C) * 9999999px
-			)
+			calc(max(var(--_b-l), var(--_s-l) - var(--_eg)) + var(--_C) * 9999999px)
 		);
 		right: min(
 			calc(var(--_s-r) + var(--_R) * 9999999px),

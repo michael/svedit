@@ -5,7 +5,6 @@
 		get_char_length,
 		paths_equal,
 		serialize_path,
-		snake_to_pascal,
 		get_selection_range
 	} from './utils.js';
 
@@ -109,7 +108,6 @@
 
 		return fragments;
 	}
-
 </script>
 
 <!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
@@ -133,8 +131,7 @@
 				class="selection-highlight"
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
 			>{:else if fragment.type === 'annotation'}
-			{@const AnnotationComponent =
-				svedit.session.config.node_components[snake_to_pascal(fragment.node.type)]}
+			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
 			<AnnotationComponent
 				path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
 				content={fragment.content}
@@ -167,7 +164,7 @@
 		caret-color: transparent !important;
 	}
 	:global(.svedit.editable) [placeholder].empty.focused::before {
-		content: "";
+		content: '';
 		/* we limit width & height to avoid layout shifts in case the text has a lower natural height */
 		width: 0px;
 		height: 1cap;

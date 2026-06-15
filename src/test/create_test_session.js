@@ -123,12 +123,12 @@ const session_config = {
 	generate_id: nanoid,
 	system_components: {},
 	node_components: {
-		Page,
-		Button,
-		Text,
-		Story,
-		List,
-		ListItem
+		page: Page,
+		button: Button,
+		text: Text,
+		story: Story,
+		list: List,
+		list_item: ListItem
 	},
 	node_layouts: {
 		text: 4,

@@ -1,7 +1,6 @@
 <script>
 	import { flushSync, getContext, setContext } from 'svelte';
 	import {
-		snake_to_pascal,
 		get_char_length,
 		char_to_utf16_offset,
 		deserialize_path,
@@ -36,10 +35,11 @@
 
 	let canvas_el;
 	let root_node = $derived(session.get(path));
-	let Overlays = $derived(session.config.system_components?.Overlays);
-	let NodeSelectionMarkers = $derived(session.config.system_components?.NodeSelectionMarkers ?? DefaultNodeSelectionMarkers);
-	let RootComponent = $derived(session.config.node_components[snake_to_pascal(root_node.type)]);
-
+	let Overlays = $derived(session.config.system_components?.overlays);
+	let NodeSelectionMarkers = $derived(
+		session.config.system_components?.node_selection_markers ?? DefaultNodeSelectionMarkers
+	);
+	let RootComponent = $derived(session.config.node_components[root_node.type]);
 
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
@@ -48,7 +48,6 @@
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
 	let selection_source_is_dom = false;
-
 
 	// let is_mobile = $derived(is_mobile_browser());
 	// let is_chrome_desktop = $derived(is_chrome_desktop_browser());
@@ -552,8 +551,6 @@ ${fallback_html}`;
 		}
 	}
 
-
-
 	function oncut(event) {
 		if (!editable) return;
 		oncopy(event, true);
@@ -638,7 +635,11 @@ ${fallback_html}`;
 		// NOTE: For some reason, await navigator.clipboard.read()
 		const clipboard_items = event.clipboardData?.items || [];
 		for (const item of clipboard_items || []) {
-			if (item.type.startsWith('image/') || item.type.startsWith('video/') || item.type.startsWith('audio/')) {
+			if (
+				item.type.startsWith('image/') ||
+				item.type.startsWith('video/') ||
+				item.type.startsWith('audio/')
+			) {
 				const blob = item.getAsFile();
 				const data_url = URL.createObjectURL(blob);
 				pasted_media.push({
@@ -651,7 +652,8 @@ ${fallback_html}`;
 		}
 
 		if (pasted_media.length > 0) {
-			const handle_media_paste = session.config.handle_media_paste || session.config.handle_image_paste
+			const handle_media_paste =
+				session.config.handle_media_paste || session.config.handle_image_paste;
 			pasted_json = await handle_media_paste(session, pasted_media);
 			// NOTE: If no pasted_json is returned from the custom handler, we assume that content creation has been
 			// handled inside handle_media_paste already.
@@ -683,8 +685,9 @@ ${fallback_html}`;
 				// Also create a node payload for single paragraphs at a node gap —
 				// without this, insert_text bails out (requires text selection) and
 				// the paste is silently dropped.
-				const needs_node_payload = plain_text_fragments.length > 1
-					|| (plain_text_fragments.length === 1 && session.selection?.type === 'node');
+				const needs_node_payload =
+					plain_text_fragments.length > 1 ||
+					(plain_text_fragments.length === 1 && session.selection?.type === 'node');
 				if (needs_node_payload) {
 					pasted_json = {
 						main_nodes: [],
@@ -839,7 +842,9 @@ ${fallback_html}`;
 		const offset = parseInt(gap.dataset.gapOffset, 10);
 		const node_idx = offset > 0 ? offset - 1 : 0;
 		return /** @type {HTMLElement | null} */ (
-			canvas_el.querySelector(`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`)
+			canvas_el.querySelector(
+				`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`
+			)
 		);
 	}
 
@@ -887,9 +892,7 @@ ${fallback_html}`;
 
 		// EDGE CASE: Collapsed selection inside a node gap (gap-after or gap-before).
 		// Gaps are siblings of nodes with data-gap-array-path and data-gap-offset.
-		const gap_el = /** @type {HTMLElement | null} */ (
-			focus_node.closest('[data-gap-array-path]')
-		);
+		const gap_el = /** @type {HTMLElement | null} */ (focus_node.closest('[data-gap-array-path]'));
 		if (gap_el && focus_node === anchor_node) {
 			const array_path = deserialize_path(gap_el.dataset.gapArrayPath);
 			const gap_offset = parseInt(gap_el.dataset.gapOffset, 10);
@@ -901,12 +904,14 @@ ${fallback_html}`;
 			};
 		}
 
-		let focus_root = __resolve_node_from_gap(focus_node)
-			?? /** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
+		let focus_root =
+			__resolve_node_from_gap(focus_node) ??
+			/** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
 		if (!focus_root) return null;
 
-		let anchor_root = __resolve_node_from_gap(anchor_node)
-			?? /** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
+		let anchor_root =
+			__resolve_node_from_gap(anchor_node) ??
+			/** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
 		if (!anchor_root) return null;
 
 		let focus_root_path = deserialize_path(focus_root.dataset.path);
@@ -1118,7 +1123,10 @@ ${fallback_html}`;
 		) {
 			// Find the last non-comment child node (comments are inserted by Svelte)
 			let last_element_index = child_nodes.length - 1;
-			while (last_element_index >= 0 && child_nodes[last_element_index].nodeType === Node.COMMENT_NODE) {
+			while (
+				last_element_index >= 0 &&
+				child_nodes[last_element_index].nodeType === Node.COMMENT_NODE
+			) {
 				last_element_index--;
 			}
 
@@ -1180,10 +1188,7 @@ ${fallback_html}`;
 	function __intersects_viewport(el) {
 		if (!el) return false;
 		const r = el.getBoundingClientRect();
-		return (
-			r.bottom > 0 && r.top < window.innerHeight &&
-			r.right > 0 && r.left < window.innerWidth
-		);
+		return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
 	}
 
 	function __render_node_selection() {
@@ -1252,9 +1257,8 @@ ${fallback_html}`;
 			// viewport stable and scroll nothing. node_before is null at
 			// offset 0: cursor_offset - 1 would be -1, and serialize_path
 			// rejects a negative index.
-			const node_before = cursor_offset > 0
-				? __get_node_element(node_array_path, cursor_offset - 1)
-				: null;
+			const node_before =
+				cursor_offset > 0 ? __get_node_element(node_array_path, cursor_offset - 1) : null;
 			const node_after = __get_node_element(node_array_path, cursor_offset);
 			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
@@ -1264,14 +1268,8 @@ ${fallback_html}`;
 				return;
 			}
 			if (cursor_offset >= array_length) {
-				const max_left = Math.max(
-					0,
-					node_array_el.scrollWidth - node_array_el.clientWidth
-				);
-				const max_top = Math.max(
-					0,
-					node_array_el.scrollHeight - node_array_el.clientHeight
-				);
+				const max_left = Math.max(0, node_array_el.scrollWidth - node_array_el.clientWidth);
+				const max_top = Math.max(0, node_array_el.scrollHeight - node_array_el.clientHeight);
 				node_array_el.scrollLeft = max_left;
 				node_array_el.scrollTop = max_top;
 				if (max_left === 0 && max_top === 0) {
