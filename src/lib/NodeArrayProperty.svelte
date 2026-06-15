@@ -1,15 +1,17 @@
 <script>
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
-	import { serialize_path, snake_to_pascal } from './utils.js';
+	import { serialize_path } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
 	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
-	let NodeGap = $derived(svedit.session.config.system_components?.NodeGap ?? DefaultNodeGap);
-	let NodeGapMarkers = $derived(svedit.session.config.system_components?.NodeGapMarkers ?? DefaultNodeGapMarkers);
+	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
+	let NodeGapMarkers = $derived(
+		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
+	);
 
 	/** @type {NodeArrayPropertyProps} */
 	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
@@ -26,8 +28,8 @@
 	// NodeGap while the caret is in the placeholder, so its <br> isn't a
 	// second arrow-key stop (issue #260).
 	let is_focused = $derived(
-		svedit.session.selection?.type === 'node'
-		&& serialize_path(svedit.session.selection.path) === path_str
+		svedit.session.selection?.type === 'node' &&
+			serialize_path(svedit.session.selection.path) === path_str
 	);
 
 	setContext('node_array_meta', {
@@ -35,7 +37,6 @@
 			return node_ids.length;
 		}
 	});
-
 </script>
 
 <!-- we use the anchor of node_array in Overlays.svelte to position the last insertion point in a horizontal layout based on the right edge of the container -->
@@ -55,21 +56,12 @@
 			data-type="node"
 			style="anchor-name: --{serialize_path([...path, 0])};"
 		>
-		<NodeGap
-			array_path={path}
-			offset={0}
-			count={0}
-			empty
-		/>
+			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
 	{#each nodes as node, index (index)}
-		<NodeGap
-			array_path={path}
-			offset={index}
-			count={nodes.length}
-		/>
-		{@const Component = svedit.session.config.node_components[snake_to_pascal(node.type)]}
+		<NodeGap array_path={path} offset={index} count={nodes.length} />
+		{@const Component = svedit.session.config.node_components[node.type]}
 		{#if Component}
 			<Component path={[...path, index]} />
 		{:else}
@@ -77,11 +69,7 @@
 		{/if}
 	{/each}
 	{#if node_ids.length > 0}
-		<NodeGap
-			array_path={path}
-			offset={node_ids.length}
-			count={node_ids.length}
-		/>
+		<NodeGap array_path={path} offset={node_ids.length} count={node_ids.length} />
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
 		<NodeGapMarkers {path} count={node_ids.length} />
@@ -89,7 +77,7 @@
 </svelte:element>
 
 <style>
-/* position: relative makes this the containing block for the gap's
+	/* position: relative makes this the containing block for the gap's
    .svedit-selectable, which fills it via inset:0. You may override to
    position: absolute (e.g. so an empty array doesn't occupy flow space)
    — still a containing block; then also set position: relative on the
