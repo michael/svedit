@@ -67,7 +67,7 @@ export function get_default_node_type(property_definition) {
  * @param {import('./types').PropertyDefinition} property_definition
  * @returns {any}
  */
-function get_property_default(property_definition) {
+export function get_property_default(property_definition) {
 	if ('default' in property_definition) return structuredClone(property_definition.default);
 
 	if (property_definition.type === 'string') return '';
