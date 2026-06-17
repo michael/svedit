@@ -6,9 +6,7 @@
 		deserialize_path,
 		paths_equal,
 		serialize_path,
-		is_selection_collapsed,
-		split_annotated_text,
-		join_annotated_text
+		is_selection_collapsed
 	} from './utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -742,93 +740,21 @@ ${fallback_html}`;
 		return get_root_node_insert_caret();
 	}
 
-	function paste_plain_text_paragraphs_into_text_node(paragraph_fragments, target_text_node_type) {
-		if (session.selection?.type !== 'text') return false;
-		if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0) return false;
-		if (!target_text_node_type) return false;
+	/**
+	 * @param {Selection|null} [selection]
+	 * @returns {NodeSelection|null}
+	 */
+	function get_node_insert_caret_after_text_selection(selection = session.selection) {
+		if (selection?.type !== 'text') return null;
+		const node_index = parseInt(String(selection.path.at(-2)), 10);
+		if (Number.isNaN(node_index)) return null;
 
-		const target_text_property_name = get_text_property_name(target_text_node_type);
-		if (!target_text_property_name) return false;
-
-		const tr = session.tr;
-		if (!is_selection_collapsed(tr.selection)) {
-			tr.delete_selection();
-		}
-		if (tr.selection?.type !== 'text') return false;
-
-		const text_path = tr.selection.path;
-		const current_text = tr.get(text_path);
-		const insertion_offset = tr.selection.anchor_offset;
-		const [left_text, right_text] = split_annotated_text(current_text, insertion_offset);
-
-		const first_fragment = {
-			text: paragraph_fragments[0],
-			annotations: []
+		return {
+			type: /** @type {const} */ ('node'),
+			path: selection.path.slice(0, -2),
+			anchor_offset: node_index + 1,
+			focus_offset: node_index + 1
 		};
-		const current_text_with_first_fragment = join_annotated_text(left_text, first_fragment);
-		const remaining_fragments = paragraph_fragments.slice(1);
-
-		if (remaining_fragments.length === 0) {
-			const final_text = join_annotated_text(current_text_with_first_fragment, right_text);
-			tr.set(text_path, final_text);
-			const caret_offset = get_char_length(current_text_with_first_fragment.text);
-			tr.set_selection({
-				type: 'text',
-				path: text_path,
-				anchor_offset: caret_offset,
-				focus_offset: caret_offset
-			});
-			session.apply(tr);
-			return true;
-		}
-
-		tr.set(text_path, current_text_with_first_fragment);
-
-		const node_array_path = text_path.slice(0, -2);
-		const current_node_index = parseInt(String(text_path.at(-2)), 10);
-		if (Number.isNaN(current_node_index)) return false;
-
-		const nodes_to_insert = [];
-		for (let i = 0; i < remaining_fragments.length; i++) {
-			let next_text = {
-				text: remaining_fragments[i],
-				annotations: []
-			};
-			if (i === remaining_fragments.length - 1) {
-				next_text = join_annotated_text(next_text, right_text);
-			}
-
-			const temp_node_id = 'pasted_paragraph_' + i;
-			const new_node_id = tr.build(temp_node_id, {
-				[temp_node_id]: {
-					id: temp_node_id,
-					type: target_text_node_type,
-					[target_text_property_name]: next_text
-				}
-			});
-			nodes_to_insert.push(new_node_id);
-		}
-
-		tr.set_selection({
-			type: 'node',
-			path: node_array_path,
-			anchor_offset: current_node_index + 1,
-			focus_offset: current_node_index + 1
-		});
-		tr.insert_nodes(nodes_to_insert);
-
-		const last_inserted_node_index = current_node_index + nodes_to_insert.length;
-		const last_fragment = remaining_fragments.at(-1) || '';
-		const caret_offset = get_char_length(last_fragment);
-		tr.set_selection({
-			type: 'text',
-			path: [...node_array_path, last_inserted_node_index, target_text_property_name],
-			anchor_offset: caret_offset,
-			focus_offset: caret_offset
-		});
-
-		session.apply(tr);
-		return true;
 	}
 
 	/**
@@ -974,12 +900,15 @@ ${fallback_html}`;
 							session.selection.path.slice(0, -2)
 						);
 						const default_text_node_type = get_default_text_node(node_array_property_definition);
-						if (default_text_node_type) {
-							const handled_plain_text_paste = paste_plain_text_paragraphs_into_text_node(
-								plain_text_fragments,
-								default_text_node_type
-							);
-							if (handled_plain_text_paste) {
+						const node_insert_caret = get_node_insert_caret_after_text_selection(session.selection);
+						const plain_text_nodes_payload = create_plain_text_nodes_payload(
+							plain_text_fragments,
+							default_text_node_type
+						);
+
+						if (node_insert_caret && plain_text_nodes_payload) {
+							const did_paste_nodes = try_node_paste(plain_text_nodes_payload, node_insert_caret);
+							if (did_paste_nodes) {
 								return;
 							}
 						}

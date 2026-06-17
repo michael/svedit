@@ -793,10 +793,11 @@ describe('Svedit.svelte', () => {
 		await dispatch_plain_text_paste('alpha\n\nbeta\n\ngamma');
 
 		const body = session.get(['page_1', 'body']);
-		expect(body).toHaveLength(6);
-		expect(session.get(body[3]).content.text).toBe('alpha');
-		expect(session.get(body[4]).content.text).toBe('beta');
-		expect(session.get(body[5]).content.text).toBe('gamma');
+		expect(body).toHaveLength(7);
+		expect(session.get(body[3]).content.text).toBe('');
+		expect(session.get(body[4]).content.text).toBe('alpha');
+		expect(session.get(body[5]).content.text).toBe('beta');
+		expect(session.get(body[6]).content.text).toBe('gamma');
 	});
 
 	it('should paste multi-paragraph plain text as-is into a block text property with allow_newlines=true', async () => {
