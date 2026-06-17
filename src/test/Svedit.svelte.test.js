@@ -821,6 +821,27 @@ describe('Svedit.svelte', () => {
 		expect(session.get(['page_1', 'body'])).toHaveLength(3);
 	});
 
+	it('should dedent plain text when most lines share leading whitespace', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		const description_text = session.get('story_1').description.text;
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'description'],
+			anchor_offset: 0,
+			focus_offset: description_text.length
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('\tlet first = 1;\n\tlet second = 2;\n\tlet third = 3;');
+
+		expect(session.get('story_1').description.text).toBe('let first = 1;\nlet second = 2;\nlet third = 3;');
+	});
+
 	it('should normalize newlines to single spaces in block text properties with allow_newlines=false', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });

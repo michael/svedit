@@ -562,6 +562,42 @@ ${fallback_html}`;
 		return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 	}
 
+	function dedent_plain_text(plain_text) {
+		const lines = normalize_line_endings(plain_text).split('\n');
+		if (lines.length < 2) return plain_text;
+
+		const non_empty_lines = lines.filter((line) => line.trim().length > 0);
+		if (non_empty_lines.length === 0) return plain_text;
+
+		const indented_non_empty_lines = non_empty_lines.filter((line) => /^[\t ]+/.test(line));
+		const indented_line_ratio = indented_non_empty_lines.length / non_empty_lines.length;
+		if (indented_line_ratio < 0.8) return plain_text;
+
+		const leading_whitespace_lengths = indented_non_empty_lines
+			.map((line) => line.match(/^[\t ]+/)?.[0].length || 0)
+			.filter(Boolean);
+		if (leading_whitespace_lengths.length === 0) return plain_text;
+
+		const dedent_size = Math.min(...leading_whitespace_lengths);
+		if (dedent_size <= 0) return plain_text;
+
+		return lines
+			.map((line) => {
+				if (line.trim().length === 0) return line;
+				let removable_count = 0;
+				while (removable_count < dedent_size && removable_count < line.length) {
+					const char = line[removable_count];
+					if (char === ' ' || char === '\t') {
+						removable_count += 1;
+					} else {
+						break;
+					}
+				}
+				return line.slice(removable_count);
+			})
+			.join('\n');
+	}
+
 	function split_plain_text_paragraphs(plain_text) {
 		return normalize_line_endings(plain_text)
 			.split(/\n{2,}/)
@@ -920,6 +956,7 @@ ${fallback_html}`;
 			// Try to construct a node payload from plain text when applicable
 			if (!pasted_json && typeof plain_text === 'string') {
 				plain_text = normalize_line_endings(plain_text);
+				plain_text = dedent_plain_text(plain_text);
 				const plain_text_fragments = split_plain_text_paragraphs(plain_text);
 				const has_multiple_paragraphs = plain_text_fragments.length > 1;
 
