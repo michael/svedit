@@ -6,7 +6,9 @@
 		deserialize_path,
 		paths_equal,
 		serialize_path,
-		is_selection_collapsed
+		is_selection_collapsed,
+		split_annotated_text,
+		join_annotated_text
 	} from './utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -556,6 +558,243 @@ ${fallback_html}`;
 		oncopy(event, true);
 	}
 
+	function normalize_line_endings(text) {
+		return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+	}
+
+	function split_plain_text_paragraphs(plain_text) {
+		return normalize_line_endings(plain_text)
+			.split(/\n{2,}/)
+			.map((fragment) => fragment.trim())
+			.filter(Boolean);
+	}
+
+	function normalize_plain_text_for_single_line_property(plain_text) {
+		return normalize_line_endings(plain_text).replace(/\s*\n+\s*/g, ' ');
+	}
+
+	function get_text_property_name(node_type) {
+		if (!node_type) return null;
+		const node_schema = session.schema[node_type];
+		if (!node_schema || node_schema.kind !== 'text') return null;
+		if (node_schema.properties?.content?.type === 'annotated_text') return 'content';
+		return (
+			Object.entries(node_schema.properties).find(([, property_definition]) => {
+				return property_definition.type === 'annotated_text';
+			})?.[0] || null
+		);
+	}
+
+	function get_text_content(node) {
+		if (!node || typeof node !== 'object') return null;
+
+		const text_property_name = get_text_property_name(node.type);
+		if (
+			text_property_name &&
+			node[text_property_name] &&
+			typeof node[text_property_name].text === 'string' &&
+			Array.isArray(node[text_property_name].annotations)
+		) {
+			return node[text_property_name];
+		}
+
+		if (node.content && typeof node.content.text === 'string' && Array.isArray(node.content.annotations)) {
+			return node.content;
+		}
+
+		return null;
+	}
+
+	function is_text_like_node_payload(node) {
+		if (!node || typeof node !== 'object') return false;
+		if (session.schema[node.type]?.kind === 'text') return true;
+		return !!get_text_content(node);
+	}
+
+	function get_default_text_node(node_array_property_definition) {
+		if (
+			node_array_property_definition?.type !== 'node_array' ||
+			!Array.isArray(node_array_property_definition.node_types)
+		) {
+			return null;
+		}
+
+		const default_node_type = node_array_property_definition.default_node_type;
+		if (default_node_type && session.schema[default_node_type]?.kind === 'text') {
+			return default_node_type;
+		}
+
+		return (
+			node_array_property_definition.node_types.find(
+				(node_type) => session.schema[node_type]?.kind === 'text'
+			) || null
+		);
+	}
+
+	function create_plain_text_nodes_payload(paragraph_fragments, node_type) {
+		if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0 || !node_type) {
+			return null;
+		}
+
+		const text_property_name = get_text_property_name(node_type);
+		if (!text_property_name) return null;
+
+		const payload = {
+			main_nodes: [],
+			nodes: {}
+		};
+
+		for (let i = 0; i < paragraph_fragments.length; i++) {
+			const fragment = paragraph_fragments[i];
+			const node_id = 'fragment_' + i;
+			payload.nodes[node_id] = {
+				id: node_id,
+				type: node_type,
+				[text_property_name]: {
+					text: fragment,
+					annotations: []
+				}
+			};
+			payload.main_nodes.push(node_id);
+		}
+
+		return payload;
+	}
+
+	/**
+	 * @returns {NodeSelection|null}
+	 */
+	function get_root_node_insert_caret() {
+		const root_node = session.get(path);
+		const root_schema = root_node ? session.schema[root_node.type] : null;
+		if (!root_schema?.properties) return null;
+
+		const preferred_property_name =
+			root_schema.properties.body?.type === 'node_array'
+				? 'body'
+				: Object.entries(root_schema.properties).find(([, property_definition]) => {
+						return property_definition.type === 'node_array';
+					})?.[0];
+		if (!preferred_property_name) return null;
+
+		const node_array_path = [...path, preferred_property_name];
+		const node_array = session.get(node_array_path);
+		if (!Array.isArray(node_array)) return null;
+
+		return {
+			type: /** @type {const} */ ('node'),
+			path: node_array_path,
+			anchor_offset: node_array.length,
+			focus_offset: node_array.length
+		};
+	}
+
+	/**
+	 * @param {Selection|null} [selection]
+	 * @returns {NodeSelection|null}
+	 */
+	function get_target_node_insert_caret(selection = session.selection) {
+		if (selection?.type === 'node') {
+			return selection;
+		}
+
+		const next_node_insert_caret = session.get_next_node_insert_caret(selection);
+		if (next_node_insert_caret?.type === 'node') {
+			return next_node_insert_caret;
+		}
+
+		return get_root_node_insert_caret();
+	}
+
+	function paste_plain_text_paragraphs_into_text_node(paragraph_fragments, target_text_node_type) {
+		if (session.selection?.type !== 'text') return false;
+		if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0) return false;
+		if (!target_text_node_type) return false;
+
+		const target_text_property_name = get_text_property_name(target_text_node_type);
+		if (!target_text_property_name) return false;
+
+		const tr = session.tr;
+		if (!is_selection_collapsed(tr.selection)) {
+			tr.delete_selection();
+		}
+		if (tr.selection?.type !== 'text') return false;
+
+		const text_path = tr.selection.path;
+		const current_text = tr.get(text_path);
+		const insertion_offset = tr.selection.anchor_offset;
+		const [left_text, right_text] = split_annotated_text(current_text, insertion_offset);
+
+		const first_fragment = {
+			text: paragraph_fragments[0],
+			annotations: []
+		};
+		const current_text_with_first_fragment = join_annotated_text(left_text, first_fragment);
+		const remaining_fragments = paragraph_fragments.slice(1);
+
+		if (remaining_fragments.length === 0) {
+			const final_text = join_annotated_text(current_text_with_first_fragment, right_text);
+			tr.set(text_path, final_text);
+			const caret_offset = get_char_length(current_text_with_first_fragment.text);
+			tr.set_selection({
+				type: 'text',
+				path: text_path,
+				anchor_offset: caret_offset,
+				focus_offset: caret_offset
+			});
+			session.apply(tr);
+			return true;
+		}
+
+		tr.set(text_path, current_text_with_first_fragment);
+
+		const node_array_path = text_path.slice(0, -2);
+		const current_node_index = parseInt(String(text_path.at(-2)), 10);
+		if (Number.isNaN(current_node_index)) return false;
+
+		const nodes_to_insert = [];
+		for (let i = 0; i < remaining_fragments.length; i++) {
+			let next_text = {
+				text: remaining_fragments[i],
+				annotations: []
+			};
+			if (i === remaining_fragments.length - 1) {
+				next_text = join_annotated_text(next_text, right_text);
+			}
+
+			const temp_node_id = 'pasted_paragraph_' + i;
+			const new_node_id = tr.build(temp_node_id, {
+				[temp_node_id]: {
+					id: temp_node_id,
+					type: target_text_node_type,
+					[target_text_property_name]: next_text
+				}
+			});
+			nodes_to_insert.push(new_node_id);
+		}
+
+		tr.set_selection({
+			type: 'node',
+			path: node_array_path,
+			anchor_offset: current_node_index + 1,
+			focus_offset: current_node_index + 1
+		});
+		tr.insert_nodes(nodes_to_insert);
+
+		const last_inserted_node_index = current_node_index + nodes_to_insert.length;
+		const last_fragment = remaining_fragments.at(-1) || '';
+		const caret_offset = get_char_length(last_fragment);
+		tr.set_selection({
+			type: 'text',
+			path: [...node_array_path, last_inserted_node_index, target_text_property_name],
+			anchor_offset: caret_offset,
+			focus_offset: caret_offset
+		});
+
+		session.apply(tr);
+		return true;
+	}
+
 	/**
 	 * Attempts to paste JSON data as a node at the current selection.
 	 *
@@ -564,40 +803,42 @@ ${fallback_html}`;
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
-		const { nodes, main_nodes } = pasted_json;
+		const { nodes, main_nodes } = pasted_json || {};
+		if (!nodes || !main_nodes?.length) return false;
 
-		// NOTE: At this point, nodes contains a subgraph from the copy
-		// with original ids.
 		let tr = session.tr;
 		if (selection) {
 			tr.set_selection(selection);
 		}
+		if (tr.selection?.type !== 'node') return false;
 
-		// We can safely assume we're dealing with a node_array property
 		const property_definition = session.inspect(tr.selection.path);
-		const first_compatible_text_node_type = property_definition.node_types.find(
-			(type) => session.kind({ type }) === 'text'
-		);
+		if (property_definition?.type !== 'node_array') return false;
+
+		const default_text_node_type = get_default_text_node(property_definition);
+		const target_text_property_name = get_text_property_name(default_text_node_type);
 
 		const nodes_to_insert = [];
 		let rejected = false;
 		for (const node_id of main_nodes) {
 			const node = nodes[node_id];
+			if (!node) {
+				rejected = true;
+				break;
+			}
+
 			if (!property_definition.node_types.includes(node.type)) {
-				// Incompatible node type detected
-				if (session.kind(node) === 'text' && first_compatible_text_node_type) {
+				const text_content = get_text_content(node);
+				if (is_text_like_node_payload(node) && default_text_node_type && target_text_property_name) {
 					const new_node_id = tr.build('the_node', {
 						the_node: {
 							id: 'the_node',
-							type: first_compatible_text_node_type,
-							content: node.content
+							type: default_text_node_type,
+							[target_text_property_name]: text_content || { text: '', annotations: [] }
 						}
 					});
 					nodes_to_insert.push(new_node_id);
 				} else {
-					// console.log(
-					// 	`rejected ${node.type}. Only ${property_definition.node_types.join(', ')} allowed.`
-					// );
 					rejected = true;
 					break;
 				}
@@ -611,12 +852,12 @@ ${fallback_html}`;
 			tr.insert_nodes(nodes_to_insert);
 			session.apply(tr);
 			return true;
-		} else {
-			if (tr.selection.path.length >= 2) {
-				const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
-				if (next_node_insert_caret) {
-					try_node_paste(pasted_json, next_node_insert_caret);
-				}
+		}
+
+		if (tr.selection.path.length >= 2) {
+			const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
+			if (next_node_insert_caret) {
+				return try_node_paste(pasted_json, next_node_insert_caret);
 			}
 		}
 		return false;
@@ -678,32 +919,43 @@ ${fallback_html}`;
 
 			// Try to construct a node payload from plain text when applicable
 			if (!pasted_json && typeof plain_text === 'string') {
-				const plain_text_fragments = plain_text
-					.split('\n\n')
-					.map((fragment) => fragment.trim())
-					.filter(Boolean);
-				// Also create a node payload for single paragraphs at a node gap —
-				// without this, insert_text bails out (requires text selection) and
-				// the paste is silently dropped.
-				const needs_node_payload =
-					plain_text_fragments.length > 1 ||
-					(plain_text_fragments.length === 1 && session.selection?.type === 'node');
-				if (needs_node_payload) {
-					pasted_json = {
-						main_nodes: [],
-						nodes: []
-					};
-					for (let i = 0; i < plain_text_fragments.length; i++) {
-						const fragment = plain_text_fragments[i];
-						pasted_json.nodes['fragment_' + i] = {
-							id: 'fragment_' + i,
-							type: 'text',
-							content: {
-								text: fragment,
-								annotations: []
+				plain_text = normalize_line_endings(plain_text);
+				const plain_text_fragments = split_plain_text_paragraphs(plain_text);
+				const has_multiple_paragraphs = plain_text_fragments.length > 1;
+
+				if (session.selection?.type === 'text') {
+					const property_definition = session.inspect(session.selection.path);
+					if (property_definition?.type === 'annotated_text' && !property_definition.allow_newlines) {
+						plain_text = normalize_plain_text_for_single_line_property(plain_text);
+					}
+
+					const owner_node = session.get(session.selection.path.slice(0, -1));
+					const owner_is_text_node = owner_node && session.kind(owner_node) === 'text';
+
+					if (owner_is_text_node && has_multiple_paragraphs) {
+						const node_array_property_definition = session.inspect(
+							session.selection.path.slice(0, -2)
+						);
+						const default_text_node_type = get_default_text_node(node_array_property_definition);
+						if (default_text_node_type) {
+							const handled_plain_text_paste = paste_plain_text_paragraphs_into_text_node(
+								plain_text_fragments,
+								default_text_node_type
+							);
+							if (handled_plain_text_paste) {
+								return;
 							}
-						};
-						pasted_json.main_nodes.push('fragment_' + i);
+						}
+					}
+				} else {
+					const target_node_insert_caret = get_target_node_insert_caret(session.selection);
+					if (target_node_insert_caret) {
+						const node_array_property_definition = session.inspect(target_node_insert_caret.path);
+						const default_text_node_type = get_default_text_node(node_array_property_definition);
+						pasted_json = create_plain_text_nodes_payload(
+							plain_text_fragments,
+							default_text_node_type
+						);
 					}
 				}
 			}
@@ -741,20 +993,24 @@ ${fallback_html}`;
 		} else if (
 			session.selection?.type === 'text' &&
 			pasted_json?.main_nodes?.length === 1 &&
-			session.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
+			is_text_like_node_payload(pasted_json?.nodes[pasted_json.main_nodes[0]])
 		) {
 			// Paste a single text node, at a text caret
-			const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
-			session.apply(
-				session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
-			);
+			const text_property = get_text_content(pasted_json.nodes[pasted_json.main_nodes[0]]);
+			if (text_property) {
+				session.apply(
+					session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+				);
+			}
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
 			// Paste nodes at a text or property selection by finding the next valid insert caret
-			const next_node_insert_caret = session.get_next_node_insert_caret(session.selection);
-			try_node_paste(pasted_json, next_node_insert_caret);
+			const target_node_insert_caret = get_target_node_insert_caret(session.selection);
+			if (target_node_insert_caret) {
+				try_node_paste(pasted_json, target_node_insert_caret);
+			}
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
-			session.apply(session.tr.insert_text(plain_text.trim()));
+			session.apply(session.tr.insert_text(plain_text));
 		}
 	}
 
