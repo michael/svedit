@@ -1,6 +1,6 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
 import { can_switch_annotation_type } from './doc_utils.js';
-import { is_selection_collapsed, is_mobile_browser, get_char_length } from './utils.js';
+import { is_selection_collapsed, is_mobile_browser, get_char_length, char_slice } from './utils.js';
 
 /**
  * Base class for commands that can be executed in response to user actions
@@ -169,7 +169,26 @@ export class AddNewLineCommand extends Command {
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.insert_text('\n'));
+		const session = this.context.session;
+		const selection = session.selection;
+		if (!selection || selection.type !== 'text') return;
+		if (!session.inspect(selection.path).allow_newlines) return;
+
+		const tr = session.tr;
+		if (selection.anchor_offset !== selection.focus_offset) {
+			tr.delete_selection();
+		}
+
+		const collapsed_offset = tr.selection.anchor_offset;
+		const content = tr.get(tr.selection.path);
+		const text_before_caret = char_slice(content.text, 0, collapsed_offset);
+		const line_start_index = text_before_caret.lastIndexOf('\n') + 1;
+		const current_line_prefix = text_before_caret.slice(line_start_index);
+		const indentation_match = current_line_prefix.match(/^[\t ]*/);
+		const indentation = indentation_match ? indentation_match[0] : '';
+
+		tr.insert_text(`\n${indentation}`);
+		session.apply(tr);
 	}
 }
 
@@ -180,7 +199,15 @@ export class AddNewLineCommand extends Command {
  */
 export class BreakTextNodeCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.session.selection?.type === 'text';
+		const session = this.context.session;
+		const selection = session.selection;
+		if (!this.context.editable || selection?.type !== 'text') return false;
+
+		const owner_node = session.get(selection.path.slice(0, -1));
+		const owner_node_schema = owner_node ? session.schema[owner_node.type] : null;
+		if (!owner_node_schema || owner_node_schema.kind !== 'text') return false;
+
+		return session.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	}
 
 	execute() {
