@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text, get_char_length } from './utils.js';
+import { split_annotated_text, join_annotated_text, get_char_length, char_slice } from './utils.js';
 import { get_default_node_type } from './doc_utils.js';
 
 /**
@@ -25,7 +25,29 @@ export function break_text_node(tr) {
 
 	// Owner of the text property (e.g. paragraph)
 	const node = tr.get(selection.path.slice(0, -1));
-	if (tr.kind(node) !== 'text') return false;
+	if (tr.kind(node) !== 'text') {
+		// For text properties owned by non-text nodes (e.g. story.description),
+		// Enter does not split nodes. Instead, when newlines are allowed by the schema,
+		// we insert a newline and carry over the current line's leading indentation
+		// (spaces/tabs) so list-like formatting continues naturally.
+		const text_property_definition = tr.inspect(selection.path);
+		if (!text_property_definition?.allow_newlines) return false;
+
+		if (selection.anchor_offset !== selection.focus_offset) {
+			tr.delete_selection();
+		}
+
+		const collapsed_offset = tr.selection.anchor_offset;
+		const content = tr.get(tr.selection.path);
+		const text_before_caret = char_slice(content.text, 0, collapsed_offset);
+		const line_start_index = text_before_caret.lastIndexOf('\n') + 1;
+		const current_line_prefix = text_before_caret.slice(line_start_index);
+		const indentation_match = current_line_prefix.match(/^[\t ]*/);
+		const indentation = indentation_match ? indentation_match[0] : '';
+
+		tr.insert_text(`\n${indentation}`);
+		return true;
+	}
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 	const node_array_prop = selection.path.at(-3);
