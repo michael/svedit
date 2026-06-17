@@ -104,7 +104,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -152,7 +152,8 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
 
@@ -174,5 +175,70 @@ describe('keymap continuity', () => {
 		// break_text_node splits the paragraph into two; the second part
 		// is inserted as a new text node into body.
 		expect(session.get(body_path).length).toBe(2);
+	});
+
+	it('inside a non-text node text property with allow_newlines, Enter inserts a newline with current line indentation', async () => {
+		const session = make_story_session(1);
+		const content_path = ['page_1', 'body', 0, 'description'];
+		const tr = session.tr;
+		tr.set(content_path, { text: 'Line\n\t  Item', annotations: [] });
+		session.apply(tr);
+
+		const { container } = render(SveditTestWithKeymap, { session });
+		await settle();
+
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		expect(canvas).not.toBeNull();
+		canvas.focus();
+		await settle();
+
+		session.selection = {
+			type: 'text',
+			path: content_path,
+			anchor_offset: 8,
+			focus_offset: 8
+		};
+		await settle();
+
+		const text_before = session.get(content_path).text;
+		expect(text_before).toBe('Line\n\t  Item');
+
+		press_enter(canvas);
+		await settle();
+
+		const text_after = session.get(content_path).text;
+		expect(text_after).toBe('Line\n\t  \n\t  Item');
+		expect(session.get(['page_1', 'body']).length).toBe(1);
+	});
+
+	it('inside story.title (non-text node, allow_newlines=false), Enter does nothing', async () => {
+		const session = make_story_session(1);
+		const content_path = ['page_1', 'body', 0, 'title'];
+		const { container } = render(SveditTestWithKeymap, { session });
+		await settle();
+
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		expect(canvas).not.toBeNull();
+		canvas.focus();
+		await settle();
+
+		session.selection = {
+			type: 'text',
+			path: content_path,
+			anchor_offset: 5,
+			focus_offset: 5
+		};
+		await settle();
+
+		const text_before = session.get(content_path).text;
+		expect(text_before).toBe('Test story');
+
+		press_enter(canvas);
+		await settle();
+
+		const text_after = session.get(content_path).text;
+		expect(text_after).toBe('Test story');
+		expect(session.get(['page_1', 'body']).length).toBe(1);
+		expect(session.get(['page_1', 'body', 0, 'buttons']).length).toBe(1);
 	});
 });
