@@ -8,6 +8,17 @@
 		serialize_path,
 		is_selection_collapsed
 	} from './utils.js';
+	import {
+		normalize_line_endings,
+		dedent_plain_text,
+		split_plain_text_paragraphs,
+		normalize_plain_text_for_single_line_property,
+		get_text_property_name,
+		get_text_content,
+		is_text_like_node_payload,
+		get_default_text_node,
+		create_plain_text_nodes_payload
+	} from './paste_utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
@@ -556,144 +567,7 @@ ${fallback_html}`;
 		oncopy(event, true);
 	}
 
-	function normalize_line_endings(text) {
-		return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-	}
 
-	function dedent_plain_text(plain_text) {
-		const lines = normalize_line_endings(plain_text).split('\n');
-		if (lines.length < 2) return plain_text;
-
-		const non_empty_lines = lines.filter((line) => line.trim().length > 0);
-		if (non_empty_lines.length === 0) return plain_text;
-
-		const indented_non_empty_lines = non_empty_lines.filter((line) => /^[\t ]+/.test(line));
-		const indented_line_ratio = indented_non_empty_lines.length / non_empty_lines.length;
-		if (indented_line_ratio < 0.8) return plain_text;
-
-		const leading_whitespace_lengths = indented_non_empty_lines
-			.map((line) => line.match(/^[\t ]+/)?.[0].length || 0)
-			.filter(Boolean);
-		if (leading_whitespace_lengths.length === 0) return plain_text;
-
-		const dedent_size = Math.min(...leading_whitespace_lengths);
-		if (dedent_size <= 0) return plain_text;
-
-		return lines
-			.map((line) => {
-				if (line.trim().length === 0) return line;
-				let removable_count = 0;
-				while (removable_count < dedent_size && removable_count < line.length) {
-					const char = line[removable_count];
-					if (char === ' ' || char === '\t') {
-						removable_count += 1;
-					} else {
-						break;
-					}
-				}
-				return line.slice(removable_count);
-			})
-			.join('\n');
-	}
-
-	function split_plain_text_paragraphs(plain_text) {
-		return normalize_line_endings(plain_text)
-			.split(/\n{2,}/)
-			.map((fragment) => fragment.trim())
-			.filter(Boolean);
-	}
-
-	function normalize_plain_text_for_single_line_property(plain_text) {
-		return normalize_line_endings(plain_text).replace(/\s*\n+\s*/g, ' ');
-	}
-
-	function get_text_property_name(node_type) {
-		if (!node_type) return null;
-		const node_schema = session.schema[node_type];
-		if (!node_schema || node_schema.kind !== 'text') return null;
-		if (node_schema.properties?.content?.type === 'annotated_text') return 'content';
-		return (
-			Object.entries(node_schema.properties).find(([, property_definition]) => {
-				return property_definition.type === 'annotated_text';
-			})?.[0] || null
-		);
-	}
-
-	function get_text_content(node) {
-		if (!node || typeof node !== 'object') return null;
-
-		const text_property_name = get_text_property_name(node.type);
-		if (
-			text_property_name &&
-			node[text_property_name] &&
-			typeof node[text_property_name].text === 'string' &&
-			Array.isArray(node[text_property_name].annotations)
-		) {
-			return node[text_property_name];
-		}
-
-		if (node.content && typeof node.content.text === 'string' && Array.isArray(node.content.annotations)) {
-			return node.content;
-		}
-
-		return null;
-	}
-
-	function is_text_like_node_payload(node) {
-		if (!node || typeof node !== 'object') return false;
-		if (session.schema[node.type]?.kind === 'text') return true;
-		return !!get_text_content(node);
-	}
-
-	function get_default_text_node(node_array_property_definition) {
-		if (
-			node_array_property_definition?.type !== 'node_array' ||
-			!Array.isArray(node_array_property_definition.node_types)
-		) {
-			return null;
-		}
-
-		const default_node_type = node_array_property_definition.default_node_type;
-		if (default_node_type && session.schema[default_node_type]?.kind === 'text') {
-			return default_node_type;
-		}
-
-		return (
-			node_array_property_definition.node_types.find(
-				(node_type) => session.schema[node_type]?.kind === 'text'
-			) || null
-		);
-	}
-
-	function create_plain_text_nodes_payload(paragraph_fragments, node_type) {
-		if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0 || !node_type) {
-			return null;
-		}
-
-		const text_property_name = get_text_property_name(node_type);
-		if (!text_property_name) return null;
-
-		const payload = {
-			main_nodes: [],
-			nodes: {}
-		};
-
-		for (let i = 0; i < paragraph_fragments.length; i++) {
-			const fragment = paragraph_fragments[i];
-			const node_id = 'fragment_' + i;
-			payload.nodes[node_id] = {
-				id: node_id,
-				type: node_type,
-				[text_property_name]: {
-					text: fragment,
-					annotations: []
-				}
-			};
-			payload.main_nodes.push(node_id);
-		}
-
-		return payload;
-	}
 
 	/**
 	 * @returns {NodeSelection|null}
@@ -777,8 +651,8 @@ ${fallback_html}`;
 		const property_definition = session.inspect(tr.selection.path);
 		if (property_definition?.type !== 'node_array') return false;
 
-		const default_text_node_type = get_default_text_node(property_definition);
-		const target_text_property_name = get_text_property_name(default_text_node_type);
+		const default_text_node_type = get_default_text_node(property_definition, session.schema);
+		const target_text_property_name = get_text_property_name(default_text_node_type, session.schema);
 
 		const nodes_to_insert = [];
 		let rejected = false;
@@ -790,8 +664,12 @@ ${fallback_html}`;
 			}
 
 			if (!property_definition.node_types.includes(node.type)) {
-				const text_content = get_text_content(node);
-				if (is_text_like_node_payload(node) && default_text_node_type && target_text_property_name) {
+				const text_content = get_text_content(node, session.schema);
+				if (
+					is_text_like_node_payload(node, session.schema) &&
+					default_text_node_type &&
+					target_text_property_name
+				) {
 					const new_node_id = tr.build('the_node', {
 						the_node: {
 							id: 'the_node',
@@ -899,11 +777,12 @@ ${fallback_html}`;
 						const node_array_property_definition = session.inspect(
 							session.selection.path.slice(0, -2)
 						);
-						const default_text_node_type = get_default_text_node(node_array_property_definition);
+						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
 						const node_insert_caret = get_node_insert_caret_after_text_selection(session.selection);
 						const plain_text_nodes_payload = create_plain_text_nodes_payload(
 							plain_text_fragments,
-							default_text_node_type
+							default_text_node_type,
+							session.schema
 						);
 
 						if (node_insert_caret && plain_text_nodes_payload) {
@@ -917,10 +796,11 @@ ${fallback_html}`;
 					const target_node_insert_caret = get_target_node_insert_caret(session.selection);
 					if (target_node_insert_caret) {
 						const node_array_property_definition = session.inspect(target_node_insert_caret.path);
-						const default_text_node_type = get_default_text_node(node_array_property_definition);
+						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
 						pasted_json = create_plain_text_nodes_payload(
 							plain_text_fragments,
-							default_text_node_type
+							default_text_node_type,
+							session.schema
 						);
 					}
 				}
@@ -959,10 +839,13 @@ ${fallback_html}`;
 		} else if (
 			session.selection?.type === 'text' &&
 			pasted_json?.main_nodes?.length === 1 &&
-			is_text_like_node_payload(pasted_json?.nodes[pasted_json.main_nodes[0]])
+			is_text_like_node_payload(pasted_json?.nodes[pasted_json.main_nodes[0]], session.schema)
 		) {
 			// Paste a single text node, at a text caret
-			const text_property = get_text_content(pasted_json.nodes[pasted_json.main_nodes[0]]);
+			const text_property = get_text_content(
+				pasted_json.nodes[pasted_json.main_nodes[0]],
+				session.schema
+			);
 			if (text_property) {
 				session.apply(
 					session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
