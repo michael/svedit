@@ -742,4 +742,149 @@ describe('Svedit.svelte', () => {
 		// Verify that encoding/decoding preserves Unicode characters perfectly
 		expect(decoded_data.main_nodes).toContain(unicode_text_id);
 	});
+
+	async function dispatch_plain_text_paste(plain_text) {
+		const paste_event = new ClipboardEvent('paste', {
+			bubbles: true,
+			cancelable: true
+		});
+		const mock_clipboard_data = {
+			items: [],
+			getData: (format) => {
+				if (format === 'text/plain') return plain_text;
+				return '';
+			}
+		};
+		Object.defineProperty(paste_event, 'clipboardData', {
+			value: mock_clipboard_data,
+			writable: false
+		});
+		document.dispatchEvent(paste_event);
+		await tick();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+
+	it('should split multi-paragraph plain text into text nodes when selection is inside a text node', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		const tr = session.tr;
+		const text_id = nanoid();
+		tr.create({
+			id: text_id,
+			type: 'text',
+			layout: 1,
+			content: { text: '', annotations: [] }
+		});
+		tr.set(['page_1', 'body'], [...session.get(['page_1', 'body']), text_id]);
+		session.apply(tr);
+
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 3, 'content'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('alpha\n\nbeta\n\ngamma');
+
+		const body = session.get(['page_1', 'body']);
+		expect(body).toHaveLength(7);
+		expect(session.get(body[3]).content.text).toBe('');
+		expect(session.get(body[4]).content.text).toBe('alpha');
+		expect(session.get(body[5]).content.text).toBe('beta');
+		expect(session.get(body[6]).content.text).toBe('gamma');
+	});
+
+	it('should paste multi-paragraph plain text as-is into a block text property with allow_newlines=true', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		const description_text = session.get('story_1').description.text;
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'description'],
+			anchor_offset: 0,
+			focus_offset: description_text.length
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('line one\n\nline two');
+
+		expect(session.get('story_1').description.text).toBe('line one\n\nline two');
+		expect(session.get(['page_1', 'body'])).toHaveLength(3);
+	});
+
+	it('should dedent plain text when most lines share leading whitespace', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		const description_text = session.get('story_1').description.text;
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'description'],
+			anchor_offset: 0,
+			focus_offset: description_text.length
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('\tlet first = 1;\n\tlet second = 2;\n\tlet third = 3;');
+
+		expect(session.get('story_1').description.text).toBe('let first = 1;\nlet second = 2;\nlet third = 3;');
+	});
+
+	it('should normalize newlines to single spaces in block text properties with allow_newlines=false', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		const title_text = session.get('story_1').title.text;
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'title'],
+			anchor_offset: 0,
+			focus_offset: title_text.length
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('hello\n\n   world\nagain');
+
+		expect(session.get('story_1').title.text).toBe('hello world again');
+		expect(session.get(['page_1', 'body'])).toHaveLength(3);
+	});
+
+	it('should paste plain text from a property selection by inserting text nodes into the nearest node_array', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		svedit_element?.focus();
+		await tick();
+
+		session.selection = {
+			type: 'property',
+			path: ['page_1', 'body', 0, 'image']
+		};
+		await tick();
+
+		await dispatch_plain_text_paste('inserted one\n\ninserted two');
+
+		const body = session.get(['page_1', 'body']);
+		expect(body).toHaveLength(5);
+		expect(session.kind(session.get(body[1]))).toBe('text');
+		expect(session.kind(session.get(body[2]))).toBe('text');
+		expect(session.get(body[1]).content.text).toBe('inserted one');
+		expect(session.get(body[2]).content.text).toBe('inserted two');
+	});
 });

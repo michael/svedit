@@ -8,6 +8,17 @@
 		serialize_path,
 		is_selection_collapsed
 	} from './utils.js';
+	import {
+		normalize_line_endings,
+		dedent_plain_text,
+		split_plain_text_paragraphs,
+		normalize_plain_text_for_single_line_property,
+		get_text_property_name,
+		get_text_content,
+		is_text_like_node_payload,
+		get_default_text_node,
+		create_plain_text_nodes_payload
+	} from './paste_utils.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
@@ -556,6 +567,70 @@ ${fallback_html}`;
 		oncopy(event, true);
 	}
 
+
+
+	/**
+	 * @returns {NodeSelection|null}
+	 */
+	function get_root_node_insert_caret() {
+		const root_node = session.get(path);
+		const root_schema = root_node ? session.schema[root_node.type] : null;
+		if (!root_schema?.properties) return null;
+
+		const preferred_property_name =
+			root_schema.properties.body?.type === 'node_array'
+				? 'body'
+				: Object.entries(root_schema.properties).find(([, property_definition]) => {
+						return property_definition.type === 'node_array';
+					})?.[0];
+		if (!preferred_property_name) return null;
+
+		const node_array_path = [...path, preferred_property_name];
+		const node_array = session.get(node_array_path);
+		if (!Array.isArray(node_array)) return null;
+
+		return {
+			type: /** @type {const} */ ('node'),
+			path: node_array_path,
+			anchor_offset: node_array.length,
+			focus_offset: node_array.length
+		};
+	}
+
+	/**
+	 * @param {Selection|null} [selection]
+	 * @returns {NodeSelection|null}
+	 */
+	function get_target_node_insert_caret(selection = session.selection) {
+		if (selection?.type === 'node') {
+			return selection;
+		}
+
+		const next_node_insert_caret = session.get_next_node_insert_caret(selection);
+		if (next_node_insert_caret?.type === 'node') {
+			return next_node_insert_caret;
+		}
+
+		return get_root_node_insert_caret();
+	}
+
+	/**
+	 * @param {Selection|null} [selection]
+	 * @returns {NodeSelection|null}
+	 */
+	function get_node_insert_caret_after_text_selection(selection = session.selection) {
+		if (selection?.type !== 'text') return null;
+		const node_index = parseInt(String(selection.path.at(-2)), 10);
+		if (Number.isNaN(node_index)) return null;
+
+		return {
+			type: /** @type {const} */ ('node'),
+			path: selection.path.slice(0, -2),
+			anchor_offset: node_index + 1,
+			focus_offset: node_index + 1
+		};
+	}
+
 	/**
 	 * Attempts to paste JSON data as a node at the current selection.
 	 *
@@ -564,40 +639,46 @@ ${fallback_html}`;
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
-		const { nodes, main_nodes } = pasted_json;
+		const { nodes, main_nodes } = pasted_json || {};
+		if (!nodes || !main_nodes?.length) return false;
 
-		// NOTE: At this point, nodes contains a subgraph from the copy
-		// with original ids.
 		let tr = session.tr;
 		if (selection) {
 			tr.set_selection(selection);
 		}
+		if (tr.selection?.type !== 'node') return false;
 
-		// We can safely assume we're dealing with a node_array property
 		const property_definition = session.inspect(tr.selection.path);
-		const first_compatible_text_node_type = property_definition.node_types.find(
-			(type) => session.kind({ type }) === 'text'
-		);
+		if (property_definition?.type !== 'node_array') return false;
+
+		const default_text_node_type = get_default_text_node(property_definition, session.schema);
+		const target_text_property_name = get_text_property_name(default_text_node_type, session.schema);
 
 		const nodes_to_insert = [];
 		let rejected = false;
 		for (const node_id of main_nodes) {
 			const node = nodes[node_id];
+			if (!node) {
+				rejected = true;
+				break;
+			}
+
 			if (!property_definition.node_types.includes(node.type)) {
-				// Incompatible node type detected
-				if (session.kind(node) === 'text' && first_compatible_text_node_type) {
+				const text_content = get_text_content(node, session.schema);
+				if (
+					is_text_like_node_payload(node, session.schema) &&
+					default_text_node_type &&
+					target_text_property_name
+				) {
 					const new_node_id = tr.build('the_node', {
 						the_node: {
 							id: 'the_node',
-							type: first_compatible_text_node_type,
-							content: node.content
+							type: default_text_node_type,
+							[target_text_property_name]: text_content || { text: '', annotations: [] }
 						}
 					});
 					nodes_to_insert.push(new_node_id);
 				} else {
-					// console.log(
-					// 	`rejected ${node.type}. Only ${property_definition.node_types.join(', ')} allowed.`
-					// );
 					rejected = true;
 					break;
 				}
@@ -611,12 +692,12 @@ ${fallback_html}`;
 			tr.insert_nodes(nodes_to_insert);
 			session.apply(tr);
 			return true;
-		} else {
-			if (tr.selection.path.length >= 2) {
-				const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
-				if (next_node_insert_caret) {
-					try_node_paste(pasted_json, next_node_insert_caret);
-				}
+		}
+
+		if (tr.selection.path.length >= 2) {
+			const next_node_insert_caret = session.get_next_node_insert_caret(tr.selection);
+			if (next_node_insert_caret) {
+				return try_node_paste(pasted_json, next_node_insert_caret);
 			}
 		}
 		return false;
@@ -678,32 +759,49 @@ ${fallback_html}`;
 
 			// Try to construct a node payload from plain text when applicable
 			if (!pasted_json && typeof plain_text === 'string') {
-				const plain_text_fragments = plain_text
-					.split('\n\n')
-					.map((fragment) => fragment.trim())
-					.filter(Boolean);
-				// Also create a node payload for single paragraphs at a node gap —
-				// without this, insert_text bails out (requires text selection) and
-				// the paste is silently dropped.
-				const needs_node_payload =
-					plain_text_fragments.length > 1 ||
-					(plain_text_fragments.length === 1 && session.selection?.type === 'node');
-				if (needs_node_payload) {
-					pasted_json = {
-						main_nodes: [],
-						nodes: []
-					};
-					for (let i = 0; i < plain_text_fragments.length; i++) {
-						const fragment = plain_text_fragments[i];
-						pasted_json.nodes['fragment_' + i] = {
-							id: 'fragment_' + i,
-							type: 'text',
-							content: {
-								text: fragment,
-								annotations: []
+				plain_text = normalize_line_endings(plain_text);
+				plain_text = dedent_plain_text(plain_text);
+				const plain_text_fragments = split_plain_text_paragraphs(plain_text);
+				const has_multiple_paragraphs = plain_text_fragments.length > 1;
+
+				if (session.selection?.type === 'text') {
+					const property_definition = session.inspect(session.selection.path);
+					if (property_definition?.type === 'annotated_text' && !property_definition.allow_newlines) {
+						plain_text = normalize_plain_text_for_single_line_property(plain_text);
+					}
+
+					const owner_node = session.get(session.selection.path.slice(0, -1));
+					const owner_is_text_node = owner_node && session.kind(owner_node) === 'text';
+
+					if (owner_is_text_node && has_multiple_paragraphs) {
+						const node_array_property_definition = session.inspect(
+							session.selection.path.slice(0, -2)
+						);
+						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						const node_insert_caret = get_node_insert_caret_after_text_selection(session.selection);
+						const plain_text_nodes_payload = create_plain_text_nodes_payload(
+							plain_text_fragments,
+							default_text_node_type,
+							session.schema
+						);
+
+						if (node_insert_caret && plain_text_nodes_payload) {
+							const did_paste_nodes = try_node_paste(plain_text_nodes_payload, node_insert_caret);
+							if (did_paste_nodes) {
+								return;
 							}
-						};
-						pasted_json.main_nodes.push('fragment_' + i);
+						}
+					}
+				} else {
+					const target_node_insert_caret = get_target_node_insert_caret(session.selection);
+					if (target_node_insert_caret) {
+						const node_array_property_definition = session.inspect(target_node_insert_caret.path);
+						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						pasted_json = create_plain_text_nodes_payload(
+							plain_text_fragments,
+							default_text_node_type,
+							session.schema
+						);
 					}
 				}
 			}
@@ -741,20 +839,27 @@ ${fallback_html}`;
 		} else if (
 			session.selection?.type === 'text' &&
 			pasted_json?.main_nodes?.length === 1 &&
-			session.kind(pasted_json?.nodes[pasted_json.main_nodes[0]]) === 'text'
+			is_text_like_node_payload(pasted_json?.nodes[pasted_json.main_nodes[0]], session.schema)
 		) {
 			// Paste a single text node, at a text caret
-			const text_property = pasted_json.nodes[pasted_json.main_nodes[0]].content;
-			session.apply(
-				session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+			const text_property = get_text_content(
+				pasted_json.nodes[pasted_json.main_nodes[0]],
+				session.schema
 			);
+			if (text_property) {
+				session.apply(
+					session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+				);
+			}
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
 			// Paste nodes at a text or property selection by finding the next valid insert caret
-			const next_node_insert_caret = session.get_next_node_insert_caret(session.selection);
-			try_node_paste(pasted_json, next_node_insert_caret);
+			const target_node_insert_caret = get_target_node_insert_caret(session.selection);
+			if (target_node_insert_caret) {
+				try_node_paste(pasted_json, target_node_insert_caret);
+			}
 		} else if (typeof plain_text === 'string') {
 			// External paste: Fallback to plain text when no svedit data is found
-			session.apply(session.tr.insert_text(plain_text.trim()));
+			session.apply(session.tr.insert_text(plain_text));
 		}
 	}
 
@@ -1173,6 +1278,7 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
+		if (!canvas_el) return null;
 		return canvas_el.querySelector(
 			`[data-path="${serialize_path([...node_array_path, node_offset])}"][data-type="node"]`
 		);
