@@ -1278,6 +1278,7 @@ ${fallback_html}`;
 	}
 
 	function __get_node_element(node_array_path, node_offset) {
+		if (!canvas_el) return null;
 		return canvas_el.querySelector(
 			`[data-path="${serialize_path([...node_array_path, node_offset])}"][data-type="node"]`
 		);
