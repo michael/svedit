@@ -1,4 +1,4 @@
-import { insert_default_node, break_text_node } from './transforms.svelte.js';
+import { insert_default_node, break_text_node, exit_break } from './transforms.svelte.js';
 import { can_switch_annotation_type } from './doc_utils.js';
 import { is_selection_collapsed, is_mobile_browser, get_char_length, char_slice } from './utils.js';
 
@@ -352,5 +352,23 @@ export class InsertDefaultNodeCommand extends Command {
 		const tr = this.context.session.tr;
 		insert_default_node(tr);
 		this.context.session.apply(tr);
+	}
+}
+
+/**
+ * Exit-break command: escapes the current node property or nested node_array
+ * and inserts a new default node after the outermost ancestor in the
+ * document's top-level node_array.
+ */
+export class ExitBreakCommand extends Command {
+	is_enabled() {
+		return this.context.editable && !!this.context.session.selection;
+	}
+
+	execute() {
+		const tr = this.context.session.tr;
+		if (exit_break(tr)) {
+			this.context.session.apply(tr);
+		}
 	}
 }
