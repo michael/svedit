@@ -6,7 +6,10 @@ import nanoid from '../routes/nanoid.js';
 import Page from '../routes/components/Page.svelte';
 import Story from '../routes/components/Story.svelte';
 import Button from '../routes/components/Button.svelte';
-import Text from '../routes/components/Text.svelte';
+import Paragraph from '../routes/components/Paragraph.svelte';
+import Heading1 from '../routes/components/Heading1.svelte';
+import Heading2 from '../routes/components/Heading2.svelte';
+import Heading3 from '../routes/components/Heading3.svelte';
 import List from '../routes/components/List.svelte';
 import ListItem from '../routes/components/ListItem.svelte';
 
@@ -16,8 +19,8 @@ const document_schema = define_document_schema({
 		properties: {
 			body: {
 				type: 'node_array',
-				node_types: ['text', 'story', 'list'],
-				default_node_type: 'text'
+				node_types: ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'story', 'list'],
+				default_node_type: 'paragraph'
 			},
 			keywords: {
 				type: 'string_array'
@@ -37,7 +40,28 @@ const document_schema = define_document_schema({
 			href: { type: 'string' }
 		}
 	},
-	text: {
+	paragraph: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer' },
+			content: { type: 'annotated_text', allow_newlines: true }
+		}
+	},
+	heading_1: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer' },
+			content: { type: 'annotated_text', allow_newlines: true }
+		}
+	},
+	heading_2: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer' },
+			content: { type: 'annotated_text', allow_newlines: true }
+		}
+	},
+	heading_3: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
@@ -125,13 +149,19 @@ const session_config = {
 	node_components: {
 		page: Page,
 		button: Button,
-		text: Text,
+		paragraph: Paragraph,
+		heading_1: Heading1,
+		heading_2: Heading2,
+		heading_3: Heading3,
 		story: Story,
 		list: List,
 		list_item: ListItem
 	},
 	node_layouts: {
-		text: 4,
+		paragraph: 1,
+		heading_1: 1,
+		heading_2: 1,
+		heading_3: 1,
 		story: 3,
 		list: 5,
 		list_item: 1
@@ -153,16 +183,67 @@ const session_config = {
 				focus_offset: 0
 			});
 		},
-		text: function (tr, content) {
+		paragraph: function (tr, content) {
 			const text_content = content || { text: '', annotations: [] };
-			const new_text = {
+			const new_paragraph = {
 				id: nanoid(),
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: text_content
 			};
-			tr.create(new_text);
-			tr.insert_nodes([new_text.id]);
+			tr.create(new_paragraph);
+			tr.insert_nodes([new_paragraph.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_1: function (tr, content) {
+			const text_content = content || { text: '', annotations: [] };
+			const new_heading_1 = {
+				id: nanoid(),
+				type: 'heading_1',
+				layout: 1,
+				content: text_content
+			};
+			tr.create(new_heading_1);
+			tr.insert_nodes([new_heading_1.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_2: function (tr, content) {
+			const text_content = content || { text: '', annotations: [] };
+			const new_heading_2 = {
+				id: nanoid(),
+				type: 'heading_2',
+				layout: 1,
+				content: text_content
+			};
+			tr.create(new_heading_2);
+			tr.insert_nodes([new_heading_2.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_3: function (tr, content) {
+			const text_content = content || { text: '', annotations: [] };
+			const new_heading_3 = {
+				id: nanoid(),
+				type: 'heading_3',
+				layout: 1,
+				content: text_content
+			};
+			tr.create(new_heading_3);
+			tr.insert_nodes([new_heading_3.id]);
 			tr.set_selection({
 				type: 'text',
 				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],

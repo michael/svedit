@@ -87,8 +87,9 @@
 				nodes[id] = { id, type: 'image_grid', layout: 1, image_grid_items: grid_items };
 			} else {
 				nodes[id] = {
-					id, type: 'text',
-					layout: i % 5 === 0 ? 2 : 1,
+					id,
+					type: i % 10 === 0 ? 'heading_2' : 'paragraph',
+					layout: 1,
 					content: {
 						text: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
 						annotations: []
