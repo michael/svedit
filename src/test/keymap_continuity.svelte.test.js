@@ -40,7 +40,7 @@ import Session from '../lib/Session.svelte.js';
 import { document_schema, session_config } from '../routes/create_demo_session.js';
 
 /**
- * Build a session whose body holds a single 'text'-kind paragraph node.
+ * Build a session whose body holds a single paragraph text node.
  * `break_text_node` requires the text property's owner to have kind 'text',
  * so we need this — `make_story_session` puts text properties on buttons and
  * stories (kind 'composed'), where break_text_node would bail.
@@ -53,7 +53,7 @@ function make_paragraph_session(text = 'Hello world') {
 			nodes: {
 				paragraph_1: {
 					id: 'paragraph_1',
-					type: 'text',
+					type: 'paragraph',
 					layout: 1,
 					content: { text, annotations: [] }
 				},

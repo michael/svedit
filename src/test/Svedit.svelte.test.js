@@ -257,7 +257,7 @@ describe('Svedit.svelte', () => {
 			const empty_text_id = nanoid();
 			const empty_text_node = {
 				id: empty_text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: '', annotations: [] } // Empty content
 			};
@@ -304,7 +304,7 @@ describe('Svedit.svelte', () => {
 			const text_id = nanoid();
 			const text_node = {
 				id: text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: 'Some content', annotations: [] }
 			};
@@ -349,7 +349,7 @@ describe('Svedit.svelte', () => {
 			const empty_text_id = nanoid();
 			const empty_text_node = {
 				id: empty_text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: '', annotations: [] } // Empty content
 			};
@@ -396,7 +396,7 @@ describe('Svedit.svelte', () => {
 			const text_id = nanoid();
 			const text_node = {
 				id: text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: 'Some content', annotations: [] }
 			};
@@ -443,14 +443,14 @@ describe('Svedit.svelte', () => {
 
 			const first_text_node = {
 				id: first_text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: 'First text', annotations: [] }
 			};
 
 			const second_text_node = {
 				id: second_text_id,
-				type: 'text',
+				type: 'paragraph',
 				layout: 1,
 				content: { text: ' second text', annotations: [] }
 			};
@@ -630,7 +630,7 @@ describe('Svedit.svelte', () => {
 		const unicode_text_id = nanoid();
 		const unicode_text_node = {
 			id: unicode_text_id,
-			type: 'text',
+			type: 'paragraph',
 			layout: 1,
 			content: { text: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', annotations: [] }
 		};
@@ -775,7 +775,7 @@ describe('Svedit.svelte', () => {
 		const text_id = nanoid();
 		tr.create({
 			id: text_id,
-			type: 'text',
+			type: 'paragraph',
 			layout: 1,
 			content: { text: '', annotations: [] }
 		});

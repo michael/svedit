@@ -22,7 +22,10 @@ import Overlays from './components/Overlays.svelte';
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
 import Button from './components/Button.svelte';
-import Text from './components/Text.svelte';
+import Paragraph from './components/Paragraph.svelte';
+import Heading1 from './components/Heading1.svelte';
+import Heading2 from './components/Heading2.svelte';
+import Heading3 from './components/Heading3.svelte';
 import List from './components/List.svelte';
 import ListItem from './components/ListItem.svelte';
 import ImageGrid from './components/ImageGrid.svelte';
@@ -42,8 +45,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			body: {
 				type: 'node_array',
-				node_types: ['text', 'story', 'list', 'image_grid', 'hero'],
-				default_node_type: 'text'
+				node_types: ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'story', 'list', 'image_grid', 'hero'],
+				default_node_type: 'paragraph'
 			},
 			keywords: {
 				type: 'string_array'
@@ -73,7 +76,40 @@ export const document_schema = define_document_schema({
 			image: { type: 'string' } // a dedicated type asset would be better
 		}
 	},
-	text: {
+	paragraph: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer', default: 1 },
+			content: {
+				type: 'annotated_text',
+				node_types: ALL_ANNOTATIONS,
+				allow_newlines: true
+			}
+		}
+	},
+	heading_1: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer', default: 1 },
+			content: {
+				type: 'annotated_text',
+				node_types: ALL_ANNOTATIONS,
+				allow_newlines: true
+			}
+		}
+	},
+	heading_2: {
+		kind: 'text',
+		properties: {
+			layout: { type: 'integer', default: 1 },
+			content: {
+				type: 'annotated_text',
+				node_types: ALL_ANNOTATIONS,
+				allow_newlines: true
+			}
+		}
+	},
+	heading_3: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer', default: 1 },
@@ -233,13 +269,13 @@ const doc = {
 		},
 		heading_1: {
 			id: 'heading_1',
-			type: 'text',
-			layout: 2,
+			type: 'heading_1',
+			layout: 1,
 			content: { text: 'Text and structured content in symbiosis', annotations: [] }
 		},
 		paragraph_1: {
 			id: 'paragraph_1',
-			type: 'text',
+			type: 'paragraph',
 			layout: 1,
 			content: {
 				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
@@ -479,7 +515,10 @@ export const session_config = {
 	node_components: {
 		page: Page,
 		button: Button,
-		text: Text,
+		paragraph: Paragraph,
+		heading_1: Heading1,
+		heading_2: Heading2,
+		heading_3: Heading3,
 		story: Story,
 		list: List,
 		list_item: ListItem,
@@ -570,15 +609,17 @@ export const session_config = {
 			}
 			return html;
 		},
-		text: (node) => {
-			const tag_name =
-				{
-					1: 'p',
-					2: 'h2',
-					3: 'h3',
-					4: 'h4'
-				}[node.layout] ?? 'p';
-			return `<${tag_name}>${node.content.text}</${tag_name}>\n`;
+		paragraph: (node) => {
+			return `<p>${node.content.text}</p>\n`;
+		},
+		heading_1: (node) => {
+			return `<h1>${node.content.text}</h1>\n`;
+		},
+		heading_2: (node) => {
+			return `<h2>${node.content.text}</h2>\n`;
+		},
+		heading_3: (node) => {
+			return `<h3>${node.content.text}</h3>\n`;
 		},
 		button: (node) => {
 			return `<a href="${node.href}">${node.content.text}</a>\n`;
@@ -606,7 +647,10 @@ export const session_config = {
 	},
 	node_layouts: {
 		button: 1,
-		text: 4,
+		paragraph: 1,
+		heading_1: 1,
+		heading_2: 1,
+		heading_3: 1,
 		story: 3,
 		list: 5,
 		list_item: 1,
@@ -616,16 +660,63 @@ export const session_config = {
 	// Custom functions to insert new "blank" nodes and setting the selection depening on the
 	// intended behavior.
 	inserters: {
-		text: function (tr, content, layout) {
-			const new_text = {
+		paragraph: function (tr, content, layout) {
+			const new_paragraph = {
 				id: nanoid(),
-				type: 'text'
+				type: 'paragraph'
 			};
-			if (content !== undefined) new_text.content = content;
-			if (layout !== undefined) new_text.layout = layout;
-			tr.create(new_text);
-			tr.insert_nodes([new_text.id]);
-			// NOTE: Relies on insert_nodes selecting the newly inserted node(s)
+			if (content !== undefined) new_paragraph.content = content;
+			if (layout !== undefined) new_paragraph.layout = layout;
+			tr.create(new_paragraph);
+			tr.insert_nodes([new_paragraph.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_1: function (tr, content, layout) {
+			const new_heading_1 = {
+				id: nanoid(),
+				type: 'heading_1'
+			};
+			if (content !== undefined) new_heading_1.content = content;
+			if (layout !== undefined) new_heading_1.layout = layout;
+			tr.create(new_heading_1);
+			tr.insert_nodes([new_heading_1.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_2: function (tr, content, layout) {
+			const new_heading_2 = {
+				id: nanoid(),
+				type: 'heading_2'
+			};
+			if (content !== undefined) new_heading_2.content = content;
+			if (layout !== undefined) new_heading_2.layout = layout;
+			tr.create(new_heading_2);
+			tr.insert_nodes([new_heading_2.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
+		heading_3: function (tr, content, layout) {
+			const new_heading_3 = {
+				id: nanoid(),
+				type: 'heading_3'
+			};
+			if (content !== undefined) new_heading_3.content = content;
+			if (layout !== undefined) new_heading_3.layout = layout;
+			tr.create(new_heading_3);
+			tr.insert_nodes([new_heading_3.id]);
 			tr.set_selection({
 				type: 'text',
 				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],

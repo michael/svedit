@@ -2,13 +2,25 @@
 	import Icon from './Icon.svelte';
 	import {
 		get_closest_switchable_layout,
-		get_closest_switchable_type
+		get_closest_switchable_type,
+		is_node_subtree_empty
 	} from '../app_utils.js';
 
 	let { session, focus_canvas, editable = $bindable(false) } = $props();
 
 	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
 	let closest_switchable_type = $derived(get_closest_switchable_type(session));
+	let cycle_node_state = $derived(session.commands.next_type?.cycle_node_state ?? null);
+	let should_pulse_cycle_type = $derived(
+		!session.commands.next_type?.disabled &&
+			cycle_node_state?.node &&
+			is_node_subtree_empty(session, cycle_node_state.node)
+	);
+	let should_pulse_cycle_layout = $derived(
+		!session.commands.next_layout?.disabled &&
+			closest_switchable_layout?.node &&
+			is_node_subtree_empty(session, closest_switchable_layout.node)
+	);
 
 	let input_ref = $state();
 
@@ -263,6 +275,7 @@
 			title="Cycle type (⌃ ⇧ ↓)"
 			onmousedown={cycle_node_type}
 			disabled={!closest_switchable_type || session.commands.next_type?.disabled}
+			class:pulse={should_pulse_cycle_type}
 		>
 			<svg
 				class="toolbar-icon"
@@ -284,6 +297,7 @@
 			title="Cycle layout (⌃ ⇧ →)"
 			onmousedown={cycle_layout}
 			disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
+			class:pulse={should_pulse_cycle_layout}
 		>
 			<svg
 				class="toolbar-icon"
@@ -396,8 +410,8 @@
 		align-items: center;
 		gap: 0.35rem;
 		max-width: calc(100vw - 2 * var(--s-4));
-		padding: 4px;
-		margin: -4px;
+		padding: 8px;
+		margin: -8px;
 		overflow-x: auto;
 		scrollbar-width: thin;
 
@@ -436,6 +450,17 @@
 			border-color: color-mix(in oklch, var(--app-canvas-fill) 84%, var(--app-primary-text));
 			background: color-mix(in oklch, var(--app-canvas-fill) 94%, var(--app-primary-text));
 			transform: translateY(1px) scale(0.95);
+		}
+
+		button:not(.toggle-editable).pulse::after {
+			content: '';
+			position: absolute;
+			inset: -2px;
+			border: 1px solid var(--svedit-editing-stroke);
+			border-radius: 9999px;
+			opacity: 0;
+			animation: pulse-ring 1.6s ease-out infinite;
+			pointer-events: none;
 		}
 
 		button:not(.toggle-editable):focus-visible {
@@ -497,6 +522,24 @@
 					border-color: var(--svedit-editing-stroke);
 				}
 			}
+		}
+	}
+
+	@keyframes pulse-ring {
+		0% {
+			opacity: 0.5;
+			transform: scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.25);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		button:not(.toggle-editable).pulse::after {
+			animation: none;
+			opacity: 0;
 		}
 	}
 </style>
