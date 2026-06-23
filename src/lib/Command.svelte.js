@@ -1,6 +1,6 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
 import { can_switch_annotation_type } from './doc_utils.js';
-import { is_selection_collapsed, is_mobile_browser, get_char_length, char_slice } from './utils.js';
+import { is_selection_collapsed, is_virtual_keyboard_active, get_char_length, char_slice } from './utils.js';
 
 /**
  * Base class for commands that can be executed in response to user actions
@@ -153,7 +153,7 @@ export class ToggleAnnotationCommand extends Command {
 /**
  * Command that adds a new line character at the current caret position.
  * Only works in text selections where newlines are allowed.
- * Disabled on mobile browsers where Shift+Enter has different behavior.
+ * Disabled when a virtual keyboard is active.
  */
 export class AddNewLineCommand extends Command {
 	is_enabled() {
@@ -162,7 +162,7 @@ export class AddNewLineCommand extends Command {
 
 		return (
 			this.context.editable &&
-			!is_mobile_browser() &&
+			!is_virtual_keyboard_active() &&
 			selection?.type === 'text' &&
 			session.inspect(selection.path).allow_newlines
 		);

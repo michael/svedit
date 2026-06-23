@@ -5,6 +5,27 @@
 const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
 /**
+ * Detect if the virtual keyboard is likely visible.
+ *
+ * This is a heuristic based on the visual viewport becoming smaller than the
+ * layout viewport.
+ *
+ * @returns {boolean} true if the virtual keyboard is likely active, false otherwise
+ */
+export function is_virtual_keyboard_active() {
+	if (typeof window === 'undefined' || typeof document === 'undefined') {
+		return false;
+	}
+
+	const visual_viewport = window.visualViewport;
+	if (!visual_viewport) {
+		return false;
+	}
+
+	return visual_viewport.height < document.documentElement.clientHeight;
+}
+
+/**
  * Detect if the current browser is on a mobile device
  * @returns {boolean} true if mobile browser, false otherwise
  */
