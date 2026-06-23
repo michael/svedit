@@ -1,3 +1,5 @@
+import { is_virtual_keyboard_active } from './utils.js';
+
 const MODIFIER_KEYS = ['meta', 'ctrl', 'alt', 'shift'];
 const MODIFIER_EVENT_KEYS = {
 	meta: 'metaKey',
@@ -34,7 +36,7 @@ export function define_keymap(keymap) {
  * Matches a keyboard event against a key combo string.
  * Example: 'meta+e,ctrl+e' matches either (metaKey && key==='e') OR (ctrlKey && key==='e')
  */
-function matches_key_combo(key_combo, event) {
+function matches_key_combo(key_combo, event, virtual_keyboard_active = false) {
 	const alternatives = key_combo.split(',');
 
 	return alternatives.some((alternative) => {
@@ -42,14 +44,22 @@ function matches_key_combo(key_combo, event) {
 		const modifiers = parts.filter((part) => MODIFIER_KEYS.includes(part));
 		const non_modifier = parts.find((part) => !MODIFIER_KEYS.includes(part));
 
+		if (virtual_keyboard_active && modifiers.length > 0) {
+			return false;
+		}
+
 		// Check if all specified modifiers are pressed
 		const modifiers_match = modifiers.every((mod) => event[MODIFIER_EVENT_KEYS[mod]]);
 
 		// Check if no unspecified modifiers are pressed
-		const no_extra_modifiers = MODIFIER_KEYS.every((mod) => {
-			if (modifiers.includes(mod)) return true; // This modifier is expected
-			return !event[MODIFIER_EVENT_KEYS[mod]]; // This modifier should NOT be pressed
-		});
+		// NOTE: On virtual keyboards (iOS / Anroid) modifier keys are just ignored, because
+		// they must be assumed accidental (e.g. Shift activated as a result of auto-capitalization)
+		const no_extra_modifiers = virtual_keyboard_active
+			? true
+			: MODIFIER_KEYS.every((mod) => {
+				if (modifiers.includes(mod)) return true; // This modifier is expected
+				return !event[MODIFIER_EVENT_KEYS[mod]]; // This modifier should NOT be pressed
+			});
 
 		// Check if the key matches
 		const key_matches = event.key.toLowerCase() === non_modifier;
@@ -65,8 +75,10 @@ function matches_key_combo(key_combo, event) {
  * but don't crash the application.
  */
 function handle_key_map(key_map, event) {
+	const virtual_keyboard_active = is_virtual_keyboard_active();
+
 	for (const [key_combo, commands] of Object.entries(key_map)) {
-		if (matches_key_combo(key_combo, event)) {
+		if (matches_key_combo(key_combo, event, virtual_keyboard_active)) {
 			// Find the first enabled command and execute it
 			const enabled_command = commands.find((cmd) => cmd.is_enabled());
 			if (enabled_command) {
