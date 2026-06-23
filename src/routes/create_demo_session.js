@@ -856,10 +856,8 @@ export const session_config = {
 		// Define keymap binding keys to commands
 		const keymap = define_keymap({
 			'meta+a,ctrl+a': [commands.select_all],
-			enter: [commands.break_text_node, commands.add_new_line, commands.insert_default_node],
-			// In case of a node caret, fall back to inserting a default node. This is needed
-			// because on iOS selecting a node caret triggers auto capitalization (shift pressed)
-			'shift+enter': [commands.add_new_line, commands.insert_default_node],
+			enter: [commands.break_text_node, commands.insert_default_node],
+			'shift+enter': [commands.add_new_line],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
 			'meta+u,ctrl+u': [commands.toggle_highlight],
