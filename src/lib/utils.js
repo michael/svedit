@@ -417,10 +417,17 @@ export function traverse(node_id, schema, nodes) {
 			const property_definition = schema[node.type].properties[property_name];
 
 			if (property_definition?.type === 'node_array') {
-				for (const v of value) {
+				const node_ids = Array.isArray(value) ? value : value?.nodes || [];
+				const annotations = Array.isArray(value) ? [] : value?.annotations || [];
+
+				for (const v of node_ids) {
 					if (typeof v === 'string') {
 						visit(nodes[v]);
 					}
+				}
+
+				for (const annotation of annotations) {
+					visit(nodes[annotation.node_id]);
 				}
 			} else if (property_definition?.type === 'node') {
 				visit(nodes[value]);
@@ -462,4 +469,65 @@ export function is_selection_collapsed(selection) {
 	} else {
 		return false;
 	}
+}
+
+/**
+ * Calculates abstract fragment ranges from a length and annotations.
+ *
+ * @param {number} length - Length of the sequence (e.g. text length or array length)
+ * @param {Array<import('./types.d.ts').Annotation>} annotations - Array of annotations
+ * @param {import('./types.d.ts').SelectionRange} [selection_highlight_range] - Optional selection highlight range
+ * @returns {Array<{type: 'content' | 'annotation' | 'selection_highlight', start_offset: number, end_offset: number, annotation_index?: number, node_id?: string}>}
+ */
+export function calculate_fragment_ranges(length, annotations, selection_highlight_range) {
+	/** @type {Array<{type: 'content' | 'annotation' | 'selection_highlight', start_offset: number, end_offset: number, annotation_index?: number, node_id?: string}>} */
+	const fragments = [];
+	let last_index = 0;
+
+	// Merge annotations with selection highlight and sort by start offset
+	const ranges = [
+		...annotations,
+		...(selection_highlight_range ? [selection_highlight_range] : [])
+	].sort((a, b) => a.start_offset - b.start_offset);
+
+	for (const range of ranges) {
+		// Add content before this range
+		if (range.start_offset > last_index) {
+			fragments.push({
+				type: 'content',
+				start_offset: last_index,
+				end_offset: range.start_offset
+			});
+		}
+
+		if ('node_id' in range) {
+			const annotation = /** @type {import('./types.d.ts').Annotation} */ (range);
+			fragments.push({
+				type: 'annotation',
+				start_offset: annotation.start_offset,
+				end_offset: annotation.end_offset,
+				node_id: annotation.node_id,
+				annotation_index: annotations.indexOf(annotation)
+			});
+		} else {
+			fragments.push({
+				type: 'selection_highlight',
+				start_offset: range.start_offset,
+				end_offset: range.end_offset
+			});
+		}
+
+		last_index = range.end_offset;
+	}
+
+	// Add any remaining content
+	if (last_index < length) {
+		fragments.push({
+			type: 'content',
+			start_offset: last_index,
+			end_offset: length
+		});
+	}
+
+	return fragments;
 }

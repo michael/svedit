@@ -298,7 +298,7 @@ const doc = {
 				text: 'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
 				annotations: []
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		story_2: {
 			id: 'story_2',
@@ -310,7 +310,7 @@ const doc = {
 				text: "The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.",
 				annotations: [{ start_offset: 100, end_offset: 118, node_id: 'link_1' }]
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		story_3: {
 			id: 'story_3',
@@ -322,7 +322,7 @@ const doc = {
 				text: 'A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.',
 				annotations: []
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		image_grid_item_1: {
 			id: 'image_grid_item_1',
@@ -376,14 +376,17 @@ const doc = {
 			id: 'image_grid_1',
 			type: 'image_grid',
 			layout: 1,
-			image_grid_items: [
-				'image_grid_item_1',
-				'image_grid_item_2',
-				'image_grid_item_3',
-				'image_grid_item_4',
-				'image_grid_item_5',
-				'image_grid_item_6'
-			]
+			image_grid_items: {
+				nodes: [
+					'image_grid_item_1',
+					'image_grid_item_2',
+					'image_grid_item_3',
+					'image_grid_item_4',
+					'image_grid_item_5',
+					'image_grid_item_6'
+				],
+				annotations: []
+			}
 		},
 		story_4: {
 			id: 'story_4',
@@ -395,7 +398,7 @@ const doc = {
 				text: 'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
 				annotations: []
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		story_5: {
 			id: 'story_5',
@@ -410,7 +413,7 @@ const doc = {
 					{ start_offset: 80, end_offset: 93, node_id: 'emphasis_1' }
 				]
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		story_6: {
 			id: 'story_6',
@@ -422,7 +425,7 @@ const doc = {
 				text: "Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we'll be working to get fixed next:",
 				annotations: []
 			},
-			buttons: ['button_1']
+			buttons: { nodes: ['button_1'], annotations: [] }
 		},
 		list_item_1: {
 			id: 'list_item_1',
@@ -459,7 +462,7 @@ const doc = {
 		list_1: {
 			id: 'list_1',
 			type: 'list',
-			list_items: ['list_item_1', 'list_item_2', 'list_item_3', 'list_item_4'],
+			list_items: { nodes: ['list_item_1', 'list_item_2', 'list_item_3', 'list_item_4'], annotations: [] },
 			layout: 3
 		},
 		story_7: {
@@ -476,25 +479,28 @@ const doc = {
 					{ start_offset: 117, end_offset: 132, node_id: 'link_5' }
 				]
 			},
-			buttons: []
+			buttons: { nodes: [], annotations: [] }
 		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
-			body: [
-				'hero_1',
-				'heading_1',
-				'paragraph_1',
-				'story_1',
-				'story_2',
-				'image_grid_1',
-				'story_3',
-				'story_4',
-				'story_5',
-				'story_6',
-				'list_1',
-				'story_7'
-			],
+			body: {
+				nodes: [
+					'hero_1',
+					'heading_1',
+					'paragraph_1',
+					'story_1',
+					'story_2',
+					'image_grid_1',
+					'story_3',
+					'story_4',
+					'story_5',
+					'story_6',
+					'list_1',
+					'story_7'
+				],
+				annotations: []
+			},
 			keywords: ['svelte', 'editor', 'rich content'],
 			daily_visitors: [10, 20, 30, 100],
 			created_at: '2025-05-30T10:39:59.987Z'

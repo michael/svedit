@@ -5,7 +5,8 @@
 		get_char_length,
 		paths_equal,
 		serialize_path,
-		get_selection_range
+		get_selection_range,
+		calculate_fragment_ranges
 	} from './utils.js';
 
 	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
@@ -63,25 +64,14 @@
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
 	function get_fragments(text, annotations, selection_highlight_range) {
+		const ranges = calculate_fragment_ranges(get_char_length(text), annotations, selection_highlight_range);
 		/** @type {Array<Fragment>} */
 		let fragments = [];
-		let last_index = 0;
-
-		// Merge annotations with selection highlight and sort by start offset
-		const ranges = [
-			...annotations,
-			...(selection_highlight_range ? [selection_highlight_range] : [])
-		].sort((a, b) => a.start_offset - b.start_offset);
 
 		for (const range of ranges) {
-			// Add text before this range
-			if (range.start_offset > last_index) {
-				fragments.push(char_slice(text, last_index, range.start_offset));
-			}
-
 			const content = char_slice(text, range.start_offset, range.end_offset);
 
-			if ('node_id' in range) {
+			if (range.type === 'annotation') {
 				const node = svedit.session.get(range.node_id);
 				if (!node) throw new Error(`Node not found for annotation ${range.node_id}`);
 
@@ -89,21 +79,16 @@
 					type: 'annotation',
 					node,
 					content,
-					annotation_index: annotations.indexOf(/** @type {Annotation} */ (range))
+					annotation_index: range.annotation_index
 				});
-			} else {
+			} else if (range.type === 'selection_highlight') {
 				fragments.push({
 					type: 'selection_highlight',
 					content
 				});
+			} else {
+				fragments.push(content);
 			}
-
-			last_index = range.end_offset;
-		}
-
-		// Add any remaining text
-		if (last_index < get_char_length(text)) {
-			fragments.push(char_slice(text, last_index));
 		}
 
 		return fragments;

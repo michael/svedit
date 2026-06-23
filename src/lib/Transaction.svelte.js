@@ -21,7 +21,9 @@ import {
 	fill_node_defaults,
 	get_active_annotation,
 	validate_selection,
-	can_switch_annotation_type
+	can_switch_annotation_type,
+	get_node_array_nodes,
+	get_node_array_annotations
 } from './doc_utils.js';
 
 /**
@@ -149,10 +151,12 @@ export default class Transaction {
 	 * @returns {string[]} Array of available annotation type names
 	 */
 	get available_annotation_types() {
-		if (this.selection?.type !== 'text') return [];
+		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const path = this.selection.path;
 		const property_definition = this.inspect(path);
-		return property_definition.node_types || [];
+		return this.selection.type === 'node'
+			? property_definition.annotation_types || []
+			: property_definition.node_types || [];
 	}
 
 	/**
@@ -228,13 +232,12 @@ export default class Transaction {
 
 		if (prop_type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
 			removed_node_ids = [previous_value];
-		} else if (
-			prop_type === 'node_array' &&
-			Array.isArray(previous_value) &&
-			Array.isArray(value)
-		) {
+		} else if (prop_type === 'node_array') {
+			const previous_node_ids = get_node_array_nodes(previous_value);
+			const next_node_ids = get_node_array_nodes(value);
+
 			// Only include node IDs that were in previous_value but are not in the new value
-			removed_node_ids = previous_value.filter((id) => !value.includes(id));
+			removed_node_ids = previous_node_ids.filter((id) => !next_node_ids.includes(id));
 		}
 
 		const op = ['set', normalized_path, value];
@@ -278,6 +281,14 @@ export default class Transaction {
 
 				if (prop_type === 'node_array' && Array.isArray(value)) {
 					new_node[property_name] = value.map((ref_id) => id_map[ref_id]);
+				} else if (prop_type === 'node_array' && value && typeof value === 'object') {
+					new_node[property_name] = {
+						nodes: get_node_array_nodes(value).map((ref_id) => id_map[ref_id]),
+						annotations: get_node_array_annotations(value).map((annotation) => {
+							const { start_offset, end_offset, node_id } = annotation;
+							return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
+						})
+					};
 				} else if (prop_type === 'node' && typeof value === 'string') {
 					new_node[property_name] = id_map[value];
 				} else if (prop_type === 'annotated_text' && value) {
@@ -416,11 +427,19 @@ export default class Transaction {
 	 * ```
 	 */
 	annotate_text(annotation_type, annotation_properties) {
-		if (this.selection.type !== 'text') return this;
+		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 
 		const range = get_selection_range(this.selection);
-		const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
-		const annotations = annotated_text.annotations;
+		let annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
+		if (this.selection.type === 'node' && Array.isArray(annotated_value)) {
+			annotated_value = {
+				nodes: annotated_value,
+				annotations: []
+			};
+		}
+		const annotations = this.selection.type === 'node'
+			? get_node_array_annotations(annotated_value)
+			: annotated_value.annotations;
 		const existing_annotation = this.active_annotation();
 		const existing_annotation_same_type = this.active_annotation(annotation_type);
 		const has_annotation_properties =
@@ -480,8 +499,7 @@ export default class Transaction {
 			});
 		}
 
-		// Update the annotated text
-		this.set(this.selection.path, annotated_text);
+		this.set(this.selection.path, annotated_value);
 		return this;
 	}
 
@@ -551,14 +569,16 @@ export default class Transaction {
 		}
 
 		if (this.selection.type === 'node') {
-			const node_array = [...this.get(path)];
+			const current_value = this.get(path);
+			const node_array = [...get_node_array_nodes(current_value)];
+			const annotations = get_node_array_annotations(current_value);
 
 			// Remove the selected nodes from the node_array
 			node_array.splice(start, end - start);
 
 			// Update the node_array in the entry (this implicitly records an op via this.set)
 			// Note: this.set() will automatically cascade delete unreferenced nodes
-			this.set(path, node_array);
+			this.set(path, Array.isArray(current_value) ? node_array : { nodes: node_array, annotations });
 
 			// Update the selection to point to the start of the deleted range
 			this.selection = {
@@ -657,13 +677,15 @@ export default class Transaction {
 		}
 
 		const path = this.selection.path;
-		const node_array = [...this.get(path)];
+		const current_value = this.get(path);
+		const node_array = [...get_node_array_nodes(current_value)];
+		const annotations = get_node_array_annotations(current_value);
 
 		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 
 		// Insert the new nodes
 		node_array.splice(start, 0, ...node_ids);
-		this.set(path, node_array);
+		this.set(path, Array.isArray(current_value) ? node_array : { nodes: node_array, annotations });
 
 		this.selection = {
 			type: 'node',

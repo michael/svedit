@@ -75,7 +75,7 @@ export function get_property_default(property_definition) {
 	if (property_definition.type === 'number') return 0;
 	if (property_definition.type === 'boolean') return false;
 	if (property_definition.type === 'annotated_text') return { text: '', annotations: [] };
-	if (property_definition.type === 'node_array') return [];
+	if (property_definition.type === 'node_array') return { nodes: [], annotations: [] };
 	if (
 		property_definition.type === 'string_array' ||
 		property_definition.type === 'number_array' ||
@@ -86,6 +86,18 @@ export function get_property_default(property_definition) {
 	}
 
 	return undefined;
+}
+
+export function get_node_array_nodes(value) {
+	if (Array.isArray(value)) return value;
+	if (value && typeof value === 'object' && Array.isArray(value.nodes)) return value.nodes;
+	return [];
+}
+
+export function get_node_array_annotations(value) {
+	if (Array.isArray(value)) return [];
+	if (value && typeof value === 'object' && Array.isArray(value.annotations)) return value.annotations;
+	return [];
 }
 
 /**
@@ -204,20 +216,18 @@ function validate_primitive_value(type, value) {
 }
 
 /**
- * Validate annotated text annotations for bounds, references, allowed types, and exclusivity.
+ * Validate annotations for bounds, references, allowed types, and exclusivity.
  *
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
- * @param {AnnotatedText} value - Annotated text value to validate
- * @param {AnnotatedTextProperty} prop_def - Annotated text property definition
+ * @param {Array<Annotation>} annotations - Annotations to validate
+ * @param {number} container_length - Length of the annotated text or node array
+ * @param {Array<string> | null | undefined} allowed_node_types - Allowed annotation node types
  * @param {Record<string, any>} all_nodes - All document nodes
  * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if annotations are invalid
  */
-function validate_annotated_text_property(node_id, prop_name, value, prop_def, all_nodes, require_references) {
-	const char_length = get_char_length(value.text);
-	const annotations = value.annotations;
-
+function validate_annotations_array(node_id, prop_name, annotations, container_length, allowed_node_types, all_nodes, require_references) {
 	for (const [index, annotation] of annotations.entries()) {
 		if (
 			typeof annotation !== 'object' ||
@@ -231,9 +241,9 @@ function validate_annotated_text_property(node_id, prop_name, value, prop_def, a
 			);
 		}
 
-		if (annotation.start_offset < 0 || annotation.end_offset > char_length) {
+		if (annotation.start_offset < 0 || annotation.end_offset > container_length) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} is out of bounds: ${annotation.start_offset}-${annotation.end_offset}, text length is ${char_length}.`
+				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} is out of bounds: ${annotation.start_offset}-${annotation.end_offset}, container length is ${container_length}.`
 			);
 		}
 
@@ -253,9 +263,9 @@ function validate_annotated_text_property(node_id, prop_name, value, prop_def, a
 			continue;
 		}
 
-		if (prop_def.node_types?.length && !prop_def.node_types.includes(referenced_node.type)) {
+		if (allowed_node_types?.length && !allowed_node_types.includes(referenced_node.type)) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`
+				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${allowed_node_types.join(', ')}] are allowed.`
 			);
 		}
 	}
@@ -277,6 +287,22 @@ function validate_annotated_text_property(node_id, prop_name, value, prop_def, a
 			);
 		}
 	}
+}
+
+/**
+ * Validate annotated text annotations for bounds, references, allowed types, and exclusivity.
+ *
+ * @param {string} node_id - Owner node id, used for error messages
+ * @param {string} prop_name - Owner property name, used for error messages
+ * @param {AnnotatedText} value - Annotated text value to validate
+ * @param {AnnotatedTextProperty} prop_def - Annotated text property definition
+ * @param {Record<string, any>} all_nodes - All document nodes
+ * @param {boolean} require_references - Whether referenced nodes must already exist
+ * @throws {Error} Throws if annotations are invalid
+ */
+function validate_annotated_text_property(node_id, prop_name, value, prop_def, all_nodes, require_references) {
+	const char_length = get_char_length(value.text);
+	validate_annotations_array(node_id, prop_name, value.annotations, char_length, prop_def.node_types, all_nodes, require_references);
 }
 
 /**
@@ -353,16 +379,30 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 		}
 		// Check node arrays
 		else if (prop_def.type === 'node_array') {
-			if (
-				!Array.isArray(value) ||
-				!value.every((id) => typeof id === 'string' && is_id_valid(id))
-			) {
+			const is_legacy_node_array = Array.isArray(value);
+			const is_annotated_node_array =
+				value &&
+				typeof value === 'object' &&
+				Array.isArray(value.nodes) &&
+				Array.isArray(value.annotations);
+
+			if (!is_legacy_node_array && !is_annotated_node_array) {
 				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be an array of node ids.`
+					`Node ${node.id} has an invalid property: ${prop_name} must be an array or an object with nodes and annotations.`
 				);
 			}
+
+			const node_array_nodes = get_node_array_nodes(value);
+			const node_array_annotations = get_node_array_annotations(value);
+
+			if (!node_array_nodes.every((id) => typeof id === 'string' && is_id_valid(id))) {
+				throw new Error(
+					`Node ${node.id} has an invalid property: ${prop_name} must contain valid node ids.`
+				);
+			}
+
 			// Check if all referenced nodes exist and are of allowed types
-			for (const ref_id of value) {
+			for (const ref_id of node_array_nodes) {
 				const referenced_node = all_nodes[ref_id];
 				if (!referenced_node) {
 					if (require_references) {
@@ -378,6 +418,7 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 					);
 				}
 			}
+			validate_annotations_array(node.id, prop_name, node_array_annotations, node_array_nodes.length, null, all_nodes, require_references);
 		}
 	}
 }
@@ -442,6 +483,23 @@ export function get(schema, doc, path) {
 				val_type = 'value';
 			}
 		} else if (val_type === 'node_array') {
+			if (path_segment === 'nodes') {
+				val = get_node_array_nodes(val);
+				val_type = 'node_id_array';
+			} else if (path_segment === 'annotations') {
+				val = get_node_array_annotations(val);
+				val_type = 'annotation_array';
+			} else if (typeof path_segment === 'number' || /^\d+$/.test(String(path_segment))) {
+				// Backward compatibility for direct index access: ['body', 0] -> nodes[0]
+				const nodes_array = Array.isArray(val) ? val : val.nodes;
+				val = doc.nodes[nodes_array[path_segment]];
+				val_type = 'node';
+			} else {
+				throw new Error(
+					`Invalid path segment "${path_segment}" for node_array. Use "nodes" or "annotations".`
+				);
+			}
+		} else if (val_type === 'node_id_array') {
 			val = doc.nodes[val[path_segment]];
 			val_type = 'node';
 		} else if (val_type === 'value_array') {
@@ -627,8 +685,9 @@ export function count_references(schema, doc, node_id) {
 
 			const prop_type = property_type(schema, node.type, property);
 
-			if (prop_type === 'node_array' && Array.isArray(value)) {
-				count += value.filter((id) => id === node_id).length;
+			if (prop_type === 'node_array') {
+				count += get_node_array_nodes(value).filter((id) => id === node_id).length;
+				count += get_node_array_annotations(value).filter((a) => a.node_id === node_id).length;
 			} else if (prop_type === 'node' && value === node_id) {
 				count += 1;
 			}
@@ -653,12 +712,14 @@ export function count_references(schema, doc, node_id) {
  * @returns {Annotation | null} The active annotation, or null if none found
  */
 export function get_active_annotation(schema, doc, selection, annotation_type) {
-	if (selection?.type !== 'text') return null;
+	if (selection?.type !== 'text' && selection?.type !== 'node') return null;
 	const range = get_selection_range(selection);
 	if (!range) return null;
 
-	const annotated_text = get(schema, doc, selection.path);
-	const annotations = annotated_text.annotations;
+	const annotated_prop = get(schema, doc, selection.path);
+	const annotations = selection.type === 'node'
+		? get_node_array_annotations(annotated_prop)
+		: annotated_prop.annotations;
 
 	const active_annotation =
 		annotations.find(
@@ -696,8 +757,9 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 
 			const prop_type = property_type(schema, node.type, property);
 
-			if (prop_type === 'node_array' && Array.isArray(value)) {
-				count += value.filter((id) => id === target_node_id).length;
+			if (prop_type === 'node_array') {
+				count += get_node_array_nodes(value).filter((id) => id === target_node_id).length;
+				count += get_node_array_annotations(value).filter((a) => a.node_id === target_node_id).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
 			} else if (prop_type === 'annotated_text' && value && value.annotations) {
@@ -730,8 +792,10 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 
 			const prop_type = property_type(schema, node.type, property);
 
-			if (prop_type === 'node_array' && Array.isArray(value)) {
-				if (value.some((id) => target_ids.has(id))) {
+			if (prop_type === 'node_array') {
+				if (get_node_array_nodes(value).some((id) => target_ids.has(id))) {
+					referencing_node_ids.add(node.id);
+				} else if (get_node_array_annotations(value).some((a) => target_ids.has(a.node_id))) {
 					referencing_node_ids.add(node.id);
 				}
 			} else if (prop_type === 'node' && target_ids.has(value)) {
@@ -764,13 +828,15 @@ export function validate_selection(selection, session_or_transaction) {
 	}
 
 	if (selection_type === 'node') {
-		const node_array = session_or_transaction.get(selection.path);
+		const node_array_prop = session_or_transaction.get(selection.path);
 
-		if (!Array.isArray(node_array)) {
+		const node_array_nodes = get_node_array_nodes(node_array_prop);
+
+		if (!node_array_prop || (!Array.isArray(node_array_prop) && !Array.isArray(node_array_prop.nodes))) {
 			throw new Error('Node selection path must point to a node_array');
 		}
 
-		const max_offset = node_array.length;
+		const max_offset = node_array_nodes.length;
 		if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
 			throw new Error(
 				`Node selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${max_offset}.`

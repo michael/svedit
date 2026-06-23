@@ -12,7 +12,8 @@ import {
 	validate_node,
 	get_referencing_node_ids,
 	get_active_annotation,
-	validate_selection
+	validate_selection,
+	get_node_array_nodes
 } from './doc_utils.js';
 
 /**
@@ -188,10 +189,12 @@ export default class Session {
 	}
 
 	get_available_annotation_types() {
-		if (this.selection?.type !== 'text') return [];
+		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const path = this.selection.path;
 		const property_definition = this.inspect(path);
-		return property_definition.node_types || [];
+		return this.selection.type === 'node'
+			? property_definition.annotation_types || []
+			: property_definition.node_types || [];
 	}
 
 	// Helper function to get the currently selected node
@@ -204,7 +207,7 @@ export default class Session {
 			// Only consider selection of a single node
 			if (end - start !== 1) return null;
 			const node_array = this.get(this.selection.path);
-			const node_id = node_array[start];
+			const node_id = get_node_array_nodes(node_array)[start];
 			return node_id ? this.get(node_id) : null;
 		} else {
 			// we are assuming we are either in a text or property (=custom) selection
@@ -475,7 +478,7 @@ export default class Session {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const node_array = this.get(this.selection.path);
-		return $state.snapshot(node_array.slice(start, end));
+		return $state.snapshot(get_node_array_nodes(node_array).slice(start, end));
 	}
 
 	select_parent() {

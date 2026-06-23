@@ -1,7 +1,7 @@
 <script>
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
-	import { serialize_path } from './utils.js';
+	import { serialize_path, calculate_fragment_ranges } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
@@ -20,8 +20,39 @@
 	// NodeGap's should_position_gap call to avoid N+1 joins per render.
 	let path_str = $derived(serialize_path(path));
 
-	let node_ids = $derived(svedit.session.get(path));
-	let nodes = $derived(node_ids.map((id) => svedit.session.get(id)));
+	let raw_value = $derived(svedit.session.get(path));
+	let is_annotated = $derived(!Array.isArray(raw_value) && typeof raw_value === 'object' && raw_value !== null);
+	let node_ids = $derived(is_annotated ? raw_value.nodes : (raw_value || []));
+	let annotations = $derived(is_annotated ? raw_value.annotations : []);
+
+	let fragments = $derived(get_fragments(node_ids, annotations));
+
+	function get_fragments(node_ids, annotations) {
+		const ranges = calculate_fragment_ranges(node_ids.length, annotations);
+		let fragments = [];
+
+		for (const range of ranges) {
+			const nodes_slice = node_ids.slice(range.start_offset, range.end_offset);
+
+			if (range.type === 'annotation') {
+				const node = svedit.session.get(range.node_id);
+				fragments.push({
+					type: 'annotation',
+					node,
+					nodes: nodes_slice,
+					start_index: range.start_offset,
+					annotation_index: range.annotation_index
+				});
+			} else if (range.type === 'content') {
+				fragments.push({
+					type: 'nodes',
+					nodes: nodes_slice,
+					start_index: range.start_offset
+				});
+			}
+		}
+		return fragments;
+	}
 
 	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
 	// the model selection. Used by the CSS rule below to hide the empty-array
@@ -59,13 +90,28 @@
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
-	{#each nodes as node, index (index)}
-		<NodeGap array_path={path} offset={index} count={nodes.length} />
-		{@const Component = svedit.session.config.node_components[node.type]}
-		{#if Component}
-			<Component path={[...path, index]} />
-		{:else}
-			<UnknownNode path={[...path, index]} />
+	{#snippet render_nodes(nodes_slice, start_index)}
+		{#each nodes_slice as id, slice_index (id)}
+			{@const index = start_index + slice_index}
+			{@const node = svedit.session.get(id)}
+			<NodeGap array_path={path} offset={index} count={node_ids.length} />
+			{@const Component = svedit.session.config.node_components[node.type]}
+			{#if Component}
+				<Component path={[...path, index]} />
+			{:else}
+				<UnknownNode path={[...path, index]} />
+			{/if}
+		{/each}
+	{/snippet}
+
+	{#each fragments as fragment, fragment_index (fragment_index)}
+		{#if fragment.type === 'nodes'}
+			{@render render_nodes(fragment.nodes, fragment.start_index)}
+		{:else if fragment.type === 'annotation'}
+			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
+			<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
+				{@render render_nodes(fragment.nodes, fragment.start_index)}
+			</AnnotationComponent>
 		{/if}
 	{/each}
 	{#if node_ids.length > 0}

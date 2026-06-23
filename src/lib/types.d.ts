@@ -256,6 +256,7 @@ export type NodeProperty = {
 export type NodeArrayProperty = {
 	type: 'node_array';
 	node_types: string[];
+	annotation_types?: string[];
 	default_node_type?: string;
 };
 
@@ -460,6 +461,14 @@ export type AnnotatedText = {
 };
 
 /**
+ * Represents an annotated node array with nodes and annotations
+ */
+export type AnnotatedNodeArray = {
+	nodes: Array<NodeId>;
+	annotations: Array<Annotation>;
+};
+
+/**
  * Represents a selection highlight fragment for non-annotated text selections
  */
 export type SelectionHighlightFragment = {
@@ -484,3 +493,32 @@ export type AnnotationFragment = {
  * Represents a fragment of annotated text content
  */
 export type Fragment = string | AnnotationFragment | SelectionHighlightFragment;
+
+/**
+ * Represents a node array fragment for plain nodes
+ */
+export type NodeArrayPlainFragment = {
+	type: 'nodes';
+	nodes: Array<NodeId>;
+	start_index: number;
+};
+
+/**
+ * Represents an annotation fragment in node array content
+ */
+export type NodeArrayAnnotationFragment = {
+	type: 'annotation';
+	/** NodeId that has annotation type and details */
+	node: any;
+	/** The nodes wrapped by the annotation */
+	nodes: Array<NodeId>;
+	/** Start index in the original nodes array */
+	start_index: number;
+	/** Index of the annotation in the original array */
+	annotation_index: number;
+};
+
+/**
+ * Represents a fragment of annotated node array content
+ */
+export type NodeArrayFragment = NodeArrayPlainFragment | NodeArrayAnnotationFragment;
