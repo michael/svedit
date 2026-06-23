@@ -26,20 +26,20 @@ export function is_virtual_keyboard_active() {
 }
 
 /**
- * Detect if the current browser is on a mobile device
+ * Detect if the current browser is likely on a mobile device.
+ *
+ * This uses the user agent only so touch-capable laptops are not treated as
+ * mobile browsers.
+ *
  * @returns {boolean} true if mobile browser, false otherwise
  */
 export function is_mobile_browser() {
-	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+	if (typeof navigator === 'undefined') {
 		return false;
 	}
 
 	const user_agent = navigator.userAgent;
-	return (
-		/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-		'ontouchstart' in window ||
-		navigator.maxTouchPoints > 0
-	);
+	return /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent);
 }
 
 // ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️
