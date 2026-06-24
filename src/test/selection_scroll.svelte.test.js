@@ -150,15 +150,15 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		session.selection = {
 			type: 'node',
 			path: ['page_1', 'body', 0, 'buttons'],
-			anchor_offset: session.doc.nodes.story_1.buttons.length,
-			focus_offset: session.doc.nodes.story_1.buttons.length
+			anchor_offset: session.doc.nodes.story_1.buttons.nodes.length,
+			focus_offset: session.doc.nodes.story_1.buttons.nodes.length
 		};
 		await settle();
 
 		let safety = 25;
 		while (safety-- > 0) {
 			if (arr.scrollWidth <= arr.clientWidth + 5) break;
-			if (session.doc.nodes.story_1.buttons.length <= 1) break;
+			if (session.doc.nodes.story_1.buttons.nodes.length <= 1) break;
 			delete_selection(session);
 			await settle();
 		}

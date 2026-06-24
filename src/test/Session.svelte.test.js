@@ -103,7 +103,10 @@ describe('Session.svelte.js', () => {
 
 		// Resolve node_array property
 		const body = session.get(['page_1', 'body']);
-		expect(body).toEqual(['story_1', 'story_1', 'list_1']);
+		expect(body).toEqual({
+			nodes: ['story_1', 'story_1', 'list_1'],
+			annotations: []
+		});
 
 		// Access an element of a node_array property
 		const first_story = session.get(['page_1', 'body', 0]);
@@ -132,7 +135,10 @@ describe('Session.svelte.js', () => {
 
 		// Resolve hierarchy using node_array
 		const list_items_of_first_list = session.get(['page_1', 'body', 2, 'list_items']);
-		expect(list_items_of_first_list).toEqual(['list_item_1', 'list_item_2']);
+		expect(list_items_of_first_list).toEqual({
+			nodes: ['list_item_1', 'list_item_2'],
+			annotations: []
+		});
 
 		// Resolve hierarchy using node_array and accessing an annotated_text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
@@ -259,7 +265,9 @@ describe('Session.svelte.js', () => {
 			const upgraded_doc = fill_document_defaults(doc, schema);
 
 			expect(upgraded_doc.nodes.page_1.featured).toBeUndefined();
-			expect(() => new Session(schema, upgraded_doc, {})).toThrow('featured must be a valid node id');
+			expect(() => new Session(schema, upgraded_doc, {})).toThrow(
+				'featured must be a valid node id'
+			);
 		});
 
 		it('should fill omitted default properties when creating a node', () => {
@@ -331,7 +339,10 @@ describe('Session.svelte.js', () => {
 		it('should throw for node arrays that reference missing nodes', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
-			doc.nodes.page_1.body = ['story_1', 'missing_node'];
+			doc.nodes.page_1.body = {
+				nodes: ['story_1', 'missing_node'],
+				annotations: []
+			};
 
 			expect(() => new Session(session.schema, doc, session.config)).toThrow(
 				'references missing node missing_node'
@@ -357,10 +368,10 @@ describe('Session.svelte.js', () => {
 		it('should throw when applying a transaction that creates a missing node reference', () => {
 			const session = create_test_session();
 			const tr = session.tr;
-			tr.set(['page_1', 'body'], ['missing_node']);
+			tr.set(['page_1', 'body'], { nodes: ['missing_node'], annotations: [] });
 
 			expect(() => session.apply(tr)).toThrow('references missing node missing_node');
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 		});
 
 		it('should throw when applying a transaction that deletes a still-referenced node', () => {
@@ -378,7 +389,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: body has ['story_1, 'story_1, 'list_1]
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('list_1')).toBeDefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
@@ -396,7 +407,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should no longer contain the list
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1']);
 
 			// List and its children should be deleted since no other references exist
 			expect(session.get('list_1')).toBeUndefined();
@@ -408,7 +419,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: story is referenced twice
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined();
 
 			// Delete first story reference (index 0)
@@ -424,7 +435,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should only have one story reference now
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'list_1']);
 
 			// Story node should still exist since it's still referenced
 			expect(session.get('story_1')).toBeDefined();
@@ -434,7 +445,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: story is referenced twice
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined();
 
 			// Delete both story references (index 0 and 1)
@@ -450,7 +461,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should only contain the list
-			expect(session.get(['page_1', 'body'])).toEqual(['list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['list_1']);
 
 			// Story node should be deleted since no references remain
 			expect(session.get('story_1')).toBeUndefined();
@@ -472,7 +483,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Verify deletion
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1']);
 			expect(session.get('list_1')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeUndefined();
 			expect(session.get('list_item_2')).toBeUndefined();
@@ -481,11 +492,11 @@ describe('Session.svelte.js', () => {
 			session.undo();
 
 			// Everything should be restored
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('list_1')).toBeDefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
-			expect(session.get('list_1').list_items).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get('list_1').list_items.nodes).toEqual(['list_item_1', 'list_item_2']);
 		});
 
 		it('should preserve a node that is moved into a wrapper created earlier in the same transaction', () => {
@@ -500,7 +511,7 @@ describe('Session.svelte.js', () => {
 			// wrapper created in step (1) still references them.
 			const session = create_test_session();
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_1', 'list_item_2']);
 
 			const tr = session.tr;
 
@@ -516,12 +527,15 @@ describe('Session.svelte.js', () => {
 			// Step (2): drop list_item_1 from list_1.list_items. The set()
 			// call would compute removed_node_ids = ['list_item_1'], but the
 			// node is still referenced by list_2 and must survive.
-			tr.set(['list_1', 'list_items'], ['list_item_2']);
+			tr.set(['list_1', 'list_items'], {
+				nodes: ['list_item_2'],
+				annotations: []
+			});
 
 			session.apply(tr);
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
-			expect(session.get(['list_2', 'list_items'])).toEqual(['list_item_1']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_2']);
+			expect(session.get(['list_2', 'list_items']).nodes).toEqual(['list_item_1']);
 			expect(session.get('list_item_1')).toBeDefined();
 		});
 
@@ -535,16 +549,19 @@ describe('Session.svelte.js', () => {
 				layout: 1,
 				list_items: { nodes: ['list_item_1'], annotations: [] }
 			});
-			tr.set(['list_1', 'list_items'], ['list_item_2']);
+			tr.set(['list_1', 'list_items'], {
+				nodes: ['list_item_2'],
+				annotations: []
+			});
 			session.apply(tr);
 
 			// Sanity-check the post-state before undoing.
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_2']);
 			expect(session.get('list_2')).toBeDefined();
 
 			session.undo();
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_1', 'list_item_2']);
 			expect(session.get('list_2')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
@@ -565,7 +582,7 @@ describe('Session.svelte.js', () => {
 			tr.delete_selection();
 			session.apply(tr);
 
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined(); // Should still exist
 
 			// Now delete the remaining story and list
@@ -580,7 +597,7 @@ describe('Session.svelte.js', () => {
 			tr.delete_selection();
 			session.apply(tr);
 
-			expect(session.get(['page_1', 'body'])).toEqual([]);
+			expect(session.get(['page_1', 'body']).nodes).toEqual([]);
 			expect(session.get('story_1')).toBeUndefined(); // Now should be deleted
 			expect(session.get('list_1')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeUndefined();
