@@ -295,13 +295,11 @@ export type TextNodeSchemaError<Message extends string> = {
 	[SchemaError in `Svedit schema error: ${Message}`]: never;
 };
 
-export type TextNodeMissingContentError = TextNodeSchemaError<
-	'Text node schemas must define a "content" property of type annotated_text.'
->;
+export type TextNodeMissingContentError =
+	TextNodeSchemaError<'Text node schemas must define a "content" property of type annotated_text.'>;
 
-export type TextNodeExtraAnnotatedTextError<ExtraProperty extends string> = TextNodeSchemaError<
-	`Text node schemas must not define annotated_text property "${ExtraProperty}". Use "content" as the only annotated_text property.`
->;
+export type TextNodeExtraAnnotatedTextError<ExtraProperty extends string> =
+	TextNodeSchemaError<`Text node schemas must not define annotated_text property "${ExtraProperty}". Use "content" as the only annotated_text property.`>;
 
 export type ValidateTextNodeSchema<Schema> = Schema extends {
 	kind: 'text';
@@ -466,6 +464,22 @@ export type AnnotatedText = {
 export type AnnotatedNodeArray = {
 	nodes: Array<NodeId>;
 	annotations: Array<Annotation>;
+};
+
+/**
+ * Annotation metadata passed to a node rendered inside an annotated node array.
+ * A single-node annotation is both the start and end of its range.
+ */
+export type NodeArrayAnnotationContext = {
+	/** The annotation node, including its type-specific properties */
+	node: DocumentNode;
+	/** The annotation range in the parent node array */
+	annotation: Annotation;
+	/** Index of the annotation in the parent node array's annotations */
+	annotation_index: number;
+	is_start: boolean;
+	is_middle: boolean;
+	is_end: boolean;
 };
 
 /**

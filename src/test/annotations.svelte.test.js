@@ -5,6 +5,7 @@ import create_test_session from './create_test_session.js';
 import { are_annotation_ranges_exclusive } from '../lib/utils.js';
 import SveditTest from './testing_components/SveditTest.svelte';
 import Section from './testing_components/Section.svelte';
+import AnnotationAwareNode from './testing_components/AnnotationAwareNode.svelte';
 
 function create_annotation_session() {
 	const session = create_test_session();
@@ -26,6 +27,37 @@ function expect_exclusive(annotations) {
 }
 
 describe('shared text and node annotations', () => {
+	it('passes per-node annotation position metadata to node-array children', async () => {
+		const session = create_annotation_session();
+		session.config.node_components.story = AnnotationAwareNode;
+		session.config.node_components.list = AnnotationAwareNode;
+		session.selection = {
+			type: 'node',
+			path: ['page_1', 'body'],
+			anchor_offset: 0,
+			focus_offset: 3
+		};
+		session.apply(session.tr.toggle_annotation('section'));
+		const section_id = session.get(['page_1', 'body']).annotations[0].node_id;
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
+		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === section_id)).toBe(
+			true
+		);
+		expect(nodes[0].getAttribute('data-annotation-start')).toBe('true');
+		expect(nodes[0].getAttribute('data-annotation-middle')).toBe('false');
+		expect(nodes[0].getAttribute('data-annotation-end')).toBe('false');
+		expect(nodes[1].getAttribute('data-annotation-start')).toBe('false');
+		expect(nodes[1].getAttribute('data-annotation-middle')).toBe('true');
+		expect(nodes[1].getAttribute('data-annotation-end')).toBe('false');
+		expect(nodes[2].getAttribute('data-annotation-start')).toBe('false');
+		expect(nodes[2].getAttribute('data-annotation-middle')).toBe('false');
+		expect(nodes[2].getAttribute('data-annotation-end')).toBe('true');
+	});
+
 	it.each([
 		{
 			name: 'text',
@@ -292,18 +324,21 @@ describe('shared text and node annotations', () => {
 			value_path: ['page_1', 'body'],
 			type: 'section'
 		}
-	])('removes fully deleted $name annotations and their nodes', ({ selection, value_path, type }) => {
-		const session = create_annotation_session();
-		session.selection = /** @type {any} */ (selection);
-		session.apply(session.tr.toggle_annotation(type));
-		const annotation_id = session.get(value_path).annotations[0].node_id;
+	])(
+		'removes fully deleted $name annotations and their nodes',
+		({ selection, value_path, type }) => {
+			const session = create_annotation_session();
+			session.selection = /** @type {any} */ (selection);
+			session.apply(session.tr.toggle_annotation(type));
+			const annotation_id = session.get(value_path).annotations[0].node_id;
 
-		session.selection = /** @type {any} */ (selection);
-		session.apply(session.tr.delete_selection());
+			session.selection = /** @type {any} */ (selection);
+			session.apply(session.tr.delete_selection());
 
-		expect(session.get(value_path).annotations).toEqual([]);
-		expect(session.get(annotation_id)).toBeUndefined();
-	});
+			expect(session.get(value_path).annotations).toEqual([]);
+			expect(session.get(annotation_id)).toBeUndefined();
+		}
+	);
 
 	it('preserves clipped node-array annotations across cut and paste', () => {
 		const session = create_annotation_session();

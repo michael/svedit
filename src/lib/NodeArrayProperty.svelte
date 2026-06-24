@@ -5,7 +5,7 @@
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
-	/** @import { NodeArrayPropertyProps } from './types.d.ts'; */
+	/** @import { NodeArrayPropertyProps, NodeArrayAnnotationContext } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
@@ -61,6 +61,24 @@
 		return `${node_id}:${occurrence}`;
 	}
 
+	/**
+	 * @returns {NodeArrayAnnotationContext}
+	 */
+	function get_annotation_context(fragment, slice_index) {
+		const annotation = annotations[fragment.annotation_index];
+		const is_start = slice_index === 0;
+		const is_end = slice_index === fragment.nodes.length - 1;
+
+		return {
+			node: fragment.node,
+			annotation,
+			annotation_index: fragment.annotation_index,
+			is_start,
+			is_middle: !is_start && !is_end,
+			is_end
+		};
+	}
+
 	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
 	// the model selection. Used by the CSS rule below to hide the empty-array
 	// NodeGap while the caret is in the placeholder, so its <br> isn't a
@@ -97,14 +115,17 @@
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
-	{#snippet render_nodes(nodes_slice, start_index)}
+	{#snippet render_nodes(nodes_slice, start_index, annotation_fragment = null)}
 		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
+			{@const node_array_annotation = annotation_fragment
+				? get_annotation_context(annotation_fragment, slice_index)
+				: null}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}
-				<Component path={[...path, index]} />
+				<Component path={[...path, index]} {node_array_annotation} />
 			{:else}
 				<UnknownNode path={[...path, index]} />
 			{/if}
@@ -117,7 +138,7 @@
 		{:else if fragment.type === 'annotation'}
 			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
 			<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
-				{@render render_nodes(fragment.nodes, fragment.start_index)}
+				{@render render_nodes(fragment.nodes, fragment.start_index, fragment)}
 			</AnnotationComponent>
 		{/if}
 	{/each}
