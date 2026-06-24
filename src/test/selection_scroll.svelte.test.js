@@ -83,7 +83,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		await settle();
 		const scroll_before = arr.scrollLeft;
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 		const trailing_offset = 20;
 		session.selection = {
@@ -122,7 +122,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		await settle();
 		expect(arr.scrollLeft).toBeGreaterThan(0);
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 		session.selection = {
 			type: 'node',
@@ -145,7 +145,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		arr.scrollLeft = arr.scrollWidth;
 		await settle();
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 		session.selection = {
 			type: 'node',
@@ -189,7 +189,7 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 		window.scrollTo(0, 0);
 		await settle_grid();
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 		const trailing_offset = 12;
 		session.selection = {
@@ -209,7 +209,10 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 
 		const r = new_item.getBoundingClientRect();
 		const in_viewport = r.bottom > 0 && r.top < window.innerHeight;
-		expect(in_viewport, `new item rect=${JSON.stringify({ t: r.top, b: r.bottom, vh: window.innerHeight })}`).toBe(true);
+		expect(
+			in_viewport,
+			`new item rect=${JSON.stringify({ t: r.top, b: r.bottom, vh: window.innerHeight })}`
+		).toBe(true);
 	});
 });
 
@@ -237,7 +240,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		arr.scrollLeft = 0;
 		await settle();
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 
 		// Simulate the DOM-driven path: set the DOM selection directly,
@@ -274,7 +277,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		await settle();
 		const scroll_before = arr.scrollLeft;
 
-		const canvas = container.querySelector('.svedit-canvas');
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 		canvas.focus();
 		session.selection = {
 			type: 'node',

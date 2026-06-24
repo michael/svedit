@@ -62,12 +62,12 @@ export function make_story_session(n_buttons) {
 		image: '',
 		title: { text: 'Test story', annotations: [] },
 		description: { text: 'desc', annotations: [] },
-		buttons: button_ids
+		buttons: { nodes: button_ids, annotations: [] }
 	};
 	nodes.page_1 = {
 		id: 'page_1',
 		type: 'page',
-		body: ['story_1'],
+		body: { nodes: ['story_1'], annotations: [] },
 		keywords: [],
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
@@ -95,12 +95,12 @@ export function make_image_grid_session(n_items) {
 		id: 'image_grid_1',
 		type: 'image_grid',
 		layout: 1,
-		image_grid_items: item_ids
+		image_grid_items: { nodes: item_ids, annotations: [] }
 	};
 	nodes.page_1 = {
 		id: 'page_1',
 		type: 'page',
-		body: ['image_grid_1'],
+		body: { nodes: ['image_grid_1'], annotations: [] },
 		keywords: [],
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'

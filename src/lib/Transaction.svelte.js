@@ -279,9 +279,7 @@ export default class Transaction {
 				const prop_type = property_definition.type;
 				const value = new_node[property_name];
 
-				if (prop_type === 'node_array' && Array.isArray(value)) {
-					new_node[property_name] = value.map((ref_id) => id_map[ref_id]);
-				} else if (prop_type === 'node_array' && value && typeof value === 'object') {
+				if (prop_type === 'node_array' && value && typeof value === 'object') {
 					new_node[property_name] = {
 						nodes: get_node_array_nodes(value).map((ref_id) => id_map[ref_id]),
 						annotations: get_node_array_annotations(value).map((annotation) => {
@@ -430,13 +428,7 @@ export default class Transaction {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 
 		const range = get_selection_range(this.selection);
-		let annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-		if (this.selection.type === 'node' && Array.isArray(annotated_value)) {
-			annotated_value = {
-				nodes: annotated_value,
-				annotations: []
-			};
-		}
+		const annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const annotations = this.selection.type === 'node'
 			? get_node_array_annotations(annotated_value)
 			: annotated_value.annotations;
@@ -535,7 +527,7 @@ export default class Transaction {
 			length = get_char_length(text_content);
 		} else if (this.selection?.type === 'node') {
 			const node_array = this.get(this.selection.path);
-			length = node_array.length;
+			length = node_array.nodes.length;
 		}
 
 		// If selection is collapsed we delete the previous char/node (backward)
@@ -569,16 +561,49 @@ export default class Transaction {
 		}
 
 		if (this.selection.type === 'node') {
-			const current_value = this.get(path);
-			const node_array = [...get_node_array_nodes(current_value)];
-			const annotations = get_node_array_annotations(current_value);
+			const current_value = structuredClone($state.snapshot(this.get(path)));
+			const node_array = [...current_value.nodes];
+			const deleted_annotation_nodes = [];
+			const deletion_length = end - start;
 
 			// Remove the selected nodes from the node_array
-			node_array.splice(start, end - start);
+			node_array.splice(start, deletion_length);
+
+			const annotations = current_value.annotations
+				.map((annotation) => {
+					const annotation_start = annotation.start_offset;
+					const annotation_end = annotation.end_offset;
+					const node_id = annotation.node_id;
+
+					if (annotation_end <= start) return annotation;
+
+					let new_start = annotation_start;
+					if (annotation_start >= end) {
+						new_start = annotation_start - deletion_length;
+					} else if (annotation_start > start) {
+						new_start = start;
+					}
+
+					let new_end = annotation_end;
+					if (annotation_end >= end) {
+						new_end = annotation_end - deletion_length;
+					} else if (annotation_end > start) {
+						new_end = start;
+					}
+
+					if (new_start >= new_end) {
+						deleted_annotation_nodes.push(node_id);
+						return null;
+					}
+
+					return { start_offset: new_start, end_offset: new_end, node_id };
+				})
+				.filter(Boolean);
 
 			// Update the node_array in the entry (this implicitly records an op via this.set)
 			// Note: this.set() will automatically cascade delete unreferenced nodes
-			this.set(path, Array.isArray(current_value) ? node_array : { nodes: node_array, annotations });
+			this.set(path, { nodes: node_array, annotations });
+			this._cascade_delete_unreferenced_nodes(deleted_annotation_nodes);
 
 			// Update the selection to point to the start of the deleted range
 			this.selection = {
@@ -677,15 +702,40 @@ export default class Transaction {
 		}
 
 		const path = this.selection.path;
-		const current_value = this.get(path);
-		const node_array = [...get_node_array_nodes(current_value)];
-		const annotations = get_node_array_annotations(current_value);
+		const current_value = structuredClone($state.snapshot(this.get(path)));
+		const node_array = [...current_value.nodes];
 
 		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 
+		const annotations = current_value.annotations.map((annotation) => {
+			const annotation_start = annotation.start_offset;
+			const annotation_end = annotation.end_offset;
+			const node_id = annotation.node_id;
+
+			if (annotation_end <= start) return annotation;
+
+			if (annotation_start < start && annotation_end >= start) {
+				return {
+					start_offset: annotation_start,
+					end_offset: annotation_end + node_ids.length,
+					node_id
+				};
+			}
+
+			if (annotation_start >= start) {
+				return {
+					start_offset: annotation_start + node_ids.length,
+					end_offset: annotation_end + node_ids.length,
+					node_id
+				};
+			}
+
+			return annotation;
+		});
+
 		// Insert the new nodes
 		node_array.splice(start, 0, ...node_ids);
-		this.set(path, Array.isArray(current_value) ? node_array : { nodes: node_array, annotations });
+		this.set(path, { nodes: node_array, annotations });
 
 		this.selection = {
 			type: 'node',

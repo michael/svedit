@@ -60,7 +60,7 @@ function make_paragraph_session(text = 'Hello world') {
 				page_1: {
 					id: 'page_1',
 					type: 'page',
-					body: ['paragraph_1'],
+					body: { nodes: ['paragraph_1'], annotations: [] },
 					keywords: [],
 					daily_visitors: [],
 					created_at: '2025-05-30T10:39:59.987Z'

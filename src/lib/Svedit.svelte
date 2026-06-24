@@ -405,7 +405,7 @@ ${fallback_html}`;
 					html += `<p>${text_content}</p>`;
 				}
 			} else if (property_definition.type === 'node_array') {
-				for (const child_id of prop_value) {
+				for (const child_id of prop_value.nodes) {
 					const child = session.get(child_id);
 					const child_exporter = html_exporters[child.type] || default_node_html_exporter;
 					html += child_exporter(child, session, html_exporters);
@@ -587,13 +587,13 @@ ${fallback_html}`;
 
 		const node_array_path = [...path, preferred_property_name];
 		const node_array = session.get(node_array_path);
-		if (!Array.isArray(node_array)) return null;
+		if (!node_array || !Array.isArray(node_array.nodes)) return null;
 
 		return {
 			type: /** @type {const} */ ('node'),
 			path: node_array_path,
-			anchor_offset: node_array.length,
-			focus_offset: node_array.length
+			anchor_offset: node_array.nodes.length,
+			focus_offset: node_array.nodes.length
 		};
 	}
 
@@ -985,7 +985,7 @@ ${fallback_html}`;
 			const empty_placeholder_path = deserialize_path(focus_empty_placeholder.dataset.path);
 			const array_path = empty_placeholder_path.slice(0, -1);
 			const node_array = session.get(array_path);
-			if (Array.isArray(node_array) && node_array.length === 0) {
+			if (node_array?.nodes?.length === 0) {
 				return {
 					type: 'node',
 					path: array_path,
@@ -1356,7 +1356,7 @@ ${fallback_html}`;
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
-			const array_length = session.get(node_array_path).length;
+			const array_length = session.get(node_array_path).nodes.length;
 
 			// If either node flanking the cursor is already (even
 			// partially) on screen, the cursor is visible — keep the

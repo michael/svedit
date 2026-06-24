@@ -21,9 +21,8 @@
 	let path_str = $derived(serialize_path(path));
 
 	let raw_value = $derived(svedit.session.get(path));
-	let is_annotated = $derived(!Array.isArray(raw_value) && typeof raw_value === 'object' && raw_value !== null);
-	let node_ids = $derived(is_annotated ? raw_value.nodes : (raw_value || []));
-	let annotations = $derived(is_annotated ? raw_value.annotations : []);
+	let node_ids = $derived(raw_value.nodes);
+	let annotations = $derived(raw_value.annotations);
 
 	let fragments = $derived(get_fragments(node_ids, annotations));
 

@@ -417,8 +417,8 @@ export function traverse(node_id, schema, nodes) {
 			const property_definition = schema[node.type].properties[property_name];
 
 			if (property_definition?.type === 'node_array') {
-				const node_ids = Array.isArray(value) ? value : value?.nodes || [];
-				const annotations = Array.isArray(value) ? [] : value?.annotations || [];
+				const node_ids = value?.nodes || [];
+				const annotations = value?.annotations || [];
 
 				for (const v of node_ids) {
 					if (typeof v === 'string') {

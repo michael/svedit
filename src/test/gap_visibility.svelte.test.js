@@ -6,16 +6,8 @@
  * behave like production. Each test builds a focused document shape and
  * asserts the DOM state after IO + edge_map have settled.
  *
- * Timing notes:
- * - IO callbacks fire ~1 RAF after observe(). near_map and array_indices
- *   are populated then.
- * - edge_map is populated synchronously at bootstrap (from scrollLeft/
- *   scrollWidth/clientWidth) for arrays already in the DOM.
- * - sync_gap_class for edge gaps runs once at bootstrap (no-op while
- *   near_map is still empty) AND when IO fires sync_gaps_around_node on
- *   the adjacent edge node. That second sync is what actually adds the
- *   .positioned class for edge gaps.
- * - settle() waits long enough for both passes to complete.
+ * Document changes reconcile mounted nodes after Svelte's DOM update.
+ * IntersectionObserver then owns later viewport transitions.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -198,8 +190,12 @@ describe('NodeGap visibility & placement', () => {
 				array_path: array_el.dataset.path,
 				array_rect: { x: arr_rect.x, y: arr_rect.y, w: arr_rect.width, h: arr_rect.height },
 				array_scroll: {
-					sl: array_el.scrollLeft, sw: array_el.scrollWidth, cw: array_el.clientWidth,
-					st: array_el.scrollTop, sh: array_el.scrollHeight, ch: array_el.clientHeight
+					sl: array_el.scrollLeft,
+					sw: array_el.scrollWidth,
+					cw: array_el.clientWidth,
+					st: array_el.scrollTop,
+					sh: array_el.scrollHeight,
+					ch: array_el.clientHeight
 				},
 				last_item_path: last_item.dataset.path,
 				last_item_rect: { x: li_rect.x, y: li_rect.y, w: li_rect.width, h: li_rect.height },
@@ -316,7 +312,7 @@ describe('NodeGap visibility & placement', () => {
 			}
 
 			// Delete the button at offset 1 (mid).
-			const canvas = container.querySelector('.svedit-canvas');
+			const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
 			canvas.focus();
 			session.selection = {
 				type: 'node',
@@ -329,7 +325,7 @@ describe('NodeGap visibility & placement', () => {
 			session.apply(tr);
 			await settle();
 
-			expect(session.doc.nodes.story_1.buttons.length).toBe(2);
+			expect(session.doc.nodes.story_1.buttons.nodes.length).toBe(2);
 
 			// near_map: __0 and __1 remain (surviving DOM elements
 			// kept their data-path attributes — the element at __1 now
@@ -349,8 +345,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('view-class application on inserted nodes', () => {
 		// `.in-view` / `.seen` / `.fully-in-view` are part of the
 		// library's public contract — user apps wire animations to them.
-		// schedule_view_sync → #flush_view_sync must apply them
-		// reliably for nodes inserted after mount.
+		// Document reconciliation must apply them reliably to inserted nodes.
 		it('applies in-view and seen classes to newly-inserted nodes', async () => {
 			const session = make_story_session(2);
 			const { container } = render(SveditTest, { session });
@@ -378,6 +373,21 @@ describe('NodeGap visibility & placement', () => {
 			const new_node = nodes[nodes.length - 1];
 			expect(new_node.classList.contains('in-view')).toBe(true);
 			expect(new_node.classList.contains('seen')).toBe(true);
+
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const array_path = array_el.dataset.path;
+			const visible = ctx.visibility_registry.get_array_indices(array_path);
+			expect(Array.from(visible).sort((a, b) => a - b)).toEqual([0, 1, 2]);
+
+			const markers = array_el.querySelectorAll(
+				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
+			);
+			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual([
+				'0',
+				'1',
+				'2',
+				'3'
+			]);
 		});
 	});
 });

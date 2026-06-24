@@ -89,15 +89,11 @@ export function get_property_default(property_definition) {
 }
 
 export function get_node_array_nodes(value) {
-	if (Array.isArray(value)) return value;
-	if (value && typeof value === 'object' && Array.isArray(value.nodes)) return value.nodes;
-	return [];
+	return value?.nodes ?? [];
 }
 
 export function get_node_array_annotations(value) {
-	if (Array.isArray(value)) return [];
-	if (value && typeof value === 'object' && Array.isArray(value.annotations)) return value.annotations;
-	return [];
+	return value?.annotations ?? [];
 }
 
 /**
@@ -379,21 +375,19 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 		}
 		// Check node arrays
 		else if (prop_def.type === 'node_array') {
-			const is_legacy_node_array = Array.isArray(value);
-			const is_annotated_node_array =
-				value &&
-				typeof value === 'object' &&
-				Array.isArray(value.nodes) &&
-				Array.isArray(value.annotations);
-
-			if (!is_legacy_node_array && !is_annotated_node_array) {
+			if (
+				!value ||
+				typeof value !== 'object' ||
+				!Array.isArray(value.nodes) ||
+				!Array.isArray(value.annotations)
+			) {
 				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be an array or an object with nodes and annotations.`
+					`Node ${node.id} has an invalid property: ${prop_name} must be an object with nodes and annotations.`
 				);
 			}
 
-			const node_array_nodes = get_node_array_nodes(value);
-			const node_array_annotations = get_node_array_annotations(value);
+			const node_array_nodes = value.nodes;
+			const node_array_annotations = value.annotations;
 
 			if (!node_array_nodes.every((id) => typeof id === 'string' && is_id_valid(id))) {
 				throw new Error(
@@ -418,7 +412,7 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 					);
 				}
 			}
-			validate_annotations_array(node.id, prop_name, node_array_annotations, node_array_nodes.length, null, all_nodes, require_references);
+			validate_annotations_array(node.id, prop_name, node_array_annotations, node_array_nodes.length, prop_def.annotation_types, all_nodes, require_references);
 		}
 	}
 }
@@ -490,9 +484,7 @@ export function get(schema, doc, path) {
 				val = get_node_array_annotations(val);
 				val_type = 'annotation_array';
 			} else if (typeof path_segment === 'number' || /^\d+$/.test(String(path_segment))) {
-				// Backward compatibility for direct index access: ['body', 0] -> nodes[0]
-				const nodes_array = Array.isArray(val) ? val : val.nodes;
-				val = doc.nodes[nodes_array[path_segment]];
+				val = doc.nodes[val.nodes[path_segment]];
 				val_type = 'node';
 			} else {
 				throw new Error(
@@ -832,7 +824,7 @@ export function validate_selection(selection, session_or_transaction) {
 
 		const node_array_nodes = get_node_array_nodes(node_array_prop);
 
-		if (!node_array_prop || (!Array.isArray(node_array_prop) && !Array.isArray(node_array_prop.nodes))) {
+		if (!node_array_prop || !Array.isArray(node_array_prop.nodes)) {
 			throw new Error('Node selection path must point to a node_array');
 		}
 

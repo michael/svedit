@@ -83,7 +83,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: []
+						body: { nodes: [], annotations: [] }
 					}
 				}
 			},
@@ -201,7 +201,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: ['text_1']
+						body: { nodes: ['text_1'], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
@@ -246,7 +246,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: ['text_1']
+						body: { nodes: ['text_1'], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
@@ -510,7 +510,7 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: ['list_item_1']
+				list_items: { nodes: ['list_item_1'], annotations: [] }
 			});
 
 			// Step (2): drop list_item_1 from list_1.list_items. The set()
@@ -533,7 +533,7 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: ['list_item_1']
+				list_items: { nodes: ['list_item_1'], annotations: [] }
 			});
 			tr.set(['list_1', 'list_items'], ['list_item_2']);
 			session.apply(tr);

@@ -113,7 +113,7 @@ const doc = {
 			image:
 				'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
 			title: { text: 'First story', annotations: [] },
-			buttons: ['button_1'],
+			buttons: { nodes: ['button_1'], annotations: [] },
 			description: { text: 'First story description.', annotations: [] }
 		},
 		list_item_1: {
@@ -130,12 +130,12 @@ const doc = {
 			id: 'list_1',
 			type: 'list',
 			layout: 1,
-			list_items: ['list_item_1', 'list_item_2']
+			list_items: { nodes: ['list_item_1', 'list_item_2'], annotations: [] }
 		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
-			body: ['story_1', 'story_1', 'list_1'],
+			body: { nodes: ['story_1', 'story_1', 'list_1'], annotations: [] },
 			keywords: ['svelte', 'editor', 'rich content'],
 			daily_visitors: [10, 20, 30, 100],
 			created_at: '2025-05-30T10:39:59.987Z'
@@ -266,7 +266,7 @@ const session_config = {
 				image: '',
 				title: { text: '', annotations: [] },
 				description: { text: '', annotations: [] },
-				buttons: [new_button.id]
+				buttons: { nodes: [new_button.id], annotations: [] }
 			};
 			tr.create(new_story);
 			tr.insert_nodes([new_story.id]);
@@ -281,7 +281,7 @@ const session_config = {
 			const new_list = {
 				id: nanoid(),
 				type: 'list',
-				list_items: [new_list_item.id],
+				list_items: { nodes: [new_list_item.id], annotations: [] },
 				layout: 3
 			};
 			tr.create(new_list);

@@ -739,7 +739,7 @@ export const session_config = {
 			const new_story = {
 				id: nanoid(),
 				type: 'story',
-				buttons: [new_button.id]
+				buttons: { nodes: [new_button.id], annotations: [] }
 			};
 			tr.create(new_story);
 			tr.insert_nodes([new_story.id]);
@@ -753,7 +753,7 @@ export const session_config = {
 			const new_list = {
 				id: nanoid(),
 				type: 'list',
-				list_items: [new_list_item.id],
+				list_items: { nodes: [new_list_item.id], annotations: [] },
 				layout: 3
 			};
 			tr.create(new_list);
