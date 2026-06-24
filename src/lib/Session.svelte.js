@@ -13,7 +13,8 @@ import {
 	get_referencing_node_ids,
 	get_active_annotation,
 	validate_selection,
-	get_node_array_nodes
+	get_node_array_nodes,
+	get_node_array_annotations
 } from './doc_utils.js';
 
 /**
@@ -65,7 +66,6 @@ export default class Session {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
-
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
@@ -146,13 +146,25 @@ export default class Session {
 
 		for (const node_id of transaction.created_node_ids) add_node_id(node_id);
 		for (const node_id of transaction.modified_node_ids) add_node_id(node_id);
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.created_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.created_node_ids
+		)) {
 			add_node_id(node_id);
 		}
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.modified_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.modified_node_ids
+		)) {
 			add_node_id(node_id);
 		}
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.deleted_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.deleted_node_ids
+		)) {
 			add_node_id(node_id);
 		}
 
@@ -460,6 +472,44 @@ export default class Session {
 			.filter(Boolean);
 
 		return { text, annotations, nodes };
+	}
+
+	get_selected_annotated_nodes() {
+		if (this.selection?.type !== 'node') return null;
+
+		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+		const node_array = this.get(this.selection.path);
+		const main_nodes = get_node_array_nodes(node_array).slice(selection_start, selection_end);
+		const nodes = {};
+
+		const add_subgraph = (node_id) => {
+			for (const node of this.traverse(node_id)) {
+				if (!nodes[node.id]) nodes[node.id] = node;
+			}
+		};
+
+		for (const node_id of main_nodes) add_subgraph(node_id);
+
+		const annotations = get_node_array_annotations(node_array)
+			.map((annotation) => {
+				if (selection_start >= annotation.end_offset || selection_end <= annotation.start_offset) {
+					return null;
+				}
+
+				add_subgraph(annotation.node_id);
+				return {
+					start_offset: Math.max(annotation.start_offset - selection_start, 0),
+					end_offset: Math.min(
+						annotation.end_offset - selection_start,
+						selection_end - selection_start
+					),
+					node_id: annotation.node_id
+				};
+			})
+			.filter(Boolean);
+
+		return { nodes, main_nodes, annotations };
 	}
 
 	// TODO: think about ways how we can also turn a node selection into plain text.

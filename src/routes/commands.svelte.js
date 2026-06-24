@@ -11,7 +11,9 @@ import {
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
-	closest_switchable_layout = $derived(get_closest_switchable_layout(this.context.session, this.context.session.config));
+	closest_switchable_layout = $derived(
+		get_closest_switchable_layout(this.context.session, this.context.session.config)
+	);
 
 	constructor(direction, context) {
 		super(context);
@@ -149,12 +151,12 @@ export class ToggleLinkCommand extends Command {
 
 		if (can_remove_link) {
 			// Delete link
-			session.apply(session.tr.annotate_text('link'));
+			session.apply(session.tr.toggle_annotation('link'));
 		} else {
 			// Create link
 			const href = window.prompt('Enter the URL', 'https://example.com');
 			if (href) {
-				session.apply(session.tr.annotate_text('link', { href }));
+				session.apply(session.tr.toggle_annotation('link', { href }));
 			}
 		}
 	}

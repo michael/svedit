@@ -1,5 +1,5 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
-import { can_switch_annotation_type, get_node_array_nodes } from './doc_utils.js';
+import { get_node_array_nodes } from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
 
 /**
@@ -107,8 +107,7 @@ export class SelectParentCommand extends Command {
 }
 
 /**
- * Generic command that toggles an annotation on the current text selection.
- * Used for simple annotations like bold, italic, highlight, etc.
+ * Generic command that toggles an annotation on the current text or node selection.
  */
 export class ToggleAnnotationCommand extends Command {
 	constructor(node_type, context) {
@@ -125,28 +124,25 @@ export class ToggleAnnotationCommand extends Command {
 	is_enabled() {
 		const { session, editable } = this.context;
 		const active_annotation = session.active_annotation();
-		const has_annotation = session.active_annotation(this.node_type);
-		const can_switch_annotation =
-			active_annotation &&
-			!has_annotation &&
-			session.available_annotation_types.includes(this.node_type) &&
-			can_switch_annotation_type(
-				session.schema,
-				session.get(active_annotation.node_id),
-				this.node_type
-			);
-		const no_annotation_and_caret_not_collapsed =
-			!active_annotation && !is_selection_collapsed(session.selection);
+		const is_valid_selection =
+			session.selection?.type === 'text' ||
+			(session.selection?.type === 'node' && !is_selection_collapsed(session.selection));
+		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
+		const can_create_annotation =
+			!active_annotation &&
+			annotation_type_is_allowed &&
+			!is_selection_collapsed(session.selection);
 
 		return (
 			editable &&
-			(session.selection?.type === 'text' || session.selection?.type === 'node') &&
-			(has_annotation || can_switch_annotation || no_annotation_and_caret_not_collapsed)
+			is_valid_selection &&
+			annotation_type_is_allowed &&
+			(active_annotation || can_create_annotation)
 		);
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.annotate_text(this.node_type));
+		this.context.session.apply(this.context.session.tr.toggle_annotation(this.node_type));
 	}
 }
 

@@ -472,6 +472,107 @@ export function is_selection_collapsed(selection) {
 }
 
 /**
+ * Adjust annotation ranges after deleting a sequence range.
+ *
+ * Works for both annotated text (character offsets) and annotated node arrays
+ * (node offsets).
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} start
+ * @param {number} end
+ * @returns {{annotations: Array<import('./types.d.ts').Annotation>, removed_node_ids: string[]}}
+ */
+export function delete_range_from_annotations(annotations, start, end) {
+	const removed_node_ids = [];
+	const deletion_length = end - start;
+
+	const next_annotations = annotations
+		.map((annotation) => {
+			if (annotation.end_offset <= start) return annotation;
+
+			let start_offset = annotation.start_offset;
+			if (annotation.start_offset >= end) {
+				start_offset -= deletion_length;
+			} else if (annotation.start_offset > start) {
+				start_offset = start;
+			}
+
+			let end_offset = annotation.end_offset;
+			if (annotation.end_offset >= end) {
+				end_offset -= deletion_length;
+			} else if (annotation.end_offset > start) {
+				end_offset = start;
+			}
+
+			if (start_offset >= end_offset) {
+				removed_node_ids.push(annotation.node_id);
+				return null;
+			}
+
+			return { start_offset, end_offset, node_id: annotation.node_id };
+		})
+		.filter(Boolean);
+
+	return { annotations: next_annotations, removed_node_ids };
+}
+
+/**
+ * Adjust annotation ranges after inserting into a sequence.
+ *
+ * Insertion inside an annotation extends it. Insertion exactly at either edge
+ * stays outside the annotation.
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} offset
+ * @param {number} length
+ * @returns {Array<import('./types.d.ts').Annotation>}
+ */
+export function insert_range_into_annotations(annotations, offset, length) {
+	if (length === 0) return annotations;
+
+	return annotations.map((annotation) => {
+		if (annotation.end_offset <= offset) return annotation;
+
+		if (annotation.start_offset < offset) {
+			return {
+				start_offset: annotation.start_offset,
+				end_offset: annotation.end_offset + length,
+				node_id: annotation.node_id
+			};
+		}
+
+		return {
+			start_offset: annotation.start_offset + length,
+			end_offset: annotation.end_offset + length,
+			node_id: annotation.node_id
+		};
+	});
+}
+
+/**
+ * Check whether annotation ranges are non-empty and mutually exclusive.
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} [length]
+ * @returns {boolean}
+ */
+export function are_annotation_ranges_exclusive(annotations, length = Infinity) {
+	const sorted = [...annotations].sort(
+		(a, b) => a.start_offset - b.start_offset || a.end_offset - b.end_offset
+	);
+
+	return sorted.every(
+		(annotation, index) =>
+			Number.isInteger(annotation.start_offset) &&
+			Number.isInteger(annotation.end_offset) &&
+			annotation.start_offset >= 0 &&
+			annotation.start_offset < annotation.end_offset &&
+			annotation.end_offset <= length &&
+			(index === 0 || annotation.start_offset >= sorted[index - 1].end_offset)
+	);
+}
+
+/**
  * Calculates abstract fragment ranges from a length and annotations.
  *
  * @param {number} length - Length of the sequence (e.g. text length or array length)

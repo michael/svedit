@@ -223,7 +223,15 @@ function validate_primitive_value(type, value) {
  * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if annotations are invalid
  */
-function validate_annotations_array(node_id, prop_name, annotations, container_length, allowed_node_types, all_nodes, require_references) {
+function validate_annotations_array(
+	node_id,
+	prop_name,
+	annotations,
+	container_length,
+	allowed_node_types,
+	all_nodes,
+	require_references
+) {
 	for (const [index, annotation] of annotations.entries()) {
 		if (
 			typeof annotation !== 'object' ||
@@ -268,9 +276,10 @@ function validate_annotations_array(node_id, prop_name, annotations, container_l
 
 	const sorted_annotations = annotations
 		.map((annotation, index) => ({ annotation, index }))
-		.sort((a, b) =>
-			a.annotation.start_offset - b.annotation.start_offset ||
-			a.annotation.end_offset - b.annotation.end_offset
+		.sort(
+			(a, b) =>
+				a.annotation.start_offset - b.annotation.start_offset ||
+				a.annotation.end_offset - b.annotation.end_offset
 		);
 
 	for (let index = 1; index < sorted_annotations.length; index++) {
@@ -296,9 +305,24 @@ function validate_annotations_array(node_id, prop_name, annotations, container_l
  * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if annotations are invalid
  */
-function validate_annotated_text_property(node_id, prop_name, value, prop_def, all_nodes, require_references) {
+function validate_annotated_text_property(
+	node_id,
+	prop_name,
+	value,
+	prop_def,
+	all_nodes,
+	require_references
+) {
 	const char_length = get_char_length(value.text);
-	validate_annotations_array(node_id, prop_name, value.annotations, char_length, prop_def.node_types, all_nodes, require_references);
+	validate_annotations_array(
+		node_id,
+		prop_name,
+		value.annotations,
+		char_length,
+		prop_def.node_types,
+		all_nodes,
+		require_references
+	);
 }
 
 /**
@@ -412,7 +436,15 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 					);
 				}
 			}
-			validate_annotations_array(node.id, prop_name, node_array_annotations, node_array_nodes.length, prop_def.annotation_types, all_nodes, require_references);
+			validate_annotations_array(
+				node.id,
+				prop_name,
+				node_array_annotations,
+				node_array_nodes.length,
+				prop_def.annotation_types,
+				all_nodes,
+				require_references
+			);
 		}
 	}
 }
@@ -566,31 +598,6 @@ export function kind(schema, node) {
 }
 
 /**
- * Checks whether an annotation node can be switched to another annotation type
- * without losing data.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {any} annotation_node - The annotation node to switch
- * @param {string} target_annotation_type - The target annotation type
- * @returns {boolean} True if the annotation can be switched safely
- */
-export function can_switch_annotation_type(schema, annotation_node, target_annotation_type) {
-	if (!annotation_node || annotation_node.type === target_annotation_type) return false;
-
-	const source_schema = schema[annotation_node.type];
-	const target_schema = schema[target_annotation_type];
-	if (source_schema?.kind !== 'annotation' || target_schema?.kind !== 'annotation') return false;
-
-	const source_has_properties = Object.keys(source_schema.properties ?? {}).length > 0;
-	const target_has_properties = Object.keys(target_schema.properties ?? {}).length > 0;
-	if (source_has_properties || target_has_properties) return false;
-
-	// eslint-disable-next-line no-unused-vars
-	const { id, type, ...extra_properties } = annotation_node;
-	return Object.keys(extra_properties).length === 0;
-}
-
-/**
  * Inspects a path to get metadata about the value at that location.
  *
  * @param {DocumentSchema} schema - The document schema
@@ -709,9 +716,10 @@ export function get_active_annotation(schema, doc, selection, annotation_type) {
 	if (!range) return null;
 
 	const annotated_prop = get(schema, doc, selection.path);
-	const annotations = selection.type === 'node'
-		? get_node_array_annotations(annotated_prop)
-		: annotated_prop.annotations;
+	const annotations =
+		selection.type === 'node'
+			? get_node_array_annotations(annotated_prop)
+			: annotated_prop.annotations;
 
 	const active_annotation =
 		annotations.find(
@@ -751,7 +759,9 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 
 			if (prop_type === 'node_array') {
 				count += get_node_array_nodes(value).filter((id) => id === target_node_id).length;
-				count += get_node_array_annotations(value).filter((a) => a.node_id === target_node_id).length;
+				count += get_node_array_annotations(value).filter(
+					(a) => a.node_id === target_node_id
+				).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
 			} else if (prop_type === 'annotated_text' && value && value.annotations) {

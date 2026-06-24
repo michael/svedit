@@ -53,6 +53,14 @@
 		return fragments;
 	}
 
+	function get_node_key(node_id, index) {
+		let occurrence = 0;
+		for (let current_index = 0; current_index < index; current_index++) {
+			if (node_ids[current_index] === node_id) occurrence += 1;
+		}
+		return `${node_id}:${occurrence}`;
+	}
+
 	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
 	// the model selection. Used by the CSS rule below to hide the empty-array
 	// NodeGap while the caret is in the placeholder, so its <br> isn't a
@@ -90,7 +98,7 @@
 		</div>
 	{/if}
 	{#snippet render_nodes(nodes_slice, start_index)}
-		{#each nodes_slice as id, slice_index (id)}
+		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />

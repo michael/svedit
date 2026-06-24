@@ -7,7 +7,10 @@ import {
 	char_slice,
 	traverse,
 	get_selection_range,
-	is_selection_collapsed
+	is_selection_collapsed,
+	delete_range_from_annotations,
+	insert_range_into_annotations,
+	are_annotation_ranges_exclusive
 } from './utils.js';
 import { join_text_node } from './transforms.svelte.js';
 import {
@@ -21,7 +24,6 @@ import {
 	fill_node_defaults,
 	get_active_annotation,
 	validate_selection,
-	can_switch_annotation_type,
 	get_node_array_nodes,
 	get_node_array_annotations
 } from './doc_utils.js';
@@ -132,7 +134,6 @@ export default class Transaction {
 	validate_node(node) {
 		validate_node(node, this.schema, this.doc.nodes, { require_references: false });
 	}
-
 
 	/**
 	 * Gets all nodes referenced by a given node (recursively).
@@ -349,7 +350,7 @@ export default class Transaction {
 	 *
 	 * NOTE: This is a force-delete and intentionally does NOT check whether
 	 * the node is still referenced from elsewhere — callers (e.g.
-	 * `annotate_text`) sometimes need to remove a node while a stale
+	 * `toggle_annotation`) sometimes need to remove a node while a stale
 	 * reference to it still exists in the property they are about to update.
 	 * For ref-count-aware cleanup, see how `set` calls
 	 * `_cascade_delete_unreferenced_nodes`.
@@ -405,11 +406,10 @@ export default class Transaction {
 	}
 
 	/**
-	 * Adds, updates, or removes text annotations in the current selection.
+	 * Toggles an annotation on the current text or node selection.
 	 *
-	 * Handles various annotation scenarios including adding new annotations,
-	 * updating existing ones (especially for links), and removing annotations
-	 * when conflicting types are applied.
+	 * Annotations are exclusive. If any annotation overlaps the selection, it
+	 * is removed first. A subsequent toggle creates the requested annotation.
 	 *
 	 * @param {any} annotation_type - The type of annotation (e.g., 'link', 'bold', 'italic')
 	 * @param {any} annotation_properties - Additional data for the annotation (e.g., href for links)
@@ -418,56 +418,34 @@ export default class Transaction {
 	 * @example
 	 * ```js
 	 * // Add a link annotation
-	 * tr.annotate_text('link', { href: 'https://example.com' });
+	 * tr.toggle_annotation('link', { href: 'https://example.com' });
 	 *
 	 * // Add emphasis
-	 * tr.annotate_text('emphasis', {});
+	 * tr.toggle_annotation('emphasis', {});
 	 * ```
 	 */
-	annotate_text(annotation_type, annotation_properties) {
+	toggle_annotation(annotation_type, annotation_properties) {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
+		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
 
 		const range = get_selection_range(this.selection);
 		const annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-		const annotations = this.selection.type === 'node'
-			? get_node_array_annotations(annotated_value)
-			: annotated_value.annotations;
+		const annotations =
+			this.selection.type === 'node'
+				? get_node_array_annotations(annotated_value)
+				: annotated_value.annotations;
 		const existing_annotation = this.active_annotation();
-		const existing_annotation_same_type = this.active_annotation(annotation_type);
-		const has_annotation_properties =
-			annotation_properties && Object.keys(annotation_properties).length > 0;
 
 		if (existing_annotation) {
-			// If there's an existing annotation of the same type, remove it
-			if (existing_annotation_same_type) {
-				const index = annotations.findIndex(
-					/** @param {any} anno */ (anno) =>
-						anno.start_offset === existing_annotation.start_offset &&
-						anno.end_offset === existing_annotation.end_offset
-				);
-				if (index !== -1) {
-					// Remove the annotation node from the graph
-					this.delete(annotations[index].node_id);
-					annotations.splice(index, 1);
-				}
-			} else {
-				const existing_annotation_node = this.get(existing_annotation.node_id);
-				const can_switch_annotation =
-					!has_annotation_properties &&
-					this.available_annotation_types.includes(annotation_type) &&
-					can_switch_annotation_type(
-						this.schema,
-						existing_annotation_node,
-						annotation_type
-					);
-
-				if (can_switch_annotation) {
-					this.set([existing_annotation.node_id, 'type'], annotation_type);
-					return this;
-				}
-
-				// If there's an annotation of a different incompatible type, don't add a new one
-				return this;
+			const index = annotations.findIndex(
+				/** @param {any} anno */ (anno) =>
+					anno.start_offset === existing_annotation.start_offset &&
+					anno.end_offset === existing_annotation.end_offset &&
+					anno.node_id === existing_annotation.node_id
+			);
+			if (index !== -1) {
+				this.delete(annotations[index].node_id);
+				annotations.splice(index, 1);
 			}
 		} else {
 			if (is_selection_collapsed(this.selection)) {
@@ -493,6 +471,13 @@ export default class Transaction {
 
 		this.set(this.selection.path, annotated_value);
 		return this;
+	}
+
+	/**
+	 * @deprecated Use toggle_annotation().
+	 */
+	annotate_text(annotation_type, annotation_properties) {
+		return this.toggle_annotation(annotation_type, annotation_properties);
 	}
 
 	/**
@@ -563,47 +548,20 @@ export default class Transaction {
 		if (this.selection.type === 'node') {
 			const current_value = structuredClone($state.snapshot(this.get(path)));
 			const node_array = [...current_value.nodes];
-			const deleted_annotation_nodes = [];
 			const deletion_length = end - start;
 
 			// Remove the selected nodes from the node_array
 			node_array.splice(start, deletion_length);
-
-			const annotations = current_value.annotations
-				.map((annotation) => {
-					const annotation_start = annotation.start_offset;
-					const annotation_end = annotation.end_offset;
-					const node_id = annotation.node_id;
-
-					if (annotation_end <= start) return annotation;
-
-					let new_start = annotation_start;
-					if (annotation_start >= end) {
-						new_start = annotation_start - deletion_length;
-					} else if (annotation_start > start) {
-						new_start = start;
-					}
-
-					let new_end = annotation_end;
-					if (annotation_end >= end) {
-						new_end = annotation_end - deletion_length;
-					} else if (annotation_end > start) {
-						new_end = start;
-					}
-
-					if (new_start >= new_end) {
-						deleted_annotation_nodes.push(node_id);
-						return null;
-					}
-
-					return { start_offset: new_start, end_offset: new_end, node_id };
-				})
-				.filter(Boolean);
+			const { annotations, removed_node_ids } = delete_range_from_annotations(
+				current_value.annotations,
+				start,
+				end
+			);
 
 			// Update the node_array in the entry (this implicitly records an op via this.set)
 			// Note: this.set() will automatically cascade delete unreferenced nodes
 			this.set(path, { nodes: node_array, annotations });
-			this._cascade_delete_unreferenced_nodes(deleted_annotation_nodes);
+			this._cascade_delete_unreferenced_nodes(removed_node_ids);
 
 			// Update the selection to point to the start of the deleted range
 			this.selection = {
@@ -622,55 +580,17 @@ export default class Transaction {
 				char_slice(original_text, 0, start) +
 				char_slice(original_text, end, get_char_length(original_text));
 
-			// To mark annotation nodes for deletion.
-			/** @type {string[]} */
-			const _deleted_nodes = [];
-			const deletion_length = end - start;
-			const new_annotations = text.annotations
-				.map((/** @type {any} */ annotation) => {
-					const annotation_start = annotation.start_offset;
-					const annotation_end = annotation.end_offset;
-					const node_id = annotation.node_id;
-
-					// Case 1: Annotation is entirely before the deleted range - keep unchanged
-					if (annotation_end <= start) {
-						return annotation;
-					}
-
-					// Case 2: Annotation is entirely after the deleted range - shift it
-					let new_start = annotation_start;
-					if (annotation_start >= end) {
-						new_start = annotation_start - deletion_length;
-					} else if (annotation_start > start) {
-						// Annotation starts inside deleted range
-						new_start = start;
-					}
-
-					// Case 3: Annotation overlaps with deleted range - adjust end
-					let new_end = annotation_end;
-					if (annotation_end >= end) {
-						new_end = annotation_end - deletion_length;
-					} else if (annotation_end > start) {
-						// Annotation ends inside deleted range
-						new_end = start;
-					}
-
-					// If annotation is now empty, mark for deletion
-					if (new_start >= new_end) {
-						_deleted_nodes.push(node_id);
-						return null;
-					}
-
-					return { start_offset: new_start, end_offset: new_end, node_id };
-				})
-				.filter(Boolean);
-
-			text.annotations = new_annotations;
+			const { annotations, removed_node_ids } = delete_range_from_annotations(
+				text.annotations,
+				start,
+				end
+			);
+			text.annotations = annotations;
 
 			this.set(path, text);
 
 			// Delete marked annotation nodes only if no other references remain.
-			this._cascade_delete_unreferenced_nodes(_deleted_nodes);
+			this._cascade_delete_unreferenced_nodes(removed_node_ids);
 
 			// Update the selection to the new caret position
 			this.selection = {
@@ -691,9 +611,11 @@ export default class Transaction {
 	 * before inserting the new ones.
 	 *
 	 * @param {NodeId[]} node_ids - Array of node IDs to insert
+	 * @param {Array<Annotation>} [annotations] - Selection-relative annotations to restore
+	 * @param {Record<NodeId, any>} [nodes] - Annotation node graph for restored annotations
 	 * @returns {Transaction} This transaction instance for method chaining
 	 */
-	insert_nodes(node_ids) {
+	insert_nodes(node_ids, annotations = [], nodes = {}) {
 		if (this.selection.type !== 'node') return this;
 
 		// Unless caret is collapsed, delete the selected nodes as a first step
@@ -707,35 +629,14 @@ export default class Transaction {
 
 		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 
-		const annotations = current_value.annotations.map((annotation) => {
-			const annotation_start = annotation.start_offset;
-			const annotation_end = annotation.end_offset;
-			const node_id = annotation.node_id;
-
-			if (annotation_end <= start) return annotation;
-
-			if (annotation_start < start && annotation_end >= start) {
-				return {
-					start_offset: annotation_start,
-					end_offset: annotation_end + node_ids.length,
-					node_id
-				};
-			}
-
-			if (annotation_start >= start) {
-				return {
-					start_offset: annotation_start + node_ids.length,
-					end_offset: annotation_end + node_ids.length,
-					node_id
-				};
-			}
-
-			return annotation;
-		});
+		let next_annotations = insert_range_into_annotations(
+			current_value.annotations,
+			start,
+			node_ids.length
+		);
 
 		// Insert the new nodes
 		node_array.splice(start, 0, ...node_ids);
-		this.set(path, { nodes: node_array, annotations });
 
 		this.selection = {
 			type: 'node',
@@ -744,6 +645,36 @@ export default class Transaction {
 			focus_offset: start + node_ids.length
 		};
 
+		if (
+			!this.active_annotation() &&
+			annotations.length > 0 &&
+			are_annotation_ranges_exclusive(annotations, node_ids.length)
+		) {
+			const property_definition = this.inspect(path);
+			const restored_annotations = annotations
+				.map((annotation) => {
+					const annotation_node = nodes[annotation.node_id];
+					if (!property_definition.annotation_types?.includes(annotation_node?.type)) return null;
+
+					const new_annotation_node_id = this.build(annotation.node_id, nodes);
+					return {
+						start_offset: start + annotation.start_offset,
+						end_offset: start + annotation.end_offset,
+						node_id: new_annotation_node_id
+					};
+				})
+				.filter(Boolean);
+			const combined_annotations = next_annotations.concat(restored_annotations);
+			if (are_annotation_ranges_exclusive(combined_annotations)) {
+				next_annotations = combined_annotations;
+			} else {
+				for (const annotation of restored_annotations) {
+					this.delete(annotation.node_id);
+				}
+			}
+		}
+
+		this.set(path, { nodes: node_array, annotations: next_annotations });
 		return this;
 	}
 
@@ -780,37 +711,11 @@ export default class Transaction {
 		// Calculate the change in length
 		const delta = get_char_length(replaced_text);
 
-		const new_annotations = annotated_text.annotations.map((/** @type {any} */ annotation) => {
-			const annotation_start = annotation.start_offset;
-			const annotation_end = annotation.end_offset;
-			const node_id = annotation.node_id;
-
-			// Annotation is entirely before the insertion point
-			if (annotation_end <= range.start_offset) {
-				return annotation;
-			}
-
-			// Insertion point is inside the annotation (not at the start) - extend it
-			if (annotation_start < range.start_offset && annotation_end >= range.start_offset) {
-				return {
-					start_offset: annotation_start,
-					end_offset: annotation_end + delta,
-					node_id
-				};
-			}
-
-			// Annotation is entirely after the insertion point - shift it
-			if (annotation_start >= range.start_offset) {
-				return {
-					start_offset: annotation_start + delta,
-					end_offset: annotation_end + delta,
-					node_id
-				};
-			}
-			return annotation;
-		});
-
-		annotated_text.annotations = new_annotations;
+		annotated_text.annotations = insert_range_into_annotations(
+			annotated_text.annotations,
+			range.start_offset,
+			delta
+		);
 		this.set(this.selection.path, annotated_text); // this will update the current state and create a history entry
 
 		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
@@ -825,14 +730,16 @@ export default class Transaction {
 
 		// Now we apply annotations if there are any, but only if there's no active annotation
 		// at the current collapsed caret
-		if (!this.active_annotation() && annotations.length > 0) {
-			const new_annotations = annotations
+		if (
+			!this.active_annotation() &&
+			annotations.length > 0 &&
+			are_annotation_ranges_exclusive(annotations, delta)
+		) {
+			const restored_annotations = annotations
 				.map((annotation) => {
 					const original_annotation_node = nodes[annotation.node_id];
 					const text_property_definition = this.inspect(this.selection.path);
-					// console.log('original_annotation_node.type', original_annotation_node.type);
-					// console.log('text_property_definition', text_property_definition);
-					if (text_property_definition.node_types.includes(original_annotation_node.type)) {
+					if (text_property_definition.node_types.includes(original_annotation_node?.type)) {
 						const new_annotation_node_id = this.build(annotation.node_id, nodes);
 						return {
 							start_offset: range.start_offset + annotation.start_offset,
@@ -843,9 +750,16 @@ export default class Transaction {
 					return null;
 				})
 				.filter(Boolean);
-			const next_annotated_text = structuredClone(annotated_text);
-			next_annotated_text.annotations = next_annotated_text.annotations.concat(new_annotations);
-			this.set(this.selection.path, next_annotated_text); // this will update the current state and create a history entry
+			const combined_annotations = annotated_text.annotations.concat(restored_annotations);
+			if (are_annotation_ranges_exclusive(combined_annotations)) {
+				const next_annotated_text = structuredClone(annotated_text);
+				next_annotated_text.annotations = combined_annotations;
+				this.set(this.selection.path, next_annotated_text);
+			} else {
+				for (const annotation of restored_annotations) {
+					this.delete(annotation.node_id);
+				}
+			}
 		}
 
 		return this;

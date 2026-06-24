@@ -185,13 +185,13 @@
 		}
 
 		if (event.inputType === 'formatBold' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('strong'));
+			session.apply(session.tr.toggle_annotation('strong'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
 		if (event.inputType === 'formatItalic' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('emphasis'));
+			session.apply(session.tr.toggle_annotation('emphasis'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
@@ -199,7 +199,7 @@
 		// NOTE: underline doesn't make much sense as a semantic annotation,
 		// so we rewire `cmd + u` to toggle highlights
 		if (event.inputType === 'formatUnderline' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('highlight'));
+			session.apply(session.tr.toggle_annotation('highlight'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
@@ -469,28 +469,6 @@ ${fallback_html}`;
 	}
 
 	/**
-	 * @param {NodeId[]} selected_node_ids
-	 */
-	function prepare_copy_payload(selected_node_ids) {
-		const nodes = {};
-
-		// Get subgraph for each selected node using session.traverse()
-		for (const node_id of selected_node_ids) {
-			const subgraph = session.traverse(node_id);
-
-			// Add all nodes from this subgraph to our nodes collection
-			for (const node of subgraph) {
-				if (!nodes[node.id]) {
-					nodes[node.id] = node;
-				}
-			}
-		}
-
-		// Keep original IDs - we'll generate new ones during paste
-		return { nodes, main_nodes: selected_node_ids };
-	}
-
-	/**
 	 * @param {ClipboardEvent} event
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
@@ -517,9 +495,8 @@ ${fallback_html}`;
 
 			html = create_svedit_html_format(annotated_text, fallback_html);
 		} else if (session.selection?.type === 'node') {
-			const selected_nodes = session.get_selected_nodes();
-			const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
-			const json_data = { nodes, main_nodes };
+			const json_data = session.get_selected_annotated_nodes();
+			const { nodes, main_nodes } = json_data;
 
 			// console.log('Node copy:', {
 			// 	selected_nodes,
@@ -566,8 +543,6 @@ ${fallback_html}`;
 		if (!editable) return;
 		oncopy(event, true);
 	}
-
-
 
 	/**
 	 * @returns {NodeSelection|null}
@@ -639,7 +614,7 @@ ${fallback_html}`;
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
-		const { nodes, main_nodes } = pasted_json || {};
+		const { nodes, main_nodes, annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
 		let tr = session.tr;
@@ -652,7 +627,10 @@ ${fallback_html}`;
 		if (property_definition?.type !== 'node_array') return false;
 
 		const default_text_node_type = get_default_text_node(property_definition, session.schema);
-		const target_text_property_name = get_text_property_name(default_text_node_type, session.schema);
+		const target_text_property_name = get_text_property_name(
+			default_text_node_type,
+			session.schema
+		);
 
 		const nodes_to_insert = [];
 		let rejected = false;
@@ -689,7 +667,7 @@ ${fallback_html}`;
 		}
 
 		if (!rejected) {
-			tr.insert_nodes(nodes_to_insert);
+			tr.insert_nodes(nodes_to_insert, annotations, nodes);
 			session.apply(tr);
 			return true;
 		}
@@ -766,7 +744,10 @@ ${fallback_html}`;
 
 				if (session.selection?.type === 'text') {
 					const property_definition = session.inspect(session.selection.path);
-					if (property_definition?.type === 'annotated_text' && !property_definition.allow_newlines) {
+					if (
+						property_definition?.type === 'annotated_text' &&
+						!property_definition.allow_newlines
+					) {
 						plain_text = normalize_plain_text_for_single_line_property(plain_text);
 					}
 
@@ -777,7 +758,10 @@ ${fallback_html}`;
 						const node_array_property_definition = session.inspect(
 							session.selection.path.slice(0, -2)
 						);
-						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						const default_text_node_type = get_default_text_node(
+							node_array_property_definition,
+							session.schema
+						);
 						const node_insert_caret = get_node_insert_caret_after_text_selection(session.selection);
 						const plain_text_nodes_payload = create_plain_text_nodes_payload(
 							plain_text_fragments,
@@ -796,7 +780,10 @@ ${fallback_html}`;
 					const target_node_insert_caret = get_target_node_insert_caret(session.selection);
 					if (target_node_insert_caret) {
 						const node_array_property_definition = session.inspect(target_node_insert_caret.path);
-						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						const default_text_node_type = get_default_text_node(
+							node_array_property_definition,
+							session.schema
+						);
 						pasted_json = create_plain_text_nodes_payload(
 							plain_text_fragments,
 							default_text_node_type,
