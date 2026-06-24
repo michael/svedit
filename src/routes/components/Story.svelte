@@ -5,7 +5,7 @@
 
 	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
-	let has_buttons = $derived(node.buttons.length > 0);
+	let has_buttons = $derived(node.buttons.nodes.length > 0);
 </script>
 
 <Node {path}>

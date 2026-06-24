@@ -45,7 +45,16 @@ export const document_schema = define_document_schema({
 		properties: {
 			body: {
 				type: 'node_array',
-				node_types: ['paragraph', 'heading_1', 'heading_2', 'heading_3', 'story', 'list', 'image_grid', 'hero'],
+				node_types: [
+					'paragraph',
+					'heading_1',
+					'heading_2',
+					'heading_3',
+					'story',
+					'list',
+					'image_grid',
+					'hero'
+				],
 				default_node_type: 'paragraph'
 			},
 			keywords: {
@@ -462,7 +471,10 @@ const doc = {
 		list_1: {
 			id: 'list_1',
 			type: 'list',
-			list_items: { nodes: ['list_item_1', 'list_item_2', 'list_item_3', 'list_item_4'], annotations: [] },
+			list_items: {
+				nodes: ['list_item_1', 'list_item_2', 'list_item_3', 'list_item_4'],
+				annotations: []
+			},
 			layout: 3
 		},
 		story_7: {
@@ -595,7 +607,7 @@ export const session_config = {
 		list: (node, doc, html_exporters) => {
 			const { list_item } = html_exporters;
 			let html = '<ul>\n';
-			for (const list_item_id of node.list_items) {
+			for (const list_item_id of node.list_items.nodes) {
 				html += list_item(doc.get(list_item_id), doc, html_exporters);
 			}
 			return html + '</ul>';
@@ -610,7 +622,7 @@ export const session_config = {
 			if (node.description) {
 				html += `<p>${node.description.text}</p>\n`;
 			}
-			for (const button_id of node.buttons) {
+			for (const button_id of node.buttons.nodes) {
 				html += button(doc.get(button_id), doc, html_exporters);
 			}
 			return html;
@@ -788,7 +800,7 @@ export const session_config = {
 			const new_image_grid = {
 				id: nanoid(),
 				type: 'image_grid',
-				image_grid_items: new_image_grid_items
+				image_grid_items: { nodes: new_image_grid_items, annotations: [] }
 			};
 			tr.create(new_image_grid);
 			tr.insert_nodes([new_image_grid.id]);

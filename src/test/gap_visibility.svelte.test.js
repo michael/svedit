@@ -31,6 +31,22 @@ describe('NodeGap visibility & placement', () => {
 	});
 
 	describe('non-overflow row array', () => {
+		it('keeps story buttons intrinsic-width and on the same row', async () => {
+			const session = make_story_session(2);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			const nodes = array_el.querySelectorAll(':scope > [data-type="node"]');
+			const first_rect = nodes[0].getBoundingClientRect();
+			const second_rect = nodes[1].getBoundingClientRect();
+			const array_rect = array_el.getBoundingClientRect();
+
+			expect(getComputedStyle(array_el).display).toBe('flex');
+			expect(first_rect.width).toBeLessThan(array_rect.width);
+			expect(Math.abs(first_rect.top - second_rect.top)).toBeLessThan(1);
+		});
+
 		it('renders last gap positioned and extending past container right by --_eg', async () => {
 			const session = make_story_session(2);
 			const { container } = render(SveditTest, { session });
@@ -382,12 +398,7 @@ describe('NodeGap visibility & placement', () => {
 			const markers = array_el.querySelectorAll(
 				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
 			);
-			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual([
-				'0',
-				'1',
-				'2',
-				'3'
-			]);
+			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual(['0', '1', '2']);
 		});
 	});
 });
