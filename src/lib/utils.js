@@ -5,20 +5,41 @@
 const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
 /**
- * Detect if the current browser is on a mobile device
+ * Detect if the virtual keyboard is likely visible.
+ *
+ * This is a heuristic based on the visual viewport becoming smaller than the
+ * layout viewport.
+ *
+ * @returns {boolean} true if the virtual keyboard is likely active, false otherwise
+ */
+export function is_virtual_keyboard_active() {
+	if (typeof window === 'undefined' || typeof document === 'undefined') {
+		return false;
+	}
+
+	const visual_viewport = window.visualViewport;
+	if (!visual_viewport) {
+		return false;
+	}
+
+	return visual_viewport.height < document.documentElement.clientHeight;
+}
+
+/**
+ * Detect if the current browser is likely on a mobile device.
+ *
+ * This uses the user agent only so touch-capable laptops are not treated as
+ * mobile browsers.
+ *
  * @returns {boolean} true if mobile browser, false otherwise
  */
 export function is_mobile_browser() {
-	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+	if (typeof navigator === 'undefined') {
 		return false;
 	}
 
 	const user_agent = navigator.userAgent;
-	return (
-		/iPhone|iPad|iPod|Android|Mobile/i.test(user_agent) ||
-		'ontouchstart' in window ||
-		navigator.maxTouchPoints > 0
-	);
+	return /iPhone|iPad|iPod|Android|Mobile/i.test(user_agent);
 }
 
 // ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️
