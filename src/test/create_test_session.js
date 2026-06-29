@@ -36,7 +36,7 @@ const document_schema = define_document_schema({
 	button: {
 		kind: 'text',
 		properties: {
-			content: { type: 'annotated_text', allow_newlines: false },
+			content: { type: 'text', allow_newlines: false },
 			href: { type: 'string' }
 		}
 	},
@@ -44,36 +44,36 @@ const document_schema = define_document_schema({
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	story: {
 		kind: 'block',
 		properties: {
 			layout: { type: 'integer' },
-			title: { type: 'annotated_text', allow_newlines: false },
-			description: { type: 'annotated_text', allow_newlines: true },
+			title: { type: 'text', allow_newlines: false },
+			description: { type: 'text', allow_newlines: true },
 			buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
 			image: { type: 'string' }
 		}
@@ -81,7 +81,7 @@ const document_schema = define_document_schema({
 	list_item: {
 		kind: 'text',
 		properties: {
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	list: {

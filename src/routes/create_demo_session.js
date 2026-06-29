@@ -73,13 +73,13 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			title: {
-				type: 'annotated_text',
-				node_types: TITLE_ANNOTATIONS,
+				type: 'text',
+				annotation_types: TITLE_ANNOTATIONS,
 				allow_newlines: false
 			},
 			description: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			},
 			image: { type: 'string' } // a dedicated type asset would be better
@@ -90,8 +90,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			content: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			}
 		}
@@ -101,8 +101,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			content: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			}
 		}
@@ -112,8 +112,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			content: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			}
 		}
@@ -123,8 +123,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			content: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			}
 		}
@@ -133,8 +133,8 @@ export const document_schema = define_document_schema({
 		kind: 'text',
 		properties: {
 			content: {
-				type: 'annotated_text',
-				node_types: [],
+				type: 'text',
+				annotation_types: [],
 				allow_newlines: false
 			},
 			href: { type: 'string' }
@@ -145,13 +145,13 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			title: {
-				type: 'annotated_text',
-				node_types: TITLE_ANNOTATIONS,
+				type: 'text',
+				annotation_types: TITLE_ANNOTATIONS,
 				allow_newlines: false
 			},
 			description: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: true
 			},
 			buttons: {
@@ -177,13 +177,13 @@ export const document_schema = define_document_schema({
 		properties: {
 			image: { type: 'string' }, // a dedicated type asset would be better
 			title: {
-				type: 'annotated_text',
-				node_types: TITLE_ANNOTATIONS,
+				type: 'text',
+				annotation_types: TITLE_ANNOTATIONS,
 				allow_newlines: false
 			},
 			description: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: false
 			}
 		}
@@ -192,8 +192,8 @@ export const document_schema = define_document_schema({
 		kind: 'text',
 		properties: {
 			content: {
-				type: 'annotated_text',
-				node_types: ALL_ANNOTATIONS,
+				type: 'text',
+				annotation_types: ALL_ANNOTATIONS,
 				allow_newlines: false
 			}
 		}

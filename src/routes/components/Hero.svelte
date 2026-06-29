@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { Node, AnnotatedTextProperty } from 'svedit';
+	import { Node, TextProperty } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
@@ -17,12 +17,12 @@
 		<div class="hero-overlay"></div>
 	{/if}
 	<div class="hero-content">
-		<AnnotatedTextProperty
+		<TextProperty
 			class="hero-title"
 			path={[...path, 'title']}
 			placeholder="A hero is the prominent, top-most section of a webpage"
 		/>
-		<AnnotatedTextProperty
+		<TextProperty
 			class="hero-subtitle"
 			path={[...path, 'description']}
 			placeholder="It should be accompanied by a short description."

@@ -184,14 +184,14 @@ export function char_to_utf16_offset(str, char_offset) {
  * @returns {[AnnotatedText, AnnotatedText]} Tuple of [left_part, right_part]
  *
  * @example
- * split_annotated_text({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
+ * split_text({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
  * // Returns:
  * // [
  * //   {text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
  * //   {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
  * // ]
  */
-export function split_annotated_text(text_with_annotations, at_position) {
+export function split_text(text_with_annotations, at_position) {
 	const { text, annotations } = text_with_annotations;
 
 	// Split the text using character-aware slicing
@@ -239,10 +239,10 @@ export function split_annotated_text(text_with_annotations, at_position) {
  * @returns {AnnotatedText} Combined annotated text object
  *
  * @example
- * join_annotated_text({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
+ * join_text({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
  * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
  */
-export function join_annotated_text(first_text, second_text) {
+export function join_text(first_text, second_text) {
 	const { text: first_text_content, annotations: first_annotations } = first_text;
 	const { text: second_text_content, annotations: second_annotations } = second_text;
 
@@ -431,7 +431,7 @@ export function traverse(node_id, schema, nodes) {
 				}
 			} else if (property_definition?.type === 'node') {
 				visit(nodes[value]);
-			} else if (property_definition?.type === 'annotated_text') {
+			} else if (property_definition?.type === 'text') {
 				for (const annotation of value.annotations) {
 					visit(nodes[annotation.node_id]);
 				}

@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { Node, AnnotatedTextProperty, CustomProperty } from 'svedit';
+	import { Node, TextProperty, CustomProperty } from 'svedit';
 	const svedit = getContext('svedit');
 	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
@@ -19,12 +19,8 @@
 		</CustomProperty>
 		<div class="caption flex-column gap-y-3">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedTextProperty
-				class="heading3"
-				path={[...path, 'title']}
-				placeholder="Gallery item title"
-			/>
-			<AnnotatedTextProperty class="body" path={[...path, 'description']} placeholder="Details" />
+			<TextProperty class="heading3" path={[...path, 'title']} placeholder="Gallery item title" />
+			<TextProperty class="body" path={[...path, 'description']} placeholder="Details" />
 		</div>
 	</div>
 </Node>

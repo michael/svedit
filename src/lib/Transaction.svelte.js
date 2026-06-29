@@ -157,7 +157,7 @@ export default class Transaction {
 		const property_definition = this.inspect(path);
 		return this.selection.type === 'node'
 			? property_definition.annotation_types || []
-			: property_definition.node_types || [];
+			: property_definition.annotation_types || [];
 	}
 
 	/**
@@ -290,7 +290,7 @@ export default class Transaction {
 					};
 				} else if (prop_type === 'node' && typeof value === 'string') {
 					new_node[property_name] = id_map[value];
-				} else if (prop_type === 'annotated_text' && value) {
+				} else if (prop_type === 'text' && value) {
 					const annotations = value.annotations.map((annotation) => {
 						const { start_offset, end_offset, node_id } = annotation;
 						return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
@@ -700,23 +700,25 @@ export default class Transaction {
 			this.delete_selection();
 		}
 
-		const annotated_text = structuredClone($state.snapshot(this.get(this.selection.path)));
+		const text_value = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const range = get_selection_range(this.selection);
 
 		// Transform the plain text string using character-based operations
-		const text = annotated_text.text;
-		annotated_text.text =
-			char_slice(text, 0, range.start_offset) + replaced_text + char_slice(text, range.end_offset);
+		const current_text = text_value.text;
+		text_value.text =
+			char_slice(current_text, 0, range.start_offset) +
+			replaced_text +
+			char_slice(current_text, range.end_offset);
 
 		// Calculate the change in length
 		const delta = get_char_length(replaced_text);
 
-		annotated_text.annotations = insert_range_into_annotations(
-			annotated_text.annotations,
+		text_value.annotations = insert_range_into_annotations(
+			text_value.annotations,
 			range.start_offset,
 			delta
 		);
-		this.set(this.selection.path, annotated_text); // this will update the current state and create a history entry
+		this.set(this.selection.path, text_value); // this will update the current state and create a history entry
 
 		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
 		/** @type {Selection} */
@@ -739,7 +741,7 @@ export default class Transaction {
 				.map((annotation) => {
 					const original_annotation_node = nodes[annotation.node_id];
 					const text_property_definition = this.inspect(this.selection.path);
-					if (text_property_definition.node_types.includes(original_annotation_node?.type)) {
+					if (text_property_definition.annotation_types?.includes(original_annotation_node?.type)) {
 						const new_annotation_node_id = this.build(annotation.node_id, nodes);
 						return {
 							start_offset: range.start_offset + annotation.start_offset,
@@ -750,11 +752,11 @@ export default class Transaction {
 					return null;
 				})
 				.filter(Boolean);
-			const combined_annotations = annotated_text.annotations.concat(restored_annotations);
+			const combined_annotations = text_value.annotations.concat(restored_annotations);
 			if (are_annotation_ranges_exclusive(combined_annotations)) {
-				const next_annotated_text = structuredClone(annotated_text);
-				next_annotated_text.annotations = combined_annotations;
-				this.set(this.selection.path, next_annotated_text);
+				const next_text = structuredClone(text_value);
+				next_text.annotations = combined_annotations;
+				this.set(this.selection.path, next_text);
 			} else {
 				for (const annotation of restored_annotations) {
 					this.delete(annotation.node_id);

@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { AnnotatedTextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
+	import { TextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
@@ -21,12 +21,12 @@
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedTextProperty
+			<TextProperty
 				class="heading2"
 				path={[...path, 'title']}
 				placeholder="The CTA headline should be clear and benefit-driven."
 			/>
-			<AnnotatedTextProperty
+			<TextProperty
 				class="body"
 				path={[...path, 'description']}
 				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."

@@ -79,7 +79,7 @@
 		};
 	}
 
-	// Mirrors the AnnotatedTextProperty pattern: a `focused` class follows
+	// Mirrors the TextProperty pattern: a `focused` class follows
 	// the model selection. Used by the CSS rule below to hide the empty-array
 	// NodeGap while the caret is in the placeholder, so its <br> isn't a
 	// second arrow-key stop (issue #260).

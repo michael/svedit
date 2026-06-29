@@ -12,7 +12,10 @@ function create_annotation_session() {
 	session.schema.strong = { kind: 'annotation', properties: {} };
 	session.schema.emphasis = { kind: 'annotation', properties: {} };
 	session.schema.section = { kind: 'annotation', properties: {} };
-	/** @type {any} */ (session.schema.story.properties.title).node_types = ['strong', 'emphasis'];
+	/** @type {any} */ (session.schema.story.properties.title).annotation_types = [
+		'strong',
+		'emphasis'
+	];
 	/** @type {any} */ (session.schema.page.properties.body).annotation_types = ['section'];
 	session.config.node_components.section = Section;
 	return session;

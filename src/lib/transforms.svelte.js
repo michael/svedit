@@ -1,4 +1,4 @@
-import { split_annotated_text, join_annotated_text, get_char_length } from './utils.js';
+import { split_text, join_text, get_char_length } from './utils.js';
 import { get_default_node_type } from './doc_utils.js';
 
 /**
@@ -32,7 +32,6 @@ export function break_text_node(tr) {
 	// Get the node that owns the node_array property (e.g. a page.body)
 	const node_array_node = tr.get(selection.path.slice(0, -3));
 
-
 	// Delete selection unless collapsed
 	if (selection.anchor_offset !== selection.focus_offset) {
 		tr.delete_selection();
@@ -40,7 +39,7 @@ export function break_text_node(tr) {
 
 	const split_at_position = tr.selection.anchor_offset;
 	const content = tr.get(selection.path);
-	const [left_text, right_text] = split_annotated_text(content, split_at_position);
+	const [left_text, right_text] = split_text(content, split_at_position);
 
 	tr.set([node.id, 'content'], left_text);
 
@@ -111,7 +110,7 @@ export function join_text_node(tr) {
 
 	// Normal joining logic - both nodes are text nodes
 	const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
-	const joined_text = join_annotated_text(predecessor_node.content, node.content);
+	const joined_text = join_text(predecessor_node.content, node.content);
 
 	// Calculate caret position based on original predecessor content length
 	const caret_position = get_char_length(predecessor_node.content.text);

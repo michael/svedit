@@ -9,11 +9,11 @@
 		calculate_fragment_ranges
 	} from './utils.js';
 
-	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
+	/** @import { TextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
-	/** @type {AnnotatedTextPropertyProps} */
+	/** @type {TextPropertyProps} */
 	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
 
 	let path_str = $derived(serialize_path(path));
@@ -64,7 +64,11 @@
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
 	function get_fragments(text, annotations, selection_highlight_range) {
-		const ranges = calculate_fragment_ranges(get_char_length(text), annotations, selection_highlight_range);
+		const ranges = calculate_fragment_ranges(
+			get_char_length(text),
+			annotations,
+			selection_highlight_range
+		);
 		/** @type {Array<Fragment>} */
 		let fragments = [];
 

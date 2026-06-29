@@ -398,8 +398,8 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
-			// Check if this is an annotated_text property (object with text property)
-			if (property_definition.type === 'annotated_text') {
+			// Check if this is a text property (object with text property)
+			if (property_definition.type === 'text') {
 				const text_content = prop_value.text;
 				if (text_content.trim()) {
 					html += `<p>${text_content}</p>`;
@@ -421,7 +421,7 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 
-			// Check if this is an annotated_text property (object with text property)
+			// Check if this is a text property (object with text property)
 			if (
 				typeof prop_value === 'object' &&
 				prop_value !== null &&
@@ -480,20 +480,20 @@ ${fallback_html}`;
 		event.preventDefault();
 		event.stopPropagation();
 
-		let plain_text, annotated_text, html;
+		let plain_text, text, html;
 
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
-			annotated_text = session.get_selected_annotated_text();
-			const fallback_html = `<span>${annotated_text.text}</span>`;
+			text = session.get_selected_text();
+			const fallback_html = `<span>${text.text}</span>`;
 
 			// console.log('Text copy:', {
-			// 	annotated_text,
+			// 	text,
 			// 	plain_text,
 			// 	html
 			// });
 
-			html = create_svedit_html_format(annotated_text, fallback_html);
+			html = create_svedit_html_format(text, fallback_html);
 		} else if (session.selection?.type === 'node') {
 			const json_data = session.get_selected_annotated_nodes();
 			const { nodes, main_nodes } = json_data;
@@ -744,10 +744,7 @@ ${fallback_html}`;
 
 				if (session.selection?.type === 'text') {
 					const property_definition = session.inspect(session.selection.path);
-					if (
-						property_definition?.type === 'annotated_text' &&
-						!property_definition.allow_newlines
-					) {
+					if (property_definition?.type === 'text' && !property_definition.allow_newlines) {
 						plain_text = normalize_plain_text_for_single_line_property(plain_text);
 					}
 
@@ -1197,7 +1194,7 @@ ${fallback_html}`;
 
 		// EDGE CASE 1B: Caret after trailing <br> at end of text
 		//
-		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
+		// TextProperty renders a trailing <br> for non-empty or non-focused text.
 		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
 		// We detect this and return the current DOM text length instead.

@@ -206,7 +206,7 @@ export default class Session {
 		const property_definition = this.inspect(path);
 		return this.selection.type === 'node'
 			? property_definition.annotation_types || []
-			: property_definition.node_types || [];
+			: property_definition.annotation_types || [];
 	}
 
 	// Helper function to get the currently selected node
@@ -344,7 +344,7 @@ export default class Session {
 	 * session.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
 	 *
 	 * @example
-	 * // Get an annotated text property
+	 * // Get a text property
 	 * session.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
 	 */
 	get(path) {
@@ -443,15 +443,15 @@ export default class Session {
 		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
 	}
 
-	get_selected_annotated_text() {
+	get_selected_text() {
 		if (this.selection?.type !== 'text') return null;
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const annotated_text = this.get(this.selection.path);
-		const text = char_slice(annotated_text.text, selection_start, selection_end);
+		const text_value = this.get(this.selection.path);
+		const selected_text = char_slice(text_value.text, selection_start, selection_end);
 		const nodes = {};
-		const annotations = annotated_text.annotations
+		const annotations = text_value.annotations
 			.map((a) => {
 				if (selection_start < a.end_offset && selection_end > a.start_offset) {
 					const sub_graph = this.traverse(a.node_id);
@@ -471,7 +471,7 @@ export default class Session {
 			})
 			.filter(Boolean);
 
-		return { text, annotations, nodes };
+		return { text: selected_text, annotations, nodes };
 	}
 
 	get_selected_annotated_nodes() {
@@ -518,8 +518,8 @@ export default class Session {
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const annotated_text = this.get(this.selection.path);
-		return char_slice(annotated_text.text, start, end);
+		const text = this.get(this.selection.path);
+		return char_slice(text.text, start, end);
 	}
 
 	get_selected_nodes() {
@@ -604,7 +604,7 @@ export default class Session {
 	}
 
 	// property_type('page', 'body') => 'node_array'
-	// property_type('paragraph', 'content') => 'annotated_text'
+	// property_type('paragraph', 'content') => 'text'
 	property_type(type, property) {
 		return doc_property_type(this.schema, type, property);
 	}

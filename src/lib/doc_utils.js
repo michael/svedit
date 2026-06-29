@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, AnnotatedTextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
  */
 
 import {
@@ -39,7 +39,7 @@ export function is_primitive_type(type) {
 		'boolean',
 		'integer',
 		'datetime',
-		'annotated_text',
+		'text',
 		'string_array',
 		'number_array',
 		'boolean_array',
@@ -74,7 +74,7 @@ export function get_property_default(property_definition) {
 	if (property_definition.type === 'integer') return 0;
 	if (property_definition.type === 'number') return 0;
 	if (property_definition.type === 'boolean') return false;
-	if (property_definition.type === 'annotated_text') return { text: '', annotations: [] };
+	if (property_definition.type === 'text') return { text: '', annotations: [] };
 	if (property_definition.type === 'node_array') return { nodes: [], annotations: [] };
 	if (
 		property_definition.type === 'string_array' ||
@@ -191,7 +191,7 @@ function validate_primitive_value(type, value) {
 			return Number.isInteger(value);
 		case 'datetime':
 			return typeof value === 'string' && !isNaN(Date.parse(value));
-		case 'annotated_text':
+		case 'text':
 			return (
 				typeof value === 'object' &&
 				value !== null &&
@@ -218,7 +218,7 @@ function validate_primitive_value(type, value) {
  * @param {string} prop_name - Owner property name, used for error messages
  * @param {Array<Annotation>} annotations - Annotations to validate
  * @param {number} container_length - Length of the annotated text or node array
- * @param {Array<string> | null | undefined} allowed_node_types - Allowed annotation node types
+ * @param {Array<string> | null | undefined} allowed_annotation_types - Allowed annotation node types
  * @param {Record<string, any>} all_nodes - All document nodes
  * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if annotations are invalid
@@ -228,7 +228,7 @@ function validate_annotations_array(
 	prop_name,
 	annotations,
 	container_length,
-	allowed_node_types,
+	allowed_annotation_types,
 	all_nodes,
 	require_references
 ) {
@@ -267,9 +267,12 @@ function validate_annotations_array(
 			continue;
 		}
 
-		if (allowed_node_types?.length && !allowed_node_types.includes(referenced_node.type)) {
+		if (
+			allowed_annotation_types?.length &&
+			!allowed_annotation_types.includes(referenced_node.type)
+		) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${allowed_node_types.join(', ')}] are allowed.`
+				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${allowed_annotation_types.join(', ')}] are allowed.`
 			);
 		}
 	}
@@ -295,17 +298,17 @@ function validate_annotations_array(
 }
 
 /**
- * Validate annotated text annotations for bounds, references, allowed types, and exclusivity.
+ * Validate text property annotations for bounds, references, allowed types, and exclusivity.
  *
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
  * @param {AnnotatedText} value - Annotated text value to validate
- * @param {AnnotatedTextProperty} prop_def - Annotated text property definition
+ * @param {TextProperty} prop_def - Text property definition
  * @param {Record<string, any>} all_nodes - All document nodes
  * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if annotations are invalid
  */
-function validate_annotated_text_property(
+function validate_text_property(
 	node_id,
 	prop_name,
 	value,
@@ -319,7 +322,7 @@ function validate_annotated_text_property(
 		prop_name,
 		value.annotations,
 		char_length,
-		prop_def.node_types,
+		prop_def.annotation_types,
 		all_nodes,
 		require_references
 	);
@@ -364,12 +367,12 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 				);
 			}
 		}
-		if (prop_def.type === 'annotated_text') {
-			validate_annotated_text_property(
+		if (prop_def.type === 'text') {
+			validate_text_property(
 				node.id,
 				prop_name,
 				value,
-				/** @type {AnnotatedTextProperty} */ (prop_def),
+				/** @type {TextProperty} */ (prop_def),
 				all_nodes,
 				require_references
 			);
@@ -491,9 +494,9 @@ export function get(schema, doc, path) {
 			if (property_type(schema, val.type, path_segment_str) === 'node_array') {
 				val = val[path_segment];
 				val_type = 'node_array';
-			} else if (property_type(schema, val.type, path_segment_str) === 'annotated_text') {
+			} else if (property_type(schema, val.type, path_segment_str) === 'text') {
 				val = val[path_segment];
-				val_type = 'annotated_text';
+				val_type = 'text';
 			} else if (property_type(schema, val.type, path_segment_str) === 'node') {
 				val = doc.nodes[val[path_segment]];
 				val_type = 'node';
@@ -529,7 +532,7 @@ export function get(schema, doc, path) {
 		} else if (val_type === 'value_array') {
 			val = val[path_segment];
 			val_type = 'value';
-		} else if (val_type === 'annotated_text') {
+		} else if (val_type === 'text') {
 			if (path_segment === 'text') {
 				val = val.text;
 				val_type = 'value';
@@ -538,7 +541,7 @@ export function get(schema, doc, path) {
 				val_type = 'annotation_array';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for annotated_text. Use "text" or "annotations".`
+					`Invalid path segment "${path_segment}" for text. Use "text" or "annotations".`
 				);
 			}
 		} else if (val_type === 'annotation_array') {
@@ -764,7 +767,7 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 				).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
-			} else if (prop_type === 'annotated_text' && value && value.annotations) {
+			} else if (prop_type === 'text' && value && value.annotations) {
 				count += value.annotations.filter(
 					(annotation) => annotation.node_id === target_node_id
 				).length;
@@ -802,7 +805,7 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 				}
 			} else if (prop_type === 'node' && target_ids.has(value)) {
 				referencing_node_ids.add(node.id);
-			} else if (prop_type === 'annotated_text' && value?.annotations) {
+			} else if (prop_type === 'text' && value?.annotations) {
 				if (value.annotations.some((annotation) => target_ids.has(annotation.node_id))) {
 					referencing_node_ids.add(node.id);
 				}
@@ -850,13 +853,13 @@ export function validate_selection(selection, session_or_transaction) {
 			);
 		}
 	} else if (selection_type === 'text') {
-		const annotated_text = session_or_transaction.get(selection.path);
+		const text = session_or_transaction.get(selection.path);
 
-		if (!annotated_text || typeof annotated_text.text !== 'string') {
-			throw new Error('Text selection path must point to annotated_text');
+		if (!text || typeof text.text !== 'string') {
+			throw new Error('Text selection path must point to text');
 		}
 
-		const char_length = get_char_length(annotated_text.text);
+		const char_length = get_char_length(text.text);
 		if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
 			throw new Error(
 				`Text selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${char_length}.`

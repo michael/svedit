@@ -65,7 +65,7 @@ describe('Session.svelte.js', () => {
 				kind: 'text',
 				properties: {
 					layout: { type: 'integer', default: 1 },
-					content: { type: 'annotated_text', allow_newlines: true }
+					content: { type: 'text', allow_newlines: true }
 				}
 			}
 		});
@@ -113,7 +113,7 @@ describe('Session.svelte.js', () => {
 		expect(first_story.id).toBe('story_1');
 		expect(first_story.type).toBe('story');
 
-		// Resolve annotated_text property
+		// Resolve text property
 		const fist_story_title = session.get(['page_1', 'body', 0, 'title']);
 		expect(fist_story_title).toEqual({ text: 'First story', annotations: [] });
 
@@ -140,7 +140,7 @@ describe('Session.svelte.js', () => {
 			annotations: []
 		});
 
-		// Resolve hierarchy using node_array and accessing an annotated_text property
+		// Resolve hierarchy using node_array and accessing an text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
 		expect(first_list_item_content).toEqual({ text: 'first list item', annotations: [] });
 	});
@@ -178,7 +178,7 @@ describe('Session.svelte.js', () => {
 
 			const title_info = session.inspect(['page_1', 'body', 0, 'title']);
 			expect(title_info.kind).toBe('property');
-			expect(title_info.type).toBe('annotated_text');
+			expect(title_info.type).toBe('text');
 		});
 	});
 
@@ -242,7 +242,7 @@ describe('Session.svelte.js', () => {
 				text: {
 					kind: 'text',
 					properties: {
-						content: { type: 'annotated_text', allow_newlines: true }
+						content: { type: 'text', allow_newlines: true }
 					}
 				}
 			});
@@ -300,7 +300,7 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Document validation', () => {
-		it('should throw for overlapping annotations in the same annotated text property', () => {
+		it('should throw for overlapping annotations in the same text property', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			doc.nodes.story_1.title.annotations = [
@@ -313,7 +313,7 @@ describe('Session.svelte.js', () => {
 			);
 		});
 
-		it('should allow adjacent annotations in the same annotated text property', () => {
+		it('should allow adjacent annotations in the same text property', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			doc.nodes.story_1.title.annotations = [
@@ -324,7 +324,7 @@ describe('Session.svelte.js', () => {
 			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
 		});
 
-		it('should throw for annotated text references to missing annotation nodes', () => {
+		it('should throw for text annotations that reference missing annotation nodes', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			doc.nodes.story_1.title.annotations = [

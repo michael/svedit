@@ -81,7 +81,7 @@ export type ArrayType = 'string_array' | 'number_array' | 'boolean_array' | 'int
 /**
  * Special types for rich content.
  */
-export type RichType = 'annotated_text';
+export type RichType = 'text';
 
 /**
  * Node reference types for linking to other nodes.
@@ -112,7 +112,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // 	| 'number_array'
 // 	| 'boolean_array'
 // 	| 'integer_array'
-// 	| 'annotated_text'
+// 	| 'text'
 // 	| 'node'
 // 	| 'node_array';
 //
@@ -134,7 +134,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // 								? Array<boolean>
 // 								: T extends 'integer_array'
 // 									? Array<number>
-// 									: T extends 'annotated_text'
+// 									: T extends 'text'
 // 										? AnnotatedText
 // 										: T extends 'node'
 // 											? string
@@ -147,11 +147,11 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // };
 
 /**
- * A property that stores an annotated text with required allow_newlines setting.
+ * A property that stores text with optional annotations and required allow_newlines setting.
  */
-export type AnnotatedTextProperty = {
-	type: 'annotated_text';
-	node_types?: string[];
+export type TextProperty = {
+	type: 'text';
+	annotation_types?: string[];
 	allow_newlines: boolean;
 };
 
@@ -228,7 +228,7 @@ export type IntegerArrayProperty = {
 };
 
 /**
- * A property that stores a primitive value (excluding annotated_text).
+ * A property that stores a primitive value (excluding text).
  */
 export type PrimitiveProperty =
 	| StringProperty
@@ -264,10 +264,7 @@ export type NodeArrayProperty = {
  * Union type for all possible property definitions.
  */
 export type PropertyDefinition =
-	| PrimitiveProperty
-	| AnnotatedTextProperty
-	| NodeProperty
-	| NodeArrayProperty;
+	PrimitiveProperty | TextProperty | NodeProperty | NodeArrayProperty;
 
 /**
  * Node kind values for different types of content nodes
@@ -275,18 +272,18 @@ export type PropertyDefinition =
 export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
 
 /**
- * Schema for text nodes - must have a content property of type annotated_text.
- * Use define_document_schema to also check that content is the only annotated_text property.
+ * Schema for text nodes - must have a content property of type text.
+ * Use define_document_schema to also check that content is the only text property.
  */
 export type TextNodeSchema = {
 	kind: 'text';
 	properties: {
-		content: AnnotatedTextProperty;
+		content: TextProperty;
 	} & Record<string, PropertyDefinition>;
 };
 
-export type AnnotatedTextPropertyNames<Properties> = {
-	[PropertyName in keyof Properties]: Properties[PropertyName] extends { type: 'annotated_text' }
+export type TextPropertyNames<Properties> = {
+	[PropertyName in keyof Properties]: Properties[PropertyName] extends { type: 'text' }
 		? PropertyName
 		: never;
 }[keyof Properties];
@@ -296,10 +293,10 @@ export type TextNodeSchemaError<Message extends string> = {
 };
 
 export type TextNodeMissingContentError =
-	TextNodeSchemaError<'Text node schemas must define a "content" property of type annotated_text.'>;
+	TextNodeSchemaError<'Text node schemas must define a "content" property of type text.'>;
 
-export type TextNodeExtraAnnotatedTextError<ExtraProperty extends string> =
-	TextNodeSchemaError<`Text node schemas must not define annotated_text property "${ExtraProperty}". Use "content" as the only annotated_text property.`>;
+export type TextNodeExtraTextPropertyError<ExtraProperty extends string> =
+	TextNodeSchemaError<`Text node schemas must not define text property "${ExtraProperty}". Use "content" as the only text property.`>;
 
 export type ValidateTextNodeSchema<Schema> = Schema extends {
 	kind: 'text';
@@ -307,11 +304,11 @@ export type ValidateTextNodeSchema<Schema> = Schema extends {
 }
 	? string extends keyof Properties
 		? Schema
-		: Properties extends { content: AnnotatedTextProperty }
-			? Exclude<AnnotatedTextPropertyNames<Properties>, 'content'> extends infer ExtraProperties
+		: Properties extends { content: TextProperty }
+			? Exclude<TextPropertyNames<Properties>, 'content'> extends infer ExtraProperties
 				? [ExtraProperties] extends [never]
 					? Schema
-					: TextNodeExtraAnnotatedTextError<Extract<ExtraProperties, string>>
+					: TextNodeExtraTextPropertyError<Extract<ExtraProperties, string>>
 				: never
 			: TextNodeMissingContentError
 	: Schema;
@@ -362,9 +359,9 @@ export type Document = {
 };
 
 /**
- * Props for the AnnotatedTextProperty component
+ * Props for the TextProperty component
  */
-export type AnnotatedTextPropertyProps = {
+export type TextPropertyProps = {
 	/** The full path to the property */
 	path: DocumentPath;
 	/** Optional custom HTML tag */
