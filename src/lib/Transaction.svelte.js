@@ -203,7 +203,7 @@ export default class Transaction {
 	 * @example
 	 * ```js
 	 * tr.set(["list_1", "list_items"], [1, 2, 3]);
-	 * tr.set(["page_1", "body", "0", "description"], {text: "Hello world", annotations: []});
+	 * tr.set(["page_1", "body", "0", "description"], {content: "Hello world", annotations: []});
 	 * ```
 	 */
 	set(path, value) {
@@ -295,7 +295,7 @@ export default class Transaction {
 						const { start_offset, end_offset, node_id } = annotation;
 						return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
 					});
-					new_node[property_name] = { text: value.text, annotations };
+					new_node[property_name] = { content: value.content, annotations };
 				}
 			}
 
@@ -508,7 +508,7 @@ export default class Transaction {
 		let length;
 
 		if (this.selection?.type === 'text') {
-			const text_content = this.get(this.selection.path).text;
+			const text_content = this.get(this.selection.path).content;
 			length = get_char_length(text_content);
 		} else if (this.selection?.type === 'node') {
 			const node_array = this.get(this.selection.path);
@@ -575,8 +575,8 @@ export default class Transaction {
 			let text = structuredClone($state.snapshot(this.get(path)));
 
 			// Update the text content using character-based operations
-			const original_text = text.text;
-			text.text =
+			const original_text = text.content;
+			text.content =
 				char_slice(original_text, 0, start) +
 				char_slice(original_text, end, get_char_length(original_text));
 
@@ -704,8 +704,8 @@ export default class Transaction {
 		const range = get_selection_range(this.selection);
 
 		// Transform the plain text string using character-based operations
-		const current_text = text_value.text;
-		text_value.text =
+		const current_text = text_value.content;
+		text_value.content =
 			char_slice(current_text, 0, range.start_offset) +
 			replaced_text +
 			char_slice(current_text, range.end_offset);

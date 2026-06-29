@@ -175,7 +175,7 @@ export class AddNewLineCommand extends Command {
 
 		const collapsed_offset = tr.selection.anchor_offset;
 		const content = tr.get(tr.selection.path);
-		const text_before_caret = char_slice(content.text, 0, collapsed_offset);
+		const text_before_caret = char_slice(content.content, 0, collapsed_offset);
 		const line_start_index = text_before_caret.lastIndexOf('\n') + 1;
 		const current_line_prefix = text_before_caret.slice(line_start_index);
 		const indentation_match = current_line_prefix.match(/^[\t ]*/);
@@ -231,7 +231,7 @@ export class SelectAllCommand extends Command {
 
 		if (selection.type === 'text') {
 			const text_content = session.get(selection.path);
-			const text_length = get_char_length(text_content.text);
+			const text_length = get_char_length(text_content.content);
 
 			// Check if all text is already selected
 			const is_all_text_selected =

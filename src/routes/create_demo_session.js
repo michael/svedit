@@ -269,9 +269,9 @@ const doc = {
 			id: 'hero_1',
 			type: 'hero',
 			layout: 1,
-			title: { text: 'Svedit', annotations: [] },
+			title: { content: 'Svedit', annotations: [] },
 			description: {
-				text: 'A tiny library for building editable websites in Svelte.',
+				content: 'A tiny library for building editable websites in Svelte.',
 				annotations: [{ start_offset: 28, end_offset: 45, node_id: 'link_6' }]
 			},
 			image: ''
@@ -280,21 +280,22 @@ const doc = {
 			id: 'heading_1',
 			type: 'heading_1',
 			layout: 1,
-			content: { text: 'Text and structured content in symbiosis', annotations: [] }
+			content: { content: 'Text and structured content in symbiosis', annotations: [] }
 		},
 		paragraph_1: {
 			id: 'paragraph_1',
 			type: 'paragraph',
 			layout: 1,
 			content: {
-				text: "Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
+				content:
+					"Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
 				annotations: []
 			}
 		},
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			content: { text: 'Get started', annotations: [] },
+			content: { content: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -302,9 +303,10 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/editable.svg',
-			title: { text: 'Visual in‑place editing', annotations: [] },
+			title: { content: 'Visual in‑place editing', annotations: [] },
 			description: {
-				text: 'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
+				content:
+					'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
 				annotations: []
 			},
 			buttons: { nodes: [], annotations: [] }
@@ -314,9 +316,10 @@ const doc = {
 			type: 'story',
 			layout: 2,
 			image: '/images/lightweight.svg',
-			title: { text: 'Minimal viable editor', annotations: [] },
+			title: { content: 'Minimal viable editor', annotations: [] },
 			description: {
-				text: "The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.",
+				content:
+					"The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.",
 				annotations: [{ start_offset: 100, end_offset: 118, node_id: 'link_1' }]
 			},
 			buttons: { nodes: [], annotations: [] }
@@ -326,9 +329,10 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/nested-blocks-illustration.svg',
-			title: { text: 'Nested nodes', annotations: [] },
+			title: { content: 'Nested nodes', annotations: [] },
 			description: {
-				text: 'A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.',
+				content:
+					'A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.',
 				annotations: []
 			},
 			buttons: { nodes: [], annotations: [] }
@@ -337,16 +341,16 @@ const doc = {
 			id: 'image_grid_item_1',
 			type: 'image_grid_item',
 			image: '/images/svelte-framework.svg',
-			title: { text: 'Svelte-native editing', annotations: [] },
-			description: { text: "No mingling with 3rd-party rendering API's.", annotations: [] }
+			title: { content: 'Svelte-native editing', annotations: [] },
+			description: { content: "No mingling with 3rd-party rendering API's.", annotations: [] }
 		},
 		image_grid_item_2: {
 			id: 'image_grid_item_2',
 			type: 'image_grid_item',
 			image: '/images/annotations.svg',
-			title: { text: 'Annotations are nodes, not marks', annotations: [] },
+			title: { content: 'Annotations are nodes, not marks', annotations: [] },
 			description: {
-				text: 'Addressable by path, schema‑defined, copy&paste-safe.',
+				content: 'Addressable by path, schema‑defined, copy&paste-safe.',
 				annotations: []
 			}
 		},
@@ -354,9 +358,10 @@ const doc = {
 			id: 'image_grid_item_3',
 			type: 'image_grid_item',
 			image: '/images/graphmodel.svg',
-			title: { text: 'Graph‑first content with nested nodes', annotations: [] },
+			title: { content: 'Graph‑first content with nested nodes', annotations: [] },
 			description: {
-				text: 'From simple paragraphs to complex nodes with nested arrays and multiple properties.',
+				content:
+					'From simple paragraphs to complex nodes with nested arrays and multiple properties.',
 				annotations: []
 			}
 		},
@@ -364,22 +369,25 @@ const doc = {
 			id: 'image_grid_item_4',
 			type: 'image_grid_item',
 			image: '/images/dom-synced.svg',
-			title: { text: 'DOM ↔ model selections match', annotations: [] },
-			description: { text: 'Avoids flaky mapping layers found in other editors.', annotations: [] }
+			title: { content: 'DOM ↔ model selections match', annotations: [] },
+			description: {
+				content: 'Avoids flaky mapping layers found in other editors.',
+				annotations: []
+			}
 		},
 		image_grid_item_5: {
 			id: 'image_grid_item_5',
 			type: 'image_grid_item',
 			image: '/images/cjk.svg',
-			title: { text: 'Unicode‑safe, composition‑safe input', annotations: [] },
-			description: { text: 'Works correctly with emoji, diacritics, and CJK.', annotations: [] }
+			title: { content: 'Unicode‑safe, composition‑safe input', annotations: [] },
+			description: { content: 'Works correctly with emoji, diacritics, and CJK.', annotations: [] }
 		},
 		image_grid_item_6: {
 			id: 'image_grid_item_6',
 			type: 'image_grid_item',
 			image: '/images/timetravel.svg',
-			title: { text: 'Transactional editing with time travel', annotations: [] },
-			description: { text: 'Every change is safe and undoable.', annotations: [] }
+			title: { content: 'Transactional editing with time travel', annotations: [] },
+			description: { content: 'Every change is safe and undoable.', annotations: [] }
 		},
 		image_grid_1: {
 			id: 'image_grid_1',
@@ -402,9 +410,10 @@ const doc = {
 			type: 'story',
 			layout: 2,
 			image: '/images/node-carets.svg',
-			title: { text: 'Node carets', annotations: [] },
+			title: { content: 'Node carets', annotations: [] },
 			description: {
-				text: 'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
+				content:
+					'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
 				annotations: []
 			},
 			buttons: { nodes: [], annotations: [] }
@@ -414,9 +423,10 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/svelte-logo.svg',
-			title: { text: 'Made for Svelte 5', annotations: [] },
+			title: { content: 'Made for Svelte 5', annotations: [] },
 			description: {
-				text: 'Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.',
+				content:
+					'Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.',
 				annotations: [
 					{ start_offset: 20, end_offset: 26, node_id: 'link_2' },
 					{ start_offset: 80, end_offset: 93, node_id: 'emphasis_1' }
@@ -429,9 +439,10 @@ const doc = {
 			type: 'story',
 			layout: 2,
 			image: '/images/extendable.svg',
-			title: { text: 'Alpha version', annotations: [] },
+			title: { content: 'Alpha version', annotations: [] },
 			description: {
-				text: "Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we'll be working to get fixed next:",
+				content:
+					"Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we'll be working to get fixed next:",
 				annotations: []
 			},
 			buttons: { nodes: ['button_1'], annotations: [] }
@@ -440,7 +451,8 @@ const doc = {
 			id: 'list_item_1',
 			type: 'list_item',
 			content: {
-				text: "It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
+				content:
+					"It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
 				annotations: []
 			}
 		},
@@ -448,7 +460,8 @@ const doc = {
 			id: 'list_item_2',
 			type: 'list_item',
 			content: {
-				text: 'Copy and pasting from and to external sources is working in principle, but is only capturing plain text so far.',
+				content:
+					'Copy and pasting from and to external sources is working in principle, but is only capturing plain text so far.',
 				annotations: []
 			}
 		},
@@ -456,7 +469,8 @@ const doc = {
 			id: 'list_item_3',
 			type: 'list_item',
 			content: {
-				text: 'Works best in Chrome, Safari 26+, and Firefox 157+, as Svedit uses CSS Anchor Positioning for overlays.',
+				content:
+					'Works best in Chrome, Safari 26+, and Firefox 157+, as Svedit uses CSS Anchor Positioning for overlays.',
 				annotations: []
 			}
 		},
@@ -464,7 +478,8 @@ const doc = {
 			id: 'list_item_4',
 			type: 'list_item',
 			content: {
-				text: "Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
+				content:
+					"Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
 				annotations: []
 			}
 		},
@@ -482,9 +497,10 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/github.svg',
-			title: { text: 'Star us on GitHub', annotations: [] },
+			title: { content: 'Star us on GitHub', annotations: [] },
 			description: {
-				text: 'Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
+				content:
+					'Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
 				annotations: [
 					{ start_offset: 0, end_offset: 28, node_id: 'link_3' },
 					{ start_offset: 95, end_offset: 112, node_id: 'link_4' },
@@ -595,11 +611,11 @@ export const session_config = {
 	html_exporters: {
 		hero: (node) => {
 			let html = '';
-			if (node.title.text.trim()) {
-				html += `<h1>${node.title.text}</h1>\n`;
+			if (node.title.content.trim()) {
+				html += `<h1>${node.title.content}</h1>\n`;
 			}
-			if (node.description.text.trim()) {
-				html += `<p>${node.description.text}</p>\n`;
+			if (node.description.content.trim()) {
+				html += `<p>${node.description.content}</p>\n`;
 			}
 			return html;
 		},
@@ -616,11 +632,11 @@ export const session_config = {
 			const { button } = html_exporters;
 			let html = '';
 			if (node.image) {
-				html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 200px; height: auto;" />\n`;
+				html += `<img src="${node.image}" alt="${node.title.content}" style="max-width: 200px; height: auto;" />\n`;
 			}
-			html += `<h2>${node.title.text}</h2>\n`;
+			html += `<h2>${node.title.content}</h2>\n`;
 			if (node.description) {
-				html += `<p>${node.description.text}</p>\n`;
+				html += `<p>${node.description.content}</p>\n`;
 			}
 			for (const button_id of node.buttons.nodes) {
 				html += button(doc.get(button_id), doc, html_exporters);
@@ -628,37 +644,37 @@ export const session_config = {
 			return html;
 		},
 		paragraph: (node) => {
-			return `<p>${node.content.text}</p>\n`;
+			return `<p>${node.content.content}</p>\n`;
 		},
 		heading_1: (node) => {
-			return `<h1>${node.content.text}</h1>\n`;
+			return `<h1>${node.content.content}</h1>\n`;
 		},
 		heading_2: (node) => {
-			return `<h2>${node.content.text}</h2>\n`;
+			return `<h2>${node.content.content}</h2>\n`;
 		},
 		heading_3: (node) => {
-			return `<h3>${node.content.text}</h3>\n`;
+			return `<h3>${node.content.content}</h3>\n`;
 		},
 		button: (node) => {
-			return `<a href="${node.href}">${node.content.text}</a>\n`;
+			return `<a href="${node.href}">${node.content.content}</a>\n`;
 		},
 		image_grid_item: (node) => {
 			let html = '<div class="image-grid-item">\n';
 			if (node.image) {
-				html += `<img src="${node.image}" alt="${node.title.text}" style="max-width: 200px; height: auto;" />\n`;
+				html += `<img src="${node.image}" alt="${node.title.content}" style="max-width: 200px; height: auto;" />\n`;
 			}
-			if (node.title.text.trim()) {
-				html += `<h3>${node.title.text}</h3>\n`;
+			if (node.title.content.trim()) {
+				html += `<h3>${node.title.content}</h3>\n`;
 			}
-			if (node.description.text.trim()) {
-				html += `<p>${node.description.text}</p>\n`;
+			if (node.description.content.trim()) {
+				html += `<p>${node.description.content}</p>\n`;
 			}
 			return html + '</div>';
 		},
 		list_item: (node) => {
 			const content =
-				typeof node.content === 'object' && node.content.text
-					? node.content.text
+				typeof node.content === 'object' && node.content.content
+					? node.content.content
 					: node.content || '';
 			return `<li>${content}</li>\n`;
 		}

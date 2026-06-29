@@ -243,7 +243,7 @@ describe('shared text and node annotations', () => {
 			id: 'inside_paragraph',
 			type: 'paragraph',
 			layout: 1,
-			content: { text: 'inside', annotations: [] }
+			content: { content: 'inside', annotations: [] }
 		});
 		inside.insert_nodes(['inside_paragraph']);
 		session.apply(inside);
@@ -263,7 +263,7 @@ describe('shared text and node annotations', () => {
 			id: 'edge_paragraph',
 			type: 'paragraph',
 			layout: 1,
-			content: { text: 'edge', annotations: [] }
+			content: { content: 'edge', annotations: [] }
 		});
 		edge.insert_nodes(['edge_paragraph']);
 		session.apply(edge);

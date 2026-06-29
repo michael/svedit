@@ -398,9 +398,9 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
-			// Check if this is a text property (object with text property)
+			// Check if this is a text property.
 			if (property_definition.type === 'text') {
-				const text_content = prop_value.text;
+				const text_content = prop_value.content;
 				if (text_content.trim()) {
 					html += `<p>${text_content}</p>`;
 				}
@@ -421,13 +421,13 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 
-			// Check if this is a text property (object with text property)
+			// Check if this is a text property value.
 			if (
 				typeof prop_value === 'object' &&
 				prop_value !== null &&
-				typeof prop_value.text === 'string'
+				typeof prop_value.content === 'string'
 			) {
-				const text_content = prop_value.text;
+				const text_content = prop_value.content;
 				if (text_content.trim()) {
 					plain_text += `${text_content.trim()}\n\n`;
 				}
@@ -485,7 +485,7 @@ ${fallback_html}`;
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
 			text = session.get_selected_text();
-			const fallback_html = `<span>${text.text}</span>`;
+			const fallback_html = `<span>${text.content}</span>`;
 
 			// console.log('Text copy:', {
 			// 	text,
@@ -652,7 +652,7 @@ ${fallback_html}`;
 						the_node: {
 							id: 'the_node',
 							type: default_text_node_type,
-							[target_text_property_name]: text_content || { text: '', annotations: [] }
+							[target_text_property_name]: text_content || { content: '', annotations: [] }
 						}
 					});
 					nodes_to_insert.push(new_node_id);
@@ -815,10 +815,10 @@ ${fallback_html}`;
 					session.apply(session.tr.set(session.selection.path, pasted_json.value));
 				}
 			}
-		} else if (session.selection?.type === 'text' && pasted_json?.text) {
+		} else if (session.selection?.type === 'text' && pasted_json?.content) {
 			// Paste text at a text selection
 			session.apply(
-				session.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes)
+				session.tr.insert_text(pasted_json.content, pasted_json.annotations, pasted_json.nodes)
 			);
 		} else if (
 			session.selection?.type === 'text' &&
@@ -832,7 +832,11 @@ ${fallback_html}`;
 			);
 			if (text_property) {
 				session.apply(
-					session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+					session.tr.insert_text(
+						text_property.content,
+						text_property.annotations,
+						pasted_json.nodes
+					)
 				);
 			}
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
@@ -865,7 +869,7 @@ ${fallback_html}`;
 		// reuses gap elements with shifted data-gap-offset), so for those
 		// we always rerender to scroll the cursor into view.
 		const is_empty_text_selection =
-			selection.type === 'text' && session.get(selection.path).text.length === 0;
+			selection.type === 'text' && session.get(selection.path).content.length === 0;
 		if (dom_driven && !is_empty_text_selection) {
 			const prev_selection = __get_selection_from_dom();
 			if (
@@ -1405,7 +1409,7 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
 		);
-		const empty_text = session.get(selection.path).text.length === 0;
+		const empty_text = session.get(selection.path).content.length === 0;
 		const dom_selection = window.getSelection();
 		let current_offset = 0;
 		/** @type {HTMLElement | Text} */
@@ -1512,7 +1516,7 @@ ${fallback_html}`;
 		);
 		if (!text_el) return;
 
-		const model_text = session.get(selection.path).text;
+		const model_text = session.get(selection.path).content;
 		if ((text_el.textContent ?? '') === model_text) return;
 
 		let current_offset = 0;

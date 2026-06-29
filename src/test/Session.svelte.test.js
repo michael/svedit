@@ -115,7 +115,7 @@ describe('Session.svelte.js', () => {
 
 		// Resolve text property
 		const fist_story_title = session.get(['page_1', 'body', 0, 'title']);
-		expect(fist_story_title).toEqual({ text: 'First story', annotations: [] });
+		expect(fist_story_title).toEqual({ content: 'First story', annotations: [] });
 
 		// Resolve integer_array
 		const daily_visitors = session.get(['page_1', 'daily_visitors']);
@@ -142,7 +142,7 @@ describe('Session.svelte.js', () => {
 
 		// Resolve hierarchy using node_array and accessing an text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
-		expect(first_list_item_content).toEqual({ text: 'first list item', annotations: [] });
+		expect(first_list_item_content).toEqual({ content: 'first list item', annotations: [] });
 	});
 
 	describe('Selected node', () => {
@@ -192,7 +192,7 @@ describe('Session.svelte.js', () => {
 					id: '1_invalid_node',
 					type: 'text',
 					layout: 1,
-					content: { text: 'Invalid node', annotations: [] }
+					content: { content: 'Invalid node', annotations: [] }
 				})
 			).toThrow('invalid id');
 		});
@@ -212,7 +212,7 @@ describe('Session.svelte.js', () => {
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { text: 'Existing text with default layout', annotations: [] }
+						content: { content: 'Existing text with default layout', annotations: [] }
 					}
 				}
 			};
@@ -257,7 +257,7 @@ describe('Session.svelte.js', () => {
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { text: 'Existing text', annotations: [] }
+						content: { content: 'Existing text', annotations: [] }
 					}
 				}
 			};
@@ -280,7 +280,7 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes.text_1.layout).toBe(1);
-			expect(tr.doc.nodes.text_1.content).toEqual({ text: '', annotations: [] });
+			expect(tr.doc.nodes.text_1.content).toEqual({ content: '', annotations: [] });
 		});
 
 		it('should fill omitted default properties when building a node', () => {
@@ -295,7 +295,7 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes[new_id].layout).toBe(1);
-			expect(tr.doc.nodes[new_id].content).toEqual({ text: '', annotations: [] });
+			expect(tr.doc.nodes[new_id].content).toEqual({ content: '', annotations: [] });
 		});
 	});
 

@@ -24,7 +24,7 @@
 		);
 	});
 
-	let plain_text = $derived(svedit.session.get(path).text);
+	let plain_text = $derived(svedit.session.get(path).content);
 	let is_empty = $derived(
 		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
 	);
@@ -50,7 +50,7 @@
 
 	let fragments = $derived(
 		get_fragments(
-			svedit.session.get(path).text,
+			svedit.session.get(path).content,
 			svedit.session.get(path).annotations,
 			selection_highlight_range
 		)

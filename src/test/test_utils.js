@@ -50,7 +50,7 @@ export function make_story_session(n_buttons) {
 		nodes[id] = {
 			id,
 			type: 'button',
-			content: { text: `Action ${i + 1}`, annotations: [] },
+			content: { content: `Action ${i + 1}`, annotations: [] },
 			href: '#'
 		};
 		button_ids.push(id);
@@ -60,8 +60,8 @@ export function make_story_session(n_buttons) {
 		type: 'story',
 		layout: 1,
 		image: '',
-		title: { text: 'Test story', annotations: [] },
-		description: { text: 'desc', annotations: [] },
+		title: { content: 'Test story', annotations: [] },
+		description: { content: 'desc', annotations: [] },
 		buttons: { nodes: button_ids, annotations: [] }
 	};
 	nodes.page_1 = {
@@ -86,8 +86,8 @@ export function make_image_grid_session(n_items) {
 			id,
 			type: 'image_grid_item',
 			image: '',
-			title: { text: `Item ${i + 1}`, annotations: [] },
-			description: { text: 'desc', annotations: [] }
+			title: { content: `Item ${i + 1}`, annotations: [] },
+			description: { content: 'desc', annotations: [] }
 		};
 		item_ids.push(id);
 	}

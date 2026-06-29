@@ -73,7 +73,7 @@ export function get_text_property_name(node_type, schema) {
 /**
  * @param {any} node
  * @param {DocumentSchema} schema
- * @returns {{ text: string, annotations: any[] } | null}
+ * @returns {{ content: string, annotations: any[] } | null}
  */
 export function get_text_content(node, schema) {
 	if (!node || typeof node !== 'object') return null;
@@ -82,7 +82,7 @@ export function get_text_content(node, schema) {
 	if (
 		text_property_name &&
 		node[text_property_name] &&
-		typeof node[text_property_name].text === 'string' &&
+		typeof node[text_property_name].content === 'string' &&
 		Array.isArray(node[text_property_name].annotations)
 	) {
 		return node[text_property_name];
@@ -90,7 +90,7 @@ export function get_text_content(node, schema) {
 
 	if (
 		node.content &&
-		typeof node.content.text === 'string' &&
+		typeof node.content.content === 'string' &&
 		Array.isArray(node.content.annotations)
 	) {
 		return node.content;
@@ -161,7 +161,7 @@ export function create_plain_text_nodes_payload(paragraph_fragments, node_type, 
 			id: node_id,
 			type: node_type,
 			[text_property_name]: {
-				text: fragment,
+				content: fragment,
 				annotations: []
 			}
 		};

@@ -74,7 +74,7 @@ export function get_property_default(property_definition) {
 	if (property_definition.type === 'integer') return 0;
 	if (property_definition.type === 'number') return 0;
 	if (property_definition.type === 'boolean') return false;
-	if (property_definition.type === 'text') return { text: '', annotations: [] };
+	if (property_definition.type === 'text') return { content: '', annotations: [] };
 	if (property_definition.type === 'node_array') return { nodes: [], annotations: [] };
 	if (
 		property_definition.type === 'string_array' ||
@@ -195,7 +195,7 @@ function validate_primitive_value(type, value) {
 			return (
 				typeof value === 'object' &&
 				value !== null &&
-				typeof value.text === 'string' &&
+				typeof value.content === 'string' &&
 				Array.isArray(value.annotations)
 			);
 		case 'string_array':
@@ -316,7 +316,7 @@ function validate_text_property(
 	all_nodes,
 	require_references
 ) {
-	const char_length = get_char_length(value.text);
+	const char_length = get_char_length(value.content);
 	validate_annotations_array(
 		node_id,
 		prop_name,
@@ -533,15 +533,15 @@ export function get(schema, doc, path) {
 			val = val[path_segment];
 			val_type = 'value';
 		} else if (val_type === 'text') {
-			if (path_segment === 'text') {
-				val = val.text;
+			if (path_segment === 'content') {
+				val = val.content;
 				val_type = 'value';
 			} else if (path_segment === 'annotations') {
 				val = val.annotations;
 				val_type = 'annotation_array';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for text. Use "text" or "annotations".`
+					`Invalid path segment "${path_segment}" for text. Use "content" or "annotations".`
 				);
 			}
 		} else if (val_type === 'annotation_array') {
@@ -855,11 +855,11 @@ export function validate_selection(selection, session_or_transaction) {
 	} else if (selection_type === 'text') {
 		const text = session_or_transaction.get(selection.path);
 
-		if (!text || typeof text.text !== 'string') {
+		if (!text || typeof text.content !== 'string') {
 			throw new Error('Text selection path must point to text');
 		}
 
-		const char_length = get_char_length(text.text);
+		const char_length = get_char_length(text.content);
 		if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
 			throw new Error(
 				`Text selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${char_length}.`

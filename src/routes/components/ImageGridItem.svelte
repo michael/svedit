@@ -12,7 +12,7 @@
 			<div contenteditable="false" style="aspect-ratio: 1/1; width: 100%;">
 				<img
 					src={node.image || '/icons/image-placeholder.svg'}
-					alt={node.title.text}
+					alt={node.title.content}
 					class:placeholder={!node.image}
 				/>
 			</div>

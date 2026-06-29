@@ -48,7 +48,7 @@
 					nodes[bid] = {
 						id: bid,
 						type: 'button',
-						content: { text: `Action ${b + 1}`, annotations: [] },
+						content: { content: `Action ${b + 1}`, annotations: [] },
 						href: '#'
 					};
 					btn_ids.push(bid);
@@ -57,9 +57,10 @@
 					id,
 					type: 'story',
 					layout: (i % 3) + 1,
-					title: { text: `Story ${body.length + 1}`, annotations: [] },
+					title: { content: `Story ${body.length + 1}`, annotations: [] },
 					description: {
-						text: 'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
+						content:
+							'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
 						annotations: []
 					},
 					image: '',
@@ -72,7 +73,7 @@
 					nodes[lid] = {
 						id: lid,
 						type: 'list_item',
-						content: { text: `List item ${j + 1} with sample content`, annotations: [] }
+						content: { content: `List item ${j + 1} with sample content`, annotations: [] }
 					};
 					items.push(lid);
 				}
@@ -90,8 +91,8 @@
 						id: gid,
 						type: 'image_grid_item',
 						image: '',
-						title: { text: `Grid ${g + 1}`, annotations: [] },
-						description: { text: 'Grid item description text', annotations: [] }
+						title: { content: `Grid ${g + 1}`, annotations: [] },
+						description: { content: 'Grid item description text', annotations: [] }
 					};
 					grid_items.push(gid);
 				}
@@ -107,7 +108,7 @@
 					type: i % 10 === 0 ? 'heading_2' : 'paragraph',
 					layout: 1,
 					content: {
-						text: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
+						content: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
 						annotations: []
 					}
 				};
@@ -353,7 +354,7 @@
 					tr.create({
 						id,
 						type: 'button',
-						content: { text: `Btn ${i + 1}`, annotations: [] },
+						content: { content: `Btn ${i + 1}`, annotations: [] },
 						href: '#'
 					});
 					const current_value = session.doc.nodes[target.node_id][target.prop];

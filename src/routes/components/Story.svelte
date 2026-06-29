@@ -14,7 +14,7 @@
 			<div style="width: 100%; height: 100%;" contenteditable="false">
 				<img
 					src={node.image || '/icons/image-placeholder.svg'}
-					alt={node.title.text}
+					alt={node.title.content}
 					class:placeholder={!node.image}
 				/>
 			</div>

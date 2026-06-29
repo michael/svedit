@@ -345,7 +345,7 @@ export default class Session {
 	 *
 	 * @example
 	 * // Get a text property
-	 * session.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
+	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', annotations: []}
 	 */
 	get(path) {
 		return doc_get(this.schema, this.doc, path);
@@ -449,7 +449,7 @@ export default class Session {
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const text_value = this.get(this.selection.path);
-		const selected_text = char_slice(text_value.text, selection_start, selection_end);
+		const selected_text = char_slice(text_value.content, selection_start, selection_end);
 		const nodes = {};
 		const annotations = text_value.annotations
 			.map((a) => {
@@ -471,7 +471,7 @@ export default class Session {
 			})
 			.filter(Boolean);
 
-		return { text: selected_text, annotations, nodes };
+		return { content: selected_text, annotations, nodes };
 	}
 
 	get_selected_annotated_nodes() {
@@ -519,7 +519,7 @@ export default class Session {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const text = this.get(this.selection.path);
-		return char_slice(text.text, start, end);
+		return char_slice(text.content, start, end);
 	}
 
 	get_selected_nodes() {

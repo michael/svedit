@@ -103,7 +103,7 @@ const doc = {
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			content: { text: 'Get started', annotations: [] },
+			content: { content: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -112,19 +112,19 @@ const doc = {
 			layout: 1,
 			image:
 				'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-			title: { text: 'First story', annotations: [] },
+			title: { content: 'First story', annotations: [] },
 			buttons: { nodes: ['button_1'], annotations: [] },
-			description: { text: 'First story description.', annotations: [] }
+			description: { content: 'First story description.', annotations: [] }
 		},
 		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
-			content: { text: 'first list item', annotations: [] }
+			content: { content: 'first list item', annotations: [] }
 		},
 		list_item_2: {
 			id: 'list_item_2',
 			type: 'list_item',
-			content: { text: 'second list item', annotations: [] }
+			content: { content: 'second list item', annotations: [] }
 		},
 		list_1: {
 			id: 'list_1',
@@ -167,7 +167,7 @@ const session_config = {
 		list_item: 1
 	},
 	inserters: {
-		button: function (tr, content = { text: '', annotations: [] }) {
+		button: function (tr, content = { content: '', annotations: [] }) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
@@ -184,7 +184,7 @@ const session_config = {
 			});
 		},
 		paragraph: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_paragraph = {
 				id: nanoid(),
 				type: 'paragraph',
@@ -201,7 +201,7 @@ const session_config = {
 			});
 		},
 		heading_1: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_1 = {
 				id: nanoid(),
 				type: 'heading_1',
@@ -218,7 +218,7 @@ const session_config = {
 			});
 		},
 		heading_2: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_2 = {
 				id: nanoid(),
 				type: 'heading_2',
@@ -235,7 +235,7 @@ const session_config = {
 			});
 		},
 		heading_3: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_3 = {
 				id: nanoid(),
 				type: 'heading_3',
@@ -255,7 +255,7 @@ const session_config = {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				content: { text: '', annotations: [] },
+				content: { content: '', annotations: [] },
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);
@@ -264,8 +264,8 @@ const session_config = {
 				type: 'story',
 				layout: 1,
 				image: '',
-				title: { text: '', annotations: [] },
-				description: { text: '', annotations: [] },
+				title: { content: '', annotations: [] },
+				description: { content: '', annotations: [] },
 				buttons: { nodes: [new_button.id], annotations: [] }
 			};
 			tr.create(new_story);
@@ -275,7 +275,7 @@ const session_config = {
 			const new_list_item = {
 				id: nanoid(),
 				type: 'list_item',
-				content: { text: '', annotations: [] }
+				content: { content: '', annotations: [] }
 			};
 			tr.create(new_list_item);
 			const new_list = {
@@ -288,7 +288,7 @@ const session_config = {
 			tr.insert_nodes([new_list.id]);
 		},
 		list_item: function (tr, content) {
-			const item_content = content || { text: '', annotations: [] };
+			const item_content = content || { content: '', annotations: [] };
 			const new_list_item = {
 				id: nanoid(),
 				type: 'list_item',

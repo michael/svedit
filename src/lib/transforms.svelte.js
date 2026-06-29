@@ -92,7 +92,7 @@ export function join_text_node(tr) {
 	}
 
 	// Special behavior: if we can't join and current node is empty, delete it
-	if (!can_join && node.content.text === '') {
+	if (!can_join && node.content.content === '') {
 		tr.set_selection({
 			type: 'node',
 			path: tr.selection.path.slice(0, -2),
@@ -113,7 +113,7 @@ export function join_text_node(tr) {
 	const joined_text = join_text(predecessor_node.content, node.content);
 
 	// Calculate caret position based on original predecessor content length
-	const caret_position = get_char_length(predecessor_node.content.text);
+	const caret_position = get_char_length(predecessor_node.content.content);
 
 	// First set the joined content on the predecessor node (preserves annotations)
 	tr.set([predecessor_node.id, 'content'], joined_text);

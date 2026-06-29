@@ -55,7 +55,7 @@ function make_paragraph_session(text = 'Hello world') {
 					id: 'paragraph_1',
 					type: 'paragraph',
 					layout: 1,
-					content: { text, annotations: [] }
+					content: { content: text, annotations: [] }
 				},
 				page_1: {
 					id: 'page_1',
@@ -181,7 +181,7 @@ describe('keymap continuity', () => {
 		const session = make_story_session(1);
 		const content_path = ['page_1', 'body', 0, 'description'];
 		const tr = session.tr;
-		tr.set(content_path, { text: 'Line\n\t  Item', annotations: [] });
+		tr.set(content_path, { content: 'Line\n\t  Item', annotations: [] });
 		session.apply(tr);
 
 		const { container } = render(SveditTestWithKeymap, { session });
@@ -200,13 +200,13 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		const text_before = session.get(content_path).text;
+		const text_before = session.get(content_path).content;
 		expect(text_before).toBe('Line\n\t  Item');
 
 		press_enter(canvas);
 		await settle();
 
-		const text_after = session.get(content_path).text;
+		const text_after = session.get(content_path).content;
 		expect(text_after).toBe('Line\n\t  \n\t  Item');
 		expect(session.get(['page_1', 'body']).nodes.length).toBe(1);
 	});
@@ -230,13 +230,13 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		const text_before = session.get(content_path).text;
+		const text_before = session.get(content_path).content;
 		expect(text_before).toBe('Test story');
 
 		press_enter(canvas);
 		await settle();
 
-		const text_after = session.get(content_path).text;
+		const text_after = session.get(content_path).content;
 		expect(text_after).toBe('Test story');
 		expect(session.get(['page_1', 'body']).nodes.length).toBe(1);
 		expect(session.get(['page_1', 'body', 0, 'buttons']).nodes.length).toBe(1);

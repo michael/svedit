@@ -448,10 +448,10 @@ export type Annotation = {
 };
 
 /**
- * Represents an annotated text with text and annotations
+ * Represents text content with annotations.
  */
 export type AnnotatedText = {
-	text: string;
+	content: string;
 	annotations: Array<Annotation>;
 };
 
