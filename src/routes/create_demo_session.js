@@ -35,6 +35,7 @@ import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
 import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
+import Section from './components/Section.svelte';
 
 const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
 const TITLE_ANNOTATIONS = ['emphasis', 'highlight'];
@@ -55,6 +56,7 @@ export const document_schema = define_document_schema({
 					'image_grid',
 					'hero'
 				],
+				annotation_types: ['section'],
 				default_node_type: 'paragraph'
 			},
 			keywords: {
@@ -223,6 +225,10 @@ export const document_schema = define_document_schema({
 		properties: {}
 	},
 	highlight: {
+		kind: 'annotation',
+		properties: {}
+	},
+	section: {
 		kind: 'annotation',
 		properties: {}
 	}
@@ -562,7 +568,8 @@ export const session_config = {
 		strong: Strong,
 		emphasis: Emphasis,
 		highlight: Highlight,
-		link: Link
+		link: Link,
+		section: Section
 	},
 	// Toggle view classes for the editor. On by default.
 	view_classes: true,
@@ -878,6 +885,7 @@ export const session_config = {
 			toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
 			toggle_highlight: new ToggleAnnotationCommand('highlight', context),
 			toggle_link: new ToggleLinkCommand(context),
+			toggle_section: new ToggleAnnotationCommand('section', context),
 			undo: new UndoCommand(context),
 			redo: new RedoCommand(context),
 			select_parent: new SelectParentCommand(context),

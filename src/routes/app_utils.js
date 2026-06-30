@@ -109,8 +109,9 @@ function is_property_value_empty(session, property_definition, value) {
 	}
 
 	if (property_definition.type === 'node_array') {
-		if (!Array.isArray(value)) return false;
-		return value.every((node_id) => {
+		if (!Array.isArray(value?.nodes)) return false;
+		if (value.annotations?.length > 0) return false;
+		return value.nodes.every((node_id) => {
 			const child_node = session.get(node_id);
 			return child_node ? is_node_subtree_empty(session, child_node) : false;
 		});
