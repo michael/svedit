@@ -33,7 +33,7 @@
 		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
 	);
 
-	// Get selection highlight range if not inside an annotation
+	// Get selection highlight range if it does not touch annotations.
 	// Only render selection highlight when canvas is NOT focused.
 	// This avoids DOM mutations (splitting text nodes for highlight spans)
 	// while the user is actively selecting, which would cause selection
@@ -42,7 +42,7 @@
 		if (svedit.canvas_focused) return null;
 		if (is_collapsed) return null;
 		if (!is_focused) return null;
-		if (svedit.session.active_annotation()) return null;
+		if (svedit.session.selected_annotations.length > 0) return null;
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 		return get_selection_range(sel);

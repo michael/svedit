@@ -700,44 +700,92 @@ export function count_references(schema, doc, node_id) {
 }
 
 /**
- * Gets the currently active annotation at the selection, optionally filtered by type.
+ * @param {DocumentSchema} schema - The document schema
+ * @param {string} from_type - Current annotation type
+ * @param {string} to_type - Target annotation type
+ * @returns {boolean} Whether an annotation can be switched between these types
+ */
+export function can_switch_annotation_type(schema, from_type, to_type) {
+	const from_schema = schema[from_type];
+	const to_schema = schema[to_type];
+	return (
+		from_schema?.kind === 'annotation' &&
+		to_schema?.kind === 'annotation' &&
+		Object.keys(from_schema.properties ?? {}).length === 0 &&
+		Object.keys(to_schema.properties ?? {}).length === 0
+	);
+}
+
+/**
+ * Gets annotations touched by the current selection.
  *
- * An annotation is considered "active" if it overlaps with the current selection in any way:
- * - Annotation contains the selection start
- * - Annotation contains the selection end
- * - Selection fully contains the annotation
+ * Non-collapsed selections use strict half-open range intersection, so merely
+ * adjacent boundaries do not count as touching. Collapsed text carets are only
+ * inside an annotation when they are strictly between start and end; a caret at
+ * either boundary is not active.
  *
  * @param {DocumentSchema} schema - The document schema
  * @param {Document} doc - The document containing nodes
  * @param {Selection} [selection] - The current selection
- * @param {string} [annotation_type] - Optional annotation type to filter by
- * @returns {Annotation | null} The active annotation, or null if none found
+ * @returns {{ annotation: Annotation, index: number, node: any, type: string }[]} Selected annotation records
  */
-export function get_active_annotation(schema, doc, selection, annotation_type) {
-	if (selection?.type !== 'text' && selection?.type !== 'node') return null;
+export function get_selected_annotations(schema, doc, selection) {
+	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
 	const range = get_selection_range(selection);
-	if (!range) return null;
+	if (!range) return [];
 
 	const annotated_prop = get(schema, doc, selection.path);
 	const annotations =
 		selection.type === 'node'
 			? get_node_array_annotations(annotated_prop)
 			: annotated_prop.annotations;
+	const is_collapsed = range.start_offset === range.end_offset;
 
-	const active_annotation =
-		annotations.find(
-			(/** @type {Annotation} */ { start_offset, end_offset }) =>
-				(start_offset <= range.start_offset && end_offset > range.start_offset) ||
-				(start_offset < range.end_offset && end_offset >= range.end_offset) ||
-				(start_offset >= range.start_offset && end_offset <= range.end_offset)
-		) || null;
+	return annotations
+		.map((/** @type {Annotation} */ annotation, index) => {
+			const node = doc.nodes[annotation.node_id];
+			return {
+				annotation,
+				index,
+				node,
+				type: node?.type
+			};
+		})
+		.filter(({ annotation }) => {
+			if (is_collapsed) {
+				return (
+					annotation.start_offset < range.start_offset && annotation.end_offset > range.start_offset
+				);
+			}
+			return (
+				annotation.start_offset < range.end_offset && annotation.end_offset > range.start_offset
+			);
+		});
+}
 
-	if (annotation_type && active_annotation) {
-		const annotation_node = get(schema, doc, [active_annotation.node_id]);
-		return annotation_node?.type === annotation_type ? active_annotation : null;
-	} else {
-		return active_annotation;
-	}
+/**
+ * Gets the currently active annotation from selected annotations, optionally filtered by type.
+ *
+ * An annotation is active only when exactly one annotation is touched by the
+ * current selection or caret.
+ *
+ * @param {{ annotation: Annotation, index: number, node: any, type: string }[]} selected_annotations
+ * @param {string} [annotation_type] - Optional annotation type to filter by
+ * @returns {Annotation | null} The active annotation, or null if none found
+ */
+export function get_active_annotation(selected_annotations, annotation_type) {
+	if (selected_annotations.length !== 1) return null;
+	if (annotation_type && selected_annotations[0].type !== annotation_type) return null;
+
+	return selected_annotations[0].annotation;
+}
+
+/**
+ * @param {{ annotation: Annotation, index: number, node: any, type: string }[]} selected_annotations
+ * @returns {Set<string>} Annotation types represented in the selection
+ */
+export function get_selected_annotation_types(selected_annotations) {
+	return new Set(selected_annotations.map(({ type }) => type));
 }
 
 /**

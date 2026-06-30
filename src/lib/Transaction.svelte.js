@@ -22,7 +22,10 @@ import {
 	count_references_excluding_deleted,
 	validate_node,
 	fill_node_defaults,
+	can_switch_annotation_type,
 	get_active_annotation,
+	get_selected_annotations,
+	get_selected_annotation_types,
 	validate_selection,
 	get_node_array_nodes,
 	get_node_array_annotations
@@ -161,14 +164,22 @@ export default class Transaction {
 	}
 
 	/**
+	 * Returns annotations touched by the current selection.
+	 *
+	 * @returns {Array<{ annotation: Annotation, index: number, node: any, type: string }>}
+	 */
+	get selected_annotations() {
+		return get_selected_annotations(this.schema, this.doc, this.selection);
+	}
+
+	/**
 	 * Returns the annotation object that is currently "under the caret".
-	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
 	 *
 	 * @param {string} [annotation_type] Optional annotation type to filter by
 	 * @returns {Annotation|null}
 	 */
 	active_annotation(annotation_type) {
-		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
+		return get_active_annotation(this.selected_annotations, annotation_type);
 	}
 
 	/**
@@ -408,8 +419,8 @@ export default class Transaction {
 	/**
 	 * Toggles an annotation on the current text or node selection.
 	 *
-	 * Annotations are exclusive. If any annotation overlaps the selection, it
-	 * is removed first. A subsequent toggle creates the requested annotation.
+	 * Annotations are exclusive. Whole annotations are toggled, removed, or
+	 * switched; ranges are never truncated or expanded by this command.
 	 *
 	 * @param {any} annotation_type - The type of annotation (e.g., 'link', 'bold', 'italic')
 	 * @param {any} annotation_properties - Additional data for the annotation (e.g., href for links)
@@ -427,32 +438,27 @@ export default class Transaction {
 	toggle_annotation(annotation_type, annotation_properties) {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
+		if (!this.available_annotation_types.includes(annotation_type)) {
+			console.warn(`Annotation type ${annotation_type} is not allowed here.`);
+			return this;
+		}
 
 		const range = get_selection_range(this.selection);
+		if (!range) return this;
+
 		const annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const annotations =
 			this.selection.type === 'node'
 				? get_node_array_annotations(annotated_value)
 				: annotated_value.annotations;
-		const existing_annotation = this.active_annotation();
 
-		if (existing_annotation) {
-			const index = annotations.findIndex(
-				/** @param {any} anno */ (anno) =>
-					anno.start_offset === existing_annotation.start_offset &&
-					anno.end_offset === existing_annotation.end_offset &&
-					anno.node_id === existing_annotation.node_id
-			);
-			if (index !== -1) {
-				this.delete(annotations[index].node_id);
-				annotations.splice(index, 1);
-			}
-		} else {
+		const selected_annotations = this.selected_annotations;
+		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
+
+		if (selected_annotation_types.size > 1) return this;
+
+		if (selected_annotations.length === 0) {
 			if (is_selection_collapsed(this.selection)) {
-				return this;
-			}
-			if (!this.available_annotation_types.includes(annotation_type)) {
-				console.warn(`Annotation type ${annotation_type} is not allowed here.`);
 				return this;
 			}
 			const new_annotation_node = {
@@ -467,9 +473,38 @@ export default class Transaction {
 				end_offset: range.end_offset,
 				node_id: new_annotation_node.id
 			});
+			this.set(this.selection.path, annotated_value);
+			return this;
 		}
 
-		this.set(this.selection.path, annotated_value);
+		const first_selected_annotation = selected_annotations[0];
+		const selected_annotation_type = first_selected_annotation.type;
+
+		if (selected_annotation_type === annotation_type) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const selected_indices = new Set(selected_annotations.map(({ index }) => index));
+			const removed_node_ids = selected_annotations.map(({ annotation }) => annotation.node_id);
+			annotated_value.annotations = annotations.filter((_, index) => !selected_indices.has(index));
+			this.set(this.selection.path, annotated_value);
+			this._cascade_delete_unreferenced_nodes(removed_node_ids);
+			return this;
+		}
+
+		if (
+			selected_annotations.length === 1 &&
+			can_switch_annotation_type(this.schema, selected_annotation_type, annotation_type)
+		) {
+			const selected_annotation = first_selected_annotation.annotation;
+			this.set([selected_annotation.node_id, 'type'], annotation_type);
+			this.set_selection({
+				type: this.selection.type,
+				path: this.selection.path,
+				anchor_offset: selected_annotation.start_offset,
+				focus_offset: selected_annotation.end_offset
+			});
+			return this;
+		}
+
 		return this;
 	}
 

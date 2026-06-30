@@ -1,5 +1,9 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
-import { get_node_array_nodes } from './doc_utils.js';
+import {
+	can_switch_annotation_type,
+	get_node_array_nodes,
+	get_selected_annotation_types
+} from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
 
 /**
@@ -118,27 +122,36 @@ export class ToggleAnnotationCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.session.active_annotation(this.node_type);
+		const selected_annotations = this.context.session.selected_annotations;
+		return (
+			selected_annotations.length > 0 &&
+			selected_annotations.every(({ type }) => type === this.node_type)
+		);
 	}
 
 	is_enabled() {
 		const { session, editable } = this.context;
-		const active_annotation = session.active_annotation();
+		const selection = session.selection;
 		const is_valid_selection =
-			session.selection?.type === 'text' ||
-			(session.selection?.type === 'node' && !is_selection_collapsed(session.selection));
+			selection?.type === 'text' ||
+			(selection?.type === 'node' && !is_selection_collapsed(selection));
 		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
-		const can_create_annotation =
-			!active_annotation &&
-			annotation_type_is_allowed &&
-			!is_selection_collapsed(session.selection);
+		const selected_annotations = session.selected_annotations;
+		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
 
-		return (
-			editable &&
-			is_valid_selection &&
-			annotation_type_is_allowed &&
-			(active_annotation || can_create_annotation)
-		);
+		if (!editable || !is_valid_selection || !annotation_type_is_allowed) return false;
+		if (selected_annotation_types.size > 1) return false;
+
+		if (selected_annotations.length === 0) {
+			return Boolean(selection && !is_selection_collapsed(selection));
+		}
+
+		const first_selected_annotation = selected_annotations[0];
+		const selected_annotation_type = first_selected_annotation.type;
+		if (selected_annotation_type === this.node_type) return true;
+		if (selected_annotations.length !== 1) return false;
+
+		return can_switch_annotation_type(session.schema, selected_annotation_type, this.node_type);
 	}
 
 	execute() {

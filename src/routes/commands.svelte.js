@@ -133,21 +133,31 @@ export class ToggleLinkCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.session.active_annotation('link');
+		const selected_annotations = this.context.session.selected_annotations;
+		return selected_annotations.length === 1 && selected_annotations[0].type === 'link';
 	}
 
 	is_enabled() {
 		const { session, editable } = this.context;
-
-		const can_remove_link = session.active_annotation('link');
+		const selected_annotations = session.selected_annotations;
+		const selection_touches_annotations = selected_annotations.length > 0;
+		const can_remove_link =
+			selected_annotations.length === 1 && selected_annotations[0].type === 'link';
 		const can_create_link =
-			!session.active_annotation() && !is_selection_collapsed(session.selection);
-		return editable && session.selection?.type === 'text' && (can_remove_link || can_create_link);
+			!selection_touches_annotations &&
+			session.selection?.type === 'text' &&
+			!is_selection_collapsed(session.selection);
+
+		return Boolean(
+			editable && session.selection?.type === 'text' && (can_remove_link || can_create_link)
+		);
 	}
 
 	execute() {
 		const session = this.context.session;
-		const can_remove_link = session.active_annotation('link');
+		const selected_annotations = session.selected_annotations;
+		const can_remove_link =
+			selected_annotations.length === 1 && selected_annotations[0].type === 'link';
 
 		if (can_remove_link) {
 			// Delete link

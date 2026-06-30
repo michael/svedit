@@ -3,6 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import create_test_session from './create_test_session.js';
 import { are_annotation_ranges_exclusive } from '../lib/utils.js';
+import { ToggleAnnotationCommand } from '../lib/Command.svelte.js';
 import SveditTest from './testing_components/SveditTest.svelte';
 import Section from './testing_components/Section.svelte';
 import AnnotationAwareNode from './testing_components/AnnotationAwareNode.svelte';
@@ -12,14 +13,19 @@ function create_annotation_session() {
 	session.schema.strong = { kind: 'annotation', properties: {} };
 	session.schema.emphasis = { kind: 'annotation', properties: {} };
 	session.schema.section = { kind: 'annotation', properties: {} };
+	session.schema.link = { kind: 'annotation', properties: { href: { type: 'string' } } };
 	/** @type {any} */ (session.schema.story.properties.title).annotation_types = [
 		'strong',
-		'emphasis'
+		'emphasis',
+		'link'
 	];
 	/** @type {any} */ (session.schema.page.properties.body).annotation_types = ['section'];
 	session.config.node_components.section = Section;
 	return session;
 }
+
+const title_path = ['story_1', 'title'];
+const body_path = ['page_1', 'body'];
 
 function annotation_type(session, annotation) {
 	return session.get(annotation.node_id)?.type;
@@ -28,6 +34,191 @@ function annotation_type(session, annotation) {
 function expect_exclusive(annotations) {
 	expect(are_annotation_ranges_exclusive(annotations)).toBe(true);
 }
+
+function text_selection(anchor_offset, focus_offset) {
+	return {
+		type: /** @type {const} */ ('text'),
+		path: title_path,
+		anchor_offset,
+		focus_offset
+	};
+}
+
+function node_selection(anchor_offset, focus_offset) {
+	return {
+		type: /** @type {const} */ ('node'),
+		path: body_path,
+		anchor_offset,
+		focus_offset
+	};
+}
+
+function create_annotation(session, type, selection, properties = undefined) {
+	session.selection = selection;
+	session.apply(session.tr.toggle_annotation(type, properties));
+}
+
+function annotation_command(session, type) {
+	return new ToggleAnnotationCommand(type, { session, editable: true });
+}
+
+describe('annotation toggle selection semantics', () => {
+	it('does not consider a collapsed caret at annotation boundaries active', () => {
+		for (const caret_offset of [0, 5]) {
+			const session = create_annotation_session();
+			create_annotation(session, 'strong', text_selection(0, 5));
+
+			session.selection = text_selection(caret_offset, caret_offset);
+			expect(session.active_annotation()).toBeNull();
+			expect(annotation_command(session, 'strong').is_enabled()).toBe(false);
+
+			const before = structuredClone(session.doc);
+			session.apply(session.tr.toggle_annotation('strong'));
+			expect(session.doc).toEqual(before);
+		}
+	});
+
+	it('creates a new annotation for a non-collapsed selection adjacent to an existing annotation', () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+
+		session.selection = text_selection(5, 8);
+		session.apply(session.tr.toggle_annotation('emphasis'));
+
+		const annotations = session.get(title_path).annotations;
+		expect(annotations).toHaveLength(2);
+		expect(annotations[0]).toMatchObject({ start_offset: 0, end_offset: 5 });
+		expect(annotation_type(session, annotations[0])).toBe('strong');
+		expect(annotations[1]).toMatchObject({ start_offset: 5, end_offset: 8 });
+		expect(annotation_type(session, annotations[1])).toBe('emphasis');
+		expect_exclusive(annotations);
+	});
+
+	it('removes the whole annotation when a selection partially intersects a same-type annotation', () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+		const annotation_id = session.get(title_path).annotations[0].node_id;
+
+		session.selection = text_selection(2, 4);
+		session.apply(session.tr.toggle_annotation('strong'));
+
+		expect(session.get(title_path).annotations).toEqual([]);
+		expect(session.get(annotation_id)).toBeUndefined();
+		expect(session.selection).toEqual(text_selection(2, 4));
+	});
+
+	it('switches one property-less annotation to another property-less type and selects its full range', () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+
+		session.selection = text_selection(2, 4);
+		expect(annotation_command(session, 'emphasis').is_enabled()).toBe(true);
+		session.apply(session.tr.toggle_annotation('emphasis'));
+
+		const annotations = session.get(title_path).annotations;
+		expect(annotations).toHaveLength(1);
+		expect(annotations[0]).toMatchObject({ start_offset: 0, end_offset: 5 });
+		expect(annotation_type(session, annotations[0])).toBe('emphasis');
+		expect(session.selection).toEqual(text_selection(0, 5));
+		expect_exclusive(annotations);
+	});
+
+	it.each([
+		{
+			name: 'text',
+			value_path: title_path,
+			first_selection: text_selection(0, 5),
+			second_selection: text_selection(6, 11),
+			touching_selection: text_selection(2, 8),
+			type: 'strong'
+		},
+		{
+			name: 'node array',
+			value_path: body_path,
+			first_selection: node_selection(0, 1),
+			second_selection: node_selection(1, 2),
+			touching_selection: node_selection(0, 2),
+			type: 'section'
+		}
+	])(
+		'removes all same-type annotations touched by a $name selection and can recreate one over the selection',
+		({ value_path, first_selection, second_selection, touching_selection, type }) => {
+			const session = create_annotation_session();
+			create_annotation(session, type, first_selection);
+			create_annotation(session, type, second_selection);
+
+			session.selection = touching_selection;
+			expect(annotation_command(session, type).is_active()).toBe(true);
+			expect(annotation_command(session, type).is_enabled()).toBe(true);
+
+			session.apply(session.tr.toggle_annotation(type));
+			let annotations = session.get(value_path).annotations;
+			expect(annotations).toEqual([]);
+			expect(session.selection).toEqual(touching_selection);
+
+			session.apply(session.tr.toggle_annotation(type));
+			annotations = session.get(value_path).annotations;
+			expect(annotations).toHaveLength(1);
+			expect(annotations[0]).toMatchObject({
+				start_offset: Math.min(touching_selection.anchor_offset, touching_selection.focus_offset),
+				end_offset: Math.max(touching_selection.anchor_offset, touching_selection.focus_offset)
+			});
+			expect(annotation_type(session, annotations[0])).toBe(type);
+			expect_exclusive(annotations);
+		}
+	);
+
+	it('disables all annotation commands when a selection touches mixed annotation types', () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+		create_annotation(session, 'emphasis', text_selection(6, 11));
+
+		session.selection = text_selection(2, 8);
+		expect(annotation_command(session, 'strong').is_enabled()).toBe(false);
+		expect(annotation_command(session, 'emphasis').is_enabled()).toBe(false);
+		expect(annotation_command(session, 'link').is_enabled()).toBe(false);
+
+		const before = structuredClone(session.doc);
+		session.apply(session.tr.toggle_annotation('strong'));
+		expect(session.doc).toEqual(before);
+	});
+
+	it('only allows switching between annotation types without properties', () => {
+		const strong_session = create_annotation_session();
+		create_annotation(strong_session, 'strong', text_selection(0, 5));
+		strong_session.selection = text_selection(2, 2);
+		expect(annotation_command(strong_session, 'emphasis').is_enabled()).toBe(true);
+		expect(annotation_command(strong_session, 'link').is_enabled()).toBe(false);
+
+		const link_session = create_annotation_session();
+		create_annotation(link_session, 'link', text_selection(0, 5), { href: 'https://example.com' });
+		link_session.selection = text_selection(2, 2);
+		expect(annotation_command(link_session, 'strong').is_enabled()).toBe(false);
+	});
+
+	it('does not render a blurred selection highlight when the selection touches multiple annotations', async () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+		create_annotation(session, 'emphasis', text_selection(6, 11));
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 0, 'title'],
+			anchor_offset: 2,
+			focus_offset: 8
+		};
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		canvas.focus();
+		await tick();
+		canvas.blur();
+		await tick();
+
+		expect(container.querySelector('.selection-highlight')).toBeNull();
+	});
+});
 
 describe('shared text and node annotations', () => {
 	it('passes per-node annotation position metadata to node-array children', async () => {
@@ -72,7 +263,7 @@ describe('shared text and node annotations', () => {
 			},
 			value_path: ['story_1', 'title'],
 			first_type: 'strong',
-			second_type: 'emphasis'
+			second_type: 'strong'
 		},
 		{
 			name: 'nodes',
@@ -113,7 +304,7 @@ describe('shared text and node annotations', () => {
 		}
 	);
 
-	it('removes an overlapping text annotation before creating another annotation type', () => {
+	it('switches an overlapping text annotation to another property-less annotation type', () => {
 		const session = create_annotation_session();
 		session.selection = {
 			type: 'text',
@@ -130,13 +321,11 @@ describe('shared text and node annotations', () => {
 			focus_offset: 8
 		};
 		session.apply(session.tr.toggle_annotation('emphasis'));
-		expect(session.get(['story_1', 'title']).annotations).toEqual([]);
-
-		session.apply(session.tr.toggle_annotation('emphasis'));
 		const annotations = session.get(['story_1', 'title']).annotations;
 		expect(annotations).toHaveLength(1);
 		expect(annotation_type(session, annotations[0])).toBe('emphasis');
-		expect(annotations[0]).toMatchObject({ start_offset: 3, end_offset: 8 });
+		expect(annotations[0]).toMatchObject({ start_offset: 0, end_offset: 5 });
+		expect(session.selection).toEqual(text_selection(0, 5));
 		expect_exclusive(annotations);
 	});
 

@@ -12,6 +12,7 @@ import {
 	validate_node,
 	get_referencing_node_ids,
 	get_active_annotation,
+	get_selected_annotations,
 	validate_selection,
 	get_node_array_nodes,
 	get_node_array_annotations
@@ -66,6 +67,7 @@ export default class Session {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
+	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
@@ -434,13 +436,12 @@ export default class Session {
 
 	/**
 	 * Returns the annotation object that is currently "under the cursor".
-	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
 	 *
 	 * @param {string} [annotation_type] Optional annotation type to filter by
 	 * @returns {Annotation|null}
 	 */
 	active_annotation(annotation_type) {
-		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
+		return get_active_annotation(this.selected_annotations, annotation_type);
 	}
 
 	get_selected_text() {
