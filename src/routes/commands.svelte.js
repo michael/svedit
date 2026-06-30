@@ -134,7 +134,7 @@ export class ToggleLinkCommand extends Command {
 
 	is_active() {
 		const selected_annotations = this.context.session.selected_annotations;
-		return selected_annotations.length === 1 && selected_annotations[0].type === 'link';
+		return selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
 	}
 
 	is_enabled() {
@@ -142,7 +142,7 @@ export class ToggleLinkCommand extends Command {
 		const selected_annotations = session.selected_annotations;
 		const selection_touches_annotations = selected_annotations.length > 0;
 		const can_remove_link =
-			selected_annotations.length === 1 && selected_annotations[0].type === 'link';
+			selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
 		const can_create_link =
 			!selection_touches_annotations &&
 			session.selection?.type === 'text' &&
@@ -157,7 +157,7 @@ export class ToggleLinkCommand extends Command {
 		const session = this.context.session;
 		const selected_annotations = session.selected_annotations;
 		const can_remove_link =
-			selected_annotations.length === 1 && selected_annotations[0].type === 'link';
+			selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
 
 		if (can_remove_link) {
 			// Delete link

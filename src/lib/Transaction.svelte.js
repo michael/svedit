@@ -23,7 +23,6 @@ import {
 	validate_node,
 	fill_node_defaults,
 	can_switch_annotation_type,
-	get_active_annotation,
 	get_selected_annotations,
 	get_selected_annotation_types,
 	validate_selection,
@@ -166,20 +165,14 @@ export default class Transaction {
 	/**
 	 * Returns annotations touched by the current selection.
 	 *
-	 * @returns {Array<{ annotation: Annotation, index: number, node: any, type: string }>}
+	 * @returns {Array<Annotation & { index: number, node: any }>}
 	 */
 	get selected_annotations() {
 		return get_selected_annotations(this.schema, this.doc, this.selection);
 	}
 
-	/**
-	 * Returns the annotation object that is currently "under the caret".
-	 *
-	 * @param {string} [annotation_type] Optional annotation type to filter by
-	 * @returns {Annotation|null}
-	 */
-	active_annotation(annotation_type) {
-		return get_active_annotation(this.selected_annotations, annotation_type);
+	get active_annotation() {
+		return this.selected_annotations.length === 1 ? this.selected_annotations[0] : null;
 	}
 
 	/**
@@ -478,12 +471,12 @@ export default class Transaction {
 		}
 
 		const first_selected_annotation = selected_annotations[0];
-		const selected_annotation_type = first_selected_annotation.type;
+		const selected_annotation_type = first_selected_annotation.node.type;
 
 		if (selected_annotation_type === annotation_type) {
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const selected_indices = new Set(selected_annotations.map(({ index }) => index));
-			const removed_node_ids = selected_annotations.map(({ annotation }) => annotation.node_id);
+			const removed_node_ids = selected_annotations.map(({ node_id }) => node_id);
 			annotated_value.annotations = annotations.filter((_, index) => !selected_indices.has(index));
 			this.set(this.selection.path, annotated_value);
 			this._cascade_delete_unreferenced_nodes(removed_node_ids);
@@ -494,7 +487,7 @@ export default class Transaction {
 			selected_annotations.length === 1 &&
 			can_switch_annotation_type(this.schema, selected_annotation_type, annotation_type)
 		) {
-			const selected_annotation = first_selected_annotation.annotation;
+			const selected_annotation = first_selected_annotation;
 			this.set([selected_annotation.node_id, 'type'], annotation_type);
 			this.set_selection({
 				type: this.selection.type,
@@ -681,7 +674,7 @@ export default class Transaction {
 		};
 
 		if (
-			!this.active_annotation() &&
+			!this.active_annotation &&
 			annotations.length > 0 &&
 			are_annotation_ranges_exclusive(annotations, node_ids.length)
 		) {
@@ -768,7 +761,7 @@ export default class Transaction {
 		// Now we apply annotations if there are any, but only if there's no active annotation
 		// at the current collapsed caret
 		if (
-			!this.active_annotation() &&
+			!this.active_annotation &&
 			annotations.length > 0 &&
 			are_annotation_ranges_exclusive(annotations, delta)
 		) {

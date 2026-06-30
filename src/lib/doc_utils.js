@@ -727,7 +727,7 @@ export function can_switch_annotation_type(schema, from_type, to_type) {
  * @param {DocumentSchema} schema - The document schema
  * @param {Document} doc - The document containing nodes
  * @param {Selection} [selection] - The current selection
- * @returns {{ annotation: Annotation, index: number, node: any, type: string }[]} Selected annotation records
+ * @returns {(Annotation & { index: number, node: any })[]} Selected annotation records
  */
 export function get_selected_annotations(schema, doc, selection) {
 	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
@@ -745,47 +745,25 @@ export function get_selected_annotations(schema, doc, selection) {
 		.map((/** @type {Annotation} */ annotation, index) => {
 			const node = doc.nodes[annotation.node_id];
 			return {
-				annotation,
+				...annotation,
 				index,
-				node,
-				type: node?.type
+				node
 			};
 		})
-		.filter(({ annotation }) => {
+		.filter(({ start_offset, end_offset }) => {
 			if (is_collapsed) {
-				return (
-					annotation.start_offset < range.start_offset && annotation.end_offset > range.start_offset
-				);
+				return start_offset < range.start_offset && end_offset > range.start_offset;
 			}
-			return (
-				annotation.start_offset < range.end_offset && annotation.end_offset > range.start_offset
-			);
+			return start_offset < range.end_offset && end_offset > range.start_offset;
 		});
 }
 
 /**
- * Gets the currently active annotation from selected annotations, optionally filtered by type.
- *
- * An annotation is active only when exactly one annotation is touched by the
- * current selection or caret.
- *
- * @param {{ annotation: Annotation, index: number, node: any, type: string }[]} selected_annotations
- * @param {string} [annotation_type] - Optional annotation type to filter by
- * @returns {Annotation | null} The active annotation, or null if none found
- */
-export function get_active_annotation(selected_annotations, annotation_type) {
-	if (selected_annotations.length !== 1) return null;
-	if (annotation_type && selected_annotations[0].type !== annotation_type) return null;
-
-	return selected_annotations[0].annotation;
-}
-
-/**
- * @param {{ annotation: Annotation, index: number, node: any, type: string }[]} selected_annotations
+ * @param {(Annotation & { index: number, node: any })[]} selected_annotations
  * @returns {Set<string>} Annotation types represented in the selection
  */
 export function get_selected_annotation_types(selected_annotations) {
-	return new Set(selected_annotations.map(({ type }) => type));
+	return new Set(selected_annotations.map(({ node }) => node?.type).filter(Boolean));
 }
 
 /**

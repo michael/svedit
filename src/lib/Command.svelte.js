@@ -125,7 +125,7 @@ export class ToggleAnnotationCommand extends Command {
 		const selected_annotations = this.context.session.selected_annotations;
 		return (
 			selected_annotations.length > 0 &&
-			selected_annotations.every(({ type }) => type === this.node_type)
+			selected_annotations.every(({ node }) => node?.type === this.node_type)
 		);
 	}
 
@@ -147,7 +147,7 @@ export class ToggleAnnotationCommand extends Command {
 		}
 
 		const first_selected_annotation = selected_annotations[0];
-		const selected_annotation_type = first_selected_annotation.type;
+		const selected_annotation_type = first_selected_annotation.node.type;
 		if (selected_annotation_type === this.node_type) return true;
 		if (selected_annotations.length !== 1) return false;
 

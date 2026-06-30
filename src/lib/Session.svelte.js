@@ -11,7 +11,6 @@ import {
 	validate_document,
 	validate_node,
 	get_referencing_node_ids,
-	get_active_annotation,
 	get_selected_annotations,
 	validate_selection,
 	get_node_array_nodes,
@@ -68,6 +67,9 @@ export default class Session {
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
 	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
+	active_annotation = $derived(
+		this.selected_annotations.length === 1 ? this.selected_annotations[0] : null
+	);
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
@@ -432,16 +434,6 @@ export default class Session {
 			anchor_offset: node_offset,
 			focus_offset: node_offset
 		};
-	}
-
-	/**
-	 * Returns the annotation object that is currently "under the cursor".
-	 *
-	 * @param {string} [annotation_type] Optional annotation type to filter by
-	 * @returns {Annotation|null}
-	 */
-	active_annotation(annotation_type) {
-		return get_active_annotation(this.selected_annotations, annotation_type);
 	}
 
 	get_selected_text() {

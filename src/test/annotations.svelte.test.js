@@ -69,7 +69,7 @@ describe('annotation toggle selection semantics', () => {
 			create_annotation(session, 'strong', text_selection(0, 5));
 
 			session.selection = text_selection(caret_offset, caret_offset);
-			expect(session.active_annotation()).toBeNull();
+			expect(session.active_annotation).toBeNull();
 			expect(annotation_command(session, 'strong').is_enabled()).toBe(false);
 
 			const before = structuredClone(session.doc);
