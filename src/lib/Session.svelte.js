@@ -11,8 +11,10 @@ import {
 	validate_document,
 	validate_node,
 	get_referencing_node_ids,
-	get_active_annotation,
-	validate_selection
+	get_selected_annotations,
+	validate_selection,
+	get_node_array_nodes,
+	get_node_array_annotations
 } from './doc_utils.js';
 
 /**
@@ -64,7 +66,10 @@ export default class Session {
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
 	available_annotation_types = $derived(this.get_available_annotation_types());
-
+	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
+	active_annotation = $derived(
+		this.selected_annotations.length === 1 ? this.selected_annotations[0] : null
+	);
 
 	/**
 	 * @param {DocumentSchema} schema - The document schema
@@ -145,13 +150,25 @@ export default class Session {
 
 		for (const node_id of transaction.created_node_ids) add_node_id(node_id);
 		for (const node_id of transaction.modified_node_ids) add_node_id(node_id);
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.created_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.created_node_ids
+		)) {
 			add_node_id(node_id);
 		}
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.modified_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.modified_node_ids
+		)) {
 			add_node_id(node_id);
 		}
-		for (const node_id of get_referencing_node_ids(this.schema, doc, transaction.deleted_node_ids)) {
+		for (const node_id of get_referencing_node_ids(
+			this.schema,
+			doc,
+			transaction.deleted_node_ids
+		)) {
 			add_node_id(node_id);
 		}
 
@@ -188,10 +205,12 @@ export default class Session {
 	}
 
 	get_available_annotation_types() {
-		if (this.selection?.type !== 'text') return [];
+		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const path = this.selection.path;
 		const property_definition = this.inspect(path);
-		return property_definition.node_types || [];
+		return this.selection.type === 'node'
+			? property_definition.annotation_types || []
+			: property_definition.annotation_types || [];
 	}
 
 	// Helper function to get the currently selected node
@@ -204,7 +223,7 @@ export default class Session {
 			// Only consider selection of a single node
 			if (end - start !== 1) return null;
 			const node_array = this.get(this.selection.path);
-			const node_id = node_array[start];
+			const node_id = get_node_array_nodes(node_array)[start];
 			return node_id ? this.get(node_id) : null;
 		} else {
 			// we are assuming we are either in a text or property (=custom) selection
@@ -329,8 +348,8 @@ export default class Session {
 	 * session.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
 	 *
 	 * @example
-	 * // Get an annotated text property
-	 * session.get(['page_1', 'cover', 'title']) // => {text: 'Hello world', annotations: []}
+	 * // Get a text property
+	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', annotations: []}
 	 */
 	get(path) {
 		return doc_get(this.schema, this.doc, path);
@@ -417,26 +436,15 @@ export default class Session {
 		};
 	}
 
-	/**
-	 * Returns the annotation object that is currently "under the cursor".
-	 * NOTE: Annotations in Svedit are exclusive, so there can only be one active_annotation
-	 *
-	 * @param {string} [annotation_type] Optional annotation type to filter by
-	 * @returns {Annotation|null}
-	 */
-	active_annotation(annotation_type) {
-		return get_active_annotation(this.schema, this.doc, this.selection, annotation_type);
-	}
-
-	get_selected_annotated_text() {
+	get_selected_text() {
 		if (this.selection?.type !== 'text') return null;
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const annotated_text = this.get(this.selection.path);
-		const text = char_slice(annotated_text.text, selection_start, selection_end);
+		const text_value = this.get(this.selection.path);
+		const selected_text = char_slice(text_value.content, selection_start, selection_end);
 		const nodes = {};
-		const annotations = annotated_text.annotations
+		const annotations = text_value.annotations
 			.map((a) => {
 				if (selection_start < a.end_offset && selection_end > a.start_offset) {
 					const sub_graph = this.traverse(a.node_id);
@@ -456,7 +464,45 @@ export default class Session {
 			})
 			.filter(Boolean);
 
-		return { text, annotations, nodes };
+		return { content: selected_text, annotations, nodes };
+	}
+
+	get_selected_annotated_nodes() {
+		if (this.selection?.type !== 'node') return null;
+
+		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+		const node_array = this.get(this.selection.path);
+		const main_nodes = get_node_array_nodes(node_array).slice(selection_start, selection_end);
+		const nodes = {};
+
+		const add_subgraph = (node_id) => {
+			for (const node of this.traverse(node_id)) {
+				if (!nodes[node.id]) nodes[node.id] = node;
+			}
+		};
+
+		for (const node_id of main_nodes) add_subgraph(node_id);
+
+		const annotations = get_node_array_annotations(node_array)
+			.map((annotation) => {
+				if (selection_start >= annotation.end_offset || selection_end <= annotation.start_offset) {
+					return null;
+				}
+
+				add_subgraph(annotation.node_id);
+				return {
+					start_offset: Math.max(annotation.start_offset - selection_start, 0),
+					end_offset: Math.min(
+						annotation.end_offset - selection_start,
+						selection_end - selection_start
+					),
+					node_id: annotation.node_id
+				};
+			})
+			.filter(Boolean);
+
+		return { nodes, main_nodes, annotations };
 	}
 
 	// TODO: think about ways how we can also turn a node selection into plain text.
@@ -465,8 +511,8 @@ export default class Session {
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const annotated_text = this.get(this.selection.path);
-		return char_slice(annotated_text.text, start, end);
+		const text = this.get(this.selection.path);
+		return char_slice(text.content, start, end);
 	}
 
 	get_selected_nodes() {
@@ -475,7 +521,7 @@ export default class Session {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const node_array = this.get(this.selection.path);
-		return $state.snapshot(node_array.slice(start, end));
+		return $state.snapshot(get_node_array_nodes(node_array).slice(start, end));
 	}
 
 	select_parent() {
@@ -551,7 +597,7 @@ export default class Session {
 	}
 
 	// property_type('page', 'body') => 'node_array'
-	// property_type('paragraph', 'content') => 'annotated_text'
+	// property_type('paragraph', 'content') => 'text'
 	property_type(type, property) {
 		return doc_property_type(this.schema, type, property);
 	}

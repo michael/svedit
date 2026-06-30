@@ -1,11 +1,11 @@
 <script>
 	import { getContext } from 'svelte';
-	import { AnnotatedTextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
+	import { TextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
 	const svedit = getContext('svedit');
 
 	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
-	let has_buttons = $derived(node.buttons.length > 0);
+	let has_buttons = $derived(node.buttons.nodes.length > 0);
 </script>
 
 <Node {path}>
@@ -14,19 +14,19 @@
 			<div style="width: 100%; height: 100%;" contenteditable="false">
 				<img
 					src={node.image || '/icons/image-placeholder.svg'}
-					alt={node.title.text}
+					alt={node.title.content}
 					class:placeholder={!node.image}
 				/>
 			</div>
 		</CustomProperty>
 		<div class="caption">
 			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
-			<AnnotatedTextProperty
+			<TextProperty
 				class="heading2"
 				path={[...path, 'title']}
 				placeholder="The CTA headline should be clear and benefit-driven."
 			/>
-			<AnnotatedTextProperty
+			<TextProperty
 				class="body"
 				path={[...path, 'description']}
 				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."

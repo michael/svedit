@@ -11,14 +11,9 @@
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 
-		const active_annotation = svedit.session.active_annotation('link');
-		if (active_annotation) {
-			const annotated_text = svedit.session.get(sel.path);
-			const annotations = annotated_text?.annotations;
-			if (!Array.isArray(annotations)) return null;
-			const annotation_index = annotations.indexOf(active_annotation);
-			if (annotation_index < 0) return null;
-			return [...sel.path, 'annotations', annotation_index, 'node_id'];
+		const active_annotation = svedit.session.active_annotation;
+		if (active_annotation?.node.type === 'link') {
+			return [...sel.path, 'annotations', active_annotation.index, 'node_id'];
 		}
 		return null;
 	}

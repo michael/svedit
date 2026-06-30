@@ -46,52 +46,69 @@
 				for (let b = 0; b < 1 + (i % 3); b++) {
 					const bid = nanoid();
 					nodes[bid] = {
-						id: bid, type: 'button',
-						content: { text: `Action ${b + 1}`, annotations: [] },
+						id: bid,
+						type: 'button',
+						content: { content: `Action ${b + 1}`, annotations: [] },
 						href: '#'
 					};
 					btn_ids.push(bid);
 				}
 				nodes[id] = {
-					id, type: 'story', layout: (i % 3) + 1,
-					title: { text: `Story ${body.length + 1}`, annotations: [] },
+					id,
+					type: 'story',
+					layout: (i % 3) + 1,
+					title: { content: `Story ${body.length + 1}`, annotations: [] },
 					description: {
-						text: 'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
+						content:
+							'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
 						annotations: []
 					},
-					image: '', buttons: btn_ids
+					image: '',
+					buttons: { nodes: btn_ids, annotations: [] }
 				};
 			} else if (mod === 10) {
 				const items = [];
 				for (let j = 0; j < 4; j++) {
 					const lid = nanoid();
 					nodes[lid] = {
-						id: lid, type: 'list_item',
-						content: { text: `List item ${j + 1} with sample content`, annotations: [] }
+						id: lid,
+						type: 'list_item',
+						content: { content: `List item ${j + 1} with sample content`, annotations: [] }
 					};
 					items.push(lid);
 				}
-				nodes[id] = { id, type: 'list', list_items: items, layout: 3 };
+				nodes[id] = {
+					id,
+					type: 'list',
+					list_items: { nodes: items, annotations: [] },
+					layout: 3
+				};
 			} else if (mod === 0 && i > 0) {
 				const grid_items = [];
 				for (let g = 0; g < 3; g++) {
 					const gid = nanoid();
 					nodes[gid] = {
-						id: gid, type: 'image_grid_item',
+						id: gid,
+						type: 'image_grid_item',
 						image: '',
-						title: { text: `Grid ${g + 1}`, annotations: [] },
-						description: { text: 'Grid item description text', annotations: [] }
+						title: { content: `Grid ${g + 1}`, annotations: [] },
+						description: { content: 'Grid item description text', annotations: [] }
 					};
 					grid_items.push(gid);
 				}
-				nodes[id] = { id, type: 'image_grid', layout: 1, image_grid_items: grid_items };
+				nodes[id] = {
+					id,
+					type: 'image_grid',
+					layout: 1,
+					image_grid_items: { nodes: grid_items, annotations: [] }
+				};
 			} else {
 				nodes[id] = {
 					id,
 					type: i % 10 === 0 ? 'heading_2' : 'paragraph',
 					layout: 1,
 					content: {
-						text: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
+						content: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
 						annotations: []
 					}
 				};
@@ -100,8 +117,11 @@
 		}
 
 		nodes['perf_page'] = {
-			id: 'perf_page', type: 'page',
-			body, keywords: [], daily_visitors: [],
+			id: 'perf_page',
+			type: 'page',
+			body: { nodes: body, annotations: [] },
+			keywords: [],
+			daily_visitors: [],
 			created_at: new Date().toISOString()
 		};
 		return { document_id: 'perf_page', nodes };
@@ -121,10 +141,10 @@
 		session = make_session();
 		mount_key++;
 		await tick();
-		await new Promise(r => requestAnimationFrame(r));
-		await new Promise(r => requestAnimationFrame(r));
+		await new Promise((r) => requestAnimationFrame(r));
+		await new Promise((r) => requestAnimationFrame(r));
 		render_ms = Math.round(performance.now() - t0);
-		await new Promise(r => setTimeout(r, 100));
+		await new Promise((r) => setTimeout(r, 100));
 		snap_counts();
 	}
 
@@ -138,7 +158,7 @@
 		if (frame_times.length > 120) frame_times.shift();
 		if (frame_times.length >= 2) {
 			const dt = frame_times[frame_times.length - 1] - frame_times[0];
-			live_fps = Math.round((frame_times.length - 1) * 1000 / dt);
+			live_fps = Math.round(((frame_times.length - 1) * 1000) / dt);
 		}
 		const perf = /** @type {any} */ (performance);
 		if (perf.memory) {
@@ -153,7 +173,7 @@
 		const gaps = [];
 		for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1]);
 		const total = stamps[stamps.length - 1] - stamps[0];
-		const avg = Math.round((stamps.length - 1) * 1000 / total);
+		const avg = Math.round(((stamps.length - 1) * 1000) / total);
 		gaps.sort((a, b) => b - a);
 		const worst = gaps[0];
 		const p95_idx = Math.floor(gaps.length * 0.05);
@@ -170,17 +190,18 @@
 		scroll_result = null;
 		const el = document.documentElement;
 		el.scrollTop = 0;
-		await new Promise(r => setTimeout(r, 200));
+		await new Promise((r) => setTimeout(r, 200));
 		const max_scroll = el.scrollHeight - window.innerHeight;
 		const dur = 3000;
 		const stamps = [];
 		const t0 = performance.now();
-		await new Promise(resolve => {
+		await new Promise((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = Math.min((now - t0) / dur, 1);
 				el.scrollTop = p * max_scroll;
-				if (p < 1) requestAnimationFrame(step); else resolve();
+				if (p < 1) requestAnimationFrame(step);
+				else resolve();
 			}
 			requestAnimationFrame(step);
 		});
@@ -195,14 +216,17 @@
 		const stamps = [];
 		const total_steps = 60;
 		let i = 0;
-		await new Promise(resolve => {
+		await new Promise((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = i / total_steps;
 				editor_wrapper.style.maxWidth = `${Math.round(1200 - 800 * Math.sin(p * Math.PI))}px`;
 				i++;
 				if (i <= total_steps) requestAnimationFrame(step);
-				else { editor_wrapper.style.maxWidth = ''; resolve(); }
+				else {
+					editor_wrapper.style.maxWidth = '';
+					resolve();
+				}
 			}
 			requestAnimationFrame(step);
 		});
@@ -221,34 +245,41 @@
 			session = make_session();
 			mount_key++;
 			await tick();
-			await new Promise(r => requestAnimationFrame(r));
-			await new Promise(r => requestAnimationFrame(r));
+			await new Promise((r) => requestAnimationFrame(r));
+			await new Promise((r) => requestAnimationFrame(r));
 			const r_ms = Math.round(performance.now() - t0);
-			await new Promise(r => setTimeout(r, 500));
+			await new Promise((r) => setTimeout(r, 500));
 
 			const d = document.querySelectorAll('.svedit *').length;
 			const g = document.querySelectorAll('.gap-marker').length;
 			const perf = /** @type {any} */ (performance);
-			const m = perf.memory
-				? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024)
-				: null;
+			const m = perf.memory ? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024) : null;
 
 			const s_fps = await quick_scroll_test(2000);
-			await new Promise(r => setTimeout(r, 200));
+			await new Promise((r) => setTimeout(r, 200));
 
 			const rz_fps = await quick_resize_test(40);
-			await new Promise(r => setTimeout(r, 200));
+			await new Promise((r) => setTimeout(r, 200));
 
 			const mut_fps = await run_mutation_frames(20);
-			await new Promise(r => setTimeout(r, 200));
+			await new Promise((r) => setTimeout(r, 200));
 
-			benchmark_results = [...benchmark_results, {
-				nodes: count,
-				render_ms: r_ms, dom_el: d, gaps: g, memory: m,
-				scroll_avg: s_fps.avg, scroll_min: s_fps.min,
-				resize_avg: rz_fps.avg, resize_min: rz_fps.min,
-				mutation_avg: mut_fps.avg, mutation_min: mut_fps.min
-			}];
+			benchmark_results = [
+				...benchmark_results,
+				{
+					nodes: count,
+					render_ms: r_ms,
+					dom_el: d,
+					gaps: g,
+					memory: m,
+					scroll_avg: s_fps.avg,
+					scroll_min: s_fps.min,
+					resize_avg: rz_fps.avg,
+					resize_min: rz_fps.min,
+					mutation_avg: mut_fps.avg,
+					mutation_min: mut_fps.min
+				}
+			];
 		}
 		is_testing = false;
 	}
@@ -257,16 +288,17 @@
 	async function quick_scroll_test(dur) {
 		const el = document.documentElement;
 		el.scrollTop = 0;
-		await new Promise(r => setTimeout(r, 100));
+		await new Promise((r) => setTimeout(r, 100));
 		const max_scroll = el.scrollHeight - window.innerHeight;
 		const stamps = [];
 		const t0 = performance.now();
-		await new Promise(resolve => {
+		await new Promise((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = Math.min((now - t0) / dur, 1);
 				el.scrollTop = p * max_scroll;
-				if (p < 1) requestAnimationFrame(step); else resolve();
+				if (p < 1) requestAnimationFrame(step);
+				else resolve();
 			}
 			requestAnimationFrame(step);
 		});
@@ -279,13 +311,16 @@
 		if (!editor_wrapper) return { avg: 0, min: 0, p5: 0, frames: 0 };
 		const stamps = [];
 		let i = 0;
-		await new Promise(resolve => {
+		await new Promise((resolve) => {
 			function step(now) {
 				stamps.push(now);
-				editor_wrapper.style.maxWidth = `${Math.round(1200 - 800 * Math.sin(i / total_steps * Math.PI))}px`;
+				editor_wrapper.style.maxWidth = `${Math.round(1200 - 800 * Math.sin((i / total_steps) * Math.PI))}px`;
 				i++;
 				if (i <= total_steps) requestAnimationFrame(step);
-				else { editor_wrapper.style.maxWidth = ''; resolve(); }
+				else {
+					editor_wrapper.style.maxWidth = '';
+					resolve();
+				}
 			}
 			requestAnimationFrame(step);
 		});
@@ -301,7 +336,7 @@
 		/** @type {{ node_id: string, prop: string } | undefined} */
 		let target;
 		for (const node of Object.values(session.doc.nodes)) {
-			if (node.type === 'story' && Array.isArray(node.buttons)) {
+			if (node.type === 'story') {
 				target = { node_id: node.id, prop: 'buttons' };
 				break;
 			}
@@ -309,17 +344,26 @@
 		if (!target) return { avg: 0, min: 0, p5: 0, frames: 0 };
 
 		const stamps = [];
-		await new Promise(resolve => {
+		await new Promise((resolve) => {
 			let i = 0;
 			function step(now) {
 				stamps.push(now);
 				if (i < count) {
 					const id = nanoid();
 					const tr = session.tr;
-					tr.create({ id, type: 'button', content: { text: `Btn ${i + 1}`, annotations: [] }, href: '#' });
-					const current = [...session.doc.nodes[target.node_id][target.prop]];
+					tr.create({
+						id,
+						type: 'button',
+						content: { content: `Btn ${i + 1}`, annotations: [] },
+						href: '#'
+					});
+					const current_value = session.doc.nodes[target.node_id][target.prop];
+					const current = [...current_value.nodes];
 					current.push(id);
-					tr.set([target.node_id, target.prop], current);
+					tr.set([target.node_id, target.prop], {
+						nodes: current,
+						annotations: current_value.annotations
+					});
 					session.apply(tr);
 					i++;
 					requestAnimationFrame(step);
@@ -360,13 +404,13 @@
 					session = make_session();
 					mount_key++;
 					await tick();
-					await new Promise(r => requestAnimationFrame(r));
-					await new Promise(r => requestAnimationFrame(r));
-					await new Promise(r => setTimeout(r, 1000));
-					if (count >= 2000) await new Promise(r => setTimeout(r, 3000));
+					await new Promise((r) => requestAnimationFrame(r));
+					await new Promise((r) => requestAnimationFrame(r));
+					await new Promise((r) => setTimeout(r, 1000));
+					if (count >= 2000) await new Promise((r) => setTimeout(r, 3000));
 
 					const scroll = await quick_scroll_test(2000);
-					await new Promise(r => setTimeout(r, 200));
+					await new Promise((r) => setTimeout(r, 200));
 
 					const dom = document.querySelectorAll('.svedit *').length;
 					const gap_mk = document.querySelectorAll('.gap-marker').length;
@@ -374,12 +418,19 @@
 					const mem = perf.memory ? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024) : null;
 
 					results.push({
-						overscan, debounce, nodes: count,
-						scroll_avg: scroll.avg, scroll_min: scroll.min,
-						dom, gaps: gap_mk, mem
+						overscan,
+						debounce,
+						nodes: count,
+						scroll_avg: scroll.avg,
+						scroll_min: scroll.min,
+						dom,
+						gaps: gap_mk,
+						mem
 					});
 
-					console.log(`overscan=${overscan} debounce=${debounce} nodes=${count}: scroll=${scroll.avg}/${scroll.min} dom=${dom} gaps=${gap_mk}`);
+					console.log(
+						`overscan=${overscan} debounce=${debounce} nodes=${count}: scroll=${scroll.avg}/${scroll.min} dom=${dom} gaps=${gap_mk}`
+					);
 				}
 			}
 		}
@@ -397,9 +448,14 @@
 			run_full_benchmark,
 			apply_settings,
 			run_matrix_test,
-			get results() { return benchmark_results; }
+			get results() {
+				return benchmark_results;
+			}
 		};
-		return () => { cancelAnimationFrame(raf_id); delete /** @type {any} */ (window).__perf; };
+		return () => {
+			cancelAnimationFrame(raf_id);
+			delete (/** @type {any} */ (window).__perf);
+		};
 	});
 </script>
 
@@ -411,11 +467,9 @@
 	<div class="control-row">
 		<span class="label">Nodes:</span>
 		{#each PRESETS as n (n)}
-			<button
-				class:active={node_count === n}
-				onclick={() => node_count = n}
-				data-node-count={n}
-			>{n}</button>
+			<button class:active={node_count === n} onclick={() => (node_count = n)} data-node-count={n}
+				>{n}</button
+			>
 		{/each}
 	</div>
 	<div class="control-row">
@@ -428,7 +482,12 @@
 		<button onclick={run_full_benchmark} disabled={is_testing} data-testid="benchmark-btn">
 			Full Benchmark
 		</button>
-		<button onclick={run_matrix_test} disabled={is_testing} data-testid="matrix-btn" class="matrix-btn">
+		<button
+			onclick={run_matrix_test}
+			disabled={is_testing}
+			data-testid="matrix-btn"
+			class="matrix-btn"
+		>
 			Matrix Test
 		</button>
 	</div>
@@ -449,26 +508,21 @@
 	</div>
 	{#if scroll_result}
 		<div class="metrics-row test-result">
-			Scroll: avg <strong>{scroll_result.avg}</strong> fps,
-			min <strong>{scroll_result.min}</strong> fps,
-			p5 <strong>{scroll_result.p5}</strong> fps
-			({scroll_result.frames} frames)
+			Scroll: avg <strong>{scroll_result.avg}</strong> fps, min <strong>{scroll_result.min}</strong>
+			fps, p5 <strong>{scroll_result.p5}</strong> fps ({scroll_result.frames} frames)
 		</div>
 	{/if}
 	{#if resize_result}
 		<div class="metrics-row test-result">
-			Resize: avg <strong>{resize_result.avg}</strong> fps,
-			min <strong>{resize_result.min}</strong> fps,
-			p5 <strong>{resize_result.p5}</strong> fps
-			({resize_result.frames} frames)
+			Resize: avg <strong>{resize_result.avg}</strong> fps, min <strong>{resize_result.min}</strong>
+			fps, p5 <strong>{resize_result.p5}</strong> fps ({resize_result.frames} frames)
 		</div>
 	{/if}
 	{#if mutation_result}
 		<div class="metrics-row test-result">
-			Mutation: avg <strong>{mutation_result.avg}</strong> fps,
-			min <strong>{mutation_result.min}</strong> fps,
-			p5 <strong>{mutation_result.p5}</strong> fps
-			({mutation_result.frames} frames)
+			Mutation: avg <strong>{mutation_result.avg}</strong> fps, min
+			<strong>{mutation_result.min}</strong>
+			fps, p5 <strong>{mutation_result.p5}</strong> fps ({mutation_result.frames} frames)
 		</div>
 	{/if}
 	{#if is_testing}
@@ -479,11 +533,14 @@
 {#if benchmark_results.length > 0}
 	<div class="results-table" data-testid="results-table">
 		<div class="results-header">
-			<button class="copy-json-btn" onclick={() => {
-				navigator.clipboard.writeText(JSON.stringify(benchmark_results, null, 2));
-				copy_feedback = true;
-				setTimeout(() => copy_feedback = false, 1500);
-			}}>
+			<button
+				class="copy-json-btn"
+				onclick={() => {
+					navigator.clipboard.writeText(JSON.stringify(benchmark_results, null, 2));
+					copy_feedback = true;
+					setTimeout(() => (copy_feedback = false), 1500);
+				}}
+			>
 				{copy_feedback ? 'Copied!' : 'Copy JSON'}
 			</button>
 		</div>
@@ -543,7 +600,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		font-family: system-ui, -apple-system, sans-serif;
+		font-family:
+			system-ui,
+			-apple-system,
+			sans-serif;
 		font-size: 13px;
 	}
 
@@ -565,7 +625,9 @@
 		background: #f5f5f5;
 		cursor: pointer;
 		font-size: 12px;
-		transition: background 0.1s, color 0.1s;
+		transition:
+			background 0.1s,
+			color 0.1s;
 	}
 
 	.perf-controls button:hover:not(:disabled) {
@@ -617,7 +679,9 @@
 	}
 
 	@keyframes pulse {
-		50% { opacity: 0.5; }
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	.results-table {
@@ -665,7 +729,6 @@
 		font-weight: 600;
 		text-align: center;
 	}
-
 
 	.editor-area {
 		margin: 0 auto;

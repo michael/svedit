@@ -62,10 +62,10 @@ export function get_text_property_name(node_type, schema) {
 	if (!node_type) return null;
 	const node_schema = schema[node_type];
 	if (!node_schema || node_schema.kind !== 'text') return null;
-	if (node_schema.properties?.content?.type === 'annotated_text') return 'content';
+	if (node_schema.properties?.content?.type === 'text') return 'content';
 	return (
 		Object.entries(node_schema.properties).find(([, property_definition]) => {
-			return property_definition.type === 'annotated_text';
+			return property_definition.type === 'text';
 		})?.[0] || null
 	);
 }
@@ -73,7 +73,7 @@ export function get_text_property_name(node_type, schema) {
 /**
  * @param {any} node
  * @param {DocumentSchema} schema
- * @returns {{ text: string, annotations: any[] } | null}
+ * @returns {{ content: string, annotations: any[] } | null}
  */
 export function get_text_content(node, schema) {
 	if (!node || typeof node !== 'object') return null;
@@ -82,13 +82,17 @@ export function get_text_content(node, schema) {
 	if (
 		text_property_name &&
 		node[text_property_name] &&
-		typeof node[text_property_name].text === 'string' &&
+		typeof node[text_property_name].content === 'string' &&
 		Array.isArray(node[text_property_name].annotations)
 	) {
 		return node[text_property_name];
 	}
 
-	if (node.content && typeof node.content.text === 'string' && Array.isArray(node.content.annotations)) {
+	if (
+		node.content &&
+		typeof node.content.content === 'string' &&
+		Array.isArray(node.content.annotations)
+	) {
 		return node.content;
 	}
 
@@ -125,8 +129,9 @@ export function get_default_text_node(node_array_property_definition, schema) {
 	}
 
 	return (
-		node_array_property_definition.node_types.find((node_type) => schema[node_type]?.kind === 'text') ||
-		null
+		node_array_property_definition.node_types.find(
+			(node_type) => schema[node_type]?.kind === 'text'
+		) || null
 	);
 }
 
@@ -156,7 +161,7 @@ export function create_plain_text_nodes_payload(paragraph_fragments, node_type, 
 			id: node_id,
 			type: node_type,
 			[text_property_name]: {
-				text: fragment,
+				content: fragment,
 				annotations: []
 			}
 		};

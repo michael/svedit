@@ -184,19 +184,19 @@ export function char_to_utf16_offset(str, char_offset) {
  * @returns {[AnnotatedText, AnnotatedText]} Tuple of [left_part, right_part]
  *
  * @example
- * split_annotated_text({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
+ * split_text({content: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
  * // Returns:
  * // [
- * //   {text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
- * //   {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
+ * //   {content: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
+ * //   {content: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
  * // ]
  */
-export function split_annotated_text(text_with_annotations, at_position) {
-	const { text, annotations } = text_with_annotations;
+export function split_text(text_with_annotations, at_position) {
+	const { content, annotations } = text_with_annotations;
 
 	// Split the text using character-aware slicing
-	const left_text = char_slice(text, 0, at_position);
-	const right_text = char_slice(text, at_position);
+	const left_text = char_slice(content, 0, at_position);
+	const right_text = char_slice(content, at_position);
 
 	/** @type {Array<Annotation>} */
 	const left_annotations = [];
@@ -223,8 +223,8 @@ export function split_annotated_text(text_with_annotations, at_position) {
 	}
 
 	return [
-		{ text: left_text, annotations: left_annotations },
-		{ text: right_text, annotations: right_annotations }
+		{ content: left_text, annotations: left_annotations },
+		{ content: right_text, annotations: right_annotations }
 	];
 }
 
@@ -239,12 +239,12 @@ export function split_annotated_text(text_with_annotations, at_position) {
  * @returns {AnnotatedText} Combined annotated text object
  *
  * @example
- * join_annotated_text({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
- * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
+ * join_text({content: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {content: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
+ * // Returns: {content: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
  */
-export function join_annotated_text(first_text, second_text) {
-	const { text: first_text_content, annotations: first_annotations } = first_text;
-	const { text: second_text_content, annotations: second_annotations } = second_text;
+export function join_text(first_text, second_text) {
+	const { content: first_text_content, annotations: first_annotations } = first_text;
+	const { content: second_text_content, annotations: second_annotations } = second_text;
 
 	// Join the text content
 	const joined_text = first_text_content + second_text_content;
@@ -279,7 +279,7 @@ export function join_annotated_text(first_text, second_text) {
 		}
 	}
 
-	return { text: joined_text, annotations: joined_annotations };
+	return { content: joined_text, annotations: joined_annotations };
 }
 
 /**
@@ -417,14 +417,21 @@ export function traverse(node_id, schema, nodes) {
 			const property_definition = schema[node.type].properties[property_name];
 
 			if (property_definition?.type === 'node_array') {
-				for (const v of value) {
+				const node_ids = value?.nodes || [];
+				const annotations = value?.annotations || [];
+
+				for (const v of node_ids) {
 					if (typeof v === 'string') {
 						visit(nodes[v]);
 					}
 				}
+
+				for (const annotation of annotations) {
+					visit(nodes[annotation.node_id]);
+				}
 			} else if (property_definition?.type === 'node') {
 				visit(nodes[value]);
-			} else if (property_definition?.type === 'annotated_text') {
+			} else if (property_definition?.type === 'text') {
 				for (const annotation of value.annotations) {
 					visit(nodes[annotation.node_id]);
 				}
@@ -462,4 +469,166 @@ export function is_selection_collapsed(selection) {
 	} else {
 		return false;
 	}
+}
+
+/**
+ * Adjust annotation ranges after deleting a sequence range.
+ *
+ * Works for both annotated text (character offsets) and annotated node arrays
+ * (node offsets).
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} start
+ * @param {number} end
+ * @returns {{annotations: Array<import('./types.d.ts').Annotation>, removed_node_ids: string[]}}
+ */
+export function delete_range_from_annotations(annotations, start, end) {
+	const removed_node_ids = [];
+	const deletion_length = end - start;
+
+	const next_annotations = annotations
+		.map((annotation) => {
+			if (annotation.end_offset <= start) return annotation;
+
+			let start_offset = annotation.start_offset;
+			if (annotation.start_offset >= end) {
+				start_offset -= deletion_length;
+			} else if (annotation.start_offset > start) {
+				start_offset = start;
+			}
+
+			let end_offset = annotation.end_offset;
+			if (annotation.end_offset >= end) {
+				end_offset -= deletion_length;
+			} else if (annotation.end_offset > start) {
+				end_offset = start;
+			}
+
+			if (start_offset >= end_offset) {
+				removed_node_ids.push(annotation.node_id);
+				return null;
+			}
+
+			return { start_offset, end_offset, node_id: annotation.node_id };
+		})
+		.filter(Boolean);
+
+	return { annotations: next_annotations, removed_node_ids };
+}
+
+/**
+ * Adjust annotation ranges after inserting into a sequence.
+ *
+ * Insertion inside an annotation extends it. Insertion exactly at either edge
+ * stays outside the annotation.
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} offset
+ * @param {number} length
+ * @returns {Array<import('./types.d.ts').Annotation>}
+ */
+export function insert_range_into_annotations(annotations, offset, length) {
+	if (length === 0) return annotations;
+
+	return annotations.map((annotation) => {
+		if (annotation.end_offset <= offset) return annotation;
+
+		if (annotation.start_offset < offset) {
+			return {
+				start_offset: annotation.start_offset,
+				end_offset: annotation.end_offset + length,
+				node_id: annotation.node_id
+			};
+		}
+
+		return {
+			start_offset: annotation.start_offset + length,
+			end_offset: annotation.end_offset + length,
+			node_id: annotation.node_id
+		};
+	});
+}
+
+/**
+ * Check whether annotation ranges are non-empty and mutually exclusive.
+ *
+ * @param {Array<import('./types.d.ts').Annotation>} annotations
+ * @param {number} [length]
+ * @returns {boolean}
+ */
+export function are_annotation_ranges_exclusive(annotations, length = Infinity) {
+	const sorted = [...annotations].sort(
+		(a, b) => a.start_offset - b.start_offset || a.end_offset - b.end_offset
+	);
+
+	return sorted.every(
+		(annotation, index) =>
+			Number.isInteger(annotation.start_offset) &&
+			Number.isInteger(annotation.end_offset) &&
+			annotation.start_offset >= 0 &&
+			annotation.start_offset < annotation.end_offset &&
+			annotation.end_offset <= length &&
+			(index === 0 || annotation.start_offset >= sorted[index - 1].end_offset)
+	);
+}
+
+/**
+ * Calculates abstract fragment ranges from a length and annotations.
+ *
+ * @param {number} length - Length of the sequence (e.g. text length or array length)
+ * @param {Array<import('./types.d.ts').Annotation>} annotations - Array of annotations
+ * @param {import('./types.d.ts').SelectionRange} [selection_highlight_range] - Optional selection highlight range
+ * @returns {Array<{type: 'content' | 'annotation' | 'selection_highlight', start_offset: number, end_offset: number, annotation_index?: number, node_id?: string}>}
+ */
+export function calculate_fragment_ranges(length, annotations, selection_highlight_range) {
+	/** @type {Array<{type: 'content' | 'annotation' | 'selection_highlight', start_offset: number, end_offset: number, annotation_index?: number, node_id?: string}>} */
+	const fragments = [];
+	let last_index = 0;
+
+	// Merge annotations with selection highlight and sort by start offset
+	const ranges = [
+		...annotations,
+		...(selection_highlight_range ? [selection_highlight_range] : [])
+	].sort((a, b) => a.start_offset - b.start_offset);
+
+	for (const range of ranges) {
+		// Add content before this range
+		if (range.start_offset > last_index) {
+			fragments.push({
+				type: 'content',
+				start_offset: last_index,
+				end_offset: range.start_offset
+			});
+		}
+
+		if ('node_id' in range) {
+			const annotation = /** @type {import('./types.d.ts').Annotation} */ (range);
+			fragments.push({
+				type: 'annotation',
+				start_offset: annotation.start_offset,
+				end_offset: annotation.end_offset,
+				node_id: annotation.node_id,
+				annotation_index: annotations.indexOf(annotation)
+			});
+		} else {
+			fragments.push({
+				type: 'selection_highlight',
+				start_offset: range.start_offset,
+				end_offset: range.end_offset
+			});
+		}
+
+		last_index = range.end_offset;
+	}
+
+	// Add any remaining content
+	if (last_index < length) {
+		fragments.push({
+			type: 'content',
+			start_offset: last_index,
+			end_offset: length
+		});
+	}
+
+	return fragments;
 }

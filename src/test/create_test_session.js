@@ -36,7 +36,7 @@ const document_schema = define_document_schema({
 	button: {
 		kind: 'text',
 		properties: {
-			content: { type: 'annotated_text', allow_newlines: false },
+			content: { type: 'text', allow_newlines: false },
 			href: { type: 'string' }
 		}
 	},
@@ -44,36 +44,36 @@ const document_schema = define_document_schema({
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
 			layout: { type: 'integer' },
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	story: {
 		kind: 'block',
 		properties: {
 			layout: { type: 'integer' },
-			title: { type: 'annotated_text', allow_newlines: false },
-			description: { type: 'annotated_text', allow_newlines: true },
+			title: { type: 'text', allow_newlines: false },
+			description: { type: 'text', allow_newlines: true },
 			buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
 			image: { type: 'string' }
 		}
@@ -81,7 +81,7 @@ const document_schema = define_document_schema({
 	list_item: {
 		kind: 'text',
 		properties: {
-			content: { type: 'annotated_text', allow_newlines: true }
+			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	list: {
@@ -103,7 +103,7 @@ const doc = {
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			content: { text: 'Get started', annotations: [] },
+			content: { content: 'Get started', annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -112,30 +112,30 @@ const doc = {
 			layout: 1,
 			image:
 				'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-			title: { text: 'First story', annotations: [] },
-			buttons: ['button_1'],
-			description: { text: 'First story description.', annotations: [] }
+			title: { content: 'First story', annotations: [] },
+			buttons: { nodes: ['button_1'], annotations: [] },
+			description: { content: 'First story description.', annotations: [] }
 		},
 		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
-			content: { text: 'first list item', annotations: [] }
+			content: { content: 'first list item', annotations: [] }
 		},
 		list_item_2: {
 			id: 'list_item_2',
 			type: 'list_item',
-			content: { text: 'second list item', annotations: [] }
+			content: { content: 'second list item', annotations: [] }
 		},
 		list_1: {
 			id: 'list_1',
 			type: 'list',
 			layout: 1,
-			list_items: ['list_item_1', 'list_item_2']
+			list_items: { nodes: ['list_item_1', 'list_item_2'], annotations: [] }
 		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
-			body: ['story_1', 'story_1', 'list_1'],
+			body: { nodes: ['story_1', 'story_1', 'list_1'], annotations: [] },
 			keywords: ['svelte', 'editor', 'rich content'],
 			daily_visitors: [10, 20, 30, 100],
 			created_at: '2025-05-30T10:39:59.987Z'
@@ -167,7 +167,7 @@ const session_config = {
 		list_item: 1
 	},
 	inserters: {
-		button: function (tr, content = { text: '', annotations: [] }) {
+		button: function (tr, content = { content: '', annotations: [] }) {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
@@ -184,7 +184,7 @@ const session_config = {
 			});
 		},
 		paragraph: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_paragraph = {
 				id: nanoid(),
 				type: 'paragraph',
@@ -201,7 +201,7 @@ const session_config = {
 			});
 		},
 		heading_1: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_1 = {
 				id: nanoid(),
 				type: 'heading_1',
@@ -218,7 +218,7 @@ const session_config = {
 			});
 		},
 		heading_2: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_2 = {
 				id: nanoid(),
 				type: 'heading_2',
@@ -235,7 +235,7 @@ const session_config = {
 			});
 		},
 		heading_3: function (tr, content) {
-			const text_content = content || { text: '', annotations: [] };
+			const text_content = content || { content: '', annotations: [] };
 			const new_heading_3 = {
 				id: nanoid(),
 				type: 'heading_3',
@@ -255,7 +255,7 @@ const session_config = {
 			const new_button = {
 				id: nanoid(),
 				type: 'button',
-				content: { text: '', annotations: [] },
+				content: { content: '', annotations: [] },
 				href: 'https://editable.website'
 			};
 			tr.create(new_button);
@@ -264,9 +264,9 @@ const session_config = {
 				type: 'story',
 				layout: 1,
 				image: '',
-				title: { text: '', annotations: [] },
-				description: { text: '', annotations: [] },
-				buttons: [new_button.id]
+				title: { content: '', annotations: [] },
+				description: { content: '', annotations: [] },
+				buttons: { nodes: [new_button.id], annotations: [] }
 			};
 			tr.create(new_story);
 			tr.insert_nodes([new_story.id]);
@@ -275,20 +275,20 @@ const session_config = {
 			const new_list_item = {
 				id: nanoid(),
 				type: 'list_item',
-				content: { text: '', annotations: [] }
+				content: { content: '', annotations: [] }
 			};
 			tr.create(new_list_item);
 			const new_list = {
 				id: nanoid(),
 				type: 'list',
-				list_items: [new_list_item.id],
+				list_items: { nodes: [new_list_item.id], annotations: [] },
 				layout: 3
 			};
 			tr.create(new_list);
 			tr.insert_nodes([new_list.id]);
 		},
 		list_item: function (tr, content) {
-			const item_content = content || { text: '', annotations: [] };
+			const item_content = content || { content: '', annotations: [] };
 			const new_list_item = {
 				id: nanoid(),
 				type: 'list_item',

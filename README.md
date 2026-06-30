@@ -64,17 +64,17 @@ Each node has a `kind` that determines its behavior:
 - `document`: A top-level node accessible via a route (e.g. a page, event)
 - `block`: A structured node that contains other nodes or properties
 - `text`: A node with editable text content (can be split and joined)
-- `annotation`: An inline annotation applied to text (bold, link, etc.)
+- `annotation`: An annotation applied to a text range or a node-array range (bold, link, section, etc.)
 
 ### Choosing between `text` and `block`
 
 `kind: 'text'` opts into the split/join system (`break_text_node`, `join_text_node`), which assumes:
 
-- The node has exactly **one** `annotated_text` property named **`content`**
+- The node has exactly **one** `text` property named **`content`**
 - Pressing Enter splits the node into two nodes of the same type
 - Pressing Backspace at position 0 joins it with the previous node
 
-If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can still have `annotated_text` properties with full editing support (typing, formatting, selection) — they just don't participate in split/join.
+If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can still have `text` properties with full editing support (typing, formatting, selection) — they just don't participate in split/join.
 
 > **Common mistake:** A quote node with `content` + `author` properties might seem like `kind: 'text'` because both fields are editable text. But splitting a quote into two half-quotes doesn't make sense, and `join_text_node` hard-codes `node.content` — so Backspace in the `author` field would join the wrong property with the previous block and drop the author text. The correct kind is `'block'`.
 
@@ -87,7 +87,7 @@ flowchart TD
     Q1{"Is it inline formatting applied within text?"}
     Q2{"Is it a top-level routable entry point?"}
     Q3{"Is text the node's entire purpose?"}
-    Q4{"Does it have exactly one annotated_text property?"}
+    Q4{"Does it have exactly one text property named content?"}
     Q5{"Does pressing Enter to split into two nodes make sense?"}
 
     KindAnnotation["kind: annotation e.g. bold, italic, link"]
@@ -121,12 +121,14 @@ Properties of nodes can hold values:
 - `number_array`: An array of numbers
 - `integer_array`: An array of integers
 - `boolean_array`: An array of booleans
-- `annotated_text`: A plain text string with annotations (bold, italic, link etc.). Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
+- `text`: Plain text content with annotations (bold, italic, link etc.). Text values use `{ content: '', annotations: [] }`. Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
 
 Or references:
 
 - `node`: References a single node (e.g. an image node can reference a global asset node)
 - `node_array`: References a sequence of nodes (e.g. page.body references paragraph and list nodes)
+
+`node_array` properties use `node_types` for the child node types they can contain, and optional `annotation_types` for annotations that can wrap ranges of child nodes.
 
 ```js
 const document_schema = {
@@ -136,6 +138,7 @@ const document_schema = {
 			body: {
 				type: 'node_array',
 				node_types: ['nav', 'paragraph', 'list'],
+				annotation_types: ['section'],
 				default_node_type: 'paragraph'
 			}
 		}
@@ -144,8 +147,8 @@ const document_schema = {
 		kind: 'text',
 		properties: {
 			content: {
-				type: 'annotated_text',
-				node_types: ['strong', 'emphasis', 'link'],
+				type: 'text',
+				annotation_types: ['strong', 'emphasis', 'link'],
 				allow_newlines: true
 			}
 		}
@@ -154,8 +157,8 @@ const document_schema = {
 		kind: 'text',
 		properties: {
 			content: {
-				type: 'annotated_text',
-				node_types: ['strong', 'emphasis', 'link'],
+				type: 'text',
+				annotation_types: ['strong', 'emphasis', 'link'],
 				allow_newlines: true
 			}
 		}
@@ -200,11 +203,15 @@ const document_schema = {
 		properties: {
 			href: { type: 'string' }
 		}
+	},
+	section: {
+		kind: 'annotation',
+		properties: {}
 	}
 };
 ```
 
-Annotation types are defined as nodes with `kind: 'annotation'`. Simple annotations like `strong` and `emphasis` have no properties, while annotations like `link` can carry data (e.g. `href`). Each `annotated_text` property specifies which annotation types are allowed via `node_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles).
+Annotation types are defined as nodes with `kind: 'annotation'`. Simple annotations like `strong` and `emphasis` have no properties, while annotations like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which annotation types are allowed via `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles).
 
 ## Document
 
@@ -214,7 +221,8 @@ Rules:
 
 - All nodes must be reachable from the document node (unreachable nodes are discarded)
 - No cyclic references allowed
-- Text content uses `{ text: '', annotations: [] }` format
+- Text properties use `{ content: '', annotations: [] }`
+- Node array properties use `{ nodes: [], annotations: [] }`
 
 Here's an example document:
 
@@ -222,6 +230,14 @@ Here's an example document:
 const doc = {
 	document_id: 'page_1',
 	nodes: {
+		strong_1: {
+			id: 'strong_1',
+			type: 'strong'
+		},
+		section_1: {
+			id: 'section_1',
+			type: 'section'
+		},
 		nav_item_1: {
 			id: 'nav_item_1',
 			type: 'nav_item',
@@ -231,36 +247,82 @@ const doc = {
 		nav_1: {
 			id: 'nav_1',
 			type: 'nav',
-			nav_items: ['nav_item_1']
+			nav_items: { nodes: ['nav_item_1'], annotations: [] }
 		},
 		paragraph_1: {
 			id: 'paragraph_1',
 			type: 'paragraph',
-			content: { text: 'Hello world.', annotations: [] }
+			content: {
+				content: 'Hello world.',
+				annotations: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }]
+			}
 		},
 		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
-			content: { text: 'First list item', annotations: [] }
+			content: { content: 'First list item', annotations: [] }
 		},
 		list_item_2: {
 			id: 'list_item_2',
 			type: 'list_item',
-			content: { text: 'Second list item', annotations: [] }
+			content: { content: 'Second list item', annotations: [] }
 		},
 		list_1: {
 			id: 'list_1',
 			type: 'list',
-			list_items: ['list_item_1', 'list_item_2']
+			list_items: { nodes: ['list_item_1', 'list_item_2'], annotations: [] }
 		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
-			body: ['nav_1', 'paragraph_1', 'list_1']
+			body: {
+				nodes: ['nav_1', 'paragraph_1', 'list_1'],
+				annotations: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }]
+			}
 		}
 	}
 };
 ```
+
+### Annotations
+
+Annotations are regular nodes referenced from a property value. A text or node-array annotation record has this shape:
+
+```js
+{
+	start_offset: 0,
+	end_offset: 5,
+	node_id: 'annotation_1'
+}
+```
+
+For `text` properties, offsets address character positions in the `content` string:
+
+```js
+{
+	id: 'paragraph_1',
+	type: 'paragraph',
+	content: {
+		content: 'Hello world.',
+		annotations: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }]
+	}
+}
+```
+
+For `node_array` properties, offsets address node positions in the `nodes` array. This lets you annotate a contiguous group of child nodes with the same annotation model:
+
+```js
+{
+	id: 'page_1',
+	type: 'page',
+	body: {
+		nodes: ['paragraph_1', 'paragraph_2', 'paragraph_3'],
+		annotations: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }]
+	}
+}
+```
+
+The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Annotation ranges in the same property must not overlap.
 
 ### Document schema changes
 
@@ -277,7 +339,7 @@ const document_schema = {
 		properties: {
 			layout: { type: 'integer', default: 1 },
 			content: {
-				type: 'annotated_text',
+				type: 'text',
 				allow_newlines: true
 			}
 		}
@@ -288,7 +350,7 @@ const migrated_doc = fill_document_defaults(existing_doc, document_schema);
 const session = new Session(document_schema, migrated_doc, config);
 ```
 
-This only fills properties that are missing. Explicit schema `default` values are used when present; otherwise Svedit uses built-in defaults for value types such as strings, numbers, booleans, arrays, `node_array`, and `annotated_text`. Existing values are preserved, and the original document object is not mutated.
+This only fills properties that are missing. Explicit schema `default` values are used when present; otherwise Svedit uses built-in defaults for value types such as strings, numbers, booleans, arrays, `node_array`, and `text`. Existing values are preserved, and the original document object is not mutated.
 
 Defaults make it safe to add new defaultable properties, but they are not a replacement for real document migrations. If you rename a property, remove a property, split one property into several, change node types, or need to transform existing data, write your own migration first and use `fill_document_defaults` only as a helper where appropriate.
 
@@ -321,7 +383,7 @@ const session_config = {
 
   // Functions that create and insert new nodes
   inserters: {
-    text: (tr, content = {text: '', annotations: []}) => {
+    text: (tr, content = { content: '', annotations: [] }) => {
       const text_id = nanoid();
       tr.create({ id: text_id, type: 'text', content });
       tr.insert_nodes([text_id]);
@@ -369,7 +431,7 @@ const session = new Session(schema, doc, config);
 ### Reading the graph
 
 ```js
-session.get(['page_1', 'body']); // => ['nav_1', 'paragraph_1', 'list_1']
+session.get(['page_1', 'body']); // => { nodes: ['nav_1', 'paragraph_1', 'list_1'], annotations: [] }
 session.get(['nav_1']); // => { id: 'nav_1', type: 'nav', ... }
 session.get('nav_1'); // => shorthand for above (single node ID)
 session.inspect(['page_1', 'body']); // => { kind: 'property', type: 'node_array', node_types: [...] }
@@ -381,7 +443,8 @@ session.kind(node); // => 'text', 'block', or 'annotation'
 ```js
 session.selection; // Current selection (text, node, or property)
 session.selected_node; // The currently selected node (derived)
-session.active_annotation('strong'); // Check if annotation is active at caret
+session.selected_annotations; // Annotation records touched by the current selection (derived)
+session.active_annotation; // The selected annotation record when exactly one annotation is touched, otherwise null
 session.can_insert('paragraph'); // Check if node type can be inserted
 session.available_annotation_types; // Annotation types allowed at current selection (derived)
 ```
@@ -392,7 +455,7 @@ Every selection that can exist in Svedit must have a DOM representation. This is
 
 This applies to all selection types:
 
-- Text selections are native selections inside an `annotated_text` property.
+- Text selections are native selections inside a `text` property.
 - Node selections are native selections whose anchor and focus land inside the selected node range.
 - Property selections are native selections inside the DOM representation of that property.
 
@@ -515,7 +578,7 @@ function insert_heading(tr) {
 
 	// Create and insert a heading node
 	const heading_id = tr.generate_id();
-	tr.create({ id: heading_id, type: 'heading', content: { text: '', annotations: [] } });
+	tr.create({ id: heading_id, type: 'heading', content: { content: '', annotations: [] } });
 	tr.insert_nodes([heading_id]);
 
 	return true;
@@ -538,7 +601,7 @@ session.apply(tr); // Apply atomically
 
 ```js
 // Create a new node (must include all required properties from schema)
-tr.create({ id: 'paragraph_1', type: 'paragraph', content: { text: '', annotations: [] } });
+tr.create({ id: 'paragraph_1', type: 'paragraph', content: { content: '', annotations: [] } });
 
 // Delete a node (cascades to unreferenced child nodes)
 tr.delete('paragraph_26');
@@ -556,7 +619,7 @@ const new_node_id = tr.build('the_list', {
 	the_list: {
 		id: 'the_list',
 		type: 'list',
-		list_items: ['first_item']
+		list_items: { nodes: ['first_item'], annotations: [] }
 	}
 });
 ```
@@ -568,8 +631,8 @@ const new_node_id = tr.build('the_list', {
 tr.insert_text('Hello');
 
 // Toggle annotation on selected text
-tr.annotate_text('strong');
-tr.annotate_text('link', { href: 'https://example.com' });
+tr.toggle_annotation('strong');
+tr.toggle_annotation('link', { href: 'https://example.com' });
 
 // Delete selected text or nodes
 tr.delete_selection();
@@ -621,7 +684,7 @@ class ToggleStrongCommand extends Command {
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.annotate_text('strong'));
+		this.context.session.apply(this.context.session.tr.toggle_annotation('strong'));
 	}
 }
 ```
@@ -666,7 +729,7 @@ Svedit provides several [core commands](src/lib/Command.svelte.js) out of the bo
 - `UndoCommand` - Undo the last change
 - `RedoCommand` - Redo the last undone change
 - `SelectParentCommand` - Select the parent of the current selection
-- `ToggleAnnotationCommand` - Toggle text annotations (bold, italic, etc.)
+- `ToggleAnnotationCommand` - Toggle annotations on text or node-array selections
 - `AddNewLineCommand` - Insert newline character in text
 - `BreakTextNodeCommand` - Split text node at caret
 - `SelectAllCommand` - Progressively expand selection
@@ -715,14 +778,14 @@ Commands can have derived state for reactive UI binding. The `active` property i
 ```js
 class ToggleEmphasisCommand extends Command {
 	// Automatically recomputes when annotation state changes
-	active = $derived(this.context.session.active_annotation('emphasis'));
+	active = $derived(this.context.session.active_annotation?.node.type === 'emphasis');
 
 	is_enabled() {
 		return this.context.editable && this.context.session.selection?.type === 'text';
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.annotate_text('emphasis'));
+		this.context.session.apply(this.context.session.tr.toggle_annotation('emphasis'));
 	}
 }
 ```
@@ -957,13 +1020,13 @@ A typical node component follows this pattern:
 
 ```svelte
 <script>
-	import { Node, AnnotatedTextProperty } from 'svedit';
+	import { Node, TextProperty } from 'svedit';
 	let { path } = $props();
 </script>
 
 <Node {path}>
 	<div class="my-node">
-		<AnnotatedTextProperty path={[...path, 'content']} />
+		<TextProperty path={[...path, 'content']} />
 	</div>
 </Node>
 ```
@@ -980,15 +1043,10 @@ Every node component must wrap its content in the `<Node>` component. This wrapp
 
 Svedit provides specialized components for rendering different property types:
 
-**`<AnnotatedTextProperty>`** - For editable text content with inline formatting:
+**`<TextProperty>`** - For editable text content with inline annotations:
 
 ```svelte
-<AnnotatedTextProperty
-	tag="p"
-	class="body"
-	path={[...path, 'content']}
-	placeholder="Enter text here"
-/>
+<TextProperty tag="p" class="body" path={[...path, 'content']} placeholder="Enter text here" />
 ```
 
 **`<NodeArrayProperty>`** - For container properties that hold multiple nodes:
@@ -996,6 +1054,29 @@ Svedit provides specialized components for rendering different property types:
 ```svelte
 <NodeArrayProperty class="list-items" path={[...path, 'list_items']} />
 ```
+
+Node arrays can also be annotated when their schema includes `annotation_types`. The value still has one `nodes` array, plus an `annotations` array whose offsets refer to node indexes:
+
+```js
+buttons: {
+	nodes: ['button_1', 'button_2', 'button_3'],
+	annotations: [{ start_offset: 0, end_offset: 2, node_id: 'section_1' }]
+}
+```
+
+`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components inside an annotated node-array range also receive a `node_array_annotation` prop:
+
+```svelte
+<script>
+	let { path, node_array_annotation = null } = $props();
+</script>
+
+<div class:section-start={node_array_annotation?.is_start}>
+	<!-- render node content -->
+</div>
+```
+
+The prop contains `{ node, annotation, annotation_index, is_start, is_middle, is_end }`, so a child can react to its position inside an annotated node range without re-reading the parent node array.
 
 > **One path = one DOM mount.** Within a single Svedit document, each node path
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the
@@ -1012,7 +1093,7 @@ Svedit provides specialized components for rendering different property types:
 ```svelte
 <CustomProperty class="image-wrapper" path={[...path, 'image']}>
 	<div contenteditable="false">
-		<img src={node.image} alt={node.title.text} />
+		<img src={node.image} alt={node.title.content} />
 	</div>
 </CustomProperty>
 ```
@@ -1039,7 +1120,7 @@ Here's a complete example of a text node component that supports multiple layout
 ```svelte
 <script>
 	import { getContext } from 'svelte';
-	import { Node, AnnotatedTextProperty } from 'svedit';
+	import { Node, TextProperty } from 'svedit';
 
 	const svedit = getContext('svedit');
 	let { path } = $props();
@@ -1050,12 +1131,7 @@ Here's a complete example of a text node component that supports multiple layout
 
 <Node {path}>
 	<div class="text layout-{layout}">
-		<AnnotatedTextProperty
-			{tag}
-			class="body"
-			path={[...path, 'content']}
-			placeholder="Enter text"
-		/>
+		<TextProperty {tag} class="body" path={[...path, 'content']} placeholder="Enter text" />
 	</div>
 </Node>
 ```
@@ -1113,7 +1189,7 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
       And using <span></span> will not make it addressable at all.
 
       Svedit uses this behavior for node gaps, and when an
-      <AnnotatedTextProperty> is empty.
+      <TextProperty> is empty.
     -->
 		<div class="node-gap"><br /></div>
 		<!--
@@ -1132,8 +1208,8 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
 Further things to consider:
 
 - If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
-- `<AnnotatedTextProperty>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
-- Never apply `position: relative` to the direct parent of `<AnnotatedTextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
+- `<TextProperty>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
+- Never apply `position: relative` to the direct parent of `<TextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
 - Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
 - Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensures `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to a child element of Node.

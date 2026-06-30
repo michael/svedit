@@ -1,5 +1,9 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
-import { can_switch_annotation_type } from './doc_utils.js';
+import {
+	can_switch_annotation_type,
+	get_node_array_nodes,
+	get_selected_annotation_types
+} from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
 
 /**
@@ -107,8 +111,7 @@ export class SelectParentCommand extends Command {
 }
 
 /**
- * Generic command that toggles an annotation on the current text selection.
- * Used for simple annotations like bold, italic, highlight, etc.
+ * Generic command that toggles an annotation on the current text or node selection.
  */
 export class ToggleAnnotationCommand extends Command {
 	constructor(node_type, context) {
@@ -119,34 +122,40 @@ export class ToggleAnnotationCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.session.active_annotation(this.node_type);
+		const selected_annotations = this.context.session.selected_annotations;
+		return (
+			selected_annotations.length > 0 &&
+			selected_annotations.every(({ node }) => node?.type === this.node_type)
+		);
 	}
 
 	is_enabled() {
 		const { session, editable } = this.context;
-		const active_annotation = session.active_annotation();
-		const has_annotation = session.active_annotation(this.node_type);
-		const can_switch_annotation =
-			active_annotation &&
-			!has_annotation &&
-			session.available_annotation_types.includes(this.node_type) &&
-			can_switch_annotation_type(
-				session.schema,
-				session.get(active_annotation.node_id),
-				this.node_type
-			);
-		const no_annotation_and_caret_not_collapsed =
-			!active_annotation && !is_selection_collapsed(session.selection);
+		const selection = session.selection;
+		const is_valid_selection =
+			selection?.type === 'text' ||
+			(selection?.type === 'node' && !is_selection_collapsed(selection));
+		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
+		const selected_annotations = session.selected_annotations;
+		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
 
-		return (
-			editable &&
-			session.selection?.type === 'text' &&
-			(has_annotation || can_switch_annotation || no_annotation_and_caret_not_collapsed)
-		);
+		if (!editable || !is_valid_selection || !annotation_type_is_allowed) return false;
+		if (selected_annotation_types.size > 1) return false;
+
+		if (selected_annotations.length === 0) {
+			return Boolean(selection && !is_selection_collapsed(selection));
+		}
+
+		const first_selected_annotation = selected_annotations[0];
+		const selected_annotation_type = first_selected_annotation.node.type;
+		if (selected_annotation_type === this.node_type) return true;
+		if (selected_annotations.length !== 1) return false;
+
+		return can_switch_annotation_type(session.schema, selected_annotation_type, this.node_type);
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.annotate_text(this.node_type));
+		this.context.session.apply(this.context.session.tr.toggle_annotation(this.node_type));
 	}
 }
 
@@ -179,7 +188,7 @@ export class AddNewLineCommand extends Command {
 
 		const collapsed_offset = tr.selection.anchor_offset;
 		const content = tr.get(tr.selection.path);
-		const text_before_caret = char_slice(content.text, 0, collapsed_offset);
+		const text_before_caret = char_slice(content.content, 0, collapsed_offset);
 		const line_start_index = text_before_caret.lastIndexOf('\n') + 1;
 		const current_line_prefix = text_before_caret.slice(line_start_index);
 		const indentation_match = current_line_prefix.match(/^[\t ]*/);
@@ -235,7 +244,7 @@ export class SelectAllCommand extends Command {
 
 		if (selection.type === 'text') {
 			const text_content = session.get(selection.path);
-			const text_length = get_char_length(text_content.text);
+			const text_length = get_char_length(text_content.content);
 
 			// Check if all text is already selected
 			const is_all_text_selected =
@@ -274,11 +283,12 @@ export class SelectAllCommand extends Command {
 		} else if (selection.type === 'node') {
 			const node_array_path = selection.path;
 			const node_array = session.get(node_array_path);
+			const node_array_nodes = get_node_array_nodes(node_array);
 
 			// Check if the entire node_array is already selected
 			const is_entire_node_array_selected =
 				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
-				Math.max(selection.anchor_offset, selection.focus_offset) === node_array.length;
+				Math.max(selection.anchor_offset, selection.focus_offset) === node_array_nodes.length;
 
 			if (!is_entire_node_array_selected) {
 				// Select the entire node_array
@@ -286,7 +296,7 @@ export class SelectAllCommand extends Command {
 					type: 'node',
 					path: node_array_path,
 					anchor_offset: 0,
-					focus_offset: node_array.length
+					focus_offset: node_array_nodes.length
 				};
 			} else {
 				// Entire node_array is selected, try to move up to parent node_array

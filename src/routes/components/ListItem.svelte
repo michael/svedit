@@ -1,5 +1,5 @@
 <script>
-	import { Node, AnnotatedTextProperty } from 'svedit';
+	import { Node, TextProperty } from 'svedit';
 	import { getContext } from 'svelte';
 
 	const svedit = getContext('svedit');
@@ -22,7 +22,7 @@
 
 <Node {path}>
 	<div class="list-item" style="--list-style: {list_style};">
-		<AnnotatedTextProperty path={[...path, 'content']} placeholder="List item" />
+		<TextProperty path={[...path, 'content']} placeholder="List item" />
 	</div>
 </Node>
 
