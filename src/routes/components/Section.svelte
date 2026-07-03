@@ -5,7 +5,7 @@
 	let node = $derived(svedit.session.get(path));
 </script>
 
-<section id={node.id} data-node-id={node.id}>
+<section id={node.id} class="section" data-node-id={node.id}>
 	{#if children}
 		{@render children()}
 	{:else}
@@ -14,8 +14,20 @@
 </section>
 
 <style>
-	section {
+	.section {
 		display: block;
-		background: color-mix(in oklab, var(--app-primary-fill) 5%, transparent);
+		background: linear-gradient(
+			180deg,
+			color-mix(in oklch, var(--app-canvas-fill) 98%, var(--app-primary-text)) 0%,
+			var(--app-canvas-fill) 72%
+		);
+		box-shadow:
+			inset 0 1px 0 color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text)),
+			inset 0 -1px 0 color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text));
+	}
+
+	:global(.section + .section) {
+		box-shadow: inset 0 -1px 0
+			color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text));
 	}
 </style>

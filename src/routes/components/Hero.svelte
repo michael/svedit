@@ -53,11 +53,6 @@
 		min-height: 50vh;
 		position: relative;
 		overflow: hidden;
-		background: linear-gradient(
-			180deg,
-			color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text)) 0%,
-			var(--app-canvas-fill) 72%
-		);
 	}
 
 	.github-button-wrapper {

@@ -515,6 +515,10 @@ const doc = {
 			},
 			buttons: { nodes: [], annotations: [] }
 		},
+		section_1: {
+			id: 'section_1',
+			type: 'section'
+		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
@@ -533,7 +537,7 @@ const doc = {
 					'list_1',
 					'story_7'
 				],
-				annotations: []
+				annotations: [{ start_offset: 0, end_offset: 1, node_id: 'section_1' }]
 			},
 			keywords: ['svelte', 'editor', 'rich content'],
 			daily_visitors: [10, 20, 30, 100],
