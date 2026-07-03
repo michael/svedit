@@ -464,16 +464,16 @@ export type AnnotatedNodeArray = {
 };
 
 /**
- * Annotation metadata passed to a node rendered inside an annotated node array.
- * A single-node annotation is both the start and end of its range.
+ * Annotation context passed to a node rendered inside an annotated node array.
+ * It is the flattened annotation range, enriched with the resolved annotation node,
+ * its index in the parent annotations array, and this child node's position in the range.
  */
 export type NodeArrayAnnotationContext = {
-	/** The annotation node, including its type-specific properties */
+	start_offset: number;
+	end_offset: number;
+	node_id: NodeId;
+	index: number;
 	node: DocumentNode;
-	/** The annotation range in the parent node array */
-	annotation: Annotation;
-	/** Index of the annotation in the parent node array's annotations */
-	annotation_index: number;
 	is_start: boolean;
 	is_middle: boolean;
 	is_end: boolean;

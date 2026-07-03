@@ -241,6 +241,13 @@ describe('shared text and node annotations', () => {
 		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === section_id)).toBe(
 			true
 		);
+		expect(nodes.every((node) => node.getAttribute('data-annotation-index') === '0')).toBe(true);
+		expect(nodes.every((node) => node.getAttribute('data-annotation-start-offset') === '0')).toBe(
+			true
+		);
+		expect(nodes.every((node) => node.getAttribute('data-annotation-end-offset') === '3')).toBe(
+			true
+		);
 		expect(nodes[0].getAttribute('data-annotation-start')).toBe('true');
 		expect(nodes[0].getAttribute('data-annotation-middle')).toBe('false');
 		expect(nodes[0].getAttribute('data-annotation-end')).toBe('false');

@@ -70,9 +70,9 @@
 		const is_end = slice_index === fragment.nodes.length - 1;
 
 		return {
+			...annotation,
+			index: fragment.annotation_index,
 			node: fragment.node,
-			annotation,
-			annotation_index: fragment.annotation_index,
 			is_start,
 			is_middle: !is_start && !is_end,
 			is_end
@@ -119,13 +119,13 @@
 		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
-			{@const node_array_annotation = annotation_fragment
+			{@const annotation = annotation_fragment
 				? get_annotation_context(annotation_fragment, slice_index)
 				: null}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}
-				<Component path={[...path, index]} {node_array_annotation} />
+				<Component path={[...path, index]} {annotation} />
 			{:else}
 				<UnknownNode path={[...path, index]} />
 			{/if}

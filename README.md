@@ -1116,19 +1116,19 @@ buttons: {
 }
 ```
 
-`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components inside an annotated node-array range also receive a `node_array_annotation` prop:
+`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components inside an annotated node-array range also receive an `annotation` prop:
 
 ```svelte
 <script>
-	let { path, node_array_annotation = null } = $props();
+	let { path, annotation: section = null } = $props();
 </script>
 
-<div class:section-start={node_array_annotation?.is_start}>
+<div class:section-start={section?.is_start}>
 	<!-- render node content -->
 </div>
 ```
 
-The prop contains `{ node, annotation, annotation_index, is_start, is_middle, is_end }`, so a child can react to its position inside an annotated node range without re-reading the parent node array.
+`annotation` is `null` outside annotated ranges. Inside a range it contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
 
 > **One path = one DOM mount.** Within a single Svedit document, each node path
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the
