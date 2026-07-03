@@ -21,6 +21,7 @@ import {
 	apply_op,
 	count_references_excluding_deleted,
 	validate_node,
+	is_id_valid,
 	fill_node_defaults,
 	can_switch_annotation_type,
 	get_selected_annotations,
@@ -124,7 +125,13 @@ export default class Transaction {
 	 * @returns {string} A new unique ID
 	 */
 	generate_id() {
-		return this.config.generate_id();
+		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
+		if (!is_id_valid(id)) {
+			throw new Error(
+				`Generated node id ${JSON.stringify(id)} is invalid. Node ids must be non-empty strings that start with a letter or underscore, contain only letters, numbers, underscores, or dashes, and must not contain "__".`
+			);
+		}
+		return id;
 	}
 
 	/**

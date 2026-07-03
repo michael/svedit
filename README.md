@@ -224,6 +224,58 @@ Rules:
 - Text properties use `{ content: '', annotations: [] }`
 - Node array properties use `{ nodes: [], annotations: [] }`
 
+### Node IDs
+
+Node IDs uniquely identify nodes inside a document. They are also used whenever one node references another node, for example in `node`, `node_array.nodes`, and annotation `node_id` values.
+
+Because Svedit also uses these IDs in HTML ids, document paths, and CSS selectors, IDs need to follow a simple, safe format:
+
+- It must be a string.
+- It must not be empty.
+- It must start with a letter (`A-Z`, `a-z`) or underscore (`_`).
+- After the first character, it may contain letters, numbers, underscores, or dashes.
+- It must not contain Svedit's path separator `__`.
+
+Valid examples:
+
+```js
+'page_1';
+'story-hero';
+'_temporary_node';
+```
+
+Invalid examples:
+
+| ID          | Why invalid                                         |
+| ----------- | --------------------------------------------------- |
+| `1`         | Not a string                                        |
+| `'1'`       | Serialized paths would treat this as an array index |
+| `'1_page'`  | Starts with a number                                |
+| `'page.1'`  | `.` is not allowed                                  |
+| `'page__1'` | `__` is reserved as Svedit's path separator         |
+
+The `doc.nodes` map key must also match the node's own `id`:
+
+```js
+nodes: {
+	page_1: {
+		id: 'page_1',
+		type: 'page'
+		// ...
+	}
+}
+```
+
+If you provide `config.generate_id`, every generated ID must follow the same rules. Svedit validates generated IDs immediately and throws if the provider returns an invalid value:
+
+```js
+const session_config = {
+	generate_id: () => `node_${crypto.randomUUID()}`
+};
+```
+
+Provide your own generator: use short custom-alphabet `nanoid` IDs for local documents, monotonic ULIDs (`ulid`) for sortable/synced IDs, or prefixed UUIDs for globally unique IDs.
+
 Here's an example document:
 
 ```js

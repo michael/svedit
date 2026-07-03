@@ -196,6 +196,53 @@ describe('Session.svelte.js', () => {
 				})
 			).toThrow('invalid id');
 		});
+
+		it('should throw when a document node map key does not match the node id', () => {
+			const schema = create_default_property_schema();
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'different_page_id',
+						type: 'page',
+						body: { nodes: [], annotations: [] }
+					}
+				}
+			};
+
+			expect(() => new Session(schema, doc, { generate_id: () => 'generated_1' })).toThrow(
+				'does not match node id'
+			);
+		});
+
+		it('should throw when generate_id returns an invalid id', () => {
+			const session = create_default_property_session();
+			session.config.generate_id = () => '1_invalid_node';
+
+			expect(() => session.generate_id()).toThrow('Generated node id');
+			expect(() => session.tr.generate_id()).toThrow('Generated node id');
+		});
+
+		it('should generate a valid fallback id when no generate_id function is configured', () => {
+			const schema = create_default_property_schema();
+			const session = new Session(
+				schema,
+				{
+					document_id: 'page_1',
+					nodes: {
+						page_1: {
+							id: 'page_1',
+							type: 'page',
+							body: { nodes: [], annotations: [] }
+						}
+					}
+				},
+				{}
+			);
+
+			expect(session.generate_id()).toMatch(/^node_[0-9a-f-]+$/);
+			expect(session.tr.generate_id()).toMatch(/^node_[0-9a-f-]+$/);
+		});
 	});
 
 	describe('Property defaults', () => {

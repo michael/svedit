@@ -463,7 +463,13 @@ export function validate_document(doc, schema) {
 	if (!is_id_valid(doc.document_id)) {
 		throw new Error(`Document ${doc.document_id} has an invalid id.`);
 	}
-	for (const node of Object.values(doc.nodes)) {
+	for (const [node_id, node] of Object.entries(doc.nodes)) {
+		if (!is_id_valid(node_id)) {
+			throw new Error(`Document node map contains an invalid id: ${node_id}.`);
+		}
+		if (node.id !== node_id) {
+			throw new Error(`Document node map key ${node_id} does not match node id ${node.id}.`);
+		}
 		validate_node(node, schema, doc.nodes);
 	}
 }

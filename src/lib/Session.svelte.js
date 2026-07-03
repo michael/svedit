@@ -10,6 +10,7 @@ import {
 	validate_document_schema,
 	validate_document,
 	validate_node,
+	is_id_valid,
 	get_referencing_node_ids,
 	get_selected_annotations,
 	validate_selection,
@@ -179,11 +180,13 @@ export default class Session {
 	}
 
 	generate_id() {
-		if (this.config?.generate_id) {
-			return this.config.generate_id();
-		} else {
-			return crypto.randomUUID();
+		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
+		if (!is_id_valid(id)) {
+			throw new Error(
+				`Generated node id ${JSON.stringify(id)} is invalid. Node ids must be non-empty strings that start with a letter or underscore, contain only letters, numbers, underscores, or dashes, and must not contain "__".`
+			);
 		}
+		return id;
 	}
 
 	/**
