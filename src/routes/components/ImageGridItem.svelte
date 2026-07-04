@@ -1,13 +1,12 @@
 <script>
 	import { getContext } from 'svelte';
 	import { Node, TextProperty, CustomProperty } from 'svedit';
-	import { annotation_classes } from '../annotation_classes.js';
 	const svedit = getContext('svedit');
-	let { path, annotations = [] } = $props();
+	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
 </script>
 
-<Node {path} class={annotation_classes(annotations)}>
+<Node {path}>
 	<div class="image-grid-item flex-column gap-y-3">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<div contenteditable="false" style="aspect-ratio: 1/1; width: 100%;">

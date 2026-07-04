@@ -1,10 +1,9 @@
 <script>
 	import { Node, NodeArrayProperty } from 'svedit';
-	import { annotation_classes } from '../annotation_classes.js';
-	let { path, annotations = [] } = $props();
+	let { path } = $props();
 </script>
 
-<Node {path} class={annotation_classes(annotations)}>
+<Node {path}>
 	<div class="image-grid max-w-screen-lg mx-auto">
 		<NodeArrayProperty class="image-grid-items" path={[...path, 'image_grid_items']} />
 	</div>

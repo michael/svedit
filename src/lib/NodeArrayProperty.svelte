@@ -123,6 +123,12 @@
 	setContext('node_array_meta', {
 		get length() {
 			return node_ids.length;
+		},
+		// Lets Node self-serve the annotations covering a child, so node
+		// wrappers can carry annotation classes without every node component
+		// having to thread the `annotations` prop through.
+		annotations_for(node_index) {
+			return get_annotations(node_index);
 		}
 	});
 </script>

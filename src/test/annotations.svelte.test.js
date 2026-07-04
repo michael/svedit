@@ -432,6 +432,28 @@ describe('shared text and node annotations', () => {
 		expect(nodes[2].getAttribute('data-annotations-ids')).toBe('comment_b');
 	});
 
+	it('adds annotation classes to covered node wrappers automatically', async () => {
+		const session = create_annotation_session();
+		const tr = session.tr;
+		tr.create({ id: 'comment_a', type: 'comment' });
+		const body = structuredClone(tr.get(body_path));
+		body.annotations = [{ start_offset: 0, end_offset: 3, node_id: 'comment_a' }];
+		tr.set(body_path, body);
+		session.apply(tr);
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		const covered = [...container.querySelectorAll('[data-type="node"].anno-comment')];
+		expect(covered).toHaveLength(3);
+		expect(covered[0].classList.contains('anno-comment-start')).toBe(true);
+		expect(covered[0].classList.contains('anno-comment-end')).toBe(false);
+		expect(covered[1].classList.contains('anno-comment-start')).toBe(false);
+		expect(covered[1].classList.contains('anno-comment-end')).toBe(false);
+		expect(covered[2].classList.contains('anno-comment-start')).toBe(false);
+		expect(covered[2].classList.contains('anno-comment-end')).toBe(true);
+	});
+
 	it.each([
 		{
 			name: 'text',
