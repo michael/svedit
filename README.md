@@ -1130,6 +1130,16 @@ buttons: {
 
 `annotation` is the in-place (component-backed) annotation wrapping the child node, or `null` when none does — exclusivity guarantees there is at most one. Annotations without components are data-only: they never wrap, so they are not exposed through `annotation` and never affect it. `annotations` contains all annotations covering the child node, including overlapping data-only ones. Each entry contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
 
+For styling, you usually don't need the props at all: `<Node>` adds annotation classes to the node wrapper automatically. A node covered by a `marker` annotation gets `anno-marker`, plus `anno-marker-start`/`anno-marker-end` on the run's first/last covered node. So styling an annotation type — including data-only types without a component — is pure CSS:
+
+```css
+.anno-marker {
+	background: color-mix(in oklch, var(--app-primary-fill) 13%, transparent);
+}
+```
+
+Use the `annotations` prop only when a component should render something richer than styles (badges, margin indicators, etc.).
+
 > **One path = one DOM mount.** Within a single Svedit document, each node path
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the
 > same `nav_items` array in both header and footer) breaks anchor positioning,

@@ -234,8 +234,8 @@ export const document_schema = define_document_schema({
 		properties: {}
 	},
 	// A data-only annotation: intentionally no component registered, so it
-	// may overlap other annotations and covered nodes paint themselves via
-	// the `annotations` prop (see annotation_classes.js).
+	// may overlap other annotations. Covered node wrappers get `anno-marker`
+	// classes automatically, styled in styles/annotations.css.
 	marker: {
 		kind: 'annotation',
 		properties: {}
@@ -583,8 +583,9 @@ export const session_config = {
 		link: Link,
 		section: Section
 		// NOTE: `marker` intentionally has no component. It is a data-only
-		// annotation that may overlap others (e.g. a section); covered nodes
-		// paint themselves via the `annotations` prop (see annotation_classes.js).
+		// annotation that may overlap others (e.g. a section). Covered node
+		// wrappers get `anno-marker` classes automatically — see
+		// styles/annotations.css for how it's styled with pure CSS.
 	},
 	// Toggle view classes for the editor. On by default.
 	view_classes: true,

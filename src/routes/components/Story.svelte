@@ -1,15 +1,14 @@
 <script>
 	import { getContext } from 'svelte';
 	import { TextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
-	import { annotation_classes } from '../annotation_classes.js';
 	const svedit = getContext('svedit');
 
-	let { path, annotations = [] } = $props();
+	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
 	let has_buttons = $derived(node.buttons.nodes.length > 0);
 </script>
 
-<Node {path} class={annotation_classes(annotations)}>
+<Node {path}>
 	<div class="story layout-{node.layout} max-w-screen-lg mx-auto w-full">
 		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
 			<div style="width: 100%; height: 100%;" contenteditable="false">
