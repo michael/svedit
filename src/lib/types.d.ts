@@ -410,6 +410,10 @@ export type NodeArrayPropertyProps = {
 export type NodeProps = {
 	/** The full path to the node */
 	path: DocumentPath;
+	/** The single node-array annotation wrapping this node, when exactly one applies */
+	annotation?: NodeArrayAnnotationContext | null;
+	/** All node-array annotations covering this node */
+	annotations?: Array<NodeArrayAnnotationContext>;
 	/** Optional custom HTML tag */
 	tag?: string;
 	/** Optional string of CSS classes */

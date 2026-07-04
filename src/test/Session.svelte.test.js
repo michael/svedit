@@ -347,25 +347,31 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Document validation', () => {
-		it('should throw for overlapping annotations in the same text property', () => {
+		it('should allow overlapping annotations without registered annotation components', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
+			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
 			doc.nodes.story_1.title.annotations = [
-				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
-				{ start_offset: 4, end_offset: 10, node_id: 'button_1' }
+				{ start_offset: 0, end_offset: 5, node_id: 'comment_a' },
+				{ start_offset: 4, end_offset: 10, node_id: 'comment_b' }
 			];
 
-			expect(() => new Session(session.schema, doc, session.config)).toThrow(
-				'overlapping annotations'
-			);
+			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
 		});
 
 		it('should allow adjacent annotations in the same text property', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
+			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
 			doc.nodes.story_1.title.annotations = [
-				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
-				{ start_offset: 5, end_offset: 10, node_id: 'button_1' }
+				{ start_offset: 0, end_offset: 5, node_id: 'comment_a' },
+				{ start_offset: 5, end_offset: 10, node_id: 'comment_b' }
 			];
 
 			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();

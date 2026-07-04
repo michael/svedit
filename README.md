@@ -374,7 +374,7 @@ For `node_array` properties, offsets address node positions in the `nodes` array
 }
 ```
 
-The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Annotation ranges in the same property must not overlap.
+The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Annotation types with registered components are rendered in-place and must not overlap. Annotation types without components may overlap; Svedit keeps and transforms the data, but your app is responsible for interpreting it.
 
 ### Document schema changes
 
@@ -1116,11 +1116,11 @@ buttons: {
 }
 ```
 
-`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components inside an annotated node-array range also receive an `annotation` prop:
+`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components also receive annotation context:
 
 ```svelte
 <script>
-	let { path, annotation: section = null } = $props();
+	let { path, annotation: section = null, annotations = [] } = $props();
 </script>
 
 <div class:section-start={section?.is_start}>
@@ -1128,7 +1128,7 @@ buttons: {
 </div>
 ```
 
-`annotation` is `null` outside annotated ranges. Inside a range it contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
+`annotation` is the single annotation wrapping the child node, or `null` when none or multiple annotations cover it. `annotations` contains all annotations covering the child node, including annotations without components. Each entry contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
 
 > **One path = one DOM mount.** Within a single Svedit document, each node path
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the
