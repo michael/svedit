@@ -1,10 +1,11 @@
 <script>
 	import { Node, TextProperty } from 'svedit';
+	import { annotation_classes } from '../annotation_classes.js';
 
-	let { path } = $props();
+	let { path, annotations = [] } = $props();
 </script>
 
-<Node {path}>
+<Node {path} class={annotation_classes(annotations)}>
 	<div class="text max-w-screen-lg mx-auto w-full">
 		<TextProperty tag="p" class="body" path={[...path, 'content']} placeholder="Paragraph" />
 	</div>

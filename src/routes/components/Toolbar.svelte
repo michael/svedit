@@ -240,6 +240,36 @@
 				</svg>
 			</button>
 		{/if}
+		{#if session.available_annotation_types.includes('marker')}
+			<button
+				title="Marker (⌘ ⇧ M)"
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_marker?.execute();
+				}}
+				disabled={session.commands.toggle_marker?.disabled}
+				class:active={session.commands.toggle_marker?.active}
+			>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 15 15"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
+				>
+					<rect x="2.5" y="4.5" width="10" height="6" rx="2" stroke="currentColor" />
+					<rect
+						x="4.5"
+						y="6.5"
+						width="6"
+						height="2"
+						rx="1"
+						fill="currentColor"
+						stroke="none"
+					/>
+				</svg>
+			</button>
+		{/if}
 	{/if}
 	{#if show_link_input}
 		<div class="contextual-input">

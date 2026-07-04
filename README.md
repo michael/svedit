@@ -1128,7 +1128,7 @@ buttons: {
 </div>
 ```
 
-`annotation` is the single annotation wrapping the child node, or `null` when none or multiple annotations cover it. `annotations` contains all annotations covering the child node, including annotations without components. Each entry contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
+`annotation` is the in-place (component-backed) annotation wrapping the child node, or `null` when none does — exclusivity guarantees there is at most one. Annotations without components are data-only: they never wrap, so they are not exposed through `annotation` and never affect it. `annotations` contains all annotations covering the child node, including overlapping data-only ones. Each entry contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
 
 > **One path = one DOM mount.** Within a single Svedit document, each node path
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the

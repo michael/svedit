@@ -1,16 +1,19 @@
 <script>
 	import { getContext } from 'svelte';
 	import { Node, TextProperty } from 'svedit';
+	import { annotation_classes } from '../annotation_classes.js';
 	const svedit = getContext('svedit');
 
-	let { path } = $props();
+	let { path, annotations = [] } = $props();
 	let node = $derived(svedit.session.get(path));
 	let has_image = $derived(node.image && node.image.trim() !== '');
 </script>
 
 <Node
 	{path}
-	class="hero mx-auto w-full {has_image ? 'has-image' : ''}"
+	class="hero mx-auto w-full {has_image ? 'has-image' : ''} {annotation_classes(
+		annotations
+	)}"
 	style={has_image ? `background-image: url(${node.image});` : ''}
 >
 	{#if has_image}

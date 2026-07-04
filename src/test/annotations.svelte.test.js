@@ -173,6 +173,57 @@ describe('annotation toggle selection semantics', () => {
 		}
 	);
 
+	it('toggles a component-backed annotation across overlapping data-only annotations', () => {
+		const session = create_annotation_session();
+		const setup = session.tr;
+		setup.create({ id: 'comment_a', type: 'comment' });
+		const body = structuredClone(setup.get(body_path));
+		body.annotations = [{ start_offset: 0, end_offset: 3, node_id: 'comment_a' }];
+		setup.set(body_path, body);
+		session.apply(setup);
+
+		session.selection = node_selection(0, 2);
+		expect(annotation_command(session, 'section').is_enabled()).toBe(true);
+		expect(annotation_command(session, 'section').is_active()).toBe(false);
+
+		session.apply(session.tr.toggle_annotation('section'));
+		let annotations = session.get(body_path).annotations;
+		expect(annotations).toHaveLength(2);
+		expect(annotations[0]).toMatchObject({ start_offset: 0, end_offset: 3, node_id: 'comment_a' });
+		expect(annotation_type(session, annotations[1])).toBe('section');
+		expect(annotations[1]).toMatchObject({ start_offset: 0, end_offset: 2 });
+
+		// Toggling off removes only the section, the data-only comment stays
+		expect(annotation_command(session, 'section').is_active()).toBe(true);
+		session.apply(session.tr.toggle_annotation('section'));
+		annotations = session.get(body_path).annotations;
+		expect(annotations).toHaveLength(1);
+		expect(annotations[0].node_id).toBe('comment_a');
+	});
+
+	it('toggles a data-only annotation over a component-backed annotation without touching it', () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'section', node_selection(0, 2));
+
+		session.selection = node_selection(0, 3);
+		expect(annotation_command(session, 'comment').is_enabled()).toBe(true);
+		expect(annotation_command(session, 'comment').is_active()).toBe(false);
+
+		session.apply(session.tr.toggle_annotation('comment'));
+		let annotations = session.get(body_path).annotations;
+		expect(annotations).toHaveLength(2);
+		expect(annotation_type(session, annotations[0])).toBe('section');
+		expect(annotation_type(session, annotations[1])).toBe('comment');
+		expect(annotations[1]).toMatchObject({ start_offset: 0, end_offset: 3 });
+
+		// Removing the comment leaves the section untouched
+		expect(annotation_command(session, 'comment').is_active()).toBe(true);
+		session.apply(session.tr.toggle_annotation('comment'));
+		annotations = session.get(body_path).annotations;
+		expect(annotations).toHaveLength(1);
+		expect(annotation_type(session, annotations[0])).toBe('section');
+	});
+
 	it('disables all annotation commands when a selection touches mixed annotation types', () => {
 		const session = create_annotation_session();
 		create_annotation(session, 'strong', text_selection(0, 5));
@@ -253,9 +304,9 @@ describe('shared text and node annotations', () => {
 		expect(container.querySelector('section')).toBeNull();
 		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
 		expect(nodes).toHaveLength(3);
-		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === section_id)).toBe(
-			true
-		);
+		// Without a component the annotation is data-only: it never wraps, so
+		// it is not exposed via `annotation` (singular), only via `annotations`.
+		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === '')).toBe(true);
 		expect(nodes.every((node) => node.getAttribute('data-annotations-count') === '1')).toBe(true);
 		expect(nodes.every((node) => node.getAttribute('data-annotations-ids') === section_id)).toBe(
 			true
@@ -337,10 +388,12 @@ describe('shared text and node annotations', () => {
 		await tick();
 
 		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
-		expect(nodes[0].getAttribute('data-annotation-id')).toBe('');
+		// `annotation` (singular) stays the in-place annotation wrapping the
+		// node; overlapping data-only annotations do not null it out.
+		expect(nodes[0].getAttribute('data-annotation-id')).toBe('section_a');
 		expect(nodes[0].getAttribute('data-annotations-count')).toBe('2');
 		expect(nodes[0].getAttribute('data-annotations-ids')).toBe('section_a,comment_a');
-		expect(nodes[1].getAttribute('data-annotation-id')).toBe('');
+		expect(nodes[1].getAttribute('data-annotation-id')).toBe('section_a');
 		expect(nodes[1].getAttribute('data-annotations-count')).toBe('3');
 		expect(nodes[1].getAttribute('data-annotations-ids')).toBe('section_a,comment_a,comment_b');
 		expect(nodes[2].getAttribute('data-annotation-id')).toBe('');
@@ -367,13 +420,14 @@ describe('shared text and node annotations', () => {
 		await tick();
 
 		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
-		expect(nodes[0].getAttribute('data-annotation-id')).toBe('comment_a');
+		// Data-only annotations are never exposed via `annotation` (singular).
+		expect(nodes[0].getAttribute('data-annotation-id')).toBe('');
 		expect(nodes[0].getAttribute('data-annotations-count')).toBe('1');
 		expect(nodes[0].getAttribute('data-annotations-ids')).toBe('comment_a');
 		expect(nodes[1].getAttribute('data-annotation-id')).toBe('');
 		expect(nodes[1].getAttribute('data-annotations-count')).toBe('2');
 		expect(nodes[1].getAttribute('data-annotations-ids')).toBe('comment_a,comment_b');
-		expect(nodes[2].getAttribute('data-annotation-id')).toBe('comment_b');
+		expect(nodes[2].getAttribute('data-annotation-id')).toBe('');
 		expect(nodes[2].getAttribute('data-annotations-count')).toBe('1');
 		expect(nodes[2].getAttribute('data-annotations-ids')).toBe('comment_b');
 	});

@@ -100,9 +100,15 @@
 	}
 
 	function get_annotation(node_index) {
-		const annotations = get_annotations(node_index);
-
-		return annotations.length === 1 ? annotations[0] : null;
+		// The single in-place (component-backed) annotation wrapping this node,
+		// or null. Exclusivity guarantees at most one. Data-only annotations
+		// never wrap and are exposed via `annotations` (plural) instead, so
+		// they don't affect the singular.
+		return (
+			get_annotations(node_index).find(
+				(annotation) => svedit.session.config.node_components[annotation.node?.type]
+			) ?? null
+		);
 	}
 
 	// Mirrors the TextProperty pattern: a `focused` class follows

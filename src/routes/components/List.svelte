@@ -1,9 +1,10 @@
 <script>
 	import { Node, NodeArrayProperty } from 'svedit';
-	let { path } = $props();
+	import { annotation_classes } from '../annotation_classes.js';
+	let { path, annotations = [] } = $props();
 </script>
 
-<Node {path}>
+<Node {path} class={annotation_classes(annotations)}>
 	<div class="list max-w-screen-md mx-auto">
 		<NodeArrayProperty class="list-node-array" path={[...path, 'list_items']} />
 	</div>

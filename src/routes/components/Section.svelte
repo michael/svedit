@@ -16,18 +16,14 @@
 <style>
 	.section {
 		display: block;
-		background: linear-gradient(
-			180deg,
-			color-mix(in oklch, var(--app-canvas-fill) 98%, var(--app-primary-text)) 0%,
-			var(--app-canvas-fill) 72%
-		);
+		background: color-mix(in oklch, var(--app-primary-text) 4.5%, var(--app-canvas-fill));
 		box-shadow:
-			inset 0 1px 0 color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text)),
-			inset 0 -1px 0 color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text));
+			inset 0 1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent),
+			inset 0 -1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent);
 	}
 
+	/* Stacked sections share one hairline instead of doubling it */
 	:global(.section + .section) {
-		box-shadow: inset 0 -1px 0
-			color-mix(in oklch, var(--app-canvas-fill) 88%, var(--app-primary-text));
+		box-shadow: inset 0 -1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent);
 	}
 </style>
