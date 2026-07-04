@@ -603,12 +603,16 @@ export function calculate_fragment_ranges(length, annotations, selection_highlig
 
 		if ('node_id' in range) {
 			const annotation = /** @type {import('./types.d.ts').Annotation} */ (range);
+			const annotation_index =
+				/** @type {import('./types.d.ts').Annotation & { annotation_index?: number }} */ (
+					annotation
+				).annotation_index ?? annotations.indexOf(annotation);
 			fragments.push({
 				type: 'annotation',
 				start_offset: annotation.start_offset,
 				end_offset: annotation.end_offset,
 				node_id: annotation.node_id,
-				annotation_index: annotations.indexOf(annotation)
+				annotation_index
 			});
 		} else {
 			fragments.push({

@@ -51,15 +51,24 @@
 	let fragments = $derived(
 		get_fragments(
 			svedit.session.get(path).content,
-			svedit.session.get(path).annotations,
+			get_in_place_annotations(svedit.session.get(path).annotations),
 			selection_highlight_range
 		)
 	);
 
+	function get_in_place_annotations(annotations) {
+		return annotations
+			.map((annotation, index) => ({ ...annotation, annotation_index: index }))
+			.filter((annotation) => {
+				const node = svedit.session.get(annotation.node_id);
+				return node && svedit.session.config.node_components[node.type];
+			});
+	}
+
 	/**
 	 * Converts text with annotations into renderable fragments for display.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation>} annotations - Array of annotations
+	 * @param {Array<Annotation & { annotation_index: number }>} annotations - In-place annotations
 	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */

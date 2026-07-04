@@ -24,7 +24,8 @@
 	let node_ids = $derived(raw_value.nodes);
 	let annotations = $derived(raw_value.annotations);
 
-	let fragments = $derived(get_fragments(node_ids, annotations));
+	let in_place_annotations = $derived(get_in_place_annotations(annotations));
+	let fragments = $derived(get_fragments(node_ids, in_place_annotations));
 
 	function get_fragments(node_ids, annotations) {
 		const ranges = calculate_fragment_ranges(node_ids.length, annotations);
@@ -53,6 +54,15 @@
 		return fragments;
 	}
 
+	function get_in_place_annotations(annotations) {
+		return annotations
+			.map((annotation, index) => ({ ...annotation, annotation_index: index }))
+			.filter((annotation) => {
+				const node = svedit.session.get(annotation.node_id);
+				return node && svedit.session.config.node_components[node.type];
+			});
+	}
+
 	function get_node_key(node_id, index) {
 		let occurrence = 0;
 		for (let current_index = 0; current_index < index; current_index++) {
@@ -64,19 +74,35 @@
 	/**
 	 * @returns {NodeArrayAnnotationContext}
 	 */
-	function get_annotation_context(fragment, slice_index) {
-		const annotation = annotations[fragment.annotation_index];
-		const is_start = slice_index === 0;
-		const is_end = slice_index === fragment.nodes.length - 1;
+	function get_annotation_context(annotation, index, node_index) {
+		const node = svedit.session.get(annotation.node_id);
+		const is_start = node_index === annotation.start_offset;
+		const is_end = node_index === annotation.end_offset - 1;
 
 		return {
 			...annotation,
-			index: fragment.annotation_index,
-			node: fragment.node,
+			index,
+			node,
 			is_start,
 			is_middle: !is_start && !is_end,
 			is_end
 		};
+	}
+
+	function get_annotations(node_index) {
+		return annotations
+			.map((annotation, index) => ({ annotation, index }))
+			.filter(
+				({ annotation }) =>
+					annotation.start_offset <= node_index && node_index < annotation.end_offset
+			)
+			.map(({ annotation, index }) => get_annotation_context(annotation, index, node_index));
+	}
+
+	function get_annotation(node_index) {
+		const annotations = get_annotations(node_index);
+
+		return annotations.length === 1 ? annotations[0] : null;
 	}
 
 	// Mirrors the TextProperty pattern: a `focused` class follows
@@ -115,17 +141,16 @@
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
-	{#snippet render_nodes(nodes_slice, start_index, annotation_fragment = null)}
+	{#snippet render_nodes(nodes_slice, start_index)}
 		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
-			{@const annotation = annotation_fragment
-				? get_annotation_context(annotation_fragment, slice_index)
-				: null}
+			{@const annotation = get_annotation(index)}
+			{@const annotations = get_annotations(index)}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}
-				<Component path={[...path, index]} {annotation} />
+				<Component path={[...path, index]} {annotation} {annotations} />
 			{:else}
 				<UnknownNode path={[...path, index]} />
 			{/if}
@@ -139,10 +164,10 @@
 			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
 			{#if AnnotationComponent}
 				<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
-					{@render render_nodes(fragment.nodes, fragment.start_index, fragment)}
+					{@render render_nodes(fragment.nodes, fragment.start_index)}
 				</AnnotationComponent>
 			{:else}
-				{@render render_nodes(fragment.nodes, fragment.start_index, fragment)}
+				{@render render_nodes(fragment.nodes, fragment.start_index)}
 			{/if}
 		{/if}
 	{/each}

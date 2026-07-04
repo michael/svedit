@@ -13,13 +13,18 @@ function create_annotation_session() {
 	session.schema.strong = { kind: 'annotation', properties: {} };
 	session.schema.emphasis = { kind: 'annotation', properties: {} };
 	session.schema.section = { kind: 'annotation', properties: {} };
+	session.schema.comment = { kind: 'annotation', properties: {} };
 	session.schema.link = { kind: 'annotation', properties: { href: { type: 'string' } } };
 	/** @type {any} */ (session.schema.story.properties.title).annotation_types = [
 		'strong',
 		'emphasis',
+		'comment',
 		'link'
 	];
-	/** @type {any} */ (session.schema.page.properties.body).annotation_types = ['section'];
+	/** @type {any} */ (session.schema.page.properties.body).annotation_types = [
+		'section',
+		'comment'
+	];
 	session.config.node_components.section = Section;
 	return session;
 }
@@ -251,6 +256,10 @@ describe('shared text and node annotations', () => {
 		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === section_id)).toBe(
 			true
 		);
+		expect(nodes.every((node) => node.getAttribute('data-annotations-count') === '1')).toBe(true);
+		expect(nodes.every((node) => node.getAttribute('data-annotations-ids') === section_id)).toBe(
+			true
+		);
 	});
 
 	it('passes per-node annotation position metadata to node-array children', async () => {
@@ -289,6 +298,84 @@ describe('shared text and node annotations', () => {
 		expect(nodes[2].getAttribute('data-annotation-start')).toBe('false');
 		expect(nodes[2].getAttribute('data-annotation-middle')).toBe('false');
 		expect(nodes[2].getAttribute('data-annotation-end')).toBe('true');
+	});
+
+	it('allows overlapping text annotations without registered components', () => {
+		const session = create_annotation_session();
+		const tr = session.tr;
+		tr.create({ id: 'comment_a', type: 'comment' });
+		tr.create({ id: 'comment_b', type: 'comment' });
+		const title = structuredClone(tr.get(title_path));
+		title.annotations = [
+			{ start_offset: 0, end_offset: 5, node_id: 'comment_a' },
+			{ start_offset: 3, end_offset: 8, node_id: 'comment_b' }
+		];
+		tr.set(title_path, title);
+
+		expect(() => session.apply(tr)).not.toThrow();
+	});
+
+	it('allows component-backed annotations to coexist with overlapping annotations without components', async () => {
+		const session = create_annotation_session();
+		session.config.node_components.story = AnnotationAwareNode;
+		session.config.node_components.list = AnnotationAwareNode;
+		const tr = session.tr;
+		tr.create({ id: 'section_a', type: 'section' });
+		tr.create({ id: 'comment_a', type: 'comment' });
+		tr.create({ id: 'comment_b', type: 'comment' });
+		const body = structuredClone(tr.get(body_path));
+		body.annotations = [
+			{ start_offset: 0, end_offset: 2, node_id: 'section_a' },
+			{ start_offset: 0, end_offset: 3, node_id: 'comment_a' },
+			{ start_offset: 1, end_offset: 3, node_id: 'comment_b' }
+		];
+		tr.set(body_path, body);
+
+		expect(() => session.apply(tr)).not.toThrow();
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
+		expect(nodes[0].getAttribute('data-annotation-id')).toBe('');
+		expect(nodes[0].getAttribute('data-annotations-count')).toBe('2');
+		expect(nodes[0].getAttribute('data-annotations-ids')).toBe('section_a,comment_a');
+		expect(nodes[1].getAttribute('data-annotation-id')).toBe('');
+		expect(nodes[1].getAttribute('data-annotations-count')).toBe('3');
+		expect(nodes[1].getAttribute('data-annotations-ids')).toBe('section_a,comment_a,comment_b');
+		expect(nodes[2].getAttribute('data-annotation-id')).toBe('');
+		expect(nodes[2].getAttribute('data-annotations-count')).toBe('2');
+		expect(nodes[2].getAttribute('data-annotations-ids')).toBe('comment_a,comment_b');
+	});
+
+	it('passes overlapping node-array annotations without components through annotations plural', async () => {
+		const session = create_annotation_session();
+		session.config.node_components.story = AnnotationAwareNode;
+		session.config.node_components.list = AnnotationAwareNode;
+		const tr = session.tr;
+		tr.create({ id: 'comment_a', type: 'comment' });
+		tr.create({ id: 'comment_b', type: 'comment' });
+		const body = structuredClone(tr.get(body_path));
+		body.annotations = [
+			{ start_offset: 0, end_offset: 2, node_id: 'comment_a' },
+			{ start_offset: 1, end_offset: 3, node_id: 'comment_b' }
+		];
+		tr.set(body_path, body);
+		session.apply(tr);
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
+		expect(nodes[0].getAttribute('data-annotation-id')).toBe('comment_a');
+		expect(nodes[0].getAttribute('data-annotations-count')).toBe('1');
+		expect(nodes[0].getAttribute('data-annotations-ids')).toBe('comment_a');
+		expect(nodes[1].getAttribute('data-annotation-id')).toBe('');
+		expect(nodes[1].getAttribute('data-annotations-count')).toBe('2');
+		expect(nodes[1].getAttribute('data-annotations-ids')).toBe('comment_a,comment_b');
+		expect(nodes[2].getAttribute('data-annotation-id')).toBe('comment_b');
+		expect(nodes[2].getAttribute('data-annotations-count')).toBe('1');
+		expect(nodes[2].getAttribute('data-annotations-ids')).toBe('comment_b');
 	});
 
 	it.each([

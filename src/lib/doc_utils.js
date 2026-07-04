@@ -12,7 +12,8 @@ import {
 	is_path_string_segment_valid,
 	get_selection_range,
 	get_char_length,
-	serialize_path
+	serialize_path,
+	are_annotation_ranges_exclusive
 } from './utils.js';
 
 /**
@@ -212,7 +213,7 @@ function validate_primitive_value(type, value) {
 }
 
 /**
- * Validate annotations for bounds, references, allowed types, and exclusivity.
+ * Validate annotations for bounds, references, and allowed types.
  *
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
@@ -277,24 +278,6 @@ function validate_annotations_array(
 		}
 	}
 
-	const sorted_annotations = annotations
-		.map((annotation, index) => ({ annotation, index }))
-		.sort(
-			(a, b) =>
-				a.annotation.start_offset - b.annotation.start_offset ||
-				a.annotation.end_offset - b.annotation.end_offset
-		);
-
-	for (let index = 1; index < sorted_annotations.length; index++) {
-		const previous = sorted_annotations[index - 1];
-		const current = sorted_annotations[index];
-
-		if (current.annotation.start_offset < previous.annotation.end_offset) {
-			throw new Error(
-				`Node ${node_id} property ${prop_name} has overlapping annotations: annotation index ${previous.index} (${previous.annotation.node_id}, ${previous.annotation.start_offset}-${previous.annotation.end_offset}) overlaps annotation index ${current.index} (${current.annotation.node_id}, ${current.annotation.start_offset}-${current.annotation.end_offset}). Annotations must be exclusive.`
-			);
-		}
-	}
 }
 
 /**
@@ -471,6 +454,59 @@ export function validate_document(doc, schema) {
 			throw new Error(`Document node map key ${node_id} does not match node id ${node.id}.`);
 		}
 		validate_node(node, schema, doc.nodes);
+	}
+}
+
+/**
+ * Validate that annotations rendered in-place by TextProperty/NodeArrayProperty
+ * do not overlap. Annotation types without a registered component may overlap.
+ *
+ * @param {Document} doc - The document to validate
+ * @param {DocumentSchema} schema - The document schema
+ * @param {any} config - The Svedit config
+ * @param {NodeId[]} [node_ids] - Optional owner node ids to validate
+ * @throws {Error} Throws if in-place rendered annotations overlap
+ */
+export function validate_in_place_annotations_do_not_overlap(
+	doc,
+	schema,
+	config,
+	node_ids = Object.keys(doc.nodes)
+) {
+	const component_backed_annotation_types = new Set(
+		Object.entries(schema)
+			.filter(
+				([node_type, node_schema]) =>
+					node_schema.kind === 'annotation' && config?.node_components?.[node_type]
+			)
+			.map(([node_type]) => node_type)
+	);
+
+	for (const node_id of node_ids) {
+		const node = doc.nodes[node_id];
+		if (!node) continue;
+
+		const node_schema = schema[node.type];
+		if (!node_schema) continue;
+
+		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
+			if (prop_def.type !== 'text' && prop_def.type !== 'node_array') continue;
+
+			const value = node[prop_name];
+			const annotations =
+				prop_def.type === 'node_array' ? get_node_array_annotations(value) : value.annotations;
+
+			const in_place_annotations = annotations.filter((annotation) => {
+				const annotation_node = doc.nodes[annotation.node_id];
+				return component_backed_annotation_types.has(annotation_node?.type);
+			});
+
+			if (!are_annotation_ranges_exclusive(in_place_annotations)) {
+				throw new Error(
+					`Node ${node_id} property ${prop_name} has overlapping annotations with registered components. Annotation types with components must not overlap.`
+				);
+			}
+		}
 	}
 }
 

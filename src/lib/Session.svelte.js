@@ -9,6 +9,7 @@ import {
 	count_references as doc_count_references,
 	validate_document_schema,
 	validate_document,
+	validate_in_place_annotations_do_not_overlap,
 	validate_node,
 	is_id_valid,
 	get_referencing_node_ids,
@@ -87,6 +88,7 @@ export default class Session {
 		this.doc = doc;
 		this.config = config;
 		validate_document(this.doc, this.schema);
+		validate_in_place_annotations_do_not_overlap(this.doc, this.schema, this.config);
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
@@ -177,6 +179,7 @@ export default class Session {
 			const node = doc.nodes[node_id];
 			if (node) validate_node(node, this.schema, doc.nodes);
 		}
+		validate_in_place_annotations_do_not_overlap(doc, this.schema, this.config, affected_node_ids);
 	}
 
 	generate_id() {
