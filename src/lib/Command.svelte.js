@@ -121,8 +121,21 @@ export class ToggleAnnotationCommand extends Command {
 
 	active = $derived(this.is_active());
 
+	// Annotations only compete for toggling when they render in-place
+	// (component-backed) or share the toggled type. Mirrors the filter in
+	// tr.toggle_annotation, so active/enabled match what execute() does.
+	relevant_annotations() {
+		const { session } = this.context;
+		const has_component = (type) => Boolean(session.config?.node_components?.[type]);
+		return session.selected_annotations.filter(
+			({ node }) =>
+				node?.type === this.node_type ||
+				(has_component(this.node_type) && has_component(node?.type))
+		);
+	}
+
 	is_active() {
-		const selected_annotations = this.context.session.selected_annotations;
+		const selected_annotations = this.relevant_annotations();
 		return (
 			selected_annotations.length > 0 &&
 			selected_annotations.every(({ node }) => node?.type === this.node_type)
@@ -136,7 +149,7 @@ export class ToggleAnnotationCommand extends Command {
 			selection?.type === 'text' ||
 			(selection?.type === 'node' && !is_selection_collapsed(selection));
 		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
-		const selected_annotations = session.selected_annotations;
+		const selected_annotations = this.relevant_annotations();
 		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
 
 		if (!editable || !is_valid_selection || !annotation_type_is_allowed) return false;

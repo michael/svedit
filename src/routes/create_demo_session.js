@@ -56,7 +56,7 @@ export const document_schema = define_document_schema({
 					'image_grid',
 					'hero'
 				],
-				annotation_types: ['section'],
+				annotation_types: ['section', 'marker'],
 				default_node_type: 'paragraph'
 			},
 			keywords: {
@@ -170,7 +170,8 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			image_grid_items: {
 				type: 'node_array',
-				node_types: ['image_grid_item']
+				node_types: ['image_grid_item'],
+				annotation_types: ['marker']
 			}
 		}
 	},
@@ -229,6 +230,13 @@ export const document_schema = define_document_schema({
 		properties: {}
 	},
 	section: {
+		kind: 'annotation',
+		properties: {}
+	},
+	// A data-only annotation: intentionally no component registered, so it
+	// may overlap other annotations and covered nodes paint themselves via
+	// the `annotations` prop (see annotation_classes.js).
+	marker: {
 		kind: 'annotation',
 		properties: {}
 	}
@@ -574,6 +582,9 @@ export const session_config = {
 		highlight: Highlight,
 		link: Link,
 		section: Section
+		// NOTE: `marker` intentionally has no component. It is a data-only
+		// annotation that may overlap others (e.g. a section); covered nodes
+		// paint themselves via the `annotations` prop (see annotation_classes.js).
 	},
 	// Toggle view classes for the editor. On by default.
 	view_classes: true,
@@ -890,6 +901,9 @@ export const session_config = {
 			toggle_highlight: new ToggleAnnotationCommand('highlight', context),
 			toggle_link: new ToggleLinkCommand(context),
 			toggle_section: new ToggleAnnotationCommand('section', context),
+			// The standard toggle command works for data-only types too:
+			// annotations without components never compete with other types.
+			toggle_marker: new ToggleAnnotationCommand('marker', context),
 			undo: new UndoCommand(context),
 			redo: new RedoCommand(context),
 			select_parent: new SelectParentCommand(context),
@@ -909,6 +923,7 @@ export const session_config = {
 			'meta+u,ctrl+u': [commands.toggle_highlight],
 			'meta+k,ctrl+k': [commands.toggle_link],
 			'meta+shift+s,ctrl+shift+s': [commands.toggle_section],
+			'meta+shift+m,ctrl+shift+m': [commands.toggle_marker],
 			'meta+z,ctrl+z': [commands.undo],
 			'meta+shift+z,ctrl+shift+z': [commands.redo],
 			escape: [commands.select_parent],

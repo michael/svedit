@@ -452,7 +452,15 @@ export default class Transaction {
 				? get_node_array_annotations(annotated_value)
 				: annotated_value.annotations;
 
-		const selected_annotations = this.selected_annotations;
+		// Annotations only compete for toggling when they render in-place
+		// (component-backed) or share the toggled type. Data-only annotations
+		// of other types may overlap and never block a toggle.
+		const has_component = (type) => Boolean(this.config?.node_components?.[type]);
+		const selected_annotations = this.selected_annotations.filter(
+			({ node }) =>
+				node?.type === annotation_type ||
+				(has_component(annotation_type) && has_component(node?.type))
+		);
 		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
 
 		if (selected_annotation_types.size > 1) return this;

@@ -1,9 +1,10 @@
 <script>
 	import { Node, NodeArrayProperty } from 'svedit';
-	let { path } = $props();
+	import { annotation_classes } from '../annotation_classes.js';
+	let { path, annotations = [] } = $props();
 </script>
 
-<Node {path}>
+<Node {path} class={annotation_classes(annotations)}>
 	<div class="image-grid max-w-screen-lg mx-auto">
 		<NodeArrayProperty class="image-grid-items" path={[...path, 'image_grid_items']} />
 	</div>
@@ -21,7 +22,7 @@
 			padding: calc(var(--s-10) * 3) 0;
 			display: grid;
 			grid-template-columns: repeat(3, 1fr);
-			gap: var(--s-8);
+			row-gap: var(--s-2);
 			align-items: stretch;
 		}
 
