@@ -219,7 +219,7 @@
 		{/if}
 		{#if session.available_annotation_types.includes('section')}
 			<button
-				title="Section"
+				title="Section (⌘ ⇧ S)"
 				onmousedown={(event) => {
 					event.preventDefault();
 					session.commands.toggle_section?.execute();

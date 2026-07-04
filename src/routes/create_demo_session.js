@@ -908,6 +908,7 @@ export const session_config = {
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
 			'meta+u,ctrl+u': [commands.toggle_highlight],
 			'meta+k,ctrl+k': [commands.toggle_link],
+			'meta+shift+s,ctrl+shift+s': [commands.toggle_section],
 			'meta+z,ctrl+z': [commands.undo],
 			'meta+shift+z,ctrl+shift+z': [commands.redo],
 			escape: [commands.select_parent],
