@@ -137,9 +137,13 @@
 			{@render render_nodes(fragment.nodes, fragment.start_index)}
 		{:else if fragment.type === 'annotation'}
 			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
-			<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
+			{#if AnnotationComponent}
+				<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
+					{@render render_nodes(fragment.nodes, fragment.start_index, fragment)}
+				</AnnotationComponent>
+			{:else}
 				{@render render_nodes(fragment.nodes, fragment.start_index, fragment)}
-			</AnnotationComponent>
+			{/if}
 		{/if}
 	{/each}
 	{#if node_ids.length > 0}

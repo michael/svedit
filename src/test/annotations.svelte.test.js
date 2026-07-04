@@ -221,6 +221,38 @@ describe('annotation toggle selection semantics', () => {
 });
 
 describe('shared text and node annotations', () => {
+	it('renders text annotations transparently when no annotation component is registered', async () => {
+		const session = create_annotation_session();
+		create_annotation(session, 'strong', text_selection(0, 5));
+		const annotation_id = session.get(title_path).annotations[0].node_id;
+		delete session.config.node_components.strong;
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		expect(container.textContent).toContain('First story');
+		expect(container.querySelector(`[data-node-id="${annotation_id}"]`)).toBeNull();
+	});
+
+	it('renders node-array annotations transparently when no annotation component is registered', async () => {
+		const session = create_annotation_session();
+		session.config.node_components.story = AnnotationAwareNode;
+		session.config.node_components.list = AnnotationAwareNode;
+		create_annotation(session, 'section', node_selection(0, 3));
+		const section_id = session.get(body_path).annotations[0].node_id;
+		delete session.config.node_components.section;
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+
+		expect(container.querySelector('section')).toBeNull();
+		const nodes = [...container.querySelectorAll('[data-annotation-id]')];
+		expect(nodes).toHaveLength(3);
+		expect(nodes.every((node) => node.getAttribute('data-annotation-id') === section_id)).toBe(
+			true
+		);
+	});
+
 	it('passes per-node annotation position metadata to node-array children', async () => {
 		const session = create_annotation_session();
 		session.config.node_components.story = AnnotationAwareNode;

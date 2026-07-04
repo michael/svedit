@@ -121,10 +121,14 @@
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
 			>{:else if fragment.type === 'annotation'}
 			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
-			<AnnotationComponent
-				path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
-				content={fragment.content}
-			/>
+			{#if AnnotationComponent}
+				<AnnotationComponent
+					path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
+					content={fragment.content}
+				/>
+			{:else}
+				{fragment.content}
+			{/if}
 		{/if}
 	{/each}<!--
   -->{#if !is_focused || !is_empty}<br />{/if}
