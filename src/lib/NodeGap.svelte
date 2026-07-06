@@ -13,6 +13,7 @@
 <script>
 	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
+	import { should_position_gap } from './node_visibility.svelte.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -37,10 +38,12 @@
 	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
-	 * activated lazily via the `.positioned` class, toggled imperatively
-	 * by the IO callback / MO / bootstrap in node_visibility — keeps
-	 * NodeGap allocation-free of per-instance Svelte signals, which
-	 * matters at 1000+ NodeGaps per scroll frame.
+	 * activated lazily via the `.positioned` class, derived reactively
+	 * from the visibility registry's near_map / edge_map. SvelteMap
+	 * tracks reads at per-key granularity, so a registry write only
+	 * re-evaluates the adjacent gaps. Applying the class declaratively
+	 * (instead of imperative classList toggles) means it survives DOM
+	 * recreation without a document change (e.g. dev-mode HMR).
 	 *
 	 * `position-visibility: anchors-visible` does NOT skip anchor
 	 * resolution — the browser resolves all anchor() then hides the
@@ -61,6 +64,12 @@
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
+
+	let path_str = $derived(serialize_path(array_path));
+	let positioned = $derived(
+		is_editable &&
+			should_position_gap(svedit.visibility_registry, path_str, offset, is_last, empty)
+	);
 
 	let gap_style = $derived.by(() => {
 		if (!is_editable) return '';
@@ -87,8 +96,9 @@
 		class:gap-after={!is_first}
 		class:empty
 		class:last={is_last}
+		class:positioned
 		data-type={type}
-		data-gap-array-path={serialize_path(array_path)}
+		data-gap-array-path={path_str}
 		data-gap-offset={offset}
 		style={gap_style}
 	>
