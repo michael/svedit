@@ -63,6 +63,11 @@
  * updates the DOM all registered arrays re-sync their edge state in
  * one batch.
  *
+ * **Array ResizeObserver** — box-size changes (window resize, sidebar
+ * toggle, responsive breakpoint) can flip an array between fitting
+ * and overflowing without a scroll event or document change; a shared
+ * ResizeObserver on registered arrays re-syncs their edge state.
+ *
  * ## Reactivity
  *
  * State lives in SvelteMap (near_map, edge_map) and per-array SvelteSet
@@ -123,10 +128,11 @@ class VisibilityRegistry {
 	 * Per-array edge-proximity state. `first` is true when the first
 	 * node's leading edge is within EDGE_TOLERANCE_PX of the array
 	 * container's leading edge; `last` is the symmetric trailing-edge
-	 * check on the last node. Recomputed on scroll and after document
-	 * changes because IntersectionObserver only fires on intersection-
-	 * ratio threshold crossings and would otherwise miss horizontal-
-	 * overflow scroll changes that don't change the visibility ratio.
+	 * check on the last node. Recomputed on scroll, on array box
+	 * resize and after document changes because IntersectionObserver
+	 * only fires on intersection-ratio threshold crossings and would
+	 * otherwise miss horizontal-overflow scroll changes that don't
+	 * change the visibility ratio.
 	 *
 	 * NodeGap and NodeGapMarkers read this to gate edge gaps so they
 	 * only render when the edge node has actually reached the matching
@@ -141,6 +147,18 @@ class VisibilityRegistry {
 
 	/** @type {IntersectionObserver | null} */
 	#view_io = null;
+
+	/**
+	 * Re-syncs edge state when a registered array's box changes size
+	 * (window resize, sidebar toggle, responsive breakpoint, late-
+	 * loading content). Size changes can flip an array between fitting
+	 * and overflowing without firing a scroll event or a document
+	 * change, so neither of the other two triggers would catch them.
+	 * Writes are change-detected, so redundant firings are no-ops.
+	 *
+	 * @type {ResizeObserver | null}
+	 */
+	#array_ro = null;
 
 	/**
 	 * Registered node elements and the path each was registered under.
@@ -217,6 +235,11 @@ class VisibilityRegistry {
 				threshold: [0, 1]
 			});
 		}
+		if (!this.#array_ro) {
+			this.#array_ro = new ResizeObserver((entries) => {
+				for (const entry of entries) this.sync_edge_state(entry.target);
+			});
+		}
 	}
 
 	stop() {
@@ -224,6 +247,8 @@ class VisibilityRegistry {
 		this.#io = null;
 		this.#view_io?.disconnect();
 		this.#view_io = null;
+		this.#array_ro?.disconnect();
+		this.#array_ro = null;
 		this.#registered_paths.clear();
 		this.#path_owners.clear();
 		this.#near_nodes.clear();
@@ -281,9 +306,13 @@ class VisibilityRegistry {
 			this.start();
 			this.#array_els.add(el);
 			this.#array_owners.set(path, el);
+			this.#array_ro?.observe(el);
+			// Sync synchronously — the RO's initial callback fires a frame
+			// later and would flash edge gaps un-positioned on mount.
 			this.sync_edge_state(el);
 			return () => {
 				this.#array_els.delete(el);
+				this.#array_ro?.unobserve(el);
 				untrack(() => {
 					if (this.#array_owners.get(path) === el) {
 						this.#array_owners.delete(path);
