@@ -118,7 +118,7 @@
 	}
 
 	// Test-only hook: expose the svedit context so test specs can read
-	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
+	// array_indices / edge_map for diagnostics. Gated on `import.meta.env.MODE`
 	// — Vite replaces the literal so the comparison is constant-false in
 	// production and the branch is dead-code-eliminated. Wrapped in an
 	// effect so unmount clears the reference and tests don't leak state

@@ -39,8 +39,9 @@
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
 	 * activated lazily via the `.positioned` class, derived reactively
-	 * from the visibility registry's near_map / edge_map. SvelteMap
-	 * tracks reads at per-key granularity, so a registry write only
+	 * from the visibility registry's array_indices / edge_map. Svelte's
+	 * reactive collections track reads at per-key granularity, so a
+	 * registry write only
 	 * re-evaluates the adjacent gaps. Applying the class declaratively
 	 * (instead of imperative classList toggles) means it survives DOM
 	 * recreation without a document change (e.g. dev-mode HMR).
@@ -66,9 +67,19 @@
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
 
 	let path_str = $derived(serialize_path(array_path));
+	// Two-derived split is load-bearing: get_array_indices lazily
+	// creates the set, and Svelte doesn't track deps on state created
+	// inside the reading derived — so acquire here, read in `positioned`.
+	let near_indices = $derived(svedit.visibility_registry.get_array_indices(path_str));
 	let positioned = $derived(
 		is_editable &&
-			should_position_gap(svedit.visibility_registry, path_str, offset, is_last, empty)
+			should_position_gap(
+				near_indices,
+				svedit.visibility_registry.edge_map.get(path_str),
+				offset,
+				is_last,
+				empty
+			)
 	);
 
 	let gap_style = $derived.by(() => {

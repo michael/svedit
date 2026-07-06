@@ -218,7 +218,9 @@ describe('NodeGap visibility & placement', () => {
 				last_item_rect: { x: li_rect.x, y: li_rect.y, w: li_rect.width, h: li_rect.height },
 				last_item_in_viewport: li_rect.bottom > 0 && li_rect.top < window.innerHeight,
 				last_gap_prev_is_last_item: last_gap.previousElementSibling === last_item,
-				near_has_last: ctx.visibility_registry.near_map.has(last_item.dataset.path),
+				near_has_last: ctx.visibility_registry
+					.get_array_indices(array_el.dataset.path)
+					.has(items.length - 1),
 				edge_state
 			};
 			expect(last_gap.classList.contains('positioned'), JSON.stringify(diag, null, 2)).toBe(true);
@@ -305,10 +307,11 @@ describe('NodeGap visibility & placement', () => {
 		// NodeArrayProperty's `{#each ... (index)}` keys by index, so a
 		// mid-delete unmounts ONLY the trailing-index element. Surviving
 		// siblings keep their DOM nodes and data-path attributes; their
-		// content shifts but `near_map` entries remain valid. If anyone
-		// ever changes that keying to e.g. `(node.id)`, this invariant
-		// breaks and this test fails — pointing straight at the cause.
-		it('removes only the trailing path from near_map, keeps adjacent gaps positioned', async () => {
+		// content shifts but the near-index entries remain valid. If
+		// anyone ever changes that keying to e.g. `(node.id)`, this
+		// invariant breaks and this test fails — pointing straight at
+		// the cause.
+		it('removes only the trailing index from the near set, keeps adjacent gaps positioned', async () => {
 			// 3 buttons fit the narrow vitest viewport. The mid-delete
 			// invariant holds regardless of overflow, but a non-
 			// overflowing array makes the edge-gap assertions
@@ -321,11 +324,11 @@ describe('NodeGap visibility & placement', () => {
 			expect(array_el.scrollWidth).toBeLessThanOrEqual(array_el.clientWidth + 5);
 
 			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
-			const near_map = ctx.visibility_registry.near_map;
 			const array_path = 'page_1__body__0__buttons';
+			const near = ctx.visibility_registry.get_array_indices(array_path);
 
 			for (let i = 0; i < 3; i++) {
-				expect(near_map.has(`${array_path}__${i}`)).toBe(true);
+				expect(near.has(i)).toBe(true);
 			}
 
 			// Delete the button at offset 1 (mid).
@@ -344,13 +347,13 @@ describe('NodeGap visibility & placement', () => {
 
 			expect(session.doc.nodes.story_1.buttons.nodes.length).toBe(2);
 
-			// near_map: __0 and __1 remain (surviving DOM elements
-			// kept their data-path attributes — the element at __1 now
-			// renders what was at __2). __2 is gone (trailing index
-			// unmounted by Svelte's keyed-each-by-index).
-			expect(near_map.has(`${array_path}__0`)).toBe(true);
-			expect(near_map.has(`${array_path}__1`)).toBe(true);
-			expect(near_map.has(`${array_path}__2`)).toBe(false);
+			// Near set: indices 0 and 1 remain (surviving DOM elements
+			// kept their data-path attributes — the element at index 1
+			// now renders what was at index 2). Index 2 is gone (trailing
+			// element unmounted by Svelte's keyed-each-by-index).
+			expect(near.has(0)).toBe(true);
+			expect(near.has(1)).toBe(true);
+			expect(near.has(2)).toBe(false);
 
 			// Edge gaps stay positioned (no overflow → edge_map.first
 			// and .last both true).
@@ -435,7 +438,9 @@ describe('NodeGap visibility & placement', () => {
 			// Guard against the vacuous pass: the last button must still
 			// be near, so the gap's visibility is decided by edge_map.
 			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
-			expect(ctx.visibility_registry.near_map.has('page_1__body__0__buttons__2')).toBe(true);
+			expect(ctx.visibility_registry.get_array_indices('page_1__body__0__buttons').has(2)).toBe(
+				true
+			);
 
 			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
 			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(false);
