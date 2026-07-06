@@ -1,5 +1,5 @@
 import { split_text, join_text, get_char_length } from './utils.js';
-import { get_default_node_type } from './doc_utils.js';
+import { get_default_node_type, fill_node_defaults } from './doc_utils.js';
 
 /**
  * Set multiple properties on a node via a transaction.
@@ -11,6 +11,51 @@ import { get_default_node_type } from './doc_utils.js';
 export function set_properties(tr, path, properties) {
 	for (const [key, value] of Object.entries(properties)) {
 		tr.set([...path, key], value);
+	}
+}
+
+/**
+ * Insert a new node of the given type at the current node selection.
+ *
+ * A custom inserter registered in `config.inserters[node_type]` always wins.
+ * Otherwise a generic schema-driven insertion is performed: the node is
+ * created from schema defaults, inserted, and — for `kind: 'text'` nodes — a
+ * collapsed text selection is placed at the start of its content.
+ *
+ * @param {object} tr - The transaction
+ * @param {string} node_type - The node type to insert
+ * @param {any} [content] - Optional text value assigned to `content` (kind 'text' only)
+ */
+export function insert_node_of_type(tr, node_type, content) {
+	const custom_inserter = tr.config?.inserters?.[node_type];
+	if (custom_inserter) {
+		custom_inserter(tr, content);
+		return;
+	}
+
+	const node = fill_node_defaults({ id: tr.generate_id(), type: node_type }, tr.schema);
+	const node_kind = tr.schema[node_type]?.kind;
+	if (content !== undefined && node_kind === 'text') {
+		node.content = content;
+	}
+
+	try {
+		tr.create(node);
+	} catch (error) {
+		throw new Error(
+			`Cannot auto-insert node type '${node_type}' from schema defaults (${/** @type {Error} */ (error).message}). Define config.inserters['${node_type}'].`,
+			{ cause: error }
+		);
+	}
+	tr.insert_nodes([node.id]);
+
+	if (node_kind === 'text') {
+		tr.set_selection({
+			type: 'text',
+			path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+			anchor_offset: 0,
+			focus_offset: 0
+		});
 	}
 }
 
@@ -64,7 +109,7 @@ export function break_text_node(tr) {
 
 	tr.set_selection(node_insert_position);
 
-	tr.config.inserters[target_node_type](tr, right_text);
+	insert_node_of_type(tr, target_node_type, right_text);
 	return true;
 }
 
@@ -154,11 +199,11 @@ export function insert_default_node(tr) {
 	const property_definition = tr.schema[node_array_node.type].properties[property_name];
 	const default_type = get_default_node_type(property_definition);
 
-	// Use the inserter function if available
-	if (tr.config?.inserters?.[default_type]) {
-		tr.config.inserters[default_type](tr);
-		return true;
-	} else {
-		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	if (!default_type) {
+		console.warn('Cannot determine default node type for insert_default_node');
+		return false;
 	}
+
+	insert_node_of_type(tr, default_type);
+	return true;
 }

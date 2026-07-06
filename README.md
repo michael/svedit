@@ -224,6 +224,64 @@ const document_schema = {
 
 Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes with `kind: 'annotation'`. Simple marks like `strong` and `emphasis` have no properties, while marks like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which types are allowed via `mark_types` and `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles). `mark_types` may only reference `kind: 'mark'` node types and `annotation_types` only `kind: 'annotation'` node types.
 
+## Adding a new node type
+
+Everything a node type needs can be grouped in one plain object — a feature definition — and merged into your session setup with `compose`. In the simplest case a new type is just a schema entry plus a component:
+
+```js
+// features/quote.js
+import Quote from '../components/Quote.svelte';
+
+export default {
+	name: 'quote',
+	schema: {
+		quote: {
+			kind: 'block',
+			properties: {
+				content: { type: 'text', allow_newlines: true },
+				author: { type: 'string' }
+			}
+		}
+	},
+	node_components: { quote: Quote }
+};
+```
+
+Then compose your features into the flat schema + config a `Session` expects, and allow the new type where it may appear (container wiring — `node_types`, `default_node_type`, `mark_types`, `annotation_types` — always stays with the property that owns the container, typically your document feature):
+
+```js
+import { compose, Session } from 'svedit';
+import page from './features/page.js';
+import quote from './features/quote.js';
+
+const { schema, config } = compose([page, quote], {
+	generate_id: nanoid
+});
+
+const session = new Session(schema, doc, config);
+```
+
+That's usually all. Everything else is optional and only needed when the defaults don't fit:
+
+- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a definition only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/routes/features/`](src/routes/features/)).
+- **HTML exporter** — `html_exporters: { quote: (node) => ... }` improves copy/paste to external apps; without one a generic exporter is used.
+- **Commands and keymap** — a definition can contribute commands (as a factory receiving the editor context) and keybindings that reference commands by name:
+
+```js
+commands: (context) => ({ toggle_strong: new ToggleMarkCommand('strong', context) }),
+keymap: { 'meta+b,ctrl+b': ['toggle_strong'] }
+```
+
+`compose` merges everything into one flat result: schema entries and registry keys (components, inserters, exporters, and any app-specific registry like `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in definition order, and command names are resolved across all definitions. There is no plugin runtime — after composition the result is indistinguishable from a hand-written flat config, and the flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
+
+To catch omissions early, `Session` runs completeness checks in dev mode and logs `[svedit]` warnings with a fix hint for each finding:
+
+- a `document`/`block`/`text` type has no registered component (it would render as `UnknownNode`),
+- a `default_node_type` can neither be auto-inserted from schema defaults nor has a custom inserter (Enter would fail),
+- a `mark`/`annotation` type is not referenced by any `mark_types`/`annotation_types` (it could never be applied).
+
+The demo app is the reference for this setup style — each file in [`src/routes/features/`](src/routes/features/) is one self-contained feature, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
+
 ## Document
 
 A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes.

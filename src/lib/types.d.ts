@@ -340,6 +340,34 @@ export type NodeSchema = TextNodeSchema | NonTextNodeSchema;
 export type DocumentSchema = Record<string, NodeSchema>;
 
 /**
+ * A feature definition groups everything one feature needs (schema entries
+ * including sub-node types, components, inserters, exporters, commands,
+ * keymap contributions). Definitions are merged into a flat schema + config
+ * via `compose`. Any additional object-valued key (e.g. `node_layouts`) is
+ * merged as an app-specific registry.
+ */
+export type FeatureDefinition = {
+	/** Optional name used in compose error messages */
+	name?: string;
+	/** Schema entries contributed by this feature (loosely typed so plain
+	 * object literals don't require const assertions; the merged result is
+	 * validated at Session construction) */
+	schema?: Record<string, any>;
+	/** Components per node type, merged into config.node_components */
+	node_components?: Record<string, any>;
+	/** Custom inserters per node type, merged into config.inserters */
+	inserters?: Record<string, (tr: any, content?: any) => void>;
+	/** HTML exporters per node type, merged into config.html_exporters */
+	html_exporters?: Record<string, (node: any, session: any, html_exporters: any) => string>;
+	/** Command factory; returned commands are merged by name */
+	commands?: (context: any) => Record<string, any>;
+	/** Key combos mapped to arrays of command names */
+	keymap?: Record<string, string[]>;
+	/** Additional object-valued keys merge as registries; other values are set directly */
+	[key: string]: any;
+};
+
+/**
  * A node in the document.
  * Must have id and type properties, with other properties defined by the schema.
  */
