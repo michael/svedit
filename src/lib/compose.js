@@ -9,11 +9,12 @@
  * fully supported.
  *
  * Rules:
+ * - Every package must have a unique `name`; names are used in diagnostics.
  * - Packages define node types; only the app wires containers
  *   (`node_types`, `default_node_type`, `mark_types`, `annotation_types`).
- * - Object-valued config keys (node_components, inserters, html_exporters,
- *   and any app-specific registry like node_layouts) merge key-by-key;
- *   duplicate keys across packages throw.
+ * - Known registry keys (node_components, system_components, inserters,
+ *   html_exporters, node_layouts) merge key-by-key; duplicate keys across
+ *   packages throw.
  * - `commands` factories are combined into a single
  *   `create_commands_and_keymap`; `keymap` entries reference commands by
  *   name and concatenate when multiple packages bind the same key.
@@ -26,7 +27,14 @@
 import { define_keymap } from './KeyMapper.svelte.js';
 
 /** Package keys that are not plain config registries */
-const SPECIAL_KEYS = ['name', 'schema', 'commands', 'keymap'];
+const REGISTRY_KEYS = [
+	'node_components',
+	'system_components',
+	'inserters',
+	'html_exporters',
+	'node_layouts'
+];
+const PACKAGE_KEYS = ['name', 'schema', 'commands', 'keymap', ...REGISTRY_KEYS];
 
 /**
  * @param {Package} pkg
@@ -34,7 +42,10 @@ const SPECIAL_KEYS = ['name', 'schema', 'commands', 'keymap'];
  * @returns {string} Package name for error messages
  */
 function package_name(pkg, index) {
-	return pkg.name ?? `package #${index + 1}`;
+	if (typeof pkg.name !== 'string' || pkg.name.length === 0) {
+		throw new Error(`compose: package #${index + 1} must have a non-empty name.`);
+	}
+	return pkg.name;
 }
 
 /**
@@ -81,16 +92,21 @@ export function compose(packages, app_config = {}) {
 	const command_factories = [];
 	/** @type {Record<string, string[]>} */
 	const keymap_names = {};
+	const package_names = new Set();
 
-	const all_entries = [
-		...packages.map((pkg, index) => ({
-			pkg,
-			owner: package_name(pkg, index)
-		})),
-		{ pkg: app_config, owner: 'app config' }
-	];
+	for (const [index, pkg] of packages.entries()) {
+		const owner = package_name(pkg, index);
+		if (package_names.has(owner)) {
+			throw new Error(`compose: duplicate package name '${owner}'.`);
+		}
+		package_names.add(owner);
 
-	for (const { pkg, owner } of all_entries) {
+		for (const key of Object.keys(pkg)) {
+			if (!PACKAGE_KEYS.includes(key)) {
+				throw new Error(`compose: unknown package key '${key}' in ${owner}.`);
+			}
+		}
+
 		if (pkg.schema) {
 			merge_registry(schema, pkg.schema, owners.schema, owner, 'schema');
 		}
@@ -107,24 +123,23 @@ export function compose(packages, app_config = {}) {
 			}
 		}
 
-		for (const [key, value] of Object.entries(pkg)) {
-			if (SPECIAL_KEYS.includes(key)) continue;
-
-			if (value && typeof value === 'object' && !Array.isArray(value)) {
-				// Registry-style config (node_components, inserters,
-				// html_exporters, node_layouts, ...): merge key-by-key.
+		for (const key of REGISTRY_KEYS) {
+			const value = pkg[key];
+			if (value) {
 				config[key] ??= {};
 				owners[key] ??= {};
 				merge_registry(config[key], value, owners[key], owner, `config.${key}`);
-			} else {
-				// Scalar/function/array config (generate_id, view_classes,
-				// handle_media_paste, ...): app config wins, packages may not
-				// compete for the same key.
-				if (key in config && owner !== 'app config') {
-					throw new Error(`compose: config key '${key}' from ${owner} is already set.`);
-				}
-				config[key] = value;
 			}
+		}
+	}
+
+	for (const [key, value] of Object.entries(app_config)) {
+		if (value && typeof value === 'object' && !Array.isArray(value)) {
+			config[key] ??= {};
+			owners[key] ??= {};
+			merge_registry(config[key], value, owners[key], 'app config', `config.${key}`);
+		} else {
+			config[key] = value;
 		}
 	}
 

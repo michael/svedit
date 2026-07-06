@@ -226,7 +226,7 @@ Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes w
 
 ## Adding a new node type
 
-Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. In the simplest case a new type is just a schema entry plus a component:
+Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry plus a component:
 
 ```js
 // packages/quote.js
@@ -272,7 +272,7 @@ commands: (context) => ({ toggle_strong: new ToggleMarkCommand('strong', context
 keymap: { 'meta+b,ctrl+b': ['toggle_strong'] }
 ```
 
-`compose` merges everything into one flat result: schema entries and registry keys (components, inserters, exporters, and any app-specific registry like `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in package order, and command names are resolved across all packages. There is no plugin runtime or registry — a package is just an object, and after composition the result is indistinguishable from a hand-written flat config. The flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
+`compose` merges everything into one flat result: schema entries and known registry keys (`node_components`, `system_components`, `inserters`, `html_exporters`, `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in package order, and command names are resolved across all packages. Unknown package keys throw, while app config passed as the second argument remains flexible. There is no plugin runtime or registry — a package is just an object, and after composition the result is indistinguishable from a hand-written flat config. The flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
 
 To catch omissions early, `Session` runs completeness checks in dev mode and logs `[svedit]` warnings with a fix hint for each finding:
 

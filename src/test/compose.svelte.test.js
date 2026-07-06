@@ -59,8 +59,10 @@ describe('compose', () => {
 	});
 
 	it('throws on duplicate schema keys across packages', () => {
-		expect(() => compose([paragraph_package, paragraph_package])).toThrow(
-			"schema key 'paragraph' from paragraph conflicts with paragraph"
+		expect(() =>
+			compose([paragraph_package, { ...paragraph_package, name: 'other_paragraph' }])
+		).toThrow(
+			"schema key 'paragraph' from other_paragraph conflicts with paragraph"
 		);
 	});
 
@@ -74,15 +76,26 @@ describe('compose', () => {
 		);
 	});
 
-	it('throws when two packages set the same scalar config key', () => {
-		const a = { name: 'a', view_classes: true };
-		const b = { name: 'b', view_classes: false };
-		expect(() => compose([a, b])).toThrow("config key 'view_classes' from b is already set");
+	it('throws when a package has no name', () => {
+		expect(() => compose([/** @type {any} */ ({ schema: {} })])).toThrow(
+			'package #1 must have a non-empty name'
+		);
 	});
 
-	it('lets app config override scalar keys from packages', () => {
-		const a = { name: 'a', view_classes: true };
-		const { config } = compose([a], { view_classes: false });
+	it('throws when two packages use the same name', () => {
+		expect(() => compose([{ name: 'a' }, { name: 'a' }])).toThrow(
+			"duplicate package name 'a'"
+		);
+	});
+
+	it('throws on unknown package keys', () => {
+		expect(() => compose([/** @type {any} */ ({ name: 'a', view_classes: true })])).toThrow(
+			"unknown package key 'view_classes' in a"
+		);
+	});
+
+	it('lets app config provide scalar keys', () => {
+		const { config } = compose([{ name: 'a' }], { view_classes: false });
 		expect(config.view_classes).toBe(false);
 	});
 

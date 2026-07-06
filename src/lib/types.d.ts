@@ -343,18 +343,19 @@ export type DocumentSchema = Record<string, NodeSchema>;
  * A package groups everything one concern needs (schema entries including
  * sub-node types, components, inserters, exporters, commands, keymap
  * contributions). Packages are merged into a flat schema + config via
- * `compose`. Any additional object-valued key (e.g. `node_layouts`) is
- * merged as an app-specific registry.
+ * `compose`.
  */
 export type Package = {
-	/** Optional name used in compose error messages */
-	name?: string;
+	/** Unique package name used in compose diagnostics */
+	name: string;
 	/** Schema entries contributed by this package (loosely typed so plain
 	 * object literals don't require const assertions; the merged result is
 	 * validated at Session construction) */
 	schema?: Record<string, any>;
 	/** Components per node type, merged into config.node_components */
 	node_components?: Record<string, any>;
+	/** System components, merged into config.system_components */
+	system_components?: Record<string, any>;
 	/** Custom inserters per node type, merged into config.inserters */
 	inserters?: Record<string, (tr: any, content?: any) => void>;
 	/** HTML exporters per node type, merged into config.html_exporters */
@@ -363,8 +364,8 @@ export type Package = {
 	commands?: (context: any) => Record<string, any>;
 	/** Key combos mapped to arrays of command names */
 	keymap?: Record<string, string[]>;
-	/** Additional object-valued keys merge as registries; other values are set directly */
-	[key: string]: any;
+	/** Layout ids per node type, merged into config.node_layouts */
+	node_layouts?: Record<string, number>;
 };
 
 /**
