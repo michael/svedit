@@ -1,5 +1,5 @@
 /**
- * @import { NodeId, Selection, Document, DocumentSchema, DocumentPath, NodeRange, Mark, Annotation } from './types.d.js'
+ * @import { NodeId, Selection, Document, DocumentSchema, DocumentPath, Attachment, Mark, Annotation } from './types.d.js'
  */
 
 import {
@@ -36,7 +36,7 @@ import {
 /**
  * Check whether a selection-relative range fits within a container length.
  *
- * @param {NodeRange} range
+ * @param {Attachment} range
  * @param {number} length
  * @returns {boolean}
  */
@@ -730,7 +730,7 @@ export default class Transaction {
 
 			this.set(path, text);
 
-			// Delete marked range nodes only if no other references remain.
+			// Delete removed mark/annotation nodes only if no other references remain.
 			this._cascade_delete_unreferenced_nodes([
 				...marks_result.removed_node_ids,
 				...annotations_result.removed_node_ids

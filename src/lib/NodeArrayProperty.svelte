@@ -5,7 +5,7 @@
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
-	/** @import { NodeArrayPropertyProps, NodeArrayRangeContext } from './types.d.ts'; */
+	/** @import { NodeArrayPropertyProps, NodeArrayAttachmentContext } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
@@ -63,7 +63,7 @@
 	}
 
 	/**
-	 * @returns {NodeArrayRangeContext}
+	 * @returns {NodeArrayAttachmentContext}
 	 */
 	function get_range_context(range, index, node_index) {
 		const node = svedit.session.get(range.node_id);

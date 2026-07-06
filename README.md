@@ -351,7 +351,7 @@ const doc = {
 
 ### Marks and annotations
 
-Marks and annotations are regular nodes referenced from a property value. Both use the same range shape:
+Marks and annotations are regular nodes attached to a range in a property value. Both use the same attachment shape:
 
 ```js
 {
@@ -1156,7 +1156,7 @@ buttons: {
 </div>
 ```
 
-`mark` is the mark wrapping the child node, or `null` when none does — mark exclusivity guarantees there is at most one. `annotations` contains all annotations covering the child node, including overlapping ones. Annotations are data-only: they never wrap and are never rendered as components. Each entry contains the flattened range record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved mark or annotation node, `index` is the position in the parent `marks`/`annotations` array, and the `is_*` flags describe the current child node's position in the range.
+`mark` is the mark wrapping the child node, or `null` when none does — mark exclusivity guarantees there is at most one. `annotations` contains all annotations covering the child node, including overlapping ones. Annotations are data-only: they never wrap and are never rendered as components. Each entry contains the flattened attachment plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved mark or annotation node, `index` is the position in the parent `marks`/`annotations` array, and the `is_*` flags describe the current child node's position in the attached range.
 
 For styling, you usually don't need the props at all: `<Node>` adds range classes to the node wrapper automatically. A node covered by a `section` mark gets `mark-section`, a node covered by a `marker` annotation gets `anno-marker` — plus `-start`/`-end` variants on the run's first/last covered node. So styling a mark or annotation type — including types without a component — is pure CSS:
 

@@ -26,7 +26,7 @@ import {
  *   NodeId,
  *   DocumentPath,
  *   Selection,
- *   NodeRange,
+ *   Attachment,
  *   Mark,
  *   Annotation,
  *   NodeKind,

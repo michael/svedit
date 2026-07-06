@@ -1,5 +1,5 @@
 /**
- * @import { NodeRange, Mark, Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
+ * @import { Attachment, Mark, Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
  */
 
 const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
@@ -475,10 +475,10 @@ export function is_selection_collapsed(selection) {
  * Works for both annotated text (character offsets) and annotated node arrays
  * (node offsets).
  *
- * @param {Array<import('./types.d.ts').NodeRange>} ranges
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
  * @param {number} start
  * @param {number} end
- * @returns {{ranges: Array<import('./types.d.ts').NodeRange>, removed_node_ids: string[]}}
+ * @returns {{ranges: Array<import('./types.d.ts').Attachment>, removed_node_ids: string[]}}
  */
 export function adjust_ranges_for_deletion(ranges, start, end) {
 	const removed_node_ids = [];
@@ -520,10 +520,10 @@ export function adjust_ranges_for_deletion(ranges, start, end) {
  * Insertion inside a range extends it. Insertion exactly at either edge
  * stays outside the range.
  *
- * @param {Array<import('./types.d.ts').NodeRange>} ranges
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
  * @param {number} offset
  * @param {number} length
- * @returns {Array<import('./types.d.ts').NodeRange>}
+ * @returns {Array<import('./types.d.ts').Attachment>}
  */
 export function adjust_ranges_for_insertion(ranges, offset, length) {
 	if (length === 0) return ranges;
@@ -550,7 +550,7 @@ export function adjust_ranges_for_insertion(ranges, offset, length) {
 /**
  * Check whether ranges are non-empty and mutually exclusive.
  *
- * @param {Array<import('./types.d.ts').NodeRange>} ranges
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
  * @param {number} [length]
  * @returns {boolean}
  */

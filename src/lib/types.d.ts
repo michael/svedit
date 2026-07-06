@@ -413,9 +413,9 @@ export type NodeProps = {
 	/** The full path to the node */
 	path: DocumentPath;
 	/** The single node-array mark wrapping this node, if any */
-	mark?: NodeArrayRangeContext | null;
+	mark?: NodeArrayAttachmentContext | null;
 	/** All node-array annotations covering this node */
-	annotations?: Array<NodeArrayRangeContext>;
+	annotations?: Array<NodeArrayAttachmentContext>;
 	/** Optional custom HTML tag */
 	tag?: string;
 	/** Optional string of CSS classes */
@@ -445,9 +445,9 @@ export type SveditProps = {
 };
 
 /**
- * A range referencing a node, used for both marks and annotations
+ * A range with an attached payload node, used for both marks and annotations.
  */
-export type NodeRange = {
+export type Attachment = {
 	start_offset: number;
 	end_offset: number;
 	node_id: NodeId;
@@ -457,13 +457,13 @@ export type NodeRange = {
  * A content-level range (e.g. strong, emphasis, link, section).
  * Marks are mutually exclusive within a property and render in-place.
  */
-export type Mark = NodeRange;
+export type Mark = Attachment;
 
 /**
  * A metadata/overlay range (e.g. comment, marker).
  * Annotations may overlap and are data-only.
  */
-export type Annotation = NodeRange;
+export type Annotation = Attachment;
 
 /**
  * Represents text content with marks and annotations.
@@ -484,12 +484,12 @@ export type AnnotatedNodeArray = {
 };
 
 /**
- * Range context passed to a node rendered inside an annotated node array.
- * It is the flattened mark or annotation range, enriched with the resolved
- * range node, its index in the parent range array, and this child node's
- * position in the range.
+ * Attachment context passed to a node rendered inside an annotated node array.
+ * It is the flattened mark or annotation attachment, enriched with the resolved
+ * payload node, its index in the parent attachment array, and this child node's
+ * position in the attachment range.
  */
-export type NodeArrayRangeContext = {
+export type NodeArrayAttachmentContext = {
 	start_offset: number;
 	end_offset: number;
 	node_id: NodeId;

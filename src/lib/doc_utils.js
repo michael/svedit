@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, NodeRange, Mark, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Attachment, Mark, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
  */
 
 import {
@@ -259,7 +259,7 @@ function validate_primitive_value(type, value) {
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
  * @param {'mark' | 'annotation'} label - Range label, used for error messages
- * @param {Array<NodeRange>} ranges - Ranges to validate
+ * @param {Array<Attachment>} ranges - Ranges to validate
  * @param {number} container_length - Length of the annotated text or node array
  * @param {Array<string> | null | undefined} allowed_types - Allowed node types
  * @param {Record<string, any>} all_nodes - All document nodes
@@ -817,7 +817,7 @@ export function can_switch_mark_type(schema, from_type, to_type) {
  * @param {Document} doc - The document containing nodes
  * @param {Selection | null | undefined} selection - The current selection
  * @param {'marks' | 'annotations'} key - Which range array to inspect
- * @returns {(NodeRange & { index: number, node: any })[]} Selected range records
+ * @returns {(Attachment & { index: number, node: any })[]} Selected attachment records
  */
 function get_selected_ranges(schema, doc, selection, key) {
 	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
@@ -829,10 +829,10 @@ function get_selected_ranges(schema, doc, selection, key) {
 	const is_collapsed = range.start_offset === range.end_offset;
 
 	return ranges
-		.map((/** @type {NodeRange} */ node_range, index) => {
-			const node = doc.nodes[node_range.node_id];
+		.map((/** @type {Attachment} */ attachment, index) => {
+			const node = doc.nodes[attachment.node_id];
 			return {
-				...node_range,
+				...attachment,
 				index,
 				node
 			};
@@ -870,7 +870,7 @@ export function get_selected_annotations(schema, doc, selection) {
 }
 
 /**
- * @param {(NodeRange & { index: number, node: any })[]} selected_ranges
+ * @param {(Attachment & { index: number, node: any })[]} selected_ranges
  * @returns {Set<string>} Node types represented in the selected ranges
  */
 export function get_selected_range_types(selected_ranges) {
