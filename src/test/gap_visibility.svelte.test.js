@@ -403,6 +403,50 @@ describe('NodeGap visibility & placement', () => {
 		});
 	});
 
+	describe('container resize without scroll or document change', () => {
+		// A box-size change can flip an array between fitting and
+		// overflowing while scrollLeft stays 0 — no scroll event fires
+		// and no document change happens, so only the ResizeObserver
+		// can re-sync edge_map. Covers window resizes, sidebar toggles
+		// and responsive breakpoints alike.
+		it('re-syncs edge gaps when the array container is resized', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			// Fits → both edge gaps positioned.
+			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+
+			// Shrink the container so the last button is only PARTIALLY
+			// clipped (overflow past EDGE_TOLERANCE_PX, but well short of
+			// the whole button). scrollLeft stays 0 and the node stays
+			// near (a partial clip crosses no overscan-IO threshold), so
+			// only the ResizeObserver's edge_map re-sync can hide the
+			// last gap. A full clip would zero the node's intersection
+			// and hide the gap via near_map instead, making this test
+			// pass without the RO.
+			array_el.style.maxWidth = `${array_el.clientWidth - 40}px`;
+			await settle();
+			const overflow = array_el.scrollWidth - array_el.clientWidth;
+			expect(overflow).toBeGreaterThan(10); // past EDGE_TOLERANCE_PX
+			expect(array_el.scrollLeft).toBe(0);
+			// Guard against the vacuous pass: the last button must still
+			// be near, so the gap's visibility is decided by edge_map.
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			expect(ctx.visibility_registry.near_map.has('page_1__body__0__buttons__2')).toBe(true);
+
+			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(false);
+
+			// Grow it back → fits again → last gap returns.
+			array_el.style.maxWidth = '';
+			await settle();
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+		});
+	});
+
 	describe('DOM recreation without document change (dev-mode HMR)', () => {
 		// Reproduces the "node gap no longer clickable after a code change in
 		// dev mode" bug. When Vite/Svelte HMR replaces a node component, the
