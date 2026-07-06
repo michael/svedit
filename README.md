@@ -251,10 +251,10 @@ Then compose your packages into the flat schema + config a `Session` expects, an
 
 ```js
 import { compose, Session } from 'svedit';
-import page from './packages/page/package.js';
-import quote from './packages/quote/package.js';
+import page_pkg from './packages/page/package.js';
+import quote_pkg from './packages/quote/package.js';
 
-const { schema, config } = compose([page, quote], {
+const { schema, config } = compose([page_pkg, quote_pkg], {
 	generate_id: nanoid
 });
 

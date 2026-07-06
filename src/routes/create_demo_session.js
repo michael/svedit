@@ -10,18 +10,28 @@ import Overlays from './components/Overlays.svelte';
 // `compose` merges them into the flat schema + config a Session expects.
 // Container wiring (which node types the page body accepts) lives in the
 // page package — packages define node types, the app composes them.
-import page from './packages/page/package.js';
-import text_blocks from './packages/text_blocks/package.js';
-import marks from './packages/marks/package.js';
-import marker from './packages/marker/package.js';
-import story from './packages/story/package.js';
-import list from './packages/list/package.js';
-import image_grid from './packages/image_grid/package.js';
-import hero from './packages/hero/package.js';
-import core from './packages/core/package.js';
+import page_pkg from './packages/page/package.js';
+import text_blocks_pkg from './packages/text_blocks/package.js';
+import marks_pkg from './packages/marks/package.js';
+import marker_pkg from './packages/marker/package.js';
+import story_pkg from './packages/story/package.js';
+import list_pkg from './packages/list/package.js';
+import image_grid_pkg from './packages/image_grid/package.js';
+import hero_pkg from './packages/hero/package.js';
+import core_pkg from './packages/core/package.js';
 
 const { schema, config } = compose(
-	[page, text_blocks, marks, marker, story, list, image_grid, hero, core],
+	[
+		page_pkg,
+		text_blocks_pkg,
+		marks_pkg,
+		marker_pkg,
+		story_pkg,
+		list_pkg,
+		image_grid_pkg,
+		hero_pkg,
+		core_pkg
+	],
 	{
 		// Custom ID generator function
 		generate_id: nanoid,
