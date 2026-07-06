@@ -1,15 +1,15 @@
 <script>
-	let { annotation = null, annotations = [] } = $props();
+	let { mark = null, annotations = [] } = $props();
 </script>
 
 <div
-	data-annotation-id={annotation?.node.id ?? ''}
-	data-annotation-index={annotation?.index ?? ''}
-	data-annotation-start-offset={annotation?.start_offset ?? ''}
-	data-annotation-end-offset={annotation?.end_offset ?? ''}
-	data-annotation-start={annotation?.is_start ?? ''}
-	data-annotation-middle={annotation?.is_middle ?? ''}
-	data-annotation-end={annotation?.is_end ?? ''}
+	data-mark-id={mark?.node.id ?? ''}
+	data-mark-index={mark?.index ?? ''}
+	data-mark-start-offset={mark?.start_offset ?? ''}
+	data-mark-end-offset={mark?.end_offset ?? ''}
+	data-mark-start={mark?.is_start ?? ''}
+	data-mark-middle={mark?.is_middle ?? ''}
+	data-mark-end={mark?.is_end ?? ''}
 	data-annotations-count={annotations.length}
 	data-annotations-ids={annotations.map((annotation) => annotation.node.id).join(',')}
 ></div>

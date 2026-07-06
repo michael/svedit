@@ -1,8 +1,8 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
 import {
-	can_switch_annotation_type,
+	can_switch_mark_type,
 	get_node_array_nodes,
-	get_selected_annotation_types
+	get_selected_range_types
 } from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
 
@@ -111,9 +111,13 @@ export class SelectParentCommand extends Command {
 }
 
 /**
- * Generic command that toggles an annotation on the current text or node selection.
+ * Generic command that toggles a mark on the current text or node selection.
+ *
+ * Marks are mutually exclusive, so all touched marks compete: same-type marks
+ * are removed, a single touched property-less mark may switch type, and mixed
+ * touched types disable the command. Annotations never affect mark toggling.
  */
-export class ToggleAnnotationCommand extends Command {
+export class ToggleMarkCommand extends Command {
 	constructor(node_type, context) {
 		super(context);
 		this.node_type = node_type;
@@ -121,24 +125,11 @@ export class ToggleAnnotationCommand extends Command {
 
 	active = $derived(this.is_active());
 
-	// Annotations only compete for toggling when they render in-place
-	// (component-backed) or share the toggled type. Mirrors the filter in
-	// tr.toggle_annotation, so active/enabled match what execute() does.
-	relevant_annotations() {
-		const { session } = this.context;
-		const has_component = (type) => Boolean(session.config?.node_components?.[type]);
-		return session.selected_annotations.filter(
-			({ node }) =>
-				node?.type === this.node_type ||
-				(has_component(this.node_type) && has_component(node?.type))
-		);
-	}
-
 	is_active() {
-		const selected_annotations = this.relevant_annotations();
+		const selected_marks = this.context.session.selected_marks;
 		return (
-			selected_annotations.length > 0 &&
-			selected_annotations.every(({ node }) => node?.type === this.node_type)
+			selected_marks.length > 0 &&
+			selected_marks.every(({ node }) => node?.type === this.node_type)
 		);
 	}
 
@@ -148,23 +139,72 @@ export class ToggleAnnotationCommand extends Command {
 		const is_valid_selection =
 			selection?.type === 'text' ||
 			(selection?.type === 'node' && !is_selection_collapsed(selection));
-		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
-		const selected_annotations = this.relevant_annotations();
-		const selected_annotation_types = get_selected_annotation_types(selected_annotations);
+		const mark_type_is_allowed = session.available_mark_types.includes(this.node_type);
+		const selected_marks = session.selected_marks;
+		const selected_mark_types = get_selected_range_types(selected_marks);
 
-		if (!editable || !is_valid_selection || !annotation_type_is_allowed) return false;
-		if (selected_annotation_types.size > 1) return false;
+		if (!editable || !is_valid_selection || !mark_type_is_allowed) return false;
+		if (selected_mark_types.size > 1) return false;
 
-		if (selected_annotations.length === 0) {
+		if (selected_marks.length === 0) {
 			return Boolean(selection && !is_selection_collapsed(selection));
 		}
 
-		const first_selected_annotation = selected_annotations[0];
-		const selected_annotation_type = first_selected_annotation.node.type;
-		if (selected_annotation_type === this.node_type) return true;
-		if (selected_annotations.length !== 1) return false;
+		const first_selected_mark = selected_marks[0];
+		const selected_mark_type = first_selected_mark.node.type;
+		if (selected_mark_type === this.node_type) return true;
+		if (selected_marks.length !== 1) return false;
 
-		return can_switch_annotation_type(session.schema, selected_annotation_type, this.node_type);
+		return can_switch_mark_type(session.schema, selected_mark_type, this.node_type);
+	}
+
+	execute() {
+		this.context.session.apply(this.context.session.tr.toggle_mark(this.node_type));
+	}
+}
+
+/**
+ * Generic command that toggles an annotation on the current text or node selection.
+ *
+ * Annotations only compete with touched annotations of the same type: touched
+ * same-type annotations are removed, otherwise a new annotation is created.
+ * Marks and other annotation types never block the toggle.
+ */
+export class ToggleAnnotationCommand extends Command {
+	constructor(node_type, context) {
+		super(context);
+		this.node_type = node_type;
+	}
+
+	active = $derived(this.is_active());
+
+	// Mirrors the filter in tr.toggle_annotation, so active/enabled match what
+	// execute() does.
+	relevant_annotations() {
+		return this.context.session.selected_annotations.filter(
+			({ node }) => node?.type === this.node_type
+		);
+	}
+
+	is_active() {
+		return this.relevant_annotations().length > 0;
+	}
+
+	is_enabled() {
+		const { session, editable } = this.context;
+		const selection = session.selection;
+		const is_valid_selection =
+			selection?.type === 'text' ||
+			(selection?.type === 'node' && !is_selection_collapsed(selection));
+		const annotation_type_is_allowed = session.available_annotation_types.includes(this.node_type);
+
+		if (!editable || !is_valid_selection || !annotation_type_is_allowed) return false;
+
+		// Removing touched same-type annotations also works from a collapsed
+		// caret inside the annotation; creating a new one requires an expanded
+		// selection.
+		if (this.relevant_annotations().length > 0) return true;
+		return Boolean(selection && !is_selection_collapsed(selection));
 	}
 
 	execute() {

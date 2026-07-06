@@ -9,7 +9,7 @@
 		calculate_fragment_ranges
 	} from './utils.js';
 
-	/** @import { TextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
+	/** @import { TextPropertyProps, Mark, Fragment, SelectionRange } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
@@ -33,7 +33,7 @@
 		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
 	);
 
-	// Get selection highlight range if it does not touch annotations.
+	// Get selection highlight range if it does not touch marks.
 	// Only render selection highlight when canvas is NOT focused.
 	// This avoids DOM mutations (splitting text nodes for highlight spans)
 	// while the user is actively selecting, which would cause selection
@@ -42,7 +42,7 @@
 		if (svedit.canvas_focused) return null;
 		if (is_collapsed) return null;
 		if (!is_focused) return null;
-		if (svedit.session.selected_annotations.length > 0) return null;
+		if (svedit.session.selected_marks.length > 0) return null;
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 		return get_selection_range(sel);
@@ -51,31 +51,23 @@
 	let fragments = $derived(
 		get_fragments(
 			svedit.session.get(path).content,
-			get_in_place_annotations(svedit.session.get(path).annotations),
+			svedit.session.get(path).marks,
 			selection_highlight_range
 		)
 	);
 
-	function get_in_place_annotations(annotations) {
-		return annotations
-			.map((annotation, index) => ({ ...annotation, annotation_index: index }))
-			.filter((annotation) => {
-				const node = svedit.session.get(annotation.node_id);
-				return node && svedit.session.config.node_components[node.type];
-			});
-	}
-
 	/**
-	 * Converts text with annotations into renderable fragments for display.
+	 * Converts text with marks into renderable fragments for display.
+	 * Annotations never fragment the text; they are data-only.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation & { annotation_index: number }>} annotations - In-place annotations
+	 * @param {Array<Mark>} marks - Marks to render in-place
 	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
-	function get_fragments(text, annotations, selection_highlight_range) {
+	function get_fragments(text, marks, selection_highlight_range) {
 		const ranges = calculate_fragment_ranges(
 			get_char_length(text),
-			annotations,
+			marks,
 			selection_highlight_range
 		);
 		/** @type {Array<Fragment>} */
@@ -84,15 +76,15 @@
 		for (const range of ranges) {
 			const content = char_slice(text, range.start_offset, range.end_offset);
 
-			if (range.type === 'annotation') {
+			if (range.type === 'mark') {
 				const node = svedit.session.get(range.node_id);
-				if (!node) throw new Error(`Node not found for annotation ${range.node_id}`);
+				if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
 
 				fragments.push({
-					type: 'annotation',
+					type: 'mark',
 					node,
 					content,
-					annotation_index: range.annotation_index
+					mark_index: range.mark_index
 				});
 			} else if (range.type === 'selection_highlight') {
 				fragments.push({
@@ -128,16 +120,14 @@
 		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
 				class="selection-highlight"
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
-			>{:else if fragment.type === 'annotation'}
-			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
-			{#if AnnotationComponent}
-				<AnnotationComponent
-					path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
+			>{:else if fragment.type === 'mark'}
+			{@const MarkComponent = svedit.session.config.node_components[fragment.node.type]}
+			{#if MarkComponent}
+				<MarkComponent
+					path={[...path, 'marks', fragment.mark_index, 'node_id']}
 					content={fragment.content}
 				/>
-			{:else}
-				{fragment.content}
-			{/if}
+			{:else}<span class="mark-{fragment.node.type}">{fragment.content}</span>{/if}
 		{/if}
 	{/each}<!--
   -->{#if !is_focused || !is_empty}<br />{/if}

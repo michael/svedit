@@ -126,25 +126,24 @@ export class CycleNodeTypeCommand extends Command {
 }
 
 /**
- * Command that toggles link annotations on text selections.
+ * Command that toggles link marks on text selections.
  * Prompts user for URL when creating a link.
  */
 export class ToggleLinkCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		const selected_annotations = this.context.session.selected_annotations;
-		return selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
+		const selected_marks = this.context.session.selected_marks;
+		return selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 	}
 
 	is_enabled() {
 		const { session, editable } = this.context;
-		const selected_annotations = session.selected_annotations;
-		const selection_touches_annotations = selected_annotations.length > 0;
-		const can_remove_link =
-			selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
+		const selected_marks = session.selected_marks;
+		const selection_touches_marks = selected_marks.length > 0;
+		const can_remove_link = selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 		const can_create_link =
-			!selection_touches_annotations &&
+			!selection_touches_marks &&
 			session.selection?.type === 'text' &&
 			!is_selection_collapsed(session.selection);
 
@@ -155,18 +154,17 @@ export class ToggleLinkCommand extends Command {
 
 	execute() {
 		const session = this.context.session;
-		const selected_annotations = session.selected_annotations;
-		const can_remove_link =
-			selected_annotations.length === 1 && selected_annotations[0].node.type === 'link';
+		const selected_marks = session.selected_marks;
+		const can_remove_link = selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 
 		if (can_remove_link) {
 			// Delete link
-			session.apply(session.tr.toggle_annotation('link'));
+			session.apply(session.tr.toggle_mark('link'));
 		} else {
 			// Create link
 			const href = window.prompt('Enter the URL', 'https://example.com');
 			if (href) {
-				session.apply(session.tr.toggle_annotation('link', { href }));
+				session.apply(session.tr.toggle_mark('link', { href }));
 			}
 		}
 	}

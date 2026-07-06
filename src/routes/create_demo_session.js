@@ -4,6 +4,7 @@ import {
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
 	BreakTextNodeCommand,
+	ToggleMarkCommand,
 	ToggleAnnotationCommand,
 	UndoCommand,
 	RedoCommand,
@@ -37,8 +38,8 @@ import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
 import Section from './components/Section.svelte';
 
-const ALL_ANNOTATIONS = ['strong', 'emphasis', 'highlight', 'link'];
-const TITLE_ANNOTATIONS = ['emphasis', 'highlight'];
+const ALL_MARKS = ['strong', 'emphasis', 'highlight', 'link'];
+const TITLE_MARKS = ['emphasis', 'highlight'];
 
 export const document_schema = define_document_schema({
 	page: {
@@ -56,7 +57,8 @@ export const document_schema = define_document_schema({
 					'image_grid',
 					'hero'
 				],
-				annotation_types: ['section', 'marker'],
+				mark_types: ['section'],
+				annotation_types: ['marker'],
 				default_node_type: 'paragraph'
 			},
 			keywords: {
@@ -76,12 +78,12 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			title: {
 				type: 'text',
-				annotation_types: TITLE_ANNOTATIONS,
+				mark_types: TITLE_MARKS,
 				allow_newlines: false
 			},
 			description: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			},
 			image: { type: 'string' } // a dedicated type asset would be better
@@ -93,7 +95,7 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			content: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			}
 		}
@@ -104,7 +106,7 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			content: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			}
 		}
@@ -115,7 +117,7 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			content: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			}
 		}
@@ -126,7 +128,7 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			content: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			}
 		}
@@ -136,7 +138,7 @@ export const document_schema = define_document_schema({
 		properties: {
 			content: {
 				type: 'text',
-				annotation_types: [],
+				mark_types: [],
 				allow_newlines: false
 			},
 			href: { type: 'string' }
@@ -148,12 +150,12 @@ export const document_schema = define_document_schema({
 			layout: { type: 'integer', default: 1 },
 			title: {
 				type: 'text',
-				annotation_types: TITLE_ANNOTATIONS,
+				mark_types: TITLE_MARKS,
 				allow_newlines: false
 			},
 			description: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: true
 			},
 			buttons: {
@@ -181,12 +183,12 @@ export const document_schema = define_document_schema({
 			image: { type: 'string' }, // a dedicated type asset would be better
 			title: {
 				type: 'text',
-				annotation_types: TITLE_ANNOTATIONS,
+				mark_types: TITLE_MARKS,
 				allow_newlines: false
 			},
 			description: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: false
 			}
 		}
@@ -196,7 +198,7 @@ export const document_schema = define_document_schema({
 		properties: {
 			content: {
 				type: 'text',
-				annotation_types: ALL_ANNOTATIONS,
+				mark_types: ALL_MARKS,
 				allow_newlines: false
 			}
 		}
@@ -212,30 +214,30 @@ export const document_schema = define_document_schema({
 		}
 	},
 	link: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {
 			href: { type: 'string' }
 		}
 	},
 	strong: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
 	emphasis: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
 	highlight: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
 	section: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
-	// A data-only annotation: intentionally no component registered, so it
-	// may overlap other annotations. Covered node wrappers get `anno-marker`
-	// classes automatically, styled in styles/annotations.css.
+	// An annotation: data-only, no component allowed, so it may overlap marks
+	// and other annotations. Covered node wrappers get `anno-marker` classes
+	// automatically, styled in styles/annotations.css.
 	marker: {
 		kind: 'annotation',
 		properties: {}
@@ -283,10 +285,11 @@ const doc = {
 			id: 'hero_1',
 			type: 'hero',
 			layout: 1,
-			title: { content: 'Svedit', annotations: [] },
+			title: { content: 'Svedit', marks: [], annotations: [] },
 			description: {
 				content: 'A tiny library for building editable websites in Svelte.',
-				annotations: [{ start_offset: 28, end_offset: 45, node_id: 'link_6' }]
+				marks: [{ start_offset: 28, end_offset: 45, node_id: 'link_6' }],
+				annotations: []
 			},
 			image: ''
 		},
@@ -294,7 +297,7 @@ const doc = {
 			id: 'heading_1',
 			type: 'heading_1',
 			layout: 1,
-			content: { content: 'Text and structured content in symbiosis', annotations: [] }
+			content: { content: 'Text and structured content in symbiosis', marks: [], annotations: [] }
 		},
 		paragraph_1: {
 			id: 'paragraph_1',
@@ -303,13 +306,13 @@ const doc = {
 			content: {
 				content:
 					"Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		button_1: {
 			id: 'button_1',
 			type: 'button',
-			content: { content: 'Get started', annotations: [] },
+			content: { content: 'Get started', marks: [], annotations: [] },
 			href: 'https://github.com/michael/svedit'
 		},
 		story_1: {
@@ -317,91 +320,92 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/editable.svg',
-			title: { content: 'Visual in‑place editing', annotations: [] },
+			title: { content: 'Visual in‑place editing', marks: [], annotations: [] },
 			description: {
 				content:
 					'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
-				annotations: []
+				marks: [], annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		story_2: {
 			id: 'story_2',
 			type: 'story',
 			layout: 2,
 			image: '/images/lightweight.svg',
-			title: { content: 'Minimal viable editor', annotations: [] },
+			title: { content: 'Minimal viable editor', marks: [], annotations: [] },
 			description: {
 				content:
 					"The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.",
-				annotations: [{ start_offset: 100, end_offset: 118, node_id: 'link_1' }]
+				marks: [{ start_offset: 100, end_offset: 118, node_id: 'link_1' }],
+				annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		story_3: {
 			id: 'story_3',
 			type: 'story',
 			layout: 1,
 			image: '/images/nested-blocks-illustration.svg',
-			title: { content: 'Nested nodes', annotations: [] },
+			title: { content: 'Nested nodes', marks: [], annotations: [] },
 			description: {
 				content:
 					'A node can embed a node_array of other nodes. For instance the list node at the bottom of the page has a node_array of list items.',
-				annotations: []
+				marks: [], annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		image_grid_item_1: {
 			id: 'image_grid_item_1',
 			type: 'image_grid_item',
 			image: '/images/svelte-framework.svg',
-			title: { content: 'Svelte-native editing', annotations: [] },
-			description: { content: "No mingling with 3rd-party rendering API's.", annotations: [] }
+			title: { content: 'Svelte-native editing', marks: [], annotations: [] },
+			description: { content: "No mingling with 3rd-party rendering API's.", marks: [], annotations: [] }
 		},
 		image_grid_item_2: {
 			id: 'image_grid_item_2',
 			type: 'image_grid_item',
 			image: '/images/annotations.svg',
-			title: { content: 'Annotations are nodes, not marks', annotations: [] },
+			title: { content: 'Annotations are nodes, not marks', marks: [], annotations: [] },
 			description: {
 				content: 'Addressable by path, schema‑defined, copy&paste-safe.',
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		image_grid_item_3: {
 			id: 'image_grid_item_3',
 			type: 'image_grid_item',
 			image: '/images/graphmodel.svg',
-			title: { content: 'Graph‑first content with nested nodes', annotations: [] },
+			title: { content: 'Graph‑first content with nested nodes', marks: [], annotations: [] },
 			description: {
 				content:
 					'From simple paragraphs to complex nodes with nested arrays and multiple properties.',
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		image_grid_item_4: {
 			id: 'image_grid_item_4',
 			type: 'image_grid_item',
 			image: '/images/dom-synced.svg',
-			title: { content: 'DOM ↔ model selections match', annotations: [] },
+			title: { content: 'DOM ↔ model selections match', marks: [], annotations: [] },
 			description: {
 				content: 'Avoids flaky mapping layers found in other editors.',
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		image_grid_item_5: {
 			id: 'image_grid_item_5',
 			type: 'image_grid_item',
 			image: '/images/cjk.svg',
-			title: { content: 'Unicode‑safe, composition‑safe input', annotations: [] },
-			description: { content: 'Works correctly with emoji, diacritics, and CJK.', annotations: [] }
+			title: { content: 'Unicode‑safe, composition‑safe input', marks: [], annotations: [] },
+			description: { content: 'Works correctly with emoji, diacritics, and CJK.', marks: [], annotations: [] }
 		},
 		image_grid_item_6: {
 			id: 'image_grid_item_6',
 			type: 'image_grid_item',
 			image: '/images/timetravel.svg',
-			title: { content: 'Transactional editing with time travel', annotations: [] },
-			description: { content: 'Every change is safe and undoable.', annotations: [] }
+			title: { content: 'Transactional editing with time travel', marks: [], annotations: [] },
+			description: { content: 'Every change is safe and undoable.', marks: [], annotations: [] }
 		},
 		image_grid_1: {
 			id: 'image_grid_1',
@@ -416,7 +420,7 @@ const doc = {
 					'image_grid_item_5',
 					'image_grid_item_6'
 				],
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		story_4: {
@@ -424,42 +428,43 @@ const doc = {
 			type: 'story',
 			layout: 2,
 			image: '/images/node-carets.svg',
-			title: { content: 'Node carets', annotations: [] },
+			title: { content: 'Node carets', marks: [], annotations: [] },
 			description: {
 				content:
 					'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
-				annotations: []
+				marks: [], annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		story_5: {
 			id: 'story_5',
 			type: 'story',
 			layout: 1,
 			image: '/images/svelte-logo.svg',
-			title: { content: 'Made for Svelte 5', annotations: [] },
+			title: { content: 'Made for Svelte 5', marks: [], annotations: [] },
 			description: {
 				content:
 					'Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.',
-				annotations: [
+				marks: [
 					{ start_offset: 20, end_offset: 26, node_id: 'link_2' },
 					{ start_offset: 80, end_offset: 93, node_id: 'emphasis_1' }
-				]
+				],
+				annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		story_6: {
 			id: 'story_6',
 			type: 'story',
 			layout: 2,
 			image: '/images/extendable.svg',
-			title: { content: 'Alpha version', annotations: [] },
+			title: { content: 'Alpha version', marks: [], annotations: [] },
 			description: {
 				content:
 					"Expect bugs. Expect missing features. Expect the need for more work on your part to make this work for your use case.\n\nFind below a list of known issues we'll be working to get fixed next:",
-				annotations: []
+				marks: [], annotations: []
 			},
-			buttons: { nodes: ['button_1'], annotations: [] }
+			buttons: { nodes: ['button_1'], marks: [], annotations: [] }
 		},
 		list_item_1: {
 			id: 'list_item_1',
@@ -467,7 +472,7 @@ const doc = {
 			content: {
 				content:
 					"It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		list_item_2: {
@@ -476,7 +481,7 @@ const doc = {
 			content: {
 				content:
 					'Copy and pasting from and to external sources is working in principle, but is only capturing plain text so far.',
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		list_item_3: {
@@ -485,7 +490,7 @@ const doc = {
 			content: {
 				content:
 					'Works best in Chrome, Safari 26+, and Firefox 157+, as Svedit uses CSS Anchor Positioning for overlays.',
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		list_item_4: {
@@ -494,7 +499,7 @@ const doc = {
 			content: {
 				content:
 					"Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
-				annotations: []
+				marks: [], annotations: []
 			}
 		},
 		list_1: {
@@ -502,7 +507,7 @@ const doc = {
 			type: 'list',
 			list_items: {
 				nodes: ['list_item_1', 'list_item_2', 'list_item_3', 'list_item_4'],
-				annotations: []
+				marks: [], annotations: []
 			},
 			layout: 3
 		},
@@ -511,17 +516,18 @@ const doc = {
 			type: 'story',
 			layout: 1,
 			image: '/images/github.svg',
-			title: { content: 'Star us on GitHub', annotations: [] },
+			title: { content: 'Star us on GitHub', marks: [], annotations: [] },
 			description: {
 				content:
 					'Please star Svedit on GitHub or watch the repo to be notified about updates. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
-				annotations: [
+				marks: [
 					{ start_offset: 0, end_offset: 28, node_id: 'link_3' },
 					{ start_offset: 95, end_offset: 112, node_id: 'link_4' },
 					{ start_offset: 117, end_offset: 132, node_id: 'link_5' }
-				]
+				],
+				annotations: []
 			},
-			buttons: { nodes: [], annotations: [] }
+			buttons: { nodes: [], marks: [], annotations: [] }
 		},
 		section_1: {
 			id: 'section_1',
@@ -545,7 +551,8 @@ const doc = {
 					'list_1',
 					'story_7'
 				],
-				annotations: [{ start_offset: 0, end_offset: 1, node_id: 'section_1' }]
+				marks: [{ start_offset: 0, end_offset: 1, node_id: 'section_1' }],
+				annotations: []
 			},
 			keywords: ['svelte', 'editor', 'rich content'],
 			daily_visitors: [10, 20, 30, 100],
@@ -582,10 +589,11 @@ export const session_config = {
 		highlight: Highlight,
 		link: Link,
 		section: Section
-		// NOTE: `marker` intentionally has no component. It is a data-only
-		// annotation that may overlap others (e.g. a section). Covered node
-		// wrappers get `anno-marker` classes automatically — see
-		// styles/annotations.css for how it's styled with pure CSS.
+		// NOTE: `marker` must not have a component: it is an annotation, so it
+		// is data-only and may overlap marks (e.g. a section) and other
+		// annotations. Covered node wrappers get `anno-marker` classes
+		// automatically — see styles/annotations.css for how it's styled with
+		// pure CSS.
 	},
 	// Toggle view classes for the editor. On by default.
 	view_classes: true,
@@ -790,7 +798,7 @@ export const session_config = {
 			const new_story = {
 				id: nanoid(),
 				type: 'story',
-				buttons: { nodes: [new_button.id], annotations: [] }
+				buttons: { nodes: [new_button.id], marks: [], annotations: [] }
 			};
 			tr.create(new_story);
 			tr.insert_nodes([new_story.id]);
@@ -804,7 +812,7 @@ export const session_config = {
 			const new_list = {
 				id: nanoid(),
 				type: 'list',
-				list_items: { nodes: [new_list_item.id], annotations: [] },
+				list_items: { nodes: [new_list_item.id], marks: [], annotations: [] },
 				layout: 3
 			};
 			tr.create(new_list);
@@ -839,7 +847,7 @@ export const session_config = {
 			const new_image_grid = {
 				id: nanoid(),
 				type: 'image_grid',
-				image_grid_items: { nodes: new_image_grid_items, annotations: [] }
+				image_grid_items: { nodes: new_image_grid_items, marks: [], annotations: [] }
 			};
 			tr.create(new_image_grid);
 			tr.insert_nodes([new_image_grid.id]);
@@ -897,13 +905,13 @@ export const session_config = {
 			insert_default_node: new InsertDefaultNodeCommand(context),
 			add_new_line: new AddNewLineCommand(context),
 			break_text_node: new BreakTextNodeCommand(context),
-			toggle_strong: new ToggleAnnotationCommand('strong', context),
-			toggle_emphasis: new ToggleAnnotationCommand('emphasis', context),
-			toggle_highlight: new ToggleAnnotationCommand('highlight', context),
+			toggle_strong: new ToggleMarkCommand('strong', context),
+			toggle_emphasis: new ToggleMarkCommand('emphasis', context),
+			toggle_highlight: new ToggleMarkCommand('highlight', context),
 			toggle_link: new ToggleLinkCommand(context),
-			toggle_section: new ToggleAnnotationCommand('section', context),
-			// The standard toggle command works for data-only types too:
-			// annotations without components never compete with other types.
+			toggle_section: new ToggleMarkCommand('section', context),
+			// Annotations only compete with same-type annotations, so the
+			// marker toggle never conflicts with sections or other marks.
 			toggle_marker: new ToggleAnnotationCommand('marker', context),
 			undo: new UndoCommand(context),
 			redo: new RedoCommand(context),

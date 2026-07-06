@@ -9,13 +9,15 @@ import {
 	count_references as doc_count_references,
 	validate_document_schema,
 	validate_document,
-	validate_in_place_annotations_do_not_overlap,
+	validate_config_components,
 	validate_node,
 	is_id_valid,
 	get_referencing_node_ids,
+	get_selected_marks,
 	get_selected_annotations,
 	validate_selection,
 	get_node_array_nodes,
+	get_node_array_marks,
 	get_node_array_annotations
 } from './doc_utils.js';
 
@@ -24,6 +26,8 @@ import {
  *   NodeId,
  *   DocumentPath,
  *   Selection,
+ *   NodeRange,
+ *   Mark,
  *   Annotation,
  *   NodeKind,
  *   DocumentSchema,
@@ -67,7 +71,10 @@ export default class Session {
 
 	// Reactive variable for selected node
 	selected_node = $derived(this.get_selected_node());
+	available_mark_types = $derived(this.get_available_mark_types());
 	available_annotation_types = $derived(this.get_available_annotation_types());
+	selected_marks = $derived(get_selected_marks(this.schema, this.doc, this.selection));
+	active_mark = $derived(this.selected_marks.length === 1 ? this.selected_marks[0] : null);
 	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
 	active_annotation = $derived(
 		this.selected_annotations.length === 1 ? this.selected_annotations[0] : null
@@ -88,7 +95,7 @@ export default class Session {
 		this.doc = doc;
 		this.config = config;
 		validate_document(this.doc, this.schema);
-		validate_in_place_annotations_do_not_overlap(this.doc, this.schema, this.config);
+		validate_config_components(this.schema, this.config);
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
@@ -179,7 +186,6 @@ export default class Session {
 			const node = doc.nodes[node_id];
 			if (node) validate_node(node, this.schema, doc.nodes);
 		}
-		validate_in_place_annotations_do_not_overlap(doc, this.schema, this.config, affected_node_ids);
 	}
 
 	generate_id() {
@@ -210,13 +216,16 @@ export default class Session {
 		}
 	}
 
+	get_available_mark_types() {
+		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
+		const property_definition = this.inspect(this.selection.path);
+		return property_definition.mark_types || [];
+	}
+
 	get_available_annotation_types() {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
-		const path = this.selection.path;
-		const property_definition = this.inspect(path);
-		return this.selection.type === 'node'
-			? property_definition.annotation_types || []
-			: property_definition.annotation_types || [];
+		const property_definition = this.inspect(this.selection.path);
+		return property_definition.annotation_types || [];
 	}
 
 	// Helper function to get the currently selected node
@@ -355,7 +364,7 @@ export default class Session {
 	 *
 	 * @example
 	 * // Get a text property
-	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', annotations: []}
+	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', marks: [], annotations: []}
 	 */
 	get(path) {
 		return doc_get(this.schema, this.doc, path);
@@ -393,7 +402,7 @@ export default class Session {
 
 	/**
 	 * Determines the kind of a node ('block' for structured blocks, 'text' for pure
-	 * text nodes or 'annotation' for annotation nodes.
+	 * text nodes, 'mark' for mark nodes or 'annotation' for annotation nodes.
 	 * @param {any} node
 	 * @returns {NodeKind}
 	 */
@@ -450,27 +459,35 @@ export default class Session {
 		const text_value = this.get(this.selection.path);
 		const selected_text = char_slice(text_value.content, selection_start, selection_end);
 		const nodes = {};
-		const annotations = text_value.annotations
-			.map((a) => {
-				if (selection_start < a.end_offset && selection_end > a.start_offset) {
-					const sub_graph = this.traverse(a.node_id);
-					for (const node of sub_graph) {
-						if (!nodes[node.id]) {
-							nodes[node.id] = node;
-						}
-					}
-					return {
-						start_offset: Math.max(a.start_offset - selection_start, 0),
-						end_offset: Math.min(a.end_offset - selection_start, selection_end - selection_start),
-						node_id: a.node_id
-					};
-				} else {
-					return null;
-				}
-			})
-			.filter(Boolean);
 
-		return { content: selected_text, annotations, nodes };
+		const clip_ranges = (ranges) =>
+			ranges
+				.map((range) => {
+					if (selection_start < range.end_offset && selection_end > range.start_offset) {
+						const sub_graph = this.traverse(range.node_id);
+						for (const node of sub_graph) {
+							if (!nodes[node.id]) {
+								nodes[node.id] = node;
+							}
+						}
+						return {
+							start_offset: Math.max(range.start_offset - selection_start, 0),
+							end_offset: Math.min(
+								range.end_offset - selection_start,
+								selection_end - selection_start
+							),
+							node_id: range.node_id
+						};
+					} else {
+						return null;
+					}
+				})
+				.filter(Boolean);
+
+		const marks = clip_ranges(text_value.marks);
+		const annotations = clip_ranges(text_value.annotations);
+
+		return { content: selected_text, marks, annotations, nodes };
 	}
 
 	get_selected_annotated_nodes() {
@@ -490,25 +507,26 @@ export default class Session {
 
 		for (const node_id of main_nodes) add_subgraph(node_id);
 
-		const annotations = get_node_array_annotations(node_array)
-			.map((annotation) => {
-				if (selection_start >= annotation.end_offset || selection_end <= annotation.start_offset) {
-					return null;
-				}
+		const clip_ranges = (ranges) =>
+			ranges
+				.map((range) => {
+					if (selection_start >= range.end_offset || selection_end <= range.start_offset) {
+						return null;
+					}
 
-				add_subgraph(annotation.node_id);
-				return {
-					start_offset: Math.max(annotation.start_offset - selection_start, 0),
-					end_offset: Math.min(
-						annotation.end_offset - selection_start,
-						selection_end - selection_start
-					),
-					node_id: annotation.node_id
-				};
-			})
-			.filter(Boolean);
+					add_subgraph(range.node_id);
+					return {
+						start_offset: Math.max(range.start_offset - selection_start, 0),
+						end_offset: Math.min(range.end_offset - selection_start, selection_end - selection_start),
+						node_id: range.node_id
+					};
+				})
+				.filter(Boolean);
 
-		return { nodes, main_nodes, annotations };
+		const marks = clip_ranges(get_node_array_marks(node_array));
+		const annotations = clip_ranges(get_node_array_annotations(node_array));
+
+		return { nodes, main_nodes, marks, annotations };
 	}
 
 	// TODO: think about ways how we can also turn a node selection into plain text.

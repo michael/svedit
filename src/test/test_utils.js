@@ -50,7 +50,7 @@ export function make_story_session(n_buttons) {
 		nodes[id] = {
 			id,
 			type: 'button',
-			content: { content: `Action ${i + 1}`, annotations: [] },
+			content: { content: `Action ${i + 1}`, marks: [], annotations: [] },
 			href: '#'
 		};
 		button_ids.push(id);
@@ -60,14 +60,14 @@ export function make_story_session(n_buttons) {
 		type: 'story',
 		layout: 1,
 		image: '',
-		title: { content: 'Test story', annotations: [] },
-		description: { content: 'desc', annotations: [] },
-		buttons: { nodes: button_ids, annotations: [] }
+		title: { content: 'Test story', marks: [], annotations: [] },
+		description: { content: 'desc', marks: [], annotations: [] },
+		buttons: { nodes: button_ids, marks: [], annotations: [] }
 	};
 	nodes.page_1 = {
 		id: 'page_1',
 		type: 'page',
-		body: { nodes: ['story_1'], annotations: [] },
+		body: { nodes: ['story_1'], marks: [], annotations: [] },
 		keywords: [],
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
@@ -86,8 +86,8 @@ export function make_image_grid_session(n_items) {
 			id,
 			type: 'image_grid_item',
 			image: '',
-			title: { content: `Item ${i + 1}`, annotations: [] },
-			description: { content: 'desc', annotations: [] }
+			title: { content: `Item ${i + 1}`, marks: [], annotations: [] },
+			description: { content: 'desc', marks: [], annotations: [] }
 		};
 		item_ids.push(id);
 	}
@@ -95,12 +95,12 @@ export function make_image_grid_session(n_items) {
 		id: 'image_grid_1',
 		type: 'image_grid',
 		layout: 1,
-		image_grid_items: { nodes: item_ids, annotations: [] }
+		image_grid_items: { nodes: item_ids, marks: [], annotations: [] }
 	};
 	nodes.page_1 = {
 		id: 'page_1',
 		type: 'page',
-		body: { nodes: ['image_grid_1'], annotations: [] },
+		body: { nodes: ['image_grid_1'], marks: [], annotations: [] },
 		keywords: [],
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'

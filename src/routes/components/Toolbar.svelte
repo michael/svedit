@@ -162,7 +162,7 @@
 		</div>
 	{/if}
 	{#if session.selection?.type === 'text' || session.selection?.type === 'node'}
-		{#if session.available_annotation_types.includes('strong')}
+		{#if session.available_mark_types.includes('strong')}
 			<button
 				title="Bold"
 				class="bold"
@@ -176,7 +176,7 @@
 				<Icon name="bold" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('emphasis')}
+		{#if session.available_mark_types.includes('emphasis')}
 			<button
 				title="Italic"
 				class="italic"
@@ -190,7 +190,7 @@
 				<Icon name="italic" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('highlight')}
+		{#if session.available_mark_types.includes('highlight')}
 			<button
 				title="Highlight"
 				class="highlight"
@@ -204,7 +204,7 @@
 				<Icon name="highlight" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('link')}
+		{#if session.available_mark_types.includes('link')}
 			<button
 				title="Link"
 				onmousedown={(event) => {
@@ -217,7 +217,7 @@
 				<Icon name="link" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('section')}
+		{#if session.available_mark_types.includes('section')}
 			<button
 				title="Section (⌘ ⇧ S)"
 				onmousedown={(event) => {

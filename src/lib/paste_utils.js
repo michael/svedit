@@ -73,26 +73,23 @@ export function get_text_property_name(node_type, schema) {
 /**
  * @param {any} node
  * @param {DocumentSchema} schema
- * @returns {{ content: string, annotations: any[] } | null}
+ * @returns {{ content: string, marks: any[], annotations: any[] } | null}
  */
 export function get_text_content(node, schema) {
 	if (!node || typeof node !== 'object') return null;
 
+	const is_text_value = (value) =>
+		value &&
+		typeof value.content === 'string' &&
+		Array.isArray(value.marks) &&
+		Array.isArray(value.annotations);
+
 	const text_property_name = get_text_property_name(node.type, schema);
-	if (
-		text_property_name &&
-		node[text_property_name] &&
-		typeof node[text_property_name].content === 'string' &&
-		Array.isArray(node[text_property_name].annotations)
-	) {
+	if (text_property_name && is_text_value(node[text_property_name])) {
 		return node[text_property_name];
 	}
 
-	if (
-		node.content &&
-		typeof node.content.content === 'string' &&
-		Array.isArray(node.content.annotations)
-	) {
+	if (is_text_value(node.content)) {
 		return node.content;
 	}
 
@@ -162,6 +159,7 @@ export function create_plain_text_nodes_payload(paragraph_fragments, node_type, 
 			type: node_type,
 			[text_property_name]: {
 				content: fragment,
+				marks: [],
 				annotations: []
 			}
 		};
