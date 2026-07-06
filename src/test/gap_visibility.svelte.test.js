@@ -6,8 +6,8 @@
  * behave like production. Each test builds a focused document shape and
  * asserts the DOM state after IO + edge_map have settled.
  *
- * Document changes reconcile mounted nodes after Svelte's DOM update.
- * IntersectionObserver then owns later viewport transitions.
+ * Node and array elements register with the visibility registry via
+ * attachments; IntersectionObserver owns later viewport transitions.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -454,6 +454,16 @@ describe('NodeGap visibility & placement', () => {
 			expect(sel_rect.width).toBeGreaterThan(0);
 			expect(sel_rect.height).toBeGreaterThan(0);
 			expect(getComputedStyle(sel).pointerEvents).toBe('auto');
+
+			// Recreated node elements must be re-registered with the
+			// observers too: view classes reappear without a document
+			// change, proving near-tracking follows the new elements.
+			const nodes = array_el.querySelectorAll(':scope > [data-type="node"]');
+			expect(nodes.length).toBe(3);
+			for (const node_el of nodes) {
+				expect(node_el.classList.contains('in-view')).toBe(true);
+				expect(node_el.classList.contains('seen')).toBe(true);
+			}
 		});
 	});
 });

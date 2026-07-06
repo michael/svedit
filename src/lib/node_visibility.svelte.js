@@ -15,23 +15,37 @@
  * by viewport visibility. Off-screen NodeGaps remain as zero-size
  * absolute elements with no anchor cost.
  *
- * ## Two observers + document reconciliation
+ * ## Element registration via attachments
+ *
+ * Node elements (Node.svelte and the empty-array placeholder) register
+ * themselves with `{@attach registry.track_node(path)}`; node-array
+ * containers use `{@attach registry.track_array(path)}`. Attachments
+ * re-run whenever Svelte recreates the element or its path changes, so
+ * observation and per-path state follow the DOM's actual lifecycle —
+ * including DOM recreation without a document change (e.g. dev-mode
+ * HMR component swaps), which a document-driven reconciliation pass
+ * would miss.
+ *
+ * During keyed updates several elements can change paths at once
+ * (e.g. 0→1 while a new element claims 0), and Svelte doesn't
+ * guarantee attachment ordering across elements. Per-path ownership
+ * maps make unregistration collision-safe: a teardown only clears a
+ * path's state if that element still owns the path.
+ *
+ * ## Two observers
  *
  * **Overscan IO** (`rootMargin: 500px`, threshold `0`) — fills
  * `near_map` and per-array `array_indices`. NodeGap derives its
- * `.positioned` class reactively from these maps.
+ * `.positioned` class reactively from these maps. Registration seeds
+ * the state synchronously from one getBoundingClientRect (so there's
+ * no unpositioned flash on mount); the IO owns subsequent viewport
+ * transitions, including layout-shift-induced ones.
  *
  * **Viewport IO** (`rootMargin: 0`, threshold `[0, 1]`) — toggles
  * view classes (`.in-view`, `.fully-in-view`, …) on node elements.
  * OPT-IN via `session.config.view_classes`. A separate observer is
  * required because the overscan IO fires its thresholds while nodes
  * are still 500px outside the real viewport.
- *
- * **Document changes** — after Svelte updates the DOM, all mounted node
- * elements are reconciled in one batch. This is deliberately not driven
- * by a MutationObserver: keyed Svelte updates can change several paths at
- * once, and processing those path changes individually creates transient
- * collisions and stale indices.
  *
  * **Document scroll listener** (capture, passive) — fills `edge_map`,
  * a per-array `{first, last}` flag indicating whether the leading/
@@ -43,6 +57,11 @@
  * a single `.closest()` early-out (page scroll → null → returns
  * immediately) and a RAF flush that reads only scrollLeft / scrollWidth /
  * clientWidth on the dirty array.
+ *
+ * **Document changes** — content changes alter an array's scroll
+ * extent without recreating the array element, so after Svelte
+ * updates the DOM all registered arrays re-sync their edge state in
+ * one batch.
  *
  * ## Reactivity
  *
@@ -64,8 +83,6 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { tick, untrack } from 'svelte';
 import { PATH_SEPARATOR } from './utils.js';
 
-const NODE_SELECTOR = '[data-type="node"][data-path]';
-
 /**
  * Overscan margin around the viewport (px). Nodes within this distance
  * of the viewport get anchor positioning activated and gap markers
@@ -85,8 +102,9 @@ const EDGE_TOLERANCE_PX = 10;
 
 /**
  * Single source of truth for "which node DOM elements are near or in
- * the viewport". Owns the IntersectionObserver and the reactive maps
- * consumed by NodeGap and NodeGapMarkers.
+ * the viewport". Owns the IntersectionObservers and the reactive maps
+ * consumed by NodeGap and NodeGapMarkers. Elements register through
+ * the track_node / track_array attachments.
  */
 class VisibilityRegistry {
 	/** Per-node "in overscan zone" flag. NodeGap reads via `.has(path)`. */
@@ -105,10 +123,10 @@ class VisibilityRegistry {
 	 * Per-array edge-proximity state. `first` is true when the first
 	 * node's leading edge is within EDGE_TOLERANCE_PX of the array
 	 * container's leading edge; `last` is the symmetric trailing-edge
-	 * check on the last node. Recomputed on scroll/resize via BCR
-	 * because IntersectionObserver only fires on intersection-ratio
-	 * threshold crossings and would otherwise miss horizontal-overflow
-	 * scroll changes that don't change the visibility ratio.
+	 * check on the last node. Recomputed on scroll and after document
+	 * changes because IntersectionObserver only fires on intersection-
+	 * ratio threshold crossings and would otherwise miss horizontal-
+	 * overflow scroll changes that don't change the visibility ratio.
 	 *
 	 * NodeGap and NodeGapMarkers read this to gate edge gaps so they
 	 * only render when the edge node has actually reached the matching
@@ -124,11 +142,31 @@ class VisibilityRegistry {
 	/** @type {IntersectionObserver | null} */
 	#view_io = null;
 
-	/** @type {Set<HTMLElement>} */
-	#observed_nodes = new Set();
+	/**
+	 * Registered node elements and the path each was registered under.
+	 * The attachment closure carries the path, so a stale data-path
+	 * attribute can never desync state.
+	 *
+	 * @type {Map<HTMLElement, string>}
+	 */
+	#registered_paths = new Map();
+
+	/**
+	 * Which element currently owns a node path. Guards unregistration
+	 * against keyed-update collisions (see module doc).
+	 *
+	 * @type {Map<string, HTMLElement>}
+	 */
+	#path_owners = new Map();
 
 	/** @type {Set<HTMLElement>} */
 	#near_nodes = new Set();
+
+	/** Registered node-array container elements. @type {Set<Element>} */
+	#array_els = new Set();
+
+	/** Which element currently owns an array path. @type {Map<string, Element>} */
+	#array_owners = new Map();
 
 	/**
 	 * When true, a second IO (rootMargin 0, actual viewport) toggles
@@ -147,10 +185,10 @@ class VisibilityRegistry {
 	view_classes = true;
 
 	/**
-	 * When true, the overscan IO populates near_map and gates
-	 * `.positioned` on gap elements by viewport proximity. When false,
-	 * the overscan IO is skipped and reconciliation treats every mounted
-	 * node as near, so every gap is `.positioned` and every marker renders.
+	 * When true, the overscan IO populates near_map and NodeGap gates
+	 * `.positioned` by viewport proximity. When false, the overscan IO
+	 * is skipped and every registered node counts as near, so every gap
+	 * is `.positioned` and every marker renders.
 	 *
 	 * Disabling makes anchor positioning O(N) over every node in the
 	 * document and is intended for debugging only; large documents
@@ -186,8 +224,11 @@ class VisibilityRegistry {
 		this.#io = null;
 		this.#view_io?.disconnect();
 		this.#view_io = null;
-		this.#observed_nodes.clear();
+		this.#registered_paths.clear();
+		this.#path_owners.clear();
 		this.#near_nodes.clear();
+		this.#array_els.clear();
+		this.#array_owners.clear();
 		this.near_map.clear();
 		this.edge_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
@@ -212,88 +253,143 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Reconcile all structural visibility state from the completed DOM.
+	 * Attachment factory for node elements (Node.svelte and the
+	 * empty-array placeholder). Registers the element under `path`,
+	 * seeds its near / view-class state synchronously from one BCR, and
+	 * hands the element to the IntersectionObservers for subsequent
+	 * viewport transitions. Re-runs when the element is recreated or
+	 * its path changes; the teardown unregisters collision-safely.
 	 *
-	 * This runs after a document change and a Svelte tick. Rebuilding paths
-	 * as one batch avoids the path-collision bug caused by processing keyed
-	 * element updates individually (for example 0→1 while another element
-	 * still owns path 1).
-	 *
-	 * Bounding boxes are read only on document changes, not while scrolling.
-	 * IntersectionObserver remains responsible for subsequent viewport
-	 * transitions.
-	 *
-	 * @param {HTMLElement} canvas
+	 * @param {string} path
 	 */
-	reconcile(canvas) {
-		const nodes = Array.from(
-			canvas.querySelectorAll(NODE_SELECTOR),
-			(el) => /** @type {HTMLElement} */ (el)
-		).filter((el) => el.closest('.svedit-canvas') === canvas);
-		const mounted = new Set(nodes);
+	track_node(path) {
+		return (/** @type {HTMLElement} */ el) => {
+			this.#register_node(el, path);
+			return () => this.#unregister_node(el, path);
+		};
+	}
 
-		for (const el of this.#observed_nodes) {
-			if (mounted.has(el)) continue;
-			this.#io?.unobserve(el);
-			this.#view_io?.unobserve(el);
-			this.#near_nodes.delete(el);
+	/**
+	 * Attachment factory for node-array container elements. Registered
+	 * arrays get their edge state synced on mount, on scroll (via the
+	 * document scroll listener) and after document changes.
+	 *
+	 * @param {string} path
+	 */
+	track_array(path) {
+		return (/** @type {Element} */ el) => {
+			this.start();
+			this.#array_els.add(el);
+			this.#array_owners.set(path, el);
+			this.sync_edge_state(el);
+			return () => {
+				this.#array_els.delete(el);
+				untrack(() => {
+					if (this.#array_owners.get(path) === el) {
+						this.#array_owners.delete(path);
+						this.edge_map.delete(path);
+					}
+				});
+			};
+		};
+	}
+
+	/**
+	 * Whether an element is a registered node-array container of this
+	 * registry instance. Scopes the document-level scroll listener to
+	 * this editor without any DOM traversal.
+	 *
+	 * @param {Element} el
+	 */
+	has_array(el) {
+		return this.#array_els.has(el);
+	}
+
+	/**
+	 * Re-sync edge state for every registered array. Called after
+	 * document changes: content changes alter scroll extents without
+	 * recreating the array element, so the attachments can't see them.
+	 */
+	sync_all_edge_states() {
+		for (const el of this.#array_els) {
+			if (el.isConnected) this.sync_edge_state(el);
 		}
-		for (const el of nodes) {
-			if (this.#observed_nodes.has(el)) continue;
+	}
+
+	/**
+	 * @param {HTMLElement} el
+	 * @param {string} path
+	 */
+	#register_node(el, path) {
+		this.start();
+		untrack(() => {
+			this.#registered_paths.set(el, path);
+			this.#path_owners.set(path, el);
 			this.#io?.observe(el);
 			this.#view_io?.observe(el);
-		}
-		this.#observed_nodes = mounted;
 
-		const needs_rects = this.visibility_culling || this.view_classes;
-		const vh = window.innerHeight;
-		const vw = window.innerWidth;
-		const items = nodes.map((el) => ({
-			el,
-			bcr: needs_rects ? el.getBoundingClientRect() : null
-		}));
-
-		this.#near_nodes.clear();
-		this.near_map.clear();
-		for (const set of this.#array_indices.values()) set.clear();
-
-		for (const { el, bcr } of items) {
+			// Seed state synchronously so freshly mounted (or recreated)
+			// elements don't wait a frame for the IO's initial callback —
+			// that would flash gaps un-positioned. The IO owns all later
+			// transitions.
+			const needs_rect = this.visibility_culling || this.view_classes;
+			const bcr = needs_rect ? el.getBoundingClientRect() : null;
+			const vh = window.innerHeight;
+			const vw = window.innerWidth;
 			const is_near =
 				!this.visibility_culling ||
 				(bcr.bottom > -OVERSCAN_PX &&
 					bcr.top < vh + OVERSCAN_PX &&
 					bcr.right > -OVERSCAN_PX &&
 					bcr.left < vw + OVERSCAN_PX);
-			if (is_near) this.#add_near_node(el);
+			if (is_near) this.#add_near_node(el, path);
 
 			if (this.view_classes) {
 				const in_viewport = bcr.bottom > 0 && bcr.top < vh && bcr.right > 0 && bcr.left < vw;
 				this.#apply_view_classes(el, in_viewport, bcr, vh);
 			}
-		}
-
-		this.edge_map.clear();
-		const arrays = Array.from(canvas.querySelectorAll('[data-type="node_array"]')).filter(
-			(el) => el.closest('.svedit-canvas') === canvas
-		);
-		for (const array_el of arrays) this.sync_edge_state(array_el);
+		});
 	}
 
-	/** @param {HTMLElement} el */
-	#add_near_node(el) {
-		const path = el.dataset.path;
-		if (!path) return;
+	/**
+	 * @param {HTMLElement} el
+	 * @param {string} path
+	 */
+	#unregister_node(el, path) {
+		this.#registered_paths.delete(el);
+		this.#near_nodes.delete(el);
+		this.#io?.unobserve(el);
+		this.#view_io?.unobserve(el);
+		untrack(() => {
+			// Ownership guard: during keyed updates another element may
+			// have already claimed this path — its state must survive.
+			if (this.#path_owners.get(path) === el) {
+				this.#path_owners.delete(path);
+				this.near_map.delete(path);
+				const split = this.#split_path(path);
+				if (split) this.#array_indices.get(split.array_path)?.delete(split.index);
+			}
+		});
+	}
+
+	/**
+	 * @param {HTMLElement} el
+	 * @param {string} path
+	 */
+	#add_near_node(el, path) {
 		this.#near_nodes.add(el);
 		this.near_map.set(path, true);
 		const split = this.#split_path(path);
 		if (split) this.get_array_indices(split.array_path).add(split.index);
 	}
 
-	/** @param {HTMLElement} el */
-	#remove_near_node(el) {
-		const path = el.dataset.path;
+	/**
+	 * @param {HTMLElement} el
+	 * @param {string} path
+	 */
+	#remove_near_node(el, path) {
 		this.#near_nodes.delete(el);
-		if (!path) return;
+		if (this.#path_owners.get(path) !== el) return;
 		this.near_map.delete(path);
 		const split = this.#split_path(path);
 		if (split) this.#array_indices.get(split.array_path)?.delete(split.index);
@@ -401,12 +497,13 @@ class VisibilityRegistry {
 	#process_near(entries) {
 		for (const entry of entries) {
 			const el = /** @type {HTMLElement} */ (entry.target);
-			if (!this.#observed_nodes.has(el) || !el.isConnected || !el.dataset.path) continue;
+			const path = this.#registered_paths.get(el);
+			if (!path || !el.isConnected) continue;
 
 			const is_near = entry.isIntersecting;
 			if (is_near === this.#near_nodes.has(el)) continue;
-			if (is_near) this.#add_near_node(el);
-			else this.#remove_near_node(el);
+			if (is_near) this.#add_near_node(el, path);
+			else this.#remove_near_node(el, path);
 		}
 	}
 
@@ -421,28 +518,21 @@ class VisibilityRegistry {
 		const vh = window.innerHeight;
 		for (const entry of entries) {
 			const el = /** @type {HTMLElement} */ (entry.target);
-			if (!this.#observed_nodes.has(el) || !el.isConnected || !el.dataset.path) continue;
+			if (!this.#registered_paths.has(el) || !el.isConnected) continue;
 			this.#apply_view_classes(el, entry.isIntersecting, entry.boundingClientRect, vh);
 		}
 	}
-
-	// #clip_bits and clip_map were removed: their only consumer was the
-	// edge-gap visibility check, and they went stale on nested horizontal
-	// scroll (IO doesn't re-fire when the intersection ratio doesn't
-	// cross a threshold). Replaced by edge_map, derived from the array's
-	// own scrollLeft / clientWidth / scrollWidth — one element, six
-	// property reads per dirty array per RAF, no per-node BCRs.
 }
 
 /**
  * Install the visibility registry on the svedit context.
  *
- * IntersectionObserver owns viewport changes. Document changes trigger
- * one complete DOM reconciliation after Svelte has rendered the new
- * structure. Keeping those responsibilities separate avoids maintaining
- * a second, mutation-driven model of the node-array DOM.
+ * Elements register themselves via the track_node / track_array
+ * attachments, so registration follows the DOM's actual lifecycle.
+ * The IntersectionObservers own viewport changes; document changes
+ * only trigger an edge-state re-sync over the registered arrays.
  *
- * @param {object} svedit - Svedit context (session, editable, canvas_el)
+ * @param {object} svedit - Svedit context (session, editable)
  */
 export function create_node_visibility(svedit) {
 	const registry = new VisibilityRegistry();
@@ -452,9 +542,6 @@ export function create_node_visibility(svedit) {
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-
-		const canvas = svedit.canvas_el;
-		if (!canvas) return;
 		registry.start();
 
 		/**
@@ -483,7 +570,7 @@ export function create_node_visibility(svedit) {
 		function on_scroll(event) {
 			const target = /** @type {Element | null} */ (event.target);
 			const arr = target?.closest?.('[data-type="node_array"]');
-			if (!arr || arr.closest('.svedit-canvas') !== canvas) return;
+			if (!arr || !registry.has_array(arr)) return;
 			pending_scroll_arrays.add(arr);
 			if (!scroll_raf) scroll_raf = requestAnimationFrame(flush_scroll_sync);
 		}
@@ -500,17 +587,15 @@ export function create_node_visibility(svedit) {
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 
-		const canvas = svedit.canvas_el;
-		if (!canvas) return;
-
-		// These are the two structural inputs. Selection intentionally does
+		// Structural inputs whose changes can alter array scroll extents
+		// without recreating array elements. Selection intentionally does
 		// not participate; NodeGapMarkers tracks it directly for caret state.
 		svedit.session.doc;
 		svedit.editable;
 
 		let cancelled = false;
 		tick().then(() => {
-			if (!cancelled && canvas.isConnected) registry.reconcile(canvas);
+			if (!cancelled) registry.sync_all_edge_states();
 		});
 
 		return () => {
