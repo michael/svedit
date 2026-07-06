@@ -11,7 +11,9 @@ import {
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
-	closest_switchable_layout = $derived(get_closest_switchable_layout(this.context.session, this.context.session.config));
+	closest_switchable_layout = $derived(
+		get_closest_switchable_layout(this.context.session, this.context.session.config)
+	);
 
 	constructor(direction, context) {
 		super(context);
@@ -69,8 +71,8 @@ function replace_node_with_equivalent_type(tr, node_array_path, node_index, node
 
 	tr.create(new_node);
 
-	const node_array = [...tr.get(node_array_path)];
-	node_array[node_index] = new_node.id;
+	const node_array = structuredClone(tr.get(node_array_path));
+	node_array.nodes[node_index] = new_node.id;
 	tr.set(node_array_path, node_array);
 	tr.set_selection({
 		type: 'node',
@@ -124,37 +126,45 @@ export class CycleNodeTypeCommand extends Command {
 }
 
 /**
- * Command that toggles link annotations on text selections.
+ * Command that toggles link marks on text selections.
  * Prompts user for URL when creating a link.
  */
 export class ToggleLinkCommand extends Command {
 	active = $derived(this.is_active());
 
 	is_active() {
-		return this.context.session.active_annotation('link');
+		const selected_marks = this.context.session.selected_marks;
+		return selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 	}
 
 	is_enabled() {
 		const { session, editable } = this.context;
-
-		const can_remove_link = session.active_annotation('link');
+		const selected_marks = session.selected_marks;
+		const selection_touches_marks = selected_marks.length > 0;
+		const can_remove_link = selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 		const can_create_link =
-			!session.active_annotation() && !is_selection_collapsed(session.selection);
-		return editable && session.selection?.type === 'text' && (can_remove_link || can_create_link);
+			!selection_touches_marks &&
+			session.selection?.type === 'text' &&
+			!is_selection_collapsed(session.selection);
+
+		return Boolean(
+			editable && session.selection?.type === 'text' && (can_remove_link || can_create_link)
+		);
 	}
 
 	execute() {
 		const session = this.context.session;
-		const can_remove_link = session.active_annotation('link');
+		const selected_marks = session.selected_marks;
+		const can_remove_link = selected_marks.length === 1 && selected_marks[0].node.type === 'link';
 
 		if (can_remove_link) {
 			// Delete link
-			session.apply(session.tr.annotate_text('link'));
+			session.apply(session.tr.toggle_mark('link'));
 		} else {
 			// Create link
 			const href = window.prompt('Enter the URL', 'https://example.com');
 			if (href) {
-				session.apply(session.tr.annotate_text('link', { href }));
+				session.apply(session.tr.toggle_mark('link', { href }));
 			}
 		}
 	}

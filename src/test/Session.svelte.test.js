@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
-import { define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
+import { count_references, define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -65,7 +65,7 @@ describe('Session.svelte.js', () => {
 				kind: 'text',
 				properties: {
 					layout: { type: 'integer', default: 1 },
-					content: { type: 'annotated_text', allow_newlines: true }
+					content: { type: 'text', allow_newlines: true }
 				}
 			}
 		});
@@ -83,7 +83,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: []
+						body: { nodes: [], marks: [], annotations: [] }
 					}
 				}
 			},
@@ -103,16 +103,19 @@ describe('Session.svelte.js', () => {
 
 		// Resolve node_array property
 		const body = session.get(['page_1', 'body']);
-		expect(body).toEqual(['story_1', 'story_1', 'list_1']);
+		expect(body).toEqual({
+			nodes: ['story_1', 'story_1', 'list_1'],
+			marks: [], annotations: []
+		});
 
 		// Access an element of a node_array property
 		const first_story = session.get(['page_1', 'body', 0]);
 		expect(first_story.id).toBe('story_1');
 		expect(first_story.type).toBe('story');
 
-		// Resolve annotated_text property
+		// Resolve text property
 		const fist_story_title = session.get(['page_1', 'body', 0, 'title']);
-		expect(fist_story_title).toEqual({ text: 'First story', annotations: [] });
+		expect(fist_story_title).toEqual({ content: 'First story', marks: [], annotations: [] });
 
 		// Resolve integer_array
 		const daily_visitors = session.get(['page_1', 'daily_visitors']);
@@ -132,11 +135,14 @@ describe('Session.svelte.js', () => {
 
 		// Resolve hierarchy using node_array
 		const list_items_of_first_list = session.get(['page_1', 'body', 2, 'list_items']);
-		expect(list_items_of_first_list).toEqual(['list_item_1', 'list_item_2']);
+		expect(list_items_of_first_list).toEqual({
+			nodes: ['list_item_1', 'list_item_2'],
+			marks: [], annotations: []
+		});
 
-		// Resolve hierarchy using node_array and accessing an annotated_text property
+		// Resolve hierarchy using node_array and accessing an text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
-		expect(first_list_item_content).toEqual({ text: 'first list item', annotations: [] });
+		expect(first_list_item_content).toEqual({ content: 'first list item', marks: [], annotations: [] });
 	});
 
 	describe('Selected node', () => {
@@ -172,7 +178,7 @@ describe('Session.svelte.js', () => {
 
 			const title_info = session.inspect(['page_1', 'body', 0, 'title']);
 			expect(title_info.kind).toBe('property');
-			expect(title_info.type).toBe('annotated_text');
+			expect(title_info.type).toBe('text');
 		});
 	});
 
@@ -186,9 +192,56 @@ describe('Session.svelte.js', () => {
 					id: '1_invalid_node',
 					type: 'text',
 					layout: 1,
-					content: { text: 'Invalid node', annotations: [] }
+					content: { content: 'Invalid node', marks: [], annotations: [] }
 				})
 			).toThrow('invalid id');
+		});
+
+		it('should throw when a document node map key does not match the node id', () => {
+			const schema = create_default_property_schema();
+			const doc = {
+				document_id: 'page_1',
+				nodes: {
+					page_1: {
+						id: 'different_page_id',
+						type: 'page',
+						body: { nodes: [], marks: [], annotations: [] }
+					}
+				}
+			};
+
+			expect(() => new Session(schema, doc, { generate_id: () => 'generated_1' })).toThrow(
+				'does not match node id'
+			);
+		});
+
+		it('should throw when generate_id returns an invalid id', () => {
+			const session = create_default_property_session();
+			session.config.generate_id = () => '1_invalid_node';
+
+			expect(() => session.generate_id()).toThrow('Generated node id');
+			expect(() => session.tr.generate_id()).toThrow('Generated node id');
+		});
+
+		it('should generate a valid fallback id when no generate_id function is configured', () => {
+			const schema = create_default_property_schema();
+			const session = new Session(
+				schema,
+				{
+					document_id: 'page_1',
+					nodes: {
+						page_1: {
+							id: 'page_1',
+							type: 'page',
+							body: { nodes: [], marks: [], annotations: [] }
+						}
+					}
+				},
+				{}
+			);
+
+			expect(session.generate_id()).toMatch(/^node_[0-9a-f-]+$/);
+			expect(session.tr.generate_id()).toMatch(/^node_[0-9a-f-]+$/);
 		});
 	});
 
@@ -201,12 +254,12 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: ['text_1']
+						body: { nodes: ['text_1'], marks: [], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { text: 'Existing text with default layout', annotations: [] }
+						content: { content: 'Existing text with default layout', marks: [], annotations: [] }
 					}
 				}
 			};
@@ -236,7 +289,7 @@ describe('Session.svelte.js', () => {
 				text: {
 					kind: 'text',
 					properties: {
-						content: { type: 'annotated_text', allow_newlines: true }
+						content: { type: 'text', allow_newlines: true }
 					}
 				}
 			});
@@ -246,12 +299,12 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: ['text_1']
+						body: { nodes: ['text_1'], marks: [], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { text: 'Existing text', annotations: [] }
+						content: { content: 'Existing text', marks: [], annotations: [] }
 					}
 				}
 			};
@@ -259,7 +312,9 @@ describe('Session.svelte.js', () => {
 			const upgraded_doc = fill_document_defaults(doc, schema);
 
 			expect(upgraded_doc.nodes.page_1.featured).toBeUndefined();
-			expect(() => new Session(schema, upgraded_doc, {})).toThrow('featured must be a valid node id');
+			expect(() => new Session(schema, upgraded_doc, {})).toThrow(
+				'featured must be a valid node id'
+			);
 		});
 
 		it('should fill omitted default properties when creating a node', () => {
@@ -272,7 +327,7 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes.text_1.layout).toBe(1);
-			expect(tr.doc.nodes.text_1.content).toEqual({ text: '', annotations: [] });
+			expect(tr.doc.nodes.text_1.content).toEqual({ content: '', marks: [], annotations: [] });
 		});
 
 		it('should fill omitted default properties when building a node', () => {
@@ -287,36 +342,42 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes[new_id].layout).toBe(1);
-			expect(tr.doc.nodes[new_id].content).toEqual({ text: '', annotations: [] });
+			expect(tr.doc.nodes[new_id].content).toEqual({ content: '', marks: [], annotations: [] });
 		});
 	});
 
 	describe('Document validation', () => {
-		it('should throw for overlapping annotations in the same annotated text property', () => {
+		it('should allow overlapping annotations', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
+			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
 			doc.nodes.story_1.title.annotations = [
-				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
-				{ start_offset: 4, end_offset: 10, node_id: 'button_1' }
-			];
-
-			expect(() => new Session(session.schema, doc, session.config)).toThrow(
-				'overlapping annotations'
-			);
-		});
-
-		it('should allow adjacent annotations in the same annotated text property', () => {
-			const session = create_test_session();
-			const doc = structuredClone(session.doc);
-			doc.nodes.story_1.title.annotations = [
-				{ start_offset: 0, end_offset: 5, node_id: 'button_1' },
-				{ start_offset: 5, end_offset: 10, node_id: 'button_1' }
+				{ start_offset: 0, end_offset: 5, node_id: 'comment_a' },
+				{ start_offset: 4, end_offset: 10, node_id: 'comment_b' }
 			];
 
 			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
 		});
 
-		it('should throw for annotated text references to missing annotation nodes', () => {
+		it('should allow adjacent annotations in the same text property', () => {
+			const session = create_test_session();
+			const doc = structuredClone(session.doc);
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
+			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
+			doc.nodes.story_1.title.annotations = [
+				{ start_offset: 0, end_offset: 5, node_id: 'comment_a' },
+				{ start_offset: 5, end_offset: 10, node_id: 'comment_b' }
+			];
+
+			expect(() => new Session(session.schema, doc, session.config)).not.toThrow();
+		});
+
+		it('should throw for text annotations that reference missing annotation nodes', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			doc.nodes.story_1.title.annotations = [
@@ -331,7 +392,10 @@ describe('Session.svelte.js', () => {
 		it('should throw for node arrays that reference missing nodes', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
-			doc.nodes.page_1.body = ['story_1', 'missing_node'];
+			doc.nodes.page_1.body = {
+				nodes: ['story_1', 'missing_node'],
+				marks: [], annotations: []
+			};
 
 			expect(() => new Session(session.schema, doc, session.config)).toThrow(
 				'references missing node missing_node'
@@ -354,13 +418,55 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Transaction result validation', () => {
+		it('should include mark and annotation nodes when serializing reachable nodes to json', () => {
+			const session = create_test_session();
+			session.schema.strong = { kind: 'mark', properties: {} };
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+
+			const tr = session.tr;
+			tr.create({ id: 'strong_1', type: 'strong' });
+			tr.create({ id: 'comment_1', type: 'comment' });
+			tr.set(['story_1', 'title'], {
+				content: 'First story',
+				marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+				annotations: [{ start_offset: 2, end_offset: 7, node_id: 'comment_1' }]
+			});
+			session.apply(tr);
+
+			const json = session.to_json();
+			expect(json.nodes.strong_1).toEqual({ id: 'strong_1', type: 'strong' });
+			expect(json.nodes.comment_1).toEqual({ id: 'comment_1', type: 'comment' });
+		});
+
+		it('should count references from text marks and annotations', () => {
+			const session = create_test_session();
+			session.schema.strong = { kind: 'mark', properties: {} };
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+
+			const doc = structuredClone(session.doc);
+			doc.nodes.strong_1 = { id: 'strong_1', type: 'strong' };
+			doc.nodes.comment_1 = { id: 'comment_1', type: 'comment' };
+			doc.nodes.story_1.title = {
+				content: 'First story',
+				marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+				annotations: [{ start_offset: 2, end_offset: 7, node_id: 'comment_1' }]
+			};
+
+			expect(count_references(session.schema, doc, 'strong_1')).toBe(1);
+			expect(count_references(session.schema, doc, 'comment_1')).toBe(1);
+		});
+
 		it('should throw when applying a transaction that creates a missing node reference', () => {
 			const session = create_test_session();
 			const tr = session.tr;
-			tr.set(['page_1', 'body'], ['missing_node']);
+			tr.set(['page_1', 'body'], { nodes: ['missing_node'], marks: [], annotations: [] });
 
 			expect(() => session.apply(tr)).toThrow('references missing node missing_node');
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 		});
 
 		it('should throw when applying a transaction that deletes a still-referenced node', () => {
@@ -378,7 +484,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: body has ['story_1, 'story_1, 'list_1]
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('list_1')).toBeDefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
@@ -396,7 +502,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should no longer contain the list
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1']);
 
 			// List and its children should be deleted since no other references exist
 			expect(session.get('list_1')).toBeUndefined();
@@ -408,7 +514,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: story is referenced twice
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined();
 
 			// Delete first story reference (index 0)
@@ -424,7 +530,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should only have one story reference now
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'list_1']);
 
 			// Story node should still exist since it's still referenced
 			expect(session.get('story_1')).toBeDefined();
@@ -434,7 +540,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 
 			// Initial state: story is referenced twice
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined();
 
 			// Delete both story references (index 0 and 1)
@@ -450,7 +556,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Body should only contain the list
-			expect(session.get(['page_1', 'body'])).toEqual(['list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['list_1']);
 
 			// Story node should be deleted since no references remain
 			expect(session.get('story_1')).toBeUndefined();
@@ -472,7 +578,7 @@ describe('Session.svelte.js', () => {
 			session.apply(tr);
 
 			// Verify deletion
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1']);
 			expect(session.get('list_1')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeUndefined();
 			expect(session.get('list_item_2')).toBeUndefined();
@@ -481,11 +587,11 @@ describe('Session.svelte.js', () => {
 			session.undo();
 
 			// Everything should be restored
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
 			expect(session.get('list_1')).toBeDefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
-			expect(session.get('list_1').list_items).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get('list_1').list_items.nodes).toEqual(['list_item_1', 'list_item_2']);
 		});
 
 		it('should preserve a node that is moved into a wrapper created earlier in the same transaction', () => {
@@ -500,7 +606,7 @@ describe('Session.svelte.js', () => {
 			// wrapper created in step (1) still references them.
 			const session = create_test_session();
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_1', 'list_item_2']);
 
 			const tr = session.tr;
 
@@ -510,18 +616,21 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: ['list_item_1']
+				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
 
 			// Step (2): drop list_item_1 from list_1.list_items. The set()
 			// call would compute removed_node_ids = ['list_item_1'], but the
 			// node is still referenced by list_2 and must survive.
-			tr.set(['list_1', 'list_items'], ['list_item_2']);
+			tr.set(['list_1', 'list_items'], {
+				nodes: ['list_item_2'],
+				marks: [], annotations: []
+			});
 
 			session.apply(tr);
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
-			expect(session.get(['list_2', 'list_items'])).toEqual(['list_item_1']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_2']);
+			expect(session.get(['list_2', 'list_items']).nodes).toEqual(['list_item_1']);
 			expect(session.get('list_item_1')).toBeDefined();
 		});
 
@@ -533,18 +642,21 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: ['list_item_1']
+				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
-			tr.set(['list_1', 'list_items'], ['list_item_2']);
+			tr.set(['list_1', 'list_items'], {
+				nodes: ['list_item_2'],
+				marks: [], annotations: []
+			});
 			session.apply(tr);
 
 			// Sanity-check the post-state before undoing.
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_2']);
 			expect(session.get('list_2')).toBeDefined();
 
 			session.undo();
 
-			expect(session.get(['list_1', 'list_items'])).toEqual(['list_item_1', 'list_item_2']);
+			expect(session.get(['list_1', 'list_items']).nodes).toEqual(['list_item_1', 'list_item_2']);
 			expect(session.get('list_2')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeDefined();
 			expect(session.get('list_item_2')).toBeDefined();
@@ -565,7 +677,7 @@ describe('Session.svelte.js', () => {
 			tr.delete_selection();
 			session.apply(tr);
 
-			expect(session.get(['page_1', 'body'])).toEqual(['story_1', 'list_1']);
+			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'list_1']);
 			expect(session.get('story_1')).toBeDefined(); // Should still exist
 
 			// Now delete the remaining story and list
@@ -580,7 +692,7 @@ describe('Session.svelte.js', () => {
 			tr.delete_selection();
 			session.apply(tr);
 
-			expect(session.get(['page_1', 'body'])).toEqual([]);
+			expect(session.get(['page_1', 'body']).nodes).toEqual([]);
 			expect(session.get('story_1')).toBeUndefined(); // Now should be deleted
 			expect(session.get('list_1')).toBeUndefined();
 			expect(session.get('list_item_1')).toBeUndefined();

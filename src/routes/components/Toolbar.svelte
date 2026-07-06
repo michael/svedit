@@ -161,8 +161,8 @@
 			</label>
 		</div>
 	{/if}
-	{#if session.selection?.type === 'text'}
-		{#if session.available_annotation_types.includes('strong')}
+	{#if session.selection?.type === 'text' || session.selection?.type === 'node'}
+		{#if session.available_mark_types.includes('strong')}
 			<button
 				title="Bold"
 				class="bold"
@@ -176,7 +176,7 @@
 				<Icon name="bold" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('emphasis')}
+		{#if session.available_mark_types.includes('emphasis')}
 			<button
 				title="Italic"
 				class="italic"
@@ -190,7 +190,7 @@
 				<Icon name="italic" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('highlight')}
+		{#if session.available_mark_types.includes('highlight')}
 			<button
 				title="Highlight"
 				class="highlight"
@@ -204,7 +204,7 @@
 				<Icon name="highlight" />
 			</button>
 		{/if}
-		{#if session.available_annotation_types.includes('link')}
+		{#if session.available_mark_types.includes('link')}
 			<button
 				title="Link"
 				onmousedown={(event) => {
@@ -215,6 +215,59 @@
 				class:active={session.commands.toggle_link?.active}
 			>
 				<Icon name="link" />
+			</button>
+		{/if}
+		{#if session.available_mark_types.includes('section')}
+			<button
+				title="Section (⌘ ⇧ S)"
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_section?.execute();
+				}}
+				disabled={session.commands.toggle_section?.disabled}
+				class:active={session.commands.toggle_section?.active}
+			>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 15 15"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
+				>
+					<path d="M5 2.5H2.5V12.5H5" stroke="currentColor" />
+					<path d="M10 2.5H12.5V12.5H10" stroke="currentColor" />
+					<path d="M5.5 5H9.5M5.5 7.5H9.5M5.5 10H9.5" stroke="currentColor" />
+				</svg>
+			</button>
+		{/if}
+		{#if session.available_annotation_types.includes('marker')}
+			<button
+				title="Marker (⌘ ⇧ M)"
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_marker?.execute();
+				}}
+				disabled={session.commands.toggle_marker?.disabled}
+				class:active={session.commands.toggle_marker?.active}
+			>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 15 15"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
+				>
+					<rect x="2.5" y="4.5" width="10" height="6" rx="2" stroke="currentColor" />
+					<rect
+						x="4.5"
+						y="6.5"
+						width="6"
+						height="2"
+						rx="1"
+						fill="currentColor"
+						stroke="none"
+					/>
+				</svg>
 			</button>
 		{/if}
 	{/if}
@@ -372,7 +425,9 @@
 		border-radius: 9999px;
 		background: var(--app-canvas-fill);
 		color: var(--svedit-editing-stroke);
-		box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
+		box-shadow:
+			0 1px 2px oklch(0% 0 0 / 0.22),
+			0 2px 4px oklch(0% 0 0 / 0.1);
 		font-size: 0.875rem;
 		font-weight: 600;
 		line-height: 1;
@@ -431,7 +486,9 @@
 			border-radius: 50%;
 			background: var(--app-canvas-fill);
 			color: var(--app-primary-text);
-			box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
+			box-shadow:
+				0 1px 2px oklch(0% 0 0 / 0.22),
+				0 2px 4px oklch(0% 0 0 / 0.1);
 			text-wrap: nowrap;
 			cursor: pointer;
 			pointer-events: auto;
@@ -472,7 +529,9 @@
 			color: var(--app-primary-text);
 			border-color: color-mix(in oklch, var(--app-canvas-fill) 91%, var(--app-primary-text));
 			background: var(--app-canvas-fill);
-			box-shadow: 0 1px 2px oklch(0% 0 0 / 0.22), 0 2px 4px oklch(0% 0 0 / 0.1);
+			box-shadow:
+				0 1px 2px oklch(0% 0 0 / 0.22),
+				0 2px 4px oklch(0% 0 0 / 0.1);
 			opacity: 1;
 			cursor: not-allowed;
 			--icon-color: color-mix(in oklch, var(--app-canvas-fill) 70%, var(--app-primary-text));

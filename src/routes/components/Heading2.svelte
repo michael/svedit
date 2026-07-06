@@ -1,17 +1,12 @@
 <script>
-	import { Node, AnnotatedTextProperty } from 'svedit';
+	import { Node, TextProperty } from 'svedit';
 
 	let { path } = $props();
 </script>
 
 <Node {path}>
 	<div class="text max-w-screen-lg mx-auto w-full">
-		<AnnotatedTextProperty
-			tag='h2'
-			class="heading2"
-			path={[...path, 'content']}
-			placeholder="Heading 2"
-		/>
+		<TextProperty tag="h2" class="heading2" path={[...path, 'content']} placeholder="Heading 2" />
 	</div>
 </Node>
 

@@ -55,12 +55,12 @@ function make_paragraph_session(text = 'Hello world') {
 					id: 'paragraph_1',
 					type: 'paragraph',
 					layout: 1,
-					content: { text, annotations: [] }
+					content: { content: text, marks: [], annotations: [] }
 				},
 				page_1: {
 					id: 'page_1',
 					type: 'page',
-					body: ['paragraph_1'],
+					body: { nodes: ['paragraph_1'], marks: [], annotations: [] },
 					keywords: [],
 					daily_visitors: [],
 					created_at: '2025-05-30T10:39:59.987Z'
@@ -118,7 +118,7 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		const length_before_insert = session.get(buttons_path).length;
+		const length_before_insert = session.get(buttons_path).nodes.length;
 		expect(length_before_insert).toBe(2);
 
 		// Invoke the button inserter exactly the way the toolbar does.
@@ -127,7 +127,7 @@ describe('keymap continuity', () => {
 		session.apply(tr);
 		await settle();
 
-		const length_after_insert = session.get(buttons_path).length;
+		const length_after_insert = session.get(buttons_path).nodes.length;
 		expect(length_after_insert).toBe(length_before_insert + 1);
 
 		// Now the real test: Enter on a node-caret should fire
@@ -137,7 +137,7 @@ describe('keymap continuity', () => {
 		press_enter(canvas);
 		await settle();
 
-		expect(session.get(buttons_path).length).toBe(length_after_insert + 1);
+		expect(session.get(buttons_path).nodes.length).toBe(length_after_insert + 1);
 	});
 
 	it('after rendering a text selection inside the canvas, Enter splits the text node', async () => {
@@ -167,21 +167,21 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		expect(session.get(body_path).length).toBe(1);
+		expect(session.get(body_path).nodes.length).toBe(1);
 
 		press_enter(canvas);
 		await settle();
 
 		// break_text_node splits the paragraph into two; the second part
 		// is inserted as a new text node into body.
-		expect(session.get(body_path).length).toBe(2);
+		expect(session.get(body_path).nodes.length).toBe(2);
 	});
 
 	it('inside a non-text node text property with allow_newlines, Enter inserts a newline with current line indentation', async () => {
 		const session = make_story_session(1);
 		const content_path = ['page_1', 'body', 0, 'description'];
 		const tr = session.tr;
-		tr.set(content_path, { text: 'Line\n\t  Item', annotations: [] });
+		tr.set(content_path, { content: 'Line\n\t  Item', marks: [], annotations: [] });
 		session.apply(tr);
 
 		const { container } = render(SveditTestWithKeymap, { session });
@@ -200,15 +200,15 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		const text_before = session.get(content_path).text;
+		const text_before = session.get(content_path).content;
 		expect(text_before).toBe('Line\n\t  Item');
 
 		press_enter(canvas);
 		await settle();
 
-		const text_after = session.get(content_path).text;
+		const text_after = session.get(content_path).content;
 		expect(text_after).toBe('Line\n\t  \n\t  Item');
-		expect(session.get(['page_1', 'body']).length).toBe(1);
+		expect(session.get(['page_1', 'body']).nodes.length).toBe(1);
 	});
 
 	it('inside story.title (non-text node, allow_newlines=false), Enter does nothing', async () => {
@@ -230,15 +230,15 @@ describe('keymap continuity', () => {
 		};
 		await settle();
 
-		const text_before = session.get(content_path).text;
+		const text_before = session.get(content_path).content;
 		expect(text_before).toBe('Test story');
 
 		press_enter(canvas);
 		await settle();
 
-		const text_after = session.get(content_path).text;
+		const text_after = session.get(content_path).content;
 		expect(text_after).toBe('Test story');
-		expect(session.get(['page_1', 'body']).length).toBe(1);
-		expect(session.get(['page_1', 'body', 0, 'buttons']).length).toBe(1);
+		expect(session.get(['page_1', 'body']).nodes.length).toBe(1);
+		expect(session.get(['page_1', 'body', 0, 'buttons']).nodes.length).toBe(1);
 	});
 });

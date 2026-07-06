@@ -35,8 +35,6 @@ describe('Svedit.svelte', () => {
 		expect(dom_selection).not.toBeNull();
 		expect(dom_selection.isCollapsed).toBe(true);
 		expect(dom_selection.type).toBe('Caret');
-
-
 	});
 
 	it('should map property selection to DOM', async () => {
@@ -79,13 +77,13 @@ describe('Svedit.svelte', () => {
 		const original_story = session.get('story_1');
 		const original_button = session.get('button_1');
 
-		expect(original_story.title).toEqual({ text: 'First story', annotations: [] });
-		expect(original_story.buttons).toEqual(['button_1']);
-		expect(original_button.content).toEqual({ text: 'Get started', annotations: [] });
+		expect(original_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
+		expect(original_story.buttons.nodes).toEqual(['button_1']);
+		expect(original_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 
 		// Initial body state: ['story_1, 'story_1, 'list_1]
 		const initial_body = session.get(['page_1', 'body']);
-		expect(initial_body).toEqual(['story_1', 'story_1', 'list_1']);
+		expect(initial_body.nodes).toEqual(['story_1', 'story_1', 'list_1']);
 
 		// Set selection to the first story node
 		session.selection = {
@@ -163,27 +161,27 @@ describe('Svedit.svelte', () => {
 
 		// Verify first paste - should still have 3 items (replaced, not inserted)
 		const body_after_first_paste = session.get(['page_1', 'body']);
-		expect(body_after_first_paste.length).toBe(3);
+		expect(body_after_first_paste.nodes.length).toBe(3);
 
 		// Get the new story ID (first element should be the replaced one)
-		const first_new_story_id = body_after_first_paste[0];
+		const first_new_story_id = body_after_first_paste.nodes[0];
 		const first_new_story = session.get(first_new_story_id);
-		const first_new_button_id = first_new_story.buttons[0];
+		const first_new_button_id = first_new_story.buttons.nodes[0];
 		const first_new_button = session.get(first_new_button_id);
 
 		// Content should be the same as original
-		expect(first_new_story.title).toEqual({ text: 'First story', annotations: [] });
+		expect(first_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(first_new_story.description).toEqual({
-			text: 'First story description.',
-			annotations: []
+			content: 'First story description.',
+			marks: [], annotations: []
 		});
-		expect(first_new_button.content).toEqual({ text: 'Get started', annotations: [] });
+		expect(first_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 		expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different
 		expect(first_new_story_id).not.toBe('story_1');
 		expect(first_new_button_id).not.toBe('button_1');
-		expect(first_new_story.buttons).toEqual([first_new_button_id]);
+		expect(first_new_story.buttons.nodes).toEqual([first_new_button_id]);
 
 		// Keep same selection for second paste (to replace again)
 		session.selection = {
@@ -211,21 +209,21 @@ describe('Svedit.svelte', () => {
 
 		// Verify second paste - should still have 3 total items (replaced again)
 		const body_after_second_paste = session.get(['page_1', 'body']);
-		expect(body_after_second_paste.length).toBe(3);
+		expect(body_after_second_paste.nodes.length).toBe(3);
 
 		// Get the second new story ID (first element should be the second replacement)
-		const second_new_story_id = body_after_second_paste[0];
+		const second_new_story_id = body_after_second_paste.nodes[0];
 		const second_new_story = session.get(second_new_story_id);
-		const second_new_button_id = second_new_story.buttons[0];
+		const second_new_button_id = second_new_story.buttons.nodes[0];
 		const second_new_button = session.get(second_new_button_id);
 
 		// Content should still be the same
-		expect(second_new_story.title).toEqual({ text: 'First story', annotations: [] });
+		expect(second_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(second_new_story.description).toEqual({
-			text: 'First story description.',
-			annotations: []
+			content: 'First story description.',
+			marks: [], annotations: []
 		});
-		expect(second_new_button.content).toEqual({ text: 'Get started', annotations: [] });
+		expect(second_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 		expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different from both original and first paste
@@ -233,7 +231,7 @@ describe('Svedit.svelte', () => {
 		expect(second_new_story_id).not.toBe(first_new_story_id);
 		expect(second_new_button_id).not.toBe('button_1');
 		expect(second_new_button_id).not.toBe(first_new_button_id);
-		expect(second_new_story.buttons).toEqual([second_new_button_id]);
+		expect(second_new_story.buttons.nodes).toEqual([second_new_button_id]);
 
 		// Verify the first paste's nodes no longer exist (they were replaced)
 		expect(session.get(first_new_story_id)).toBeUndefined();
@@ -246,7 +244,7 @@ describe('Svedit.svelte', () => {
 		// Original nodes should still exist (at position 1)
 		expect(session.get('story_1')).toBeDefined();
 		expect(session.get('button_1')).toBeDefined();
-		expect(body_after_second_paste[1]).toBe('story_1');
+		expect(body_after_second_paste.nodes[1]).toBe('story_1');
 	});
 
 	describe('join_text_node command', () => {
@@ -259,7 +257,7 @@ describe('Svedit.svelte', () => {
 				id: empty_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: '', annotations: [] } // Empty content
+				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
 			const tr = session.tr;
@@ -267,8 +265,8 @@ describe('Svedit.svelte', () => {
 
 			// Insert the empty text node after the first story
 			const body = session.get(['page_1', 'body']);
-			const new_body = [body[0], empty_text_id, ...body.slice(1)];
-			tr.set(['page_1', 'body'], new_body);
+			const new_body = [body.nodes[0], empty_text_id, ...body.nodes.slice(1)];
+			tr.set(['page_1', 'body'], { ...body, nodes: new_body });
 			session.apply(tr);
 
 			// Set text selection in the empty text node (position 1 in body)
@@ -289,7 +287,7 @@ describe('Svedit.svelte', () => {
 
 			// Body should be back to original state
 			const final_body = session.get(['page_1', 'body']);
-			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(final_body.nodes).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 1 (where the deleted node was)
 			expect(session.selection.type).toBe('node');
@@ -306,7 +304,7 @@ describe('Svedit.svelte', () => {
 				id: text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: 'Some content', annotations: [] }
+				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -314,8 +312,8 @@ describe('Svedit.svelte', () => {
 
 			// Insert the text node after the first story
 			const body = session.get(['page_1', 'body']);
-			const new_body = [body[0], text_id, ...body.slice(1)];
-			tr.set(['page_1', 'body'], new_body);
+			const new_body = [body.nodes[0], text_id, ...body.nodes.slice(1)];
+			tr.set(['page_1', 'body'], { ...body, nodes: new_body });
 			session.apply(tr);
 
 			// Set text selection in the text node (position 1 in body)
@@ -335,11 +333,11 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
+			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
-			expect(final_body).toEqual(['story_1', text_id, 'story_1', 'list_1']);
+			expect(final_body.nodes).toEqual(['story_1', text_id, 'story_1', 'list_1']);
 		});
 
 		it('should delete empty text node at position 0', () => {
@@ -351,7 +349,7 @@ describe('Svedit.svelte', () => {
 				id: empty_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: '', annotations: [] } // Empty content
+				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
 			const tr = session.tr;
@@ -359,8 +357,8 @@ describe('Svedit.svelte', () => {
 
 			// Insert the empty text node at the beginning
 			const body = session.get(['page_1', 'body']);
-			const new_body = [empty_text_id, ...body];
-			tr.set(['page_1', 'body'], new_body);
+			const new_body = [empty_text_id, ...body.nodes];
+			tr.set(['page_1', 'body'], { ...body, nodes: new_body });
 			session.apply(tr);
 
 			// Set text selection in the empty text node (position 0 in body)
@@ -381,7 +379,7 @@ describe('Svedit.svelte', () => {
 
 			// Body should be back to original state
 			const final_body = session.get(['page_1', 'body']);
-			expect(final_body).toEqual(['story_1', 'story_1', 'list_1']);
+			expect(final_body.nodes).toEqual(['story_1', 'story_1', 'list_1']);
 
 			// Selection should be at position 0
 			expect(session.selection.type).toBe('node');
@@ -398,7 +396,7 @@ describe('Svedit.svelte', () => {
 				id: text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: 'Some content', annotations: [] }
+				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -406,8 +404,8 @@ describe('Svedit.svelte', () => {
 
 			// Insert the text node at the beginning
 			const body = session.get(['page_1', 'body']);
-			const new_body = [text_id, ...body];
-			tr.set(['page_1', 'body'], new_body);
+			const new_body = [text_id, ...body.nodes];
+			tr.set(['page_1', 'body'], { ...body, nodes: new_body });
 			session.apply(tr);
 
 			// Set text selection in the text node (position 0 in body)
@@ -427,11 +425,11 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ text: 'Some content', annotations: [] });
+			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
-			expect(final_body).toEqual([text_id, 'story_1', 'story_1', 'list_1']);
+			expect(final_body.nodes).toEqual([text_id, 'story_1', 'story_1', 'list_1']);
 		});
 
 		it('should join two text nodes and position caret at end of joined text', () => {
@@ -445,14 +443,14 @@ describe('Svedit.svelte', () => {
 				id: first_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: 'First text', annotations: [] }
+				content: { content: 'First text', marks: [], annotations: [] }
 			};
 
 			const second_text_node = {
 				id: second_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { text: ' second text', annotations: [] }
+				content: { content: ' second text', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -460,7 +458,10 @@ describe('Svedit.svelte', () => {
 			tr.create(second_text_node);
 
 			// Replace body with our two text nodes
-			tr.set(['page_1', 'body'], [first_text_id, second_text_id]);
+			tr.set(['page_1', 'body'], {
+				nodes: [first_text_id, second_text_id],
+				marks: [], annotations: []
+			});
 			session.apply(tr);
 
 			// Set text selection in the second text node
@@ -481,11 +482,11 @@ describe('Svedit.svelte', () => {
 
 			// First text node should contain joined content
 			const first_text = session.get(first_text_id);
-			expect(first_text.content).toEqual({ text: 'First text second text', annotations: [] });
+			expect(first_text.content).toEqual({ content: 'First text second text', marks: [], annotations: [] });
 
 			// Body should only contain the first text node
 			const final_body = session.get(['page_1', 'body']);
-			expect(final_body).toEqual([first_text_id]);
+			expect(final_body.nodes).toEqual([first_text_id]);
 
 			// Selection should be positioned at the end of the original first text
 			expect(session.selection.type).toBe('text');
@@ -614,7 +615,7 @@ describe('Svedit.svelte', () => {
 
 		// Verify paste worked - should have 4 items now (original 3 + 1 pasted)
 		const body_after_paste = session.get(['page_1', 'body']);
-		expect(body_after_paste).toHaveLength(4);
+		expect(body_after_paste.nodes).toHaveLength(4);
 	});
 
 	it('should handle Unicode characters in clipboard data', async () => {
@@ -632,7 +633,7 @@ describe('Svedit.svelte', () => {
 			id: unicode_text_id,
 			type: 'paragraph',
 			layout: 1,
-			content: { text: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', annotations: [] }
+			content: { content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', marks: [], annotations: [] }
 		};
 
 		const tr = session.tr;
@@ -640,8 +641,8 @@ describe('Svedit.svelte', () => {
 
 		// Insert the text node at the beginning
 		const body = session.get(['page_1', 'body']);
-		const new_body = [unicode_text_id, ...body];
-		tr.set(['page_1', 'body'], new_body);
+		const new_body = [unicode_text_id, ...body.nodes];
+		tr.set(['page_1', 'body'], { ...body, nodes: new_body });
 		session.apply(tr);
 
 		// Select the Unicode text node
@@ -729,13 +730,13 @@ describe('Svedit.svelte', () => {
 
 		const decoded_data = extract_svedit_data_from_html(html_content);
 		expect(decoded_data).not.toBeNull();
-		expect(decoded_data.nodes[unicode_text_id].content.text).toBe(
+		expect(decoded_data.nodes[unicode_text_id].content.content).toBe(
 			'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!'
 		);
 
 		// Verify that the decoded data contains the correct Unicode content
 		expect(decoded_data.nodes[unicode_text_id]).toBeDefined();
-		expect(decoded_data.nodes[unicode_text_id].content.text).toBe(
+		expect(decoded_data.nodes[unicode_text_id].content.content).toBe(
 			'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!'
 		);
 
@@ -777,9 +778,13 @@ describe('Svedit.svelte', () => {
 			id: text_id,
 			type: 'paragraph',
 			layout: 1,
-			content: { text: '', annotations: [] }
+			content: { content: '', marks: [], annotations: [] }
 		});
-		tr.set(['page_1', 'body'], [...session.get(['page_1', 'body']), text_id]);
+		const body_before_insert = session.get(['page_1', 'body']);
+		tr.set(['page_1', 'body'], {
+			...body_before_insert,
+			nodes: [...body_before_insert.nodes, text_id]
+		});
 		session.apply(tr);
 
 		session.selection = {
@@ -793,11 +798,11 @@ describe('Svedit.svelte', () => {
 		await dispatch_plain_text_paste('alpha\n\nbeta\n\ngamma');
 
 		const body = session.get(['page_1', 'body']);
-		expect(body).toHaveLength(7);
-		expect(session.get(body[3]).content.text).toBe('');
-		expect(session.get(body[4]).content.text).toBe('alpha');
-		expect(session.get(body[5]).content.text).toBe('beta');
-		expect(session.get(body[6]).content.text).toBe('gamma');
+		expect(body.nodes).toHaveLength(7);
+		expect(session.get(body.nodes[3]).content.content).toBe('');
+		expect(session.get(body.nodes[4]).content.content).toBe('alpha');
+		expect(session.get(body.nodes[5]).content.content).toBe('beta');
+		expect(session.get(body.nodes[6]).content.content).toBe('gamma');
 	});
 
 	it('should paste multi-paragraph plain text as-is into a block text property with allow_newlines=true', async () => {
@@ -807,7 +812,7 @@ describe('Svedit.svelte', () => {
 		svedit_element?.focus();
 		await tick();
 
-		const description_text = session.get('story_1').description.text;
+		const description_text = session.get('story_1').description.content;
 		session.selection = {
 			type: 'text',
 			path: ['page_1', 'body', 0, 'description'],
@@ -818,8 +823,8 @@ describe('Svedit.svelte', () => {
 
 		await dispatch_plain_text_paste('line one\n\nline two');
 
-		expect(session.get('story_1').description.text).toBe('line one\n\nline two');
-		expect(session.get(['page_1', 'body'])).toHaveLength(3);
+		expect(session.get('story_1').description.content).toBe('line one\n\nline two');
+		expect(session.get(['page_1', 'body']).nodes).toHaveLength(3);
 	});
 
 	it('should dedent plain text when most lines share leading whitespace', async () => {
@@ -829,7 +834,7 @@ describe('Svedit.svelte', () => {
 		svedit_element?.focus();
 		await tick();
 
-		const description_text = session.get('story_1').description.text;
+		const description_text = session.get('story_1').description.content;
 		session.selection = {
 			type: 'text',
 			path: ['page_1', 'body', 0, 'description'],
@@ -840,7 +845,9 @@ describe('Svedit.svelte', () => {
 
 		await dispatch_plain_text_paste('\tlet first = 1;\n\tlet second = 2;\n\tlet third = 3;');
 
-		expect(session.get('story_1').description.text).toBe('let first = 1;\nlet second = 2;\nlet third = 3;');
+		expect(session.get('story_1').description.content).toBe(
+			'let first = 1;\nlet second = 2;\nlet third = 3;'
+		);
 	});
 
 	it('should normalize newlines to single spaces in block text properties with allow_newlines=false', async () => {
@@ -850,7 +857,7 @@ describe('Svedit.svelte', () => {
 		svedit_element?.focus();
 		await tick();
 
-		const title_text = session.get('story_1').title.text;
+		const title_text = session.get('story_1').title.content;
 		session.selection = {
 			type: 'text',
 			path: ['page_1', 'body', 0, 'title'],
@@ -861,8 +868,8 @@ describe('Svedit.svelte', () => {
 
 		await dispatch_plain_text_paste('hello\n\n   world\nagain');
 
-		expect(session.get('story_1').title.text).toBe('hello world again');
-		expect(session.get(['page_1', 'body'])).toHaveLength(3);
+		expect(session.get('story_1').title.content).toBe('hello world again');
+		expect(session.get(['page_1', 'body']).nodes).toHaveLength(3);
 	});
 
 	it('should paste plain text from a property selection by inserting text nodes into the nearest node_array', async () => {
@@ -881,10 +888,10 @@ describe('Svedit.svelte', () => {
 		await dispatch_plain_text_paste('inserted one\n\ninserted two');
 
 		const body = session.get(['page_1', 'body']);
-		expect(body).toHaveLength(5);
-		expect(session.kind(session.get(body[1]))).toBe('text');
-		expect(session.kind(session.get(body[2]))).toBe('text');
-		expect(session.get(body[1]).content.text).toBe('inserted one');
-		expect(session.get(body[2]).content.text).toBe('inserted two');
+		expect(body.nodes).toHaveLength(5);
+		expect(session.kind(session.get(body.nodes[1]))).toBe('text');
+		expect(session.kind(session.get(body.nodes[2]))).toBe('text');
+		expect(session.get(body.nodes[1]).content.content).toBe('inserted one');
+		expect(session.get(body.nodes[2]).content.content).toBe('inserted two');
 	});
 });

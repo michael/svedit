@@ -185,21 +185,21 @@
 		}
 
 		if (event.inputType === 'formatBold' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('strong'));
+			session.apply(session.tr.toggle_mark('strong'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
 		if (event.inputType === 'formatItalic' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('emphasis'));
+			session.apply(session.tr.toggle_mark('emphasis'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
-		// NOTE: underline doesn't make much sense as a semantic annotation,
+		// NOTE: underline doesn't make much sense as a semantic mark,
 		// so we rewire `cmd + u` to toggle highlights
 		if (event.inputType === 'formatUnderline' && session.selection?.type === 'text') {
-			session.apply(session.tr.annotate_text('highlight'));
+			session.apply(session.tr.toggle_mark('highlight'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
@@ -398,14 +398,14 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
-			// Check if this is an annotated_text property (object with text property)
-			if (property_definition.type === 'annotated_text') {
-				const text_content = prop_value.text;
+			// Check if this is a text property.
+			if (property_definition.type === 'text') {
+				const text_content = prop_value.content;
 				if (text_content.trim()) {
 					html += `<p>${text_content}</p>`;
 				}
 			} else if (property_definition.type === 'node_array') {
-				for (const child_id of prop_value) {
+				for (const child_id of prop_value.nodes) {
 					const child = session.get(child_id);
 					const child_exporter = html_exporters[child.type] || default_node_html_exporter;
 					html += child_exporter(child, session, html_exporters);
@@ -421,13 +421,13 @@ ${fallback_html}`;
 		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 
-			// Check if this is an annotated_text property (object with text property)
+			// Check if this is a text property value.
 			if (
 				typeof prop_value === 'object' &&
 				prop_value !== null &&
-				typeof prop_value.text === 'string'
+				typeof prop_value.content === 'string'
 			) {
-				const text_content = prop_value.text;
+				const text_content = prop_value.content;
 				if (text_content.trim()) {
 					plain_text += `${text_content.trim()}\n\n`;
 				}
@@ -469,28 +469,6 @@ ${fallback_html}`;
 	}
 
 	/**
-	 * @param {NodeId[]} selected_node_ids
-	 */
-	function prepare_copy_payload(selected_node_ids) {
-		const nodes = {};
-
-		// Get subgraph for each selected node using session.traverse()
-		for (const node_id of selected_node_ids) {
-			const subgraph = session.traverse(node_id);
-
-			// Add all nodes from this subgraph to our nodes collection
-			for (const node of subgraph) {
-				if (!nodes[node.id]) {
-					nodes[node.id] = node;
-				}
-			}
-		}
-
-		// Keep original IDs - we'll generate new ones during paste
-		return { nodes, main_nodes: selected_node_ids };
-	}
-
-	/**
 	 * @param {ClipboardEvent} event
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
@@ -502,24 +480,23 @@ ${fallback_html}`;
 		event.preventDefault();
 		event.stopPropagation();
 
-		let plain_text, annotated_text, html;
+		let plain_text, text, html;
 
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
-			annotated_text = session.get_selected_annotated_text();
-			const fallback_html = `<span>${annotated_text.text}</span>`;
+			text = session.get_selected_text();
+			const fallback_html = `<span>${text.content}</span>`;
 
 			// console.log('Text copy:', {
-			// 	annotated_text,
+			// 	text,
 			// 	plain_text,
 			// 	html
 			// });
 
-			html = create_svedit_html_format(annotated_text, fallback_html);
+			html = create_svedit_html_format(text, fallback_html);
 		} else if (session.selection?.type === 'node') {
-			const selected_nodes = session.get_selected_nodes();
-			const { nodes, main_nodes } = prepare_copy_payload(selected_nodes);
-			const json_data = { nodes, main_nodes };
+			const json_data = session.get_selected_annotated_nodes();
+			const { nodes, main_nodes } = json_data;
 
 			// console.log('Node copy:', {
 			// 	selected_nodes,
@@ -567,8 +544,6 @@ ${fallback_html}`;
 		oncopy(event, true);
 	}
 
-
-
 	/**
 	 * @returns {NodeSelection|null}
 	 */
@@ -587,13 +562,13 @@ ${fallback_html}`;
 
 		const node_array_path = [...path, preferred_property_name];
 		const node_array = session.get(node_array_path);
-		if (!Array.isArray(node_array)) return null;
+		if (!node_array || !Array.isArray(node_array.nodes)) return null;
 
 		return {
 			type: /** @type {const} */ ('node'),
 			path: node_array_path,
-			anchor_offset: node_array.length,
-			focus_offset: node_array.length
+			anchor_offset: node_array.nodes.length,
+			focus_offset: node_array.nodes.length
 		};
 	}
 
@@ -639,7 +614,7 @@ ${fallback_html}`;
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
-		const { nodes, main_nodes } = pasted_json || {};
+		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
 		let tr = session.tr;
@@ -652,7 +627,10 @@ ${fallback_html}`;
 		if (property_definition?.type !== 'node_array') return false;
 
 		const default_text_node_type = get_default_text_node(property_definition, session.schema);
-		const target_text_property_name = get_text_property_name(default_text_node_type, session.schema);
+		const target_text_property_name = get_text_property_name(
+			default_text_node_type,
+			session.schema
+		);
 
 		const nodes_to_insert = [];
 		let rejected = false;
@@ -674,7 +652,11 @@ ${fallback_html}`;
 						the_node: {
 							id: 'the_node',
 							type: default_text_node_type,
-							[target_text_property_name]: text_content || { text: '', annotations: [] }
+							[target_text_property_name]: text_content || {
+							content: '',
+							marks: [],
+							annotations: []
+						}
 						}
 					});
 					nodes_to_insert.push(new_node_id);
@@ -689,7 +671,7 @@ ${fallback_html}`;
 		}
 
 		if (!rejected) {
-			tr.insert_nodes(nodes_to_insert);
+			tr.insert_nodes(nodes_to_insert, marks, annotations, nodes);
 			session.apply(tr);
 			return true;
 		}
@@ -766,7 +748,7 @@ ${fallback_html}`;
 
 				if (session.selection?.type === 'text') {
 					const property_definition = session.inspect(session.selection.path);
-					if (property_definition?.type === 'annotated_text' && !property_definition.allow_newlines) {
+					if (property_definition?.type === 'text' && !property_definition.allow_newlines) {
 						plain_text = normalize_plain_text_for_single_line_property(plain_text);
 					}
 
@@ -777,7 +759,10 @@ ${fallback_html}`;
 						const node_array_property_definition = session.inspect(
 							session.selection.path.slice(0, -2)
 						);
-						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						const default_text_node_type = get_default_text_node(
+							node_array_property_definition,
+							session.schema
+						);
 						const node_insert_caret = get_node_insert_caret_after_text_selection(session.selection);
 						const plain_text_nodes_payload = create_plain_text_nodes_payload(
 							plain_text_fragments,
@@ -796,7 +781,10 @@ ${fallback_html}`;
 					const target_node_insert_caret = get_target_node_insert_caret(session.selection);
 					if (target_node_insert_caret) {
 						const node_array_property_definition = session.inspect(target_node_insert_caret.path);
-						const default_text_node_type = get_default_text_node(node_array_property_definition, session.schema);
+						const default_text_node_type = get_default_text_node(
+							node_array_property_definition,
+							session.schema
+						);
 						pasted_json = create_plain_text_nodes_payload(
 							plain_text_fragments,
 							default_text_node_type,
@@ -831,10 +819,15 @@ ${fallback_html}`;
 					session.apply(session.tr.set(session.selection.path, pasted_json.value));
 				}
 			}
-		} else if (session.selection?.type === 'text' && pasted_json?.text) {
+		} else if (session.selection?.type === 'text' && pasted_json?.content) {
 			// Paste text at a text selection
 			session.apply(
-				session.tr.insert_text(pasted_json.text, pasted_json.annotations, pasted_json.nodes)
+				session.tr.insert_text(
+					pasted_json.content,
+					pasted_json.marks,
+					pasted_json.annotations,
+					pasted_json.nodes
+				)
 			);
 		} else if (
 			session.selection?.type === 'text' &&
@@ -848,7 +841,12 @@ ${fallback_html}`;
 			);
 			if (text_property) {
 				session.apply(
-					session.tr.insert_text(text_property.text, text_property.annotations, pasted_json.nodes)
+					session.tr.insert_text(
+						text_property.content,
+						text_property.marks,
+						text_property.annotations,
+						pasted_json.nodes
+					)
 				);
 			}
 		} else if (['text', 'property'].includes(session.selection?.type) && pasted_json?.nodes) {
@@ -881,7 +879,7 @@ ${fallback_html}`;
 		// reuses gap elements with shifted data-gap-offset), so for those
 		// we always rerender to scroll the cursor into view.
 		const is_empty_text_selection =
-			selection.type === 'text' && session.get(selection.path).text.length === 0;
+			selection.type === 'text' && session.get(selection.path).content.length === 0;
 		if (dom_driven && !is_empty_text_selection) {
 			const prev_selection = __get_selection_from_dom();
 			if (
@@ -985,7 +983,7 @@ ${fallback_html}`;
 			const empty_placeholder_path = deserialize_path(focus_empty_placeholder.dataset.path);
 			const array_path = empty_placeholder_path.slice(0, -1);
 			const node_array = session.get(array_path);
-			if (Array.isArray(node_array) && node_array.length === 0) {
+			if (node_array?.nodes?.length === 0) {
 				return {
 					type: 'node',
 					path: array_path,
@@ -1210,7 +1208,7 @@ ${fallback_html}`;
 
 		// EDGE CASE 1B: Caret after trailing <br> at end of text
 		//
-		// AnnotatedTextProperty renders a trailing <br> for non-empty or non-focused text.
+		// TextProperty renders a trailing <br> for non-empty or non-focused text.
 		// When the user places their caret after this <br>, focusNode is the container
 		// element (not a text node), and normal processing would return position 0.
 		// We detect this and return the current DOM text length instead.
@@ -1356,7 +1354,7 @@ ${fallback_html}`;
 			// Collapsed: anchor === focus, so focus is the gap offset.
 			// Range: cursor sits at the focus end (anchor when backward).
 			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
-			const array_length = session.get(node_array_path).length;
+			const array_length = session.get(node_array_path).nodes.length;
 
 			// If either node flanking the cursor is already (even
 			// partially) on screen, the cursor is visible — keep the
@@ -1421,7 +1419,7 @@ ${fallback_html}`;
 		const el = canvas_el.querySelector(
 			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
 		);
-		const empty_text = session.get(selection.path).text.length === 0;
+		const empty_text = session.get(selection.path).content.length === 0;
 		const dom_selection = window.getSelection();
 		let current_offset = 0;
 		/** @type {HTMLElement | Text} */
@@ -1528,7 +1526,7 @@ ${fallback_html}`;
 		);
 		if (!text_el) return;
 
-		const model_text = session.get(selection.path).text;
+		const model_text = session.get(selection.path).content;
 		if ((text_el.textContent ?? '') === model_text) return;
 
 		let current_offset = 0;
@@ -1625,7 +1623,7 @@ ${fallback_html}`;
 	-->
 	<div
 		class="svedit-canvas {css_class}"
-		class:hide-selection={session.selection?.type === 'node'}
+		class:hide-selection={editable && session.selection?.type === 'node'}
 		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}

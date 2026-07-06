@@ -1,5 +1,5 @@
 /**
- * @import { Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
+ * @import { Attachment, Mark, Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
  */
 
 const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
@@ -176,110 +176,109 @@ export function char_to_utf16_offset(str, char_offset) {
 /**
  * Splits an annotated text at the specified character position.
  *
- * Annotations that span the split point will be divided appropriately,
- * with offsets adjusted for each resulting part.
+ * Marks and annotations that span the split point will be divided
+ * appropriately, with offsets adjusted for each resulting part.
  *
- * @param {AnnotatedText} text_with_annotations - Annotated text object
+ * @param {AnnotatedText} text_value - Annotated text object
  * @param {number} at_position - Character position where to split (0-based)
  * @returns {[AnnotatedText, AnnotatedText]} Tuple of [left_part, right_part]
  *
  * @example
- * split_annotated_text({text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}, 8)
+ * split_text({content: "Hello world", marks: [{start_offset: 6, end_offset: 11, node_id: "strong"}], annotations: []}, 8)
  * // Returns:
  * // [
- * //   {text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]},
- * //   {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]}
+ * //   {content: "Hello wo", marks: [{start_offset: 6, end_offset: 8, node_id: "strong"}], annotations: []},
+ * //   {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []}
  * // ]
  */
-export function split_annotated_text(text_with_annotations, at_position) {
-	const { text, annotations } = text_with_annotations;
+export function split_text(text_value, at_position) {
+	const { content } = text_value;
 
 	// Split the text using character-aware slicing
-	const left_text = char_slice(text, 0, at_position);
-	const right_text = char_slice(text, at_position);
+	const left = { content: char_slice(content, 0, at_position), marks: [], annotations: [] };
+	const right = { content: char_slice(content, at_position), marks: [], annotations: [] };
 
-	/** @type {Array<Annotation>} */
-	const left_annotations = [];
-	/** @type {Array<Annotation>} */
-	const right_annotations = [];
-
-	// Process each annotation
-	for (const { start_offset, end_offset, node_id } of annotations) {
-		if (end_offset <= at_position) {
-			// Annotation is entirely in the left part
-			left_annotations.push({ start_offset, end_offset, node_id });
-		} else if (start_offset >= at_position) {
-			// Annotation is entirely in the right part - shift offsets
-			right_annotations.push({
-				start_offset: start_offset - at_position,
-				end_offset: end_offset - at_position,
-				node_id
-			});
-		} else {
-			// Annotation spans the split point - split it
-			left_annotations.push({ start_offset, end_offset: at_position, node_id });
-			right_annotations.push({ start_offset: 0, end_offset: end_offset - at_position, node_id });
+	// Process marks and annotations with the same range logic
+	for (const key of ['marks', 'annotations']) {
+		for (const { start_offset, end_offset, node_id } of text_value[key] ?? []) {
+			if (end_offset <= at_position) {
+				// Range is entirely in the left part
+				left[key].push({ start_offset, end_offset, node_id });
+			} else if (start_offset >= at_position) {
+				// Range is entirely in the right part - shift offsets
+				right[key].push({
+					start_offset: start_offset - at_position,
+					end_offset: end_offset - at_position,
+					node_id
+				});
+			} else {
+				// Range spans the split point - split it
+				left[key].push({ start_offset, end_offset: at_position, node_id });
+				right[key].push({ start_offset: 0, end_offset: end_offset - at_position, node_id });
+			}
 		}
 	}
 
-	return [
-		{ text: left_text, annotations: left_annotations },
-		{ text: right_text, annotations: right_annotations }
-	];
+	return [left, right];
 }
 
 /**
  * Joins two annotated texts into a single annotated text.
  *
- * Annotations from the second text will have their offsets shifted by the length
- * of the first text. Adjacent annotations of the same type and data will be merged.
+ * Marks and annotations from the second text will have their offsets shifted
+ * by the length of the first text. Adjacent ranges referencing the same node
+ * will be merged.
  *
  * @param {AnnotatedText} first_text - First annotated text object
  * @param {AnnotatedText} second_text - Second annotated text object
  * @returns {AnnotatedText} Combined annotated text object
  *
  * @example
- * join_annotated_text({text: "Hello wo", annotations: [{start_offset: 6, end_offset: 8, node_id: "strong"}]}, {text: "rld", annotations: [{start_offset: 0, end_offset: 3, node_id: "strong"}]})
- * // Returns: {text: "Hello world", annotations: [{start_offset: 6, end_offset: 11, node_id: "strong"}]}
+ * join_text({content: "Hello wo", marks: [{start_offset: 6, end_offset: 8, node_id: "strong"}], annotations: []}, {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []})
+ * // Returns: {content: "Hello world", marks: [{start_offset: 6, end_offset: 11, node_id: "strong"}], annotations: []}
  */
-export function join_annotated_text(first_text, second_text) {
-	const { text: first_text_content, annotations: first_annotations } = first_text;
-	const { text: second_text_content, annotations: second_annotations } = second_text;
-
+export function join_text(first_text, second_text) {
 	// Join the text content
-	const joined_text = first_text_content + second_text_content;
+	const joined = {
+		content: first_text.content + second_text.content,
+		marks: [],
+		annotations: []
+	};
 
-	// Start with all annotations from the first text (unchanged)
-	/** @type {Array<Annotation>} */
-	const joined_annotations = [...first_annotations];
+	const offset = get_char_length(first_text.content);
 
-	// Add annotations from the second text, shifting their offsets
-	const offset = get_char_length(first_text_content);
-	for (const { start_offset, end_offset, node_id } of second_annotations) {
-		/** @type {Annotation} */
-		const shifted_annotation = {
-			start_offset: start_offset + offset,
-			end_offset: end_offset + offset,
-			node_id
-		};
+	for (const key of ['marks', 'annotations']) {
+		// Start with all ranges from the first text (unchanged)
+		const joined_ranges = (first_text[key] ?? []).map((range) => ({ ...range }));
 
-		// Check if this annotation can be merged with the last annotation from first text
-		const last_annotation = joined_annotations[joined_annotations.length - 1];
-		if (
-			last_annotation &&
-			last_annotation.end_offset === shifted_annotation.start_offset && // annotations are adjacent
-			last_annotation.node_id === shifted_annotation.node_id
-		) {
-			// same node_id
-			// Merge by extending the end position of the last annotation
-			last_annotation.end_offset = shifted_annotation.end_offset;
-		} else {
-			// Add as separate annotation
-			joined_annotations.push(shifted_annotation);
+		// Add ranges from the second text, shifting their offsets
+		for (const { start_offset, end_offset, node_id } of second_text[key] ?? []) {
+			const shifted_range = {
+				start_offset: start_offset + offset,
+				end_offset: end_offset + offset,
+				node_id
+			};
+
+			// Check if this range can be merged with the last range from the first text
+			const last_range = joined_ranges[joined_ranges.length - 1];
+			if (
+				last_range &&
+				last_range.end_offset === shifted_range.start_offset && // ranges are adjacent
+				last_range.node_id === shifted_range.node_id
+			) {
+				// same node_id
+				// Merge by extending the end position of the last range
+				last_range.end_offset = shifted_range.end_offset;
+			} else {
+				// Add as separate range
+				joined_ranges.push(shifted_range);
+			}
 		}
+
+		joined[key] = joined_ranges;
 	}
 
-	return { text: joined_text, annotations: joined_annotations };
+	return joined;
 }
 
 /**
@@ -417,16 +416,22 @@ export function traverse(node_id, schema, nodes) {
 			const property_definition = schema[node.type].properties[property_name];
 
 			if (property_definition?.type === 'node_array') {
-				for (const v of value) {
+				const node_ids = value?.nodes || [];
+
+				for (const v of node_ids) {
 					if (typeof v === 'string') {
 						visit(nodes[v]);
 					}
 				}
+
+				for (const range of [...(value?.marks || []), ...(value?.annotations || [])]) {
+					visit(nodes[range.node_id]);
+				}
 			} else if (property_definition?.type === 'node') {
 				visit(nodes[value]);
-			} else if (property_definition?.type === 'annotated_text') {
-				for (const annotation of value.annotations) {
-					visit(nodes[annotation.node_id]);
+			} else if (property_definition?.type === 'text') {
+				for (const range of [...(value.marks || []), ...(value.annotations || [])]) {
+					visit(nodes[range.node_id]);
 				}
 			}
 		}
@@ -462,4 +467,168 @@ export function is_selection_collapsed(selection) {
 	} else {
 		return false;
 	}
+}
+
+/**
+ * Adjust ranges (marks or annotations) after deleting a sequence range.
+ *
+ * Works for both annotated text (character offsets) and annotated node arrays
+ * (node offsets).
+ *
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
+ * @param {number} start
+ * @param {number} end
+ * @returns {{ranges: Array<import('./types.d.ts').Attachment>, removed_node_ids: string[]}}
+ */
+export function adjust_ranges_for_deletion(ranges, start, end) {
+	const removed_node_ids = [];
+	const deletion_length = end - start;
+
+	const next_ranges = ranges
+		.map((range) => {
+			if (range.end_offset <= start) return range;
+
+			let start_offset = range.start_offset;
+			if (range.start_offset >= end) {
+				start_offset -= deletion_length;
+			} else if (range.start_offset > start) {
+				start_offset = start;
+			}
+
+			let end_offset = range.end_offset;
+			if (range.end_offset >= end) {
+				end_offset -= deletion_length;
+			} else if (range.end_offset > start) {
+				end_offset = start;
+			}
+
+			if (start_offset >= end_offset) {
+				removed_node_ids.push(range.node_id);
+				return null;
+			}
+
+			return { start_offset, end_offset, node_id: range.node_id };
+		})
+		.filter(Boolean);
+
+	return { ranges: next_ranges, removed_node_ids };
+}
+
+/**
+ * Adjust ranges (marks or annotations) after inserting into a sequence.
+ *
+ * Insertion inside a range extends it. Insertion exactly at either edge
+ * stays outside the range.
+ *
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
+ * @param {number} offset
+ * @param {number} length
+ * @returns {Array<import('./types.d.ts').Attachment>}
+ */
+export function adjust_ranges_for_insertion(ranges, offset, length) {
+	if (length === 0) return ranges;
+
+	return ranges.map((range) => {
+		if (range.end_offset <= offset) return range;
+
+		if (range.start_offset < offset) {
+			return {
+				start_offset: range.start_offset,
+				end_offset: range.end_offset + length,
+				node_id: range.node_id
+			};
+		}
+
+		return {
+			start_offset: range.start_offset + length,
+			end_offset: range.end_offset + length,
+			node_id: range.node_id
+		};
+	});
+}
+
+/**
+ * Check whether ranges are non-empty and mutually exclusive.
+ *
+ * @param {Array<import('./types.d.ts').Attachment>} ranges
+ * @param {number} [length]
+ * @returns {boolean}
+ */
+export function are_ranges_exclusive(ranges, length = Infinity) {
+	const sorted = [...ranges].sort(
+		(a, b) => a.start_offset - b.start_offset || a.end_offset - b.end_offset
+	);
+
+	return sorted.every(
+		(range, index) =>
+			Number.isInteger(range.start_offset) &&
+			Number.isInteger(range.end_offset) &&
+			range.start_offset >= 0 &&
+			range.start_offset < range.end_offset &&
+			range.end_offset <= length &&
+			(index === 0 || range.start_offset >= sorted[index - 1].end_offset)
+	);
+}
+
+/**
+ * Calculates abstract fragment ranges from a length and marks.
+ *
+ * @param {number} length - Length of the sequence (e.g. text length or array length)
+ * @param {Array<import('./types.d.ts').Mark>} marks - Array of marks
+ * @param {import('./types.d.ts').SelectionRange} [selection_highlight_range] - Optional selection highlight range
+ * @returns {Array<{type: 'content' | 'mark' | 'selection_highlight', start_offset: number, end_offset: number, mark_index?: number, node_id?: string}>}
+ */
+export function calculate_fragment_ranges(length, marks, selection_highlight_range) {
+	/** @type {Array<{type: 'content' | 'mark' | 'selection_highlight', start_offset: number, end_offset: number, mark_index?: number, node_id?: string}>} */
+	const fragments = [];
+	let last_index = 0;
+
+	// Merge marks with selection highlight and sort by start offset
+	const ranges = [...marks, ...(selection_highlight_range ? [selection_highlight_range] : [])].sort(
+		(a, b) => a.start_offset - b.start_offset
+	);
+
+	for (const range of ranges) {
+		// Add content before this range
+		if (range.start_offset > last_index) {
+			fragments.push({
+				type: 'content',
+				start_offset: last_index,
+				end_offset: range.start_offset
+			});
+		}
+
+		if ('node_id' in range) {
+			const mark = /** @type {import('./types.d.ts').Mark} */ (range);
+			const mark_index =
+				/** @type {import('./types.d.ts').Mark & { mark_index?: number }} */ (mark).mark_index ??
+				marks.indexOf(mark);
+			fragments.push({
+				type: 'mark',
+				start_offset: mark.start_offset,
+				end_offset: mark.end_offset,
+				node_id: mark.node_id,
+				mark_index
+			});
+		} else {
+			fragments.push({
+				type: 'selection_highlight',
+				start_offset: range.start_offset,
+				end_offset: range.end_offset
+			});
+		}
+
+		last_index = range.end_offset;
+	}
+
+	// Add any remaining content
+	if (last_index < length) {
+		fragments.push({
+			type: 'content',
+			start_offset: last_index,
+			end_offset: length
+		});
+	}
+
+	return fragments;
 }

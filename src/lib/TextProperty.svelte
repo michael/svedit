@@ -5,14 +5,15 @@
 		get_char_length,
 		paths_equal,
 		serialize_path,
-		get_selection_range
+		get_selection_range,
+		calculate_fragment_ranges
 	} from './utils.js';
 
-	/** @import { AnnotatedTextPropertyProps, Annotation, Fragment, SelectionRange } from './types.d.ts'; */
+	/** @import { TextPropertyProps, Mark, Fragment, SelectionRange } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 
-	/** @type {AnnotatedTextPropertyProps} */
+	/** @type {TextPropertyProps} */
 	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
 
 	let path_str = $derived(serialize_path(path));
@@ -23,7 +24,7 @@
 		);
 	});
 
-	let plain_text = $derived(svedit.session.get(path).text);
+	let plain_text = $derived(svedit.session.get(path).content);
 	let is_empty = $derived(
 		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
 	);
@@ -32,7 +33,7 @@
 		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
 	);
 
-	// Get selection highlight range if not inside an annotation
+	// Get selection highlight range if it does not touch marks.
 	// Only render selection highlight when canvas is NOT focused.
 	// This avoids DOM mutations (splitting text nodes for highlight spans)
 	// while the user is actively selecting, which would cause selection
@@ -41,7 +42,7 @@
 		if (svedit.canvas_focused) return null;
 		if (is_collapsed) return null;
 		if (!is_focused) return null;
-		if (svedit.session.active_annotation()) return null;
+		if (svedit.session.selected_marks.length > 0) return null;
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 		return get_selection_range(sel);
@@ -49,61 +50,50 @@
 
 	let fragments = $derived(
 		get_fragments(
-			svedit.session.get(path).text,
-			svedit.session.get(path).annotations,
+			svedit.session.get(path).content,
+			svedit.session.get(path).marks,
 			selection_highlight_range
 		)
 	);
 
 	/**
-	 * Converts text with annotations into renderable fragments for display.
+	 * Converts text with marks into renderable fragments for display.
+	 * Annotations never fragment the text; they are data-only.
 	 * @param {string} text - The plain text content
-	 * @param {Array<Annotation>} annotations - Array of annotations
+	 * @param {Array<Mark>} marks - Marks to render in-place
 	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
-	function get_fragments(text, annotations, selection_highlight_range) {
+	function get_fragments(text, marks, selection_highlight_range) {
+		const ranges = calculate_fragment_ranges(
+			get_char_length(text),
+			marks,
+			selection_highlight_range
+		);
 		/** @type {Array<Fragment>} */
 		let fragments = [];
-		let last_index = 0;
-
-		// Merge annotations with selection highlight and sort by start offset
-		const ranges = [
-			...annotations,
-			...(selection_highlight_range ? [selection_highlight_range] : [])
-		].sort((a, b) => a.start_offset - b.start_offset);
 
 		for (const range of ranges) {
-			// Add text before this range
-			if (range.start_offset > last_index) {
-				fragments.push(char_slice(text, last_index, range.start_offset));
-			}
-
 			const content = char_slice(text, range.start_offset, range.end_offset);
 
-			if ('node_id' in range) {
+			if (range.type === 'mark') {
 				const node = svedit.session.get(range.node_id);
-				if (!node) throw new Error(`Node not found for annotation ${range.node_id}`);
+				if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
 
 				fragments.push({
-					type: 'annotation',
+					type: 'mark',
 					node,
 					content,
-					annotation_index: annotations.indexOf(/** @type {Annotation} */ (range))
+					mark_index: range.mark_index
 				});
-			} else {
+			} else if (range.type === 'selection_highlight') {
 				fragments.push({
 					type: 'selection_highlight',
 					content
 				});
+			} else {
+				fragments.push(content);
 			}
-
-			last_index = range.end_offset;
-		}
-
-		// Add any remaining text
-		if (last_index < get_char_length(text)) {
-			fragments.push(char_slice(text, last_index));
 		}
 
 		return fragments;
@@ -130,12 +120,14 @@
 		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
 				class="selection-highlight"
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
-			>{:else if fragment.type === 'annotation'}
-			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
-			<AnnotationComponent
-				path={[...path, 'annotations', fragment.annotation_index, 'node_id']}
-				content={fragment.content}
-			/>
+			>{:else if fragment.type === 'mark'}
+			{@const MarkComponent = svedit.session.config.node_components[fragment.node.type]}
+			{#if MarkComponent}
+				<MarkComponent
+					path={[...path, 'marks', fragment.mark_index, 'node_id']}
+					content={fragment.content}
+				/>
+			{:else}<span class="mark-{fragment.node.type}">{fragment.content}</span>{/if}
 		{/if}
 	{/each}<!--
   -->{#if !is_focused || !is_empty}<br />{/if}

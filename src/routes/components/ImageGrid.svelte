@@ -21,7 +21,7 @@
 			padding: calc(var(--s-10) * 3) 0;
 			display: grid;
 			grid-template-columns: repeat(3, 1fr);
-			gap: var(--s-8);
+			row-gap: var(--s-2);
 			align-items: stretch;
 		}
 

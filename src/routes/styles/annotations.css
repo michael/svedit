@@ -1,0 +1,45 @@
+/* Styles for the `marker` node-array annotation. Svedit adds `anno-<type>`
+   classes for annotations (and `mark-<type>` classes for marks, plus
+   `-start`/`-end` on the run's caps) to covered node wrappers automatically,
+   so styling an annotation is pure CSS — no component code.
+   A soft tint over a run of nodes, with rounded caps on the run's first and
+   last node. Orientation follows the container's flow direction via the
+   `--row` variable Svedit uses for node gaps (1 = row flow, 0 = column flow),
+   using the same --_R/--_C idiom as NodeGap and NodeCaret: in column flow the
+   run starts at the top and ends at the bottom, in row flow it starts at the
+   left and ends at the right. Each corner radius is multiplied down to 0
+   when it isn't a cap. */
+
+.anno-marker {
+	--marker-radius: 24px;
+	--marker-rail: 2px;
+	--marker-start: 0;
+	--marker-end: 0;
+	--_R: var(--row, 0); /* 1 in row flow */
+	--_C: calc(1 - var(--row, 0)); /* 1 in column flow */
+	background-color: color-mix(in oklch, var(--app-primary-fill) 13%, transparent);
+	/* A rail outline traces the swipe: along the run's sides on every covered
+	   node, capped at the run's first and last node. Borders (not shadows)
+	   so the rail follows the rounded caps. */
+	border: 0 solid color-mix(in oklch, var(--app-primary-fill) 40%, transparent);
+	border-left-width: calc(var(--marker-rail) * max(var(--_C), var(--_R) * var(--marker-start)));
+	border-right-width: calc(var(--marker-rail) * max(var(--_C), var(--_R) * var(--marker-end)));
+	border-top-width: calc(var(--marker-rail) * max(var(--_R), var(--_C) * var(--marker-start)));
+	border-bottom-width: calc(var(--marker-rail) * max(var(--_R), var(--_C) * var(--marker-end)));
+	border-top-left-radius: calc(var(--marker-radius) * var(--marker-start));
+	border-bottom-right-radius: calc(var(--marker-radius) * var(--marker-end));
+	border-top-right-radius: calc(
+		var(--marker-radius) * max(var(--_C) * var(--marker-start), var(--_R) * var(--marker-end))
+	);
+	border-bottom-left-radius: calc(
+		var(--marker-radius) * max(var(--_C) * var(--marker-end), var(--_R) * var(--marker-start))
+	);
+}
+
+.anno-marker-start {
+	--marker-start: 1;
+}
+
+.anno-marker-end {
+	--marker-end: 1;
+}

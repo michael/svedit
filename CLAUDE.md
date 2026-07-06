@@ -1,5 +1,5 @@
 ---
-description: 
+description:
 alwaysApply: false
 ---
 
@@ -10,37 +10,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 **Development:**
+
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 
 **Testing:**
+
 - `npm run test:unit` - Run unit tests with Vitest
 - `npm run test:e2e` - Run end-to-end tests with Playwright
 - `npm run test` - Run both unit and e2e tests
 
 **Testing Guidelines:**
+
 - DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
 - The user prefers to run all tests manually
 - Focus on implementing code changes and let the user handle testing
+- DO NOT start the dev server or drive the app in a browser (preview tools, screenshots, etc.) to verify changes — in-browser verification is done manually by the user
+- Static checks are fine: `npm run build` and `npm run check` may be used to verify that changes compile
 
 **Implementation Guidelines:**
+
 - Do exactly what the user asks for - one step at a time
 - Do NOT think 4 steps ahead or add extra features/improvements
 - Only implement the specific change requested
 - You can suggest what the next step could be, but don't implement it
 
 **Refactoring Guidelines:**
+
 - During refactors, make ONLY the minimal changes needed (e.g., renaming APIs)
 - Do NOT "improve" or restructure logic while refactoring
 - If you see something that could be improved, note it separately for a future task
 - Refactoring and improving are two separate activities - never combine them
 
 **Code Style:**
+
 - Use snake_case for all variable names, function names, and identifiers
 - This applies to JavaScript/TypeScript code, test files, and any new code written
 
 **What to NOT change (keep camelCase):**
+
 - `window.getSelection()` - native API
 - `document.activeElement` - native API
 - `navigator.clipboard` - native API
@@ -54,9 +63,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Pattern**: If it's a web platform API or Svelte API, keep camelCase. If it's our custom variable/function name, use snake_case.
 
 **File Extensions:**
+
 - Files using Svelte runes (`$state`, `$derived`, `$effect`, etc.) must use `.svelte.js` or `.svelte.ts` extension
 
 **Documentation Style:**
+
 - Use sentence case for all headings in documentation (README.md, etc.)
 - Use sentence case for code comments
 - Sentence case means: capitalize only the first word and proper nouns
@@ -77,29 +88,33 @@ Svedit is a rich content editor template built with Svelte 5 that uses a graph-b
 ### Core Components
 
 **Document Model:**
+
 - `Document` - Central document class with state management, transactions, and history
 - `Tras` - Handles atomic operations on the document
 - Documents are represented as graphs of nodes with properties and references
 
 **Selection System:**
+
 - Supports text, node, and property selections
 - Maps between internal selection model and DOM selection
 - Handles complex selection scenarios like backwards selections and multi-node selections
 
 **Key Components:**
+
 - `Svedit.svelte` - Main editor component with event handling and selection management
 - `NodeArrayProperty.svelte` - Renders containers that hold sequences of nodes
 - `Node.svelte` - Wrapper component for document nodes that handles node gap placement and viewport culling
-- `AnnotatedTextProperty.svelte` - Handles annotated text rendering and editing
+- `TextProperty.svelte` - Handles text rendering and editing with inline annotations
 - Node components (`Story`, `List`, etc.) - Render specific content types
 
 ### Schema System
 
 Content is defined through schemas that specify:
+
 - Node types and their properties
-- Property types: `string`, `integer`, `boolean`, `string_array`, `annotated_text`, `node`, `node_array`
+- Property types: `string`, `integer`, `boolean`, `string_array`, `text`, `node`, `node_array`
 - Reference relationships between nodes
-- Default types for node arrays
+- Default types and optional annotation types for node arrays
 
 ### Data Flow
 

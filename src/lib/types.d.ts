@@ -81,7 +81,7 @@ export type ArrayType = 'string_array' | 'number_array' | 'boolean_array' | 'int
 /**
  * Special types for rich content.
  */
-export type RichType = 'annotated_text';
+export type RichType = 'text';
 
 /**
  * Node reference types for linking to other nodes.
@@ -112,7 +112,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // 	| 'number_array'
 // 	| 'boolean_array'
 // 	| 'integer_array'
-// 	| 'annotated_text'
+// 	| 'text'
 // 	| 'node'
 // 	| 'node_array';
 //
@@ -134,7 +134,7 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // 								? Array<boolean>
 // 								: T extends 'integer_array'
 // 									? Array<number>
-// 									: T extends 'annotated_text'
+// 									: T extends 'text'
 // 										? AnnotatedText
 // 										: T extends 'node'
 // 											? string
@@ -147,11 +147,12 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // };
 
 /**
- * A property that stores an annotated text with required allow_newlines setting.
+ * A property that stores text with optional marks and annotations and required allow_newlines setting.
  */
-export type AnnotatedTextProperty = {
-	type: 'annotated_text';
-	node_types?: string[];
+export type TextProperty = {
+	type: 'text';
+	mark_types?: string[];
+	annotation_types?: string[];
 	allow_newlines: boolean;
 };
 
@@ -228,7 +229,7 @@ export type IntegerArrayProperty = {
 };
 
 /**
- * A property that stores a primitive value (excluding annotated_text).
+ * A property that stores a primitive value (excluding text).
  */
 export type PrimitiveProperty =
 	| StringProperty
@@ -256,6 +257,8 @@ export type NodeProperty = {
 export type NodeArrayProperty = {
 	type: 'node_array';
 	node_types: string[];
+	mark_types?: string[];
+	annotation_types?: string[];
 	default_node_type?: string;
 };
 
@@ -263,29 +266,26 @@ export type NodeArrayProperty = {
  * Union type for all possible property definitions.
  */
 export type PropertyDefinition =
-	| PrimitiveProperty
-	| AnnotatedTextProperty
-	| NodeProperty
-	| NodeArrayProperty;
+	PrimitiveProperty | TextProperty | NodeProperty | NodeArrayProperty;
 
 /**
  * Node kind values for different types of content nodes
  */
-export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
+export type NodeKind = 'document' | 'block' | 'text' | 'mark' | 'annotation';
 
 /**
- * Schema for text nodes - must have a content property of type annotated_text.
- * Use define_document_schema to also check that content is the only annotated_text property.
+ * Schema for text nodes - must have a content property of type text.
+ * Use define_document_schema to also check that content is the only text property.
  */
 export type TextNodeSchema = {
 	kind: 'text';
 	properties: {
-		content: AnnotatedTextProperty;
+		content: TextProperty;
 	} & Record<string, PropertyDefinition>;
 };
 
-export type AnnotatedTextPropertyNames<Properties> = {
-	[PropertyName in keyof Properties]: Properties[PropertyName] extends { type: 'annotated_text' }
+export type TextPropertyNames<Properties> = {
+	[PropertyName in keyof Properties]: Properties[PropertyName] extends { type: 'text' }
 		? PropertyName
 		: never;
 }[keyof Properties];
@@ -294,13 +294,11 @@ export type TextNodeSchemaError<Message extends string> = {
 	[SchemaError in `Svedit schema error: ${Message}`]: never;
 };
 
-export type TextNodeMissingContentError = TextNodeSchemaError<
-	'Text node schemas must define a "content" property of type annotated_text.'
->;
+export type TextNodeMissingContentError =
+	TextNodeSchemaError<'Text node schemas must define a "content" property of type text.'>;
 
-export type TextNodeExtraAnnotatedTextError<ExtraProperty extends string> = TextNodeSchemaError<
-	`Text node schemas must not define annotated_text property "${ExtraProperty}". Use "content" as the only annotated_text property.`
->;
+export type TextNodeExtraTextPropertyError<ExtraProperty extends string> =
+	TextNodeSchemaError<`Text node schemas must not define text property "${ExtraProperty}". Use "content" as the only text property.`>;
 
 export type ValidateTextNodeSchema<Schema> = Schema extends {
 	kind: 'text';
@@ -308,11 +306,11 @@ export type ValidateTextNodeSchema<Schema> = Schema extends {
 }
 	? string extends keyof Properties
 		? Schema
-		: Properties extends { content: AnnotatedTextProperty }
-			? Exclude<AnnotatedTextPropertyNames<Properties>, 'content'> extends infer ExtraProperties
+		: Properties extends { content: TextProperty }
+			? Exclude<TextPropertyNames<Properties>, 'content'> extends infer ExtraProperties
 				? [ExtraProperties] extends [never]
 					? Schema
-					: TextNodeExtraAnnotatedTextError<Extract<ExtraProperties, string>>
+					: TextNodeExtraTextPropertyError<Extract<ExtraProperties, string>>
 				: never
 			: TextNodeMissingContentError
 	: Schema;
@@ -325,7 +323,7 @@ export type ValidateDocumentSchema<Schema extends Record<string, NodeSchema>> = 
  * Schema for non-text nodes
  */
 export type NonTextNodeSchema = {
-	kind: 'document' | 'block' | 'annotation';
+	kind: 'document' | 'block' | 'mark' | 'annotation';
 	properties: Record<string, PropertyDefinition>;
 };
 
@@ -363,9 +361,9 @@ export type Document = {
 };
 
 /**
- * Props for the AnnotatedTextProperty component
+ * Props for the TextProperty component
  */
-export type AnnotatedTextPropertyProps = {
+export type TextPropertyProps = {
 	/** The full path to the property */
 	path: DocumentPath;
 	/** Optional custom HTML tag */
@@ -414,6 +412,10 @@ export type NodeArrayPropertyProps = {
 export type NodeProps = {
 	/** The full path to the node */
 	path: DocumentPath;
+	/** The single node-array mark wrapping this node, if any */
+	mark?: NodeArrayAttachmentContext | null;
+	/** All node-array annotations covering this node */
+	annotations?: Array<NodeArrayAttachmentContext>;
 	/** Optional custom HTML tag */
 	tag?: string;
 	/** Optional string of CSS classes */
@@ -443,20 +445,59 @@ export type SveditProps = {
 };
 
 /**
- * Represents an annotation in an annotated string
+ * A range with an attached payload node, used for both marks and annotations.
  */
-export type Annotation = {
+export type Attachment = {
 	start_offset: number;
 	end_offset: number;
 	node_id: NodeId;
 };
 
 /**
- * Represents an annotated text with text and annotations
+ * A content-level range (e.g. strong, emphasis, link, section).
+ * Marks are mutually exclusive within a property and render in-place.
+ */
+export type Mark = Attachment;
+
+/**
+ * A metadata/overlay range (e.g. comment, marker).
+ * Annotations may overlap and are data-only.
+ */
+export type Annotation = Attachment;
+
+/**
+ * Represents text content with marks and annotations.
  */
 export type AnnotatedText = {
-	text: string;
+	content: string;
+	marks: Array<Mark>;
 	annotations: Array<Annotation>;
+};
+
+/**
+ * Represents an annotated node array with nodes, marks and annotations
+ */
+export type AnnotatedNodeArray = {
+	nodes: Array<NodeId>;
+	marks: Array<Mark>;
+	annotations: Array<Annotation>;
+};
+
+/**
+ * Attachment context passed to a node rendered inside an annotated node array.
+ * It is the flattened mark or annotation attachment, enriched with the resolved
+ * payload node, its index in the parent attachment array, and this child node's
+ * position in the attachment range.
+ */
+export type NodeArrayAttachmentContext = {
+	start_offset: number;
+	end_offset: number;
+	node_id: NodeId;
+	index: number;
+	node: DocumentNode;
+	is_start: boolean;
+	is_middle: boolean;
+	is_end: boolean;
 };
 
 /**
@@ -468,19 +509,48 @@ export type SelectionHighlightFragment = {
 };
 
 /**
- * Represents an annotation fragment in annotated text content
+ * Represents a mark fragment in annotated text content
  */
-export type AnnotationFragment = {
-	type: 'annotation';
-	/** NodeId that has annotation type and details */
+export type MarkFragment = {
+	type: 'mark';
+	/** NodeId that has mark type and details */
 	node: any;
-	/** The text content of the annotation */
+	/** The text content of the mark */
 	content: string;
-	/** Index of the annotation in the original array */
-	annotation_index: number;
+	/** Index of the mark in the original array */
+	mark_index: number;
 };
 
 /**
  * Represents a fragment of annotated text content
  */
-export type Fragment = string | AnnotationFragment | SelectionHighlightFragment;
+export type Fragment = string | MarkFragment | SelectionHighlightFragment;
+
+/**
+ * Represents a node array fragment for plain nodes
+ */
+export type NodeArrayPlainFragment = {
+	type: 'nodes';
+	nodes: Array<NodeId>;
+	start_index: number;
+};
+
+/**
+ * Represents a mark fragment in node array content
+ */
+export type NodeArrayMarkFragment = {
+	type: 'mark';
+	/** NodeId that has mark type and details */
+	node: any;
+	/** The nodes wrapped by the mark */
+	nodes: Array<NodeId>;
+	/** Start index in the original nodes array */
+	start_index: number;
+	/** Index of the mark in the original array */
+	mark_index: number;
+};
+
+/**
+ * Represents a fragment of annotated node array content
+ */
+export type NodeArrayFragment = NodeArrayPlainFragment | NodeArrayMarkFragment;
