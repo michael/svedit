@@ -4,7 +4,7 @@
 		get_closest_switchable_layout,
 		get_closest_switchable_type,
 		is_node_subtree_empty
-	} from '../app_utils.js';
+	} from './app_utils.js';
 
 	let { session, focus_canvas, editable = $bindable(false) } = $props();
 

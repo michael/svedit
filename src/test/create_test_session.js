@@ -3,15 +3,15 @@ import { define_document_schema } from '../lib/doc_utils.js';
 import nanoid from '../routes/nanoid.js';
 
 // Node components
-import Page from '../routes/packages/page/Page.svelte';
-import Story from '../routes/packages/story/Story.svelte';
-import Button from '../routes/packages/story/Button.svelte';
-import Paragraph from '../routes/packages/text_blocks/Paragraph.svelte';
-import Heading1 from '../routes/packages/text_blocks/Heading1.svelte';
-import Heading2 from '../routes/packages/text_blocks/Heading2.svelte';
-import Heading3 from '../routes/packages/text_blocks/Heading3.svelte';
-import List from '../routes/packages/list/List.svelte';
-import ListItem from '../routes/packages/list/ListItem.svelte';
+import Page from '../packages/page/Page.svelte';
+import Story from '../packages/story/Story.svelte';
+import Button from '../packages/story/Button.svelte';
+import Paragraph from '../packages/text_blocks/Paragraph.svelte';
+import Heading1 from '../packages/text_blocks/Heading1.svelte';
+import Heading2 from '../packages/text_blocks/Heading2.svelte';
+import Heading3 from '../packages/text_blocks/Heading3.svelte';
+import List from '../packages/list/List.svelte';
+import ListItem from '../packages/list/ListItem.svelte';
 
 const document_schema = define_document_schema({
 	page: {

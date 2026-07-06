@@ -2,7 +2,7 @@
 	import { setContext } from 'svelte';
 	import Svedit from '../../lib/Svedit.svelte';
 	import { KeyMapper } from '../../lib/index.js';
-	import Layout from '../../routes/components/Layout.svelte';
+	import Layout from '../../routes/Layout.svelte';
 
 	let { session } = $props();
 

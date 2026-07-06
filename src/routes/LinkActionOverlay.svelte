@@ -1,7 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import Icon from './Icon.svelte';
-	import { serialize_path } from '../../lib/utils.js';
+	import { serialize_path } from '../lib/utils.js';
 
 	const svedit = getContext('svedit');
 	let active_link_path = $derived(get_active_link_path());

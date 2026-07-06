@@ -1,5 +1,5 @@
 import { ToggleMarkCommand } from 'svedit';
-import { ToggleLinkCommand } from '../../commands.svelte.js';
+import { ToggleLinkCommand } from '../../routes/commands.svelte.js';
 
 import Strong from './Strong.svelte';
 import Emphasis from './Emphasis.svelte';

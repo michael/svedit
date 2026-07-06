@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
+Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/Toolbar.svelte), and render custom [Overlays](./src/routes/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
 
 You can also install Svedit into an existing SvelteKit project with `npm install svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
 
@@ -229,7 +229,7 @@ Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes w
 Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry plus a component:
 
 ```js
-// packages/quote/package.js
+// src/packages/quote/package.js
 import Quote from './Quote.svelte';
 
 export default {
@@ -251,8 +251,8 @@ Then compose your packages into the flat schema + config a `Session` expects, an
 
 ```js
 import { compose, Session } from 'svedit';
-import page_pkg from './packages/page/package.js';
-import quote_pkg from './packages/quote/package.js';
+import page_pkg from '../packages/page/package.js';
+import quote_pkg from '../packages/quote/package.js';
 
 const { schema, config } = compose([page_pkg, quote_pkg], {
 	generate_id: nanoid
@@ -263,7 +263,7 @@ const session = new Session(schema, doc, config);
 
 That's usually all. Everything else is optional and only needed when the defaults don't fit:
 
-- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a package only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/routes/packages/`](src/routes/packages/)).
+- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a package only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/packages/`](src/packages/)).
 - **HTML exporter** — `html_exporters: { quote: (node) => ... }` improves copy/paste to external apps; without one a generic exporter is used.
 - **Commands and keymap** — a package can contribute commands (as a factory receiving the editor context) and keybindings that reference commands by name:
 
@@ -280,7 +280,7 @@ To catch omissions early, `Session` runs completeness checks in dev mode and log
 - a `default_node_type` can neither be auto-inserted from schema defaults nor has a custom inserter (Enter would fail),
 - a `mark`/`annotation` type is not referenced by any `mark_types`/`annotation_types` (it could never be applied).
 
-The demo app is the reference for this setup style — each folder in [`src/routes/packages/`](src/routes/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
+The demo app is the reference for this setup style — each folder in [`src/packages/`](src/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
 
 ## Document
 
@@ -533,7 +533,7 @@ const session_config = {
 - **`generate_id`** - Function that generates unique IDs for new nodes
 - **`node_components`** - Maps each node type from your schema to a Svelte component
 - **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
-  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
+  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/Overlays.svelte`](src/routes/Overlays.svelte) for an example.
   - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
