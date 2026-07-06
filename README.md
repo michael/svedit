@@ -226,7 +226,7 @@ Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes w
 
 ## Adding a new node type
 
-Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry plus a component:
+Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry, a component, and its layout count:
 
 ```js
 // src/packages/quote/package.js
@@ -243,7 +243,8 @@ export default {
 			}
 		}
 	},
-	node_components: { quote: Quote }
+	node_components: { quote: Quote },
+	node_layouts: { quote: 1 }
 };
 ```
 
