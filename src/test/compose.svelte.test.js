@@ -10,7 +10,7 @@ class NoopCommand extends Command {
 	execute() {}
 }
 
-const page_definition = {
+const page_package = {
 	name: 'page',
 	schema: {
 		page: {
@@ -27,7 +27,7 @@ const page_definition = {
 	node_components: { page: Page }
 };
 
-const paragraph_definition = {
+const paragraph_package = {
 	name: 'paragraph',
 	schema: {
 		paragraph: {
@@ -43,7 +43,7 @@ const paragraph_definition = {
 
 describe('compose', () => {
 	it('merges schema and object-valued config registries', () => {
-		const { schema, config } = compose([page_definition, paragraph_definition], {
+		const { schema, config } = compose([page_package, paragraph_package], {
 			generate_id: () => 'id_1',
 			view_classes: false
 		});
@@ -58,48 +58,48 @@ describe('compose', () => {
 		expect(config.view_classes).toBe(false);
 	});
 
-	it('throws on duplicate schema keys across definitions', () => {
-		expect(() => compose([paragraph_definition, paragraph_definition])).toThrow(
+	it('throws on duplicate schema keys across packages', () => {
+		expect(() => compose([paragraph_package, paragraph_package])).toThrow(
 			"schema key 'paragraph' from paragraph conflicts with paragraph"
 		);
 	});
 
-	it('throws on duplicate registry keys and names the definitions', () => {
+	it('throws on duplicate registry keys and names the packages', () => {
 		const other = {
 			name: 'other',
 			node_components: { paragraph: Page }
 		};
-		expect(() => compose([paragraph_definition, other])).toThrow(
+		expect(() => compose([paragraph_package, other])).toThrow(
 			"config.node_components key 'paragraph' from other conflicts with paragraph"
 		);
 	});
 
-	it('throws when two definitions set the same scalar config key', () => {
+	it('throws when two packages set the same scalar config key', () => {
 		const a = { name: 'a', view_classes: true };
 		const b = { name: 'b', view_classes: false };
 		expect(() => compose([a, b])).toThrow("config key 'view_classes' from b is already set");
 	});
 
-	it('lets app config override scalar keys from definitions', () => {
+	it('lets app config override scalar keys from packages', () => {
 		const a = { name: 'a', view_classes: true };
 		const { config } = compose([a], { view_classes: false });
 		expect(config.view_classes).toBe(false);
 	});
 
 	it('builds create_commands_and_keymap from command factories and name-based keymaps', () => {
-		const feature_a = {
+		const package_a = {
 			name: 'a',
 			commands: (context) => ({ command_a: new NoopCommand(context) }),
 			keymap: { 'meta+j,ctrl+j': ['command_a'], enter: ['command_a'] }
 		};
-		const feature_b = {
+		const package_b = {
 			name: 'b',
 			commands: (context) => ({ command_b: new NoopCommand(context) }),
-			// Same key from multiple definitions concatenates in order
+			// Same key from multiple packages concatenates in order
 			keymap: { enter: ['command_b'] }
 		};
 
-		const { config } = compose([feature_a, feature_b]);
+		const { config } = compose([package_a, package_b]);
 		const { commands, keymap } = config.create_commands_and_keymap({ session: null });
 
 		expect(Object.keys(commands)).toEqual(['command_a', 'command_b']);
@@ -107,7 +107,7 @@ describe('compose', () => {
 		expect(keymap['enter']).toEqual([commands.command_a, commands.command_b]);
 	});
 
-	it('throws on duplicate command names across definitions', () => {
+	it('throws on duplicate command names across packages', () => {
 		const a = { name: 'a', commands: (context) => ({ go: new NoopCommand(context) }) };
 		const b = { name: 'b', commands: (context) => ({ go: new NoopCommand(context) }) };
 		const { config } = compose([a, b]);
@@ -124,7 +124,7 @@ describe('compose', () => {
 		);
 	});
 
-	it('rejects mixing definition commands with a custom create_commands_and_keymap', () => {
+	it('rejects mixing package commands with a custom create_commands_and_keymap', () => {
 		const a = { name: 'a', commands: (context) => ({ go: new NoopCommand(context) }) };
 		expect(() => compose([a], { create_commands_and_keymap: () => ({}) })).toThrow(
 			'not both'
@@ -132,7 +132,7 @@ describe('compose', () => {
 	});
 
 	it('produces a config a Session can be constructed from', () => {
-		const { schema, config } = compose([page_definition, paragraph_definition], {
+		const { schema, config } = compose([page_package, paragraph_package], {
 			generate_id: () => `id_${Math.random().toString(36).slice(2)}`
 		});
 

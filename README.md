@@ -226,10 +226,10 @@ Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes w
 
 ## Adding a new node type
 
-Everything a node type needs can be grouped in one plain object — a feature definition — and merged into your session setup with `compose`. In the simplest case a new type is just a schema entry plus a component:
+Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. In the simplest case a new type is just a schema entry plus a component:
 
 ```js
-// features/quote.js
+// packages/quote.js
 import Quote from '../components/Quote.svelte';
 
 export default {
@@ -247,12 +247,12 @@ export default {
 };
 ```
 
-Then compose your features into the flat schema + config a `Session` expects, and allow the new type where it may appear (container wiring — `node_types`, `default_node_type`, `mark_types`, `annotation_types` — always stays with the property that owns the container, typically your document feature):
+Then compose your packages into the flat schema + config a `Session` expects, and allow the new type where it may appear (container wiring — `node_types`, `default_node_type`, `mark_types`, `annotation_types` — always stays with the property that owns the container, typically your document package):
 
 ```js
 import { compose, Session } from 'svedit';
-import page from './features/page.js';
-import quote from './features/quote.js';
+import page from './packages/page.js';
+import quote from './packages/quote.js';
 
 const { schema, config } = compose([page, quote], {
 	generate_id: nanoid
@@ -263,16 +263,16 @@ const session = new Session(schema, doc, config);
 
 That's usually all. Everything else is optional and only needed when the defaults don't fit:
 
-- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a definition only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/routes/features/`](src/routes/features/)).
+- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a package only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/routes/packages/`](src/routes/packages/)).
 - **HTML exporter** — `html_exporters: { quote: (node) => ... }` improves copy/paste to external apps; without one a generic exporter is used.
-- **Commands and keymap** — a definition can contribute commands (as a factory receiving the editor context) and keybindings that reference commands by name:
+- **Commands and keymap** — a package can contribute commands (as a factory receiving the editor context) and keybindings that reference commands by name:
 
 ```js
 commands: (context) => ({ toggle_strong: new ToggleMarkCommand('strong', context) }),
 keymap: { 'meta+b,ctrl+b': ['toggle_strong'] }
 ```
 
-`compose` merges everything into one flat result: schema entries and registry keys (components, inserters, exporters, and any app-specific registry like `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in definition order, and command names are resolved across all definitions. There is no plugin runtime — after composition the result is indistinguishable from a hand-written flat config, and the flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
+`compose` merges everything into one flat result: schema entries and registry keys (components, inserters, exporters, and any app-specific registry like `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in package order, and command names are resolved across all packages. There is no plugin runtime or registry — a package is just an object, and after composition the result is indistinguishable from a hand-written flat config. The flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
 
 To catch omissions early, `Session` runs completeness checks in dev mode and logs `[svedit]` warnings with a fix hint for each finding:
 
@@ -280,7 +280,7 @@ To catch omissions early, `Session` runs completeness checks in dev mode and log
 - a `default_node_type` can neither be auto-inserted from schema defaults nor has a custom inserter (Enter would fail),
 - a `mark`/`annotation` type is not referenced by any `mark_types`/`annotation_types` (it could never be applied).
 
-The demo app is the reference for this setup style — each file in [`src/routes/features/`](src/routes/features/) is one self-contained feature, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
+The demo app is the reference for this setup style — each file in [`src/routes/packages/`](src/routes/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
 
 ## Document
 

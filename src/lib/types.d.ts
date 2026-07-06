@@ -340,16 +340,16 @@ export type NodeSchema = TextNodeSchema | NonTextNodeSchema;
 export type DocumentSchema = Record<string, NodeSchema>;
 
 /**
- * A feature definition groups everything one feature needs (schema entries
- * including sub-node types, components, inserters, exporters, commands,
- * keymap contributions). Definitions are merged into a flat schema + config
- * via `compose`. Any additional object-valued key (e.g. `node_layouts`) is
+ * A package groups everything one concern needs (schema entries including
+ * sub-node types, components, inserters, exporters, commands, keymap
+ * contributions). Packages are merged into a flat schema + config via
+ * `compose`. Any additional object-valued key (e.g. `node_layouts`) is
  * merged as an app-specific registry.
  */
-export type FeatureDefinition = {
+export type Package = {
 	/** Optional name used in compose error messages */
 	name?: string;
-	/** Schema entries contributed by this feature (loosely typed so plain
+	/** Schema entries contributed by this package (loosely typed so plain
 	 * object literals don't require const assertions; the merged result is
 	 * validated at Session construction) */
 	schema?: Record<string, any>;

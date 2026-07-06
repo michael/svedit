@@ -7,7 +7,7 @@ import Highlight from '../components/Highlight.svelte';
 import Link from '../components/Link.svelte';
 import Section from '../components/Section.svelte';
 
-// Mark bundles other features reference from their text properties
+// Mark bundles other packages reference from their text properties
 export const ALL_MARKS = ['strong', 'emphasis', 'highlight', 'link'];
 export const TITLE_MARKS = ['emphasis', 'highlight'];
 

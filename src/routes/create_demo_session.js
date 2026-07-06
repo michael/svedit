@@ -5,20 +5,20 @@ import doc from './demo_doc.js';
 // System components
 import Overlays from './components/Overlays.svelte';
 
-// Feature definitions: each groups everything one feature needs (schema
-// entries incl. sub-node types, components, inserters, exporters, commands,
-// keymaps). `compose` merges them into the flat schema + config a Session
-// expects. Container wiring (which node types the page body accepts) lives in
-// the page feature — features define node types, the app composes them.
-import page from './features/page.js';
-import text_blocks from './features/text_blocks.js';
-import marks from './features/marks.js';
-import marker from './features/marker.js';
-import story from './features/story.js';
-import list from './features/list.js';
-import image_grid from './features/image_grid.js';
-import hero from './features/hero.js';
-import core from './features/core.js';
+// Packages: each groups everything one concern needs (schema entries incl.
+// sub-node types, components, inserters, exporters, commands, keymaps).
+// `compose` merges them into the flat schema + config a Session expects.
+// Container wiring (which node types the page body accepts) lives in the
+// page package — packages define node types, the app composes them.
+import page from './packages/page.js';
+import text_blocks from './packages/text_blocks.js';
+import marks from './packages/marks.js';
+import marker from './packages/marker.js';
+import story from './packages/story.js';
+import list from './packages/list.js';
+import image_grid from './packages/image_grid.js';
+import hero from './packages/hero.js';
+import core from './packages/core.js';
 
 const { schema, config } = compose(
 	[page, text_blocks, marks, marker, story, list, image_grid, hero, core],
