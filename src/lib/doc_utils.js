@@ -89,18 +89,6 @@ export function get_property_default(property_definition) {
 	return undefined;
 }
 
-export function get_node_array_nodes(value) {
-	return value?.nodes ?? [];
-}
-
-export function get_node_array_marks(value) {
-	return value?.marks ?? [];
-}
-
-export function get_node_array_annotations(value) {
-	return value?.annotations ?? [];
-}
-
 /**
  * Fill omitted properties with schema defaults and Svedit's built-in type defaults.
  *
@@ -594,13 +582,13 @@ export function get(schema, doc, path) {
 			}
 		} else if (val_type === 'node_array') {
 			if (path_segment === 'nodes') {
-				val = get_node_array_nodes(val);
+				val = val.nodes;
 				val_type = 'node_id_array';
 			} else if (path_segment === 'marks') {
-				val = get_node_array_marks(val);
+				val = val.marks;
 				val_type = 'range_array';
 			} else if (path_segment === 'annotations') {
-				val = get_node_array_annotations(val);
+				val = val.annotations;
 				val_type = 'range_array';
 			} else if (typeof path_segment === 'number' || /^\d+$/.test(String(path_segment))) {
 				val = doc.nodes[val.nodes[path_segment]];
@@ -775,11 +763,15 @@ export function count_references(schema, doc, node_id) {
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				count += get_node_array_nodes(value).filter((id) => id === node_id).length;
-				count += get_node_array_marks(value).filter((m) => m.node_id === node_id).length;
-				count += get_node_array_annotations(value).filter((a) => a.node_id === node_id).length;
+				count += value.nodes.filter((id) => id === node_id).length;
 			} else if (prop_type === 'node' && value === node_id) {
 				count += 1;
+			}
+
+			if ((prop_type === 'text' || prop_type === 'node_array') && value) {
+				count += [...value.marks, ...value.annotations].filter(
+					(range) => range.node_id === node_id
+				).length;
 			}
 		}
 	}
@@ -898,15 +890,13 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				count += get_node_array_nodes(value).filter((id) => id === target_node_id).length;
-				count += get_node_array_marks(value).filter((m) => m.node_id === target_node_id).length;
-				count += get_node_array_annotations(value).filter(
-					(a) => a.node_id === target_node_id
-				).length;
+				count += value.nodes.filter((id) => id === target_node_id).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
-			} else if (prop_type === 'text' && value) {
-				count += [...(value.marks ?? []), ...(value.annotations ?? [])].filter(
+			}
+
+			if ((prop_type === 'text' || prop_type === 'node_array') && value) {
+				count += [...value.marks, ...value.annotations].filter(
 					(range) => range.node_id === target_node_id
 				).length;
 			}
@@ -936,25 +926,21 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				if (get_node_array_nodes(value).some((id) => target_ids.has(id))) {
-					referencing_node_ids.add(node.id);
-				} else if (
-					[...get_node_array_marks(value), ...get_node_array_annotations(value)].some((range) =>
-						target_ids.has(range.node_id)
-					)
-				) {
+				if (value.nodes.some((id) => target_ids.has(id))) {
 					referencing_node_ids.add(node.id);
 				}
 			} else if (prop_type === 'node' && target_ids.has(value)) {
 				referencing_node_ids.add(node.id);
-			} else if (prop_type === 'text' && value) {
-				if (
-					[...(value.marks ?? []), ...(value.annotations ?? [])].some((range) =>
-						target_ids.has(range.node_id)
-					)
-				) {
-					referencing_node_ids.add(node.id);
-				}
+			}
+
+			if (
+				(prop_type === 'text' || prop_type === 'node_array') &&
+				value &&
+				[...value.marks, ...value.annotations].some((range) =>
+					target_ids.has(range.node_id)
+				)
+			) {
+				referencing_node_ids.add(node.id);
 			}
 		}
 	}
@@ -981,13 +967,11 @@ export function validate_selection(selection, session_or_transaction) {
 	if (selection_type === 'node') {
 		const node_array_prop = session_or_transaction.get(selection.path);
 
-		const node_array_nodes = get_node_array_nodes(node_array_prop);
-
 		if (!node_array_prop || !Array.isArray(node_array_prop.nodes)) {
 			throw new Error('Node selection path must point to a node_array');
 		}
 
-		const max_offset = node_array_nodes.length;
+		const max_offset = node_array_prop.nodes.length;
 		if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
 			throw new Error(
 				`Node selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${max_offset}.`

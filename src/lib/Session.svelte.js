@@ -15,10 +15,7 @@ import {
 	get_referencing_node_ids,
 	get_selected_marks,
 	get_selected_annotations,
-	validate_selection,
-	get_node_array_nodes,
-	get_node_array_marks,
-	get_node_array_annotations
+	validate_selection
 } from './doc_utils.js';
 
 /**
@@ -238,7 +235,7 @@ export default class Session {
 			// Only consider selection of a single node
 			if (end - start !== 1) return null;
 			const node_array = this.get(this.selection.path);
-			const node_id = get_node_array_nodes(node_array)[start];
+			const node_id = node_array.nodes[start];
 			return node_id ? this.get(node_id) : null;
 		} else {
 			// we are assuming we are either in a text or property (=custom) selection
@@ -496,7 +493,7 @@ export default class Session {
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const node_array = this.get(this.selection.path);
-		const main_nodes = get_node_array_nodes(node_array).slice(selection_start, selection_end);
+		const main_nodes = node_array.nodes.slice(selection_start, selection_end);
 		const nodes = {};
 
 		const add_subgraph = (node_id) => {
@@ -523,8 +520,8 @@ export default class Session {
 				})
 				.filter(Boolean);
 
-		const marks = clip_ranges(get_node_array_marks(node_array));
-		const annotations = clip_ranges(get_node_array_annotations(node_array));
+		const marks = clip_ranges(node_array.marks);
+		const annotations = clip_ranges(node_array.annotations);
 
 		return { nodes, main_nodes, marks, annotations };
 	}
@@ -545,7 +542,7 @@ export default class Session {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const node_array = this.get(this.selection.path);
-		return $state.snapshot(get_node_array_nodes(node_array).slice(start, end));
+		return $state.snapshot(node_array.nodes.slice(start, end));
 	}
 
 	select_parent() {

@@ -87,7 +87,7 @@
 			.map(({ range, index }) => get_range_context(range, index, node_index));
 	}
 
-	function get_annotations(node_index) {
+	function get_annotation_contexts(node_index) {
 		return get_covering_ranges(annotations, node_index);
 	}
 
@@ -118,7 +118,7 @@
 			return get_mark(node_index);
 		},
 		annotations_for(node_index) {
-			return get_annotations(node_index);
+			return get_annotation_contexts(node_index);
 		}
 	});
 </script>
@@ -148,7 +148,7 @@
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
 			{@const mark = get_mark(index)}
-			{@const annotations = get_annotations(index)}
+			{@const annotations = get_annotation_contexts(index)}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}

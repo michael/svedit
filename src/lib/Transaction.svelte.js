@@ -27,10 +27,7 @@ import {
 	get_selected_marks,
 	get_selected_annotations,
 	get_selected_range_types,
-	validate_selection,
-	get_node_array_nodes,
-	get_node_array_marks,
-	get_node_array_annotations
+	validate_selection
 } from './doc_utils.js';
 
 /**
@@ -285,8 +282,8 @@ export default class Transaction {
 		if (prop_type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
 			removed_node_ids = [previous_value];
 		} else if (prop_type === 'node_array') {
-			const previous_node_ids = get_node_array_nodes(previous_value);
-			const next_node_ids = get_node_array_nodes(value);
+			const previous_node_ids = previous_value.nodes;
+			const next_node_ids = value.nodes;
 
 			// Only include node IDs that were in previous_value but are not in the new value
 			removed_node_ids = previous_node_ids.filter((id) => !next_node_ids.includes(id));
@@ -338,9 +335,9 @@ export default class Transaction {
 
 				if (prop_type === 'node_array' && value && typeof value === 'object') {
 					new_node[property_name] = {
-						nodes: get_node_array_nodes(value).map((ref_id) => id_map[ref_id]),
-						marks: remap_ranges(get_node_array_marks(value)),
-						annotations: remap_ranges(get_node_array_annotations(value))
+						nodes: value.nodes.map((ref_id) => id_map[ref_id]),
+						marks: remap_ranges(value.marks),
+						annotations: remap_ranges(value.annotations)
 					};
 				} else if (prop_type === 'node' && typeof value === 'string') {
 					new_node[property_name] = id_map[value];

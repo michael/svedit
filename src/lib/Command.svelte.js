@@ -1,9 +1,5 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
-import {
-	can_switch_mark_type,
-	get_node_array_nodes,
-	get_selected_range_types
-} from './doc_utils.js';
+import { can_switch_mark_type, get_selected_range_types } from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
 
 /**
@@ -336,12 +332,11 @@ export class SelectAllCommand extends Command {
 		} else if (selection.type === 'node') {
 			const node_array_path = selection.path;
 			const node_array = session.get(node_array_path);
-			const node_array_nodes = get_node_array_nodes(node_array);
 
 			// Check if the entire node_array is already selected
 			const is_entire_node_array_selected =
 				Math.min(selection.anchor_offset, selection.focus_offset) === 0 &&
-				Math.max(selection.anchor_offset, selection.focus_offset) === node_array_nodes.length;
+				Math.max(selection.anchor_offset, selection.focus_offset) === node_array.nodes.length;
 
 			if (!is_entire_node_array_selected) {
 				// Select the entire node_array
@@ -349,7 +344,7 @@ export class SelectAllCommand extends Command {
 					type: 'node',
 					path: node_array_path,
 					anchor_offset: 0,
-					focus_offset: node_array_nodes.length
+					focus_offset: node_array.nodes.length
 				};
 			} else {
 				// Entire node_array is selected, try to move up to parent node_array

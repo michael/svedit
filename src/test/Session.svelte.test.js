@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
-import { define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
+import { count_references, define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -418,6 +418,48 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Transaction result validation', () => {
+		it('should include mark and annotation nodes when serializing reachable nodes to json', () => {
+			const session = create_test_session();
+			session.schema.strong = { kind: 'mark', properties: {} };
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+
+			const tr = session.tr;
+			tr.create({ id: 'strong_1', type: 'strong' });
+			tr.create({ id: 'comment_1', type: 'comment' });
+			tr.set(['story_1', 'title'], {
+				content: 'First story',
+				marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+				annotations: [{ start_offset: 2, end_offset: 7, node_id: 'comment_1' }]
+			});
+			session.apply(tr);
+
+			const json = session.to_json();
+			expect(json.nodes.strong_1).toEqual({ id: 'strong_1', type: 'strong' });
+			expect(json.nodes.comment_1).toEqual({ id: 'comment_1', type: 'comment' });
+		});
+
+		it('should count references from text marks and annotations', () => {
+			const session = create_test_session();
+			session.schema.strong = { kind: 'mark', properties: {} };
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
+			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+
+			const doc = structuredClone(session.doc);
+			doc.nodes.strong_1 = { id: 'strong_1', type: 'strong' };
+			doc.nodes.comment_1 = { id: 'comment_1', type: 'comment' };
+			doc.nodes.story_1.title = {
+				content: 'First story',
+				marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+				annotations: [{ start_offset: 2, end_offset: 7, node_id: 'comment_1' }]
+			};
+
+			expect(count_references(session.schema, doc, 'strong_1')).toBe(1);
+			expect(count_references(session.schema, doc, 'comment_1')).toBe(1);
+		});
+
 		it('should throw when applying a transaction that creates a missing node reference', () => {
 			const session = create_test_session();
 			const tr = session.tr;
