@@ -51,11 +51,33 @@ describe('compose', () => {
 		expect(Object.keys(schema)).toEqual(['page', 'paragraph']);
 		expect(config.node_components.page).toBe(Page);
 		expect(config.node_components.paragraph).toBe(Paragraph);
-		// Unknown app-specific registries merge too
+		// App-specific package registries merge like Svedit registries
 		expect(config.node_layouts).toEqual({ paragraph: 1 });
 		// App-level scalars are set directly
 		expect(config.generate_id()).toBe('id_1');
 		expect(config.view_classes).toBe(false);
+	});
+
+	it('merges custom package registries and app config registries', () => {
+		const { config } = compose(
+			[
+				{ name: 'a', node_layouts: { paragraph: 1 } },
+				{ name: 'b', node_layouts: { story: 3 } }
+			],
+			{ toolbar_groups: { text: ['paragraph'] } }
+		);
+
+		expect(config.node_layouts).toEqual({ paragraph: 1, story: 3 });
+		expect(config.toolbar_groups).toEqual({ text: ['paragraph'] });
+	});
+
+	it('throws on duplicate custom registry keys', () => {
+		expect(() =>
+			compose([
+				{ name: 'a', node_layouts: { paragraph: 1 } },
+				{ name: 'b', node_layouts: { paragraph: 2 } }
+			])
+		).toThrow("config.node_layouts key 'paragraph' from b conflicts with a");
 	});
 
 	it('throws on duplicate schema keys across packages', () => {

@@ -364,8 +364,8 @@ export type Package = {
 	commands?: (context: any) => Record<string, any>;
 	/** Key combos mapped to arrays of command names */
 	keymap?: Record<string, string[]>;
-	/** Layout ids per node type, merged into config.node_layouts */
-	node_layouts?: Record<string, number>;
+	/** Custom app-owned registries, merged into config by key */
+	[key: string]: any;
 };
 
 /**

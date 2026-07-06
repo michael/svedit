@@ -12,9 +12,10 @@
  * - Every package must have a unique `name`; names are used in diagnostics.
  * - Packages define node types; only the app wires containers
  *   (`node_types`, `default_node_type`, `mark_types`, `annotation_types`).
- * - Known registry keys (node_components, system_components, inserters,
- *   html_exporters, node_layouts) merge key-by-key; duplicate keys across
- *   packages throw.
+ * - Known Svedit registry keys and custom app registry keys merge
+ *   key-by-key; duplicate keys across packages throw.
+ * - Unknown scalar/function package keys throw, because app-level scalar
+ *   config belongs in the second `compose(..., app_config)` argument.
  * - `commands` factories are combined into a single
  *   `create_commands_and_keymap`; `keymap` entries reference commands by
  *   name and concatenate when multiple packages bind the same key.
@@ -27,14 +28,7 @@
 import { define_keymap } from './KeyMapper.svelte.js';
 
 /** Package keys that are not plain config registries */
-const REGISTRY_KEYS = [
-	'node_components',
-	'system_components',
-	'inserters',
-	'html_exporters',
-	'node_layouts'
-];
-const PACKAGE_KEYS = ['name', 'schema', 'commands', 'keymap', ...REGISTRY_KEYS];
+const SPECIAL_KEYS = ['name', 'schema', 'commands', 'keymap'];
 
 /**
  * @param {Package} pkg
@@ -67,6 +61,10 @@ function merge_registry(target, source, owners, owner, registry) {
 		target[key] = value;
 		owners[key] = owner;
 	}
+}
+
+function is_plain_object(value) {
+	return value && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -102,8 +100,12 @@ export function compose(packages, app_config = {}) {
 		package_names.add(owner);
 
 		for (const key of Object.keys(pkg)) {
-			if (!PACKAGE_KEYS.includes(key)) {
-				throw new Error(`compose: unknown package key '${key}' in ${owner}.`);
+			if (SPECIAL_KEYS.includes(key)) continue;
+			const value = pkg[key];
+			if (!is_plain_object(value)) {
+				throw new Error(
+					`compose: unknown package key '${key}' in ${owner}. Custom package keys must be plain object registries.`
+				);
 			}
 		}
 
@@ -123,18 +125,16 @@ export function compose(packages, app_config = {}) {
 			}
 		}
 
-		for (const key of REGISTRY_KEYS) {
-			const value = pkg[key];
-			if (value) {
-				config[key] ??= {};
-				owners[key] ??= {};
-				merge_registry(config[key], value, owners[key], owner, `config.${key}`);
-			}
+		for (const [key, value] of Object.entries(pkg)) {
+			if (SPECIAL_KEYS.includes(key)) continue;
+			config[key] ??= {};
+			owners[key] ??= {};
+			merge_registry(config[key], value, owners[key], owner, `config.${key}`);
 		}
 	}
 
 	for (const [key, value] of Object.entries(app_config)) {
-		if (value && typeof value === 'object' && !Array.isArray(value)) {
+		if (is_plain_object(value)) {
 			config[key] ??= {};
 			owners[key] ??= {};
 			merge_registry(config[key], value, owners[key], 'app config', `config.${key}`);
