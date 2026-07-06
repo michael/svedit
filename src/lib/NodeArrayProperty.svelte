@@ -5,7 +5,7 @@
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 
-	/** @import { NodeArrayPropertyProps, NodeArrayAnnotationContext } from './types.d.ts'; */
+	/** @import { NodeArrayPropertyProps, NodeArrayRangeContext } from './types.d.ts'; */
 
 	const svedit = getContext('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
@@ -22,26 +22,26 @@
 
 	let raw_value = $derived(svedit.session.get(path));
 	let node_ids = $derived(raw_value.nodes);
+	let marks = $derived(raw_value.marks);
 	let annotations = $derived(raw_value.annotations);
 
-	let in_place_annotations = $derived(get_in_place_annotations(annotations));
-	let fragments = $derived(get_fragments(node_ids, in_place_annotations));
+	let fragments = $derived(get_fragments(node_ids, marks));
 
-	function get_fragments(node_ids, annotations) {
-		const ranges = calculate_fragment_ranges(node_ids.length, annotations);
+	function get_fragments(node_ids, marks) {
+		const ranges = calculate_fragment_ranges(node_ids.length, marks);
 		let fragments = [];
 
 		for (const range of ranges) {
 			const nodes_slice = node_ids.slice(range.start_offset, range.end_offset);
 
-			if (range.type === 'annotation') {
+			if (range.type === 'mark') {
 				const node = svedit.session.get(range.node_id);
 				fragments.push({
-					type: 'annotation',
+					type: 'mark',
 					node,
 					nodes: nodes_slice,
 					start_index: range.start_offset,
-					annotation_index: range.annotation_index
+					mark_index: range.mark_index
 				});
 			} else if (range.type === 'content') {
 				fragments.push({
@@ -54,15 +54,6 @@
 		return fragments;
 	}
 
-	function get_in_place_annotations(annotations) {
-		return annotations
-			.map((annotation, index) => ({ ...annotation, annotation_index: index }))
-			.filter((annotation) => {
-				const node = svedit.session.get(annotation.node_id);
-				return node && svedit.session.config.node_components[node.type];
-			});
-	}
-
 	function get_node_key(node_id, index) {
 		let occurrence = 0;
 		for (let current_index = 0; current_index < index; current_index++) {
@@ -72,15 +63,15 @@
 	}
 
 	/**
-	 * @returns {NodeArrayAnnotationContext}
+	 * @returns {NodeArrayRangeContext}
 	 */
-	function get_annotation_context(annotation, index, node_index) {
-		const node = svedit.session.get(annotation.node_id);
-		const is_start = node_index === annotation.start_offset;
-		const is_end = node_index === annotation.end_offset - 1;
+	function get_range_context(range, index, node_index) {
+		const node = svedit.session.get(range.node_id);
+		const is_start = node_index === range.start_offset;
+		const is_end = node_index === range.end_offset - 1;
 
 		return {
-			...annotation,
+			...range,
 			index,
 			node,
 			is_start,
@@ -89,26 +80,22 @@
 		};
 	}
 
-	function get_annotations(node_index) {
-		return annotations
-			.map((annotation, index) => ({ annotation, index }))
-			.filter(
-				({ annotation }) =>
-					annotation.start_offset <= node_index && node_index < annotation.end_offset
-			)
-			.map(({ annotation, index }) => get_annotation_context(annotation, index, node_index));
+	function get_covering_ranges(ranges, node_index) {
+		return ranges
+			.map((range, index) => ({ range, index }))
+			.filter(({ range }) => range.start_offset <= node_index && node_index < range.end_offset)
+			.map(({ range, index }) => get_range_context(range, index, node_index));
 	}
 
-	function get_annotation(node_index) {
-		// The single in-place (component-backed) annotation wrapping this node,
-		// or null. Exclusivity guarantees at most one. Data-only annotations
-		// never wrap and are exposed via `annotations` (plural) instead, so
-		// they don't affect the singular.
-		return (
-			get_annotations(node_index).find(
-				(annotation) => svedit.session.config.node_components[annotation.node?.type]
-			) ?? null
-		);
+	function get_annotations(node_index) {
+		return get_covering_ranges(annotations, node_index);
+	}
+
+	function get_mark(node_index) {
+		// The single mark wrapping this node, or null. Mark exclusivity
+		// guarantees at most one. Annotations never wrap and are exposed via
+		// `annotations` instead.
+		return get_covering_ranges(marks, node_index)[0] ?? null;
 	}
 
 	// Mirrors the TextProperty pattern: a `focused` class follows
@@ -124,9 +111,12 @@
 		get length() {
 			return node_ids.length;
 		},
-		// Lets Node self-serve the annotations covering a child, so node
-		// wrappers can carry annotation classes without every node component
-		// having to thread the `annotations` prop through.
+		// Lets Node self-serve the marks and annotations covering a child, so
+		// node wrappers can carry range classes without every node component
+		// having to thread the `mark`/`annotations` props through.
+		mark_for(node_index) {
+			return get_mark(node_index);
+		},
 		annotations_for(node_index) {
 			return get_annotations(node_index);
 		}
@@ -157,12 +147,12 @@
 		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}
-			{@const annotation = get_annotation(index)}
+			{@const mark = get_mark(index)}
 			{@const annotations = get_annotations(index)}
 			<NodeGap array_path={path} offset={index} count={node_ids.length} />
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}
-				<Component path={[...path, index]} {annotation} {annotations} />
+				<Component path={[...path, index]} {mark} {annotations} />
 			{:else}
 				<UnknownNode path={[...path, index]} />
 			{/if}
@@ -172,12 +162,12 @@
 	{#each fragments as fragment, fragment_index (fragment_index)}
 		{#if fragment.type === 'nodes'}
 			{@render render_nodes(fragment.nodes, fragment.start_index)}
-		{:else if fragment.type === 'annotation'}
-			{@const AnnotationComponent = svedit.session.config.node_components[fragment.node.type]}
-			{#if AnnotationComponent}
-				<AnnotationComponent path={[...path, 'annotations', fragment.annotation_index, 'node_id']}>
+		{:else if fragment.type === 'mark'}
+			{@const MarkComponent = svedit.session.config.node_components[fragment.node.type]}
+			{#if MarkComponent}
+				<MarkComponent path={[...path, 'marks', fragment.mark_index, 'node_id']}>
 					{@render render_nodes(fragment.nodes, fragment.start_index)}
-				</AnnotationComponent>
+				</MarkComponent>
 			{:else}
 				{@render render_nodes(fragment.nodes, fragment.start_index)}
 			{/if}

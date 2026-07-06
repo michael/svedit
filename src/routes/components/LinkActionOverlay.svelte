@@ -11,9 +11,9 @@
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 
-		const active_annotation = svedit.session.active_annotation;
-		if (active_annotation?.node.type === 'link') {
-			return [...sel.path, 'annotations', active_annotation.index, 'node_id'];
+		const active_mark = svedit.session.active_mark;
+		if (active_mark?.node.type === 'link') {
+			return [...sel.path, 'marks', active_mark.index, 'node_id'];
 		}
 		return null;
 	}

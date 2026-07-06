@@ -48,7 +48,7 @@
 					nodes[bid] = {
 						id: bid,
 						type: 'button',
-						content: { content: `Action ${b + 1}`, annotations: [] },
+						content: { content: `Action ${b + 1}`, marks: [], annotations: [] },
 						href: '#'
 					};
 					btn_ids.push(bid);
@@ -57,14 +57,14 @@
 					id,
 					type: 'story',
 					layout: (i % 3) + 1,
-					title: { content: `Story ${body.length + 1}`, annotations: [] },
+					title: { content: `Story ${body.length + 1}`, marks: [], annotations: [] },
 					description: {
 						content:
 							'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
-						annotations: []
+						marks: [], annotations: []
 					},
 					image: '',
-					buttons: { nodes: btn_ids, annotations: [] }
+					buttons: { nodes: btn_ids, marks: [], annotations: [] }
 				};
 			} else if (mod === 10) {
 				const items = [];
@@ -73,14 +73,14 @@
 					nodes[lid] = {
 						id: lid,
 						type: 'list_item',
-						content: { content: `List item ${j + 1} with sample content`, annotations: [] }
+						content: { content: `List item ${j + 1} with sample content`, marks: [], annotations: [] }
 					};
 					items.push(lid);
 				}
 				nodes[id] = {
 					id,
 					type: 'list',
-					list_items: { nodes: items, annotations: [] },
+					list_items: { nodes: items, marks: [], annotations: [] },
 					layout: 3
 				};
 			} else if (mod === 0 && i > 0) {
@@ -91,8 +91,8 @@
 						id: gid,
 						type: 'image_grid_item',
 						image: '',
-						title: { content: `Grid ${g + 1}`, annotations: [] },
-						description: { content: 'Grid item description text', annotations: [] }
+						title: { content: `Grid ${g + 1}`, marks: [], annotations: [] },
+						description: { content: 'Grid item description text', marks: [], annotations: [] }
 					};
 					grid_items.push(gid);
 				}
@@ -100,7 +100,7 @@
 					id,
 					type: 'image_grid',
 					layout: 1,
-					image_grid_items: { nodes: grid_items, annotations: [] }
+					image_grid_items: { nodes: grid_items, marks: [], annotations: [] }
 				};
 			} else {
 				nodes[id] = {
@@ -109,7 +109,7 @@
 					layout: 1,
 					content: {
 						content: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
-						annotations: []
+						marks: [], annotations: []
 					}
 				};
 			}
@@ -119,7 +119,7 @@
 		nodes['perf_page'] = {
 			id: 'perf_page',
 			type: 'page',
-			body: { nodes: body, annotations: [] },
+			body: { nodes: body, marks: [], annotations: [] },
 			keywords: [],
 			daily_visitors: [],
 			created_at: new Date().toISOString()
@@ -354,7 +354,7 @@
 					tr.create({
 						id,
 						type: 'button',
-						content: { content: `Btn ${i + 1}`, annotations: [] },
+						content: { content: `Btn ${i + 1}`, marks: [], annotations: [] },
 						href: '#'
 					});
 					const current_value = session.doc.nodes[target.node_id][target.prop];
@@ -362,6 +362,7 @@
 					current.push(id);
 					tr.set([target.node_id, target.prop], {
 						nodes: current,
+						marks: current_value.marks,
 						annotations: current_value.annotations
 					});
 					session.apply(tr);

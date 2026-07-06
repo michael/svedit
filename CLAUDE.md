@@ -26,6 +26,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
 - The user prefers to run all tests manually
 - Focus on implementing code changes and let the user handle testing
+- DO NOT start the dev server or drive the app in a browser (preview tools, screenshots, etc.) to verify changes — in-browser verification is done manually by the user
+- Static checks are fine: `npm run build` and `npm run check` may be used to verify that changes compile
 
 **Implementation Guidelines:**
 

@@ -4,7 +4,7 @@
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
  *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
+ * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, NodeRange, Mark, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
  */
 
 import {
@@ -13,7 +13,7 @@ import {
 	get_selection_range,
 	get_char_length,
 	serialize_path,
-	are_annotation_ranges_exclusive
+	are_ranges_exclusive
 } from './utils.js';
 
 /**
@@ -75,8 +75,8 @@ export function get_property_default(property_definition) {
 	if (property_definition.type === 'integer') return 0;
 	if (property_definition.type === 'number') return 0;
 	if (property_definition.type === 'boolean') return false;
-	if (property_definition.type === 'text') return { content: '', annotations: [] };
-	if (property_definition.type === 'node_array') return { nodes: [], annotations: [] };
+	if (property_definition.type === 'text') return { content: '', marks: [], annotations: [] };
+	if (property_definition.type === 'node_array') return { nodes: [], marks: [], annotations: [] };
 	if (
 		property_definition.type === 'string_array' ||
 		property_definition.type === 'number_array' ||
@@ -91,6 +91,10 @@ export function get_property_default(property_definition) {
 
 export function get_node_array_nodes(value) {
 	return value?.nodes ?? [];
+}
+
+export function get_node_array_marks(value) {
+	return value?.marks ?? [];
 }
 
 export function get_node_array_annotations(value) {
@@ -170,6 +174,42 @@ export function validate_document_schema(document_schema) {
 					);
 				}
 			}
+			if (prop_def.type === 'text' || prop_def.type === 'node_array') {
+				// mark_types must reference kind 'mark', annotation_types kind 'annotation'
+				for (const [key, expected_kind] of [
+					['mark_types', 'mark'],
+					['annotation_types', 'annotation']
+				]) {
+					const invalid_types = (prop_def[key] ?? []).filter(
+						(ref_type) => document_schema[ref_type]?.kind !== expected_kind
+					);
+					if (invalid_types.length > 0) {
+						throw new Error(
+							`Node type "${node_type}" property "${prop_name}" ${key} must reference node types of kind '${expected_kind}', got: ${invalid_types.join(', ')}.`
+						);
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Validate that no annotation node type has a registered component.
+ *
+ * Marks render in-place via components; annotations are data-only overlay
+ * ranges that must be interpreted by the app (via CSS classes or props).
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {any} config - The Svedit config
+ * @throws {Error} Throws if a kind 'annotation' type has a registered component
+ */
+export function validate_config_components(schema, config) {
+	for (const [node_type, node_schema] of Object.entries(schema)) {
+		if (node_schema.kind === 'annotation' && config?.node_components?.[node_type]) {
+			throw new Error(
+				`Annotation type "${node_type}" must not have a registered component. Annotations are data-only; use kind 'mark' for in-place rendered ranges.`
+			);
 		}
 	}
 }
@@ -197,6 +237,7 @@ function validate_primitive_value(type, value) {
 				typeof value === 'object' &&
 				value !== null &&
 				typeof value.content === 'string' &&
+				Array.isArray(value.marks) &&
 				Array.isArray(value.annotations)
 			);
 		case 'string_array':
@@ -213,75 +254,126 @@ function validate_primitive_value(type, value) {
 }
 
 /**
- * Validate annotations for bounds, references, and allowed types.
+ * Validate ranges (marks or annotations) for bounds, references, and allowed types.
  *
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
- * @param {Array<Annotation>} annotations - Annotations to validate
+ * @param {'mark' | 'annotation'} label - Range label, used for error messages
+ * @param {Array<NodeRange>} ranges - Ranges to validate
  * @param {number} container_length - Length of the annotated text or node array
- * @param {Array<string> | null | undefined} allowed_annotation_types - Allowed annotation node types
+ * @param {Array<string> | null | undefined} allowed_types - Allowed node types
  * @param {Record<string, any>} all_nodes - All document nodes
  * @param {boolean} require_references - Whether referenced nodes must already exist
- * @throws {Error} Throws if annotations are invalid
+ * @throws {Error} Throws if ranges are invalid
  */
-function validate_annotations_array(
+function validate_range_array(
 	node_id,
 	prop_name,
-	annotations,
+	label,
+	ranges,
 	container_length,
-	allowed_annotation_types,
+	allowed_types,
 	all_nodes,
 	require_references
 ) {
-	for (const [index, annotation] of annotations.entries()) {
+	for (const [index, range] of ranges.entries()) {
 		if (
-			typeof annotation !== 'object' ||
-			annotation === null ||
-			!Number.isInteger(annotation.start_offset) ||
-			!Number.isInteger(annotation.end_offset) ||
-			!is_id_valid(annotation.node_id)
+			typeof range !== 'object' ||
+			range === null ||
+			!Number.isInteger(range.start_offset) ||
+			!Number.isInteger(range.end_offset) ||
+			!is_id_valid(range.node_id)
 		) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} has an invalid annotation at index ${index}. Annotations must have integer start_offset/end_offset and a valid node_id.`
+				`Node ${node_id} property ${prop_name} has an invalid ${label} at index ${index}. Ranges must have integer start_offset/end_offset and a valid node_id.`
 			);
 		}
 
-		if (annotation.start_offset < 0 || annotation.end_offset > container_length) {
+		if (range.start_offset < 0 || range.end_offset > container_length) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} is out of bounds: ${annotation.start_offset}-${annotation.end_offset}, container length is ${container_length}.`
+				`Node ${node_id} property ${prop_name} ${label} ${range.node_id} is out of bounds: ${range.start_offset}-${range.end_offset}, container length is ${container_length}.`
 			);
 		}
 
-		if (annotation.start_offset >= annotation.end_offset) {
+		if (range.start_offset >= range.end_offset) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation ${annotation.node_id} must not be empty or reversed: ${annotation.start_offset}-${annotation.end_offset}.`
+				`Node ${node_id} property ${prop_name} ${label} ${range.node_id} must not be empty or reversed: ${range.start_offset}-${range.end_offset}.`
 			);
 		}
 
-		const referenced_node = all_nodes[annotation.node_id];
+		const referenced_node = all_nodes[range.node_id];
 		if (!referenced_node) {
 			if (require_references) {
 				throw new Error(
-					`Node ${node_id} property ${prop_name} annotation references missing node ${annotation.node_id}.`
+					`Node ${node_id} property ${prop_name} ${label} references missing node ${range.node_id}.`
 				);
 			}
 			continue;
 		}
 
-		if (
-			allowed_annotation_types?.length &&
-			!allowed_annotation_types.includes(referenced_node.type)
-		) {
+		if (allowed_types?.length && !allowed_types.includes(referenced_node.type)) {
 			throw new Error(
-				`Node ${node_id} property ${prop_name} annotation references node ${annotation.node_id} of type ${referenced_node.type}, but only types [${allowed_annotation_types.join(', ')}] are allowed.`
+				`Node ${node_id} property ${prop_name} ${label} references node ${range.node_id} of type ${referenced_node.type}, but only types [${allowed_types.join(', ')}] are allowed.`
 			);
 		}
 	}
-
 }
 
 /**
- * Validate text property annotations for bounds, references, allowed types, and exclusivity.
+ * Validate marks and annotations of an annotated container (text or node array).
+ *
+ * Marks must be mutually exclusive; annotations may overlap.
+ *
+ * @param {string} node_id - Owner node id, used for error messages
+ * @param {string} prop_name - Owner property name, used for error messages
+ * @param {{ marks: Array<Mark>, annotations: Array<Annotation> }} value - Annotated value to validate
+ * @param {{ mark_types?: string[], annotation_types?: string[] }} prop_def - Property definition
+ * @param {number} container_length - Length of the annotated text or node array
+ * @param {Record<string, any>} all_nodes - All document nodes
+ * @param {boolean} require_references - Whether referenced nodes must already exist
+ * @throws {Error} Throws if marks or annotations are invalid
+ */
+function validate_marks_and_annotations(
+	node_id,
+	prop_name,
+	value,
+	prop_def,
+	container_length,
+	all_nodes,
+	require_references
+) {
+	validate_range_array(
+		node_id,
+		prop_name,
+		'mark',
+		value.marks,
+		container_length,
+		prop_def.mark_types,
+		all_nodes,
+		require_references
+	);
+
+	if (!are_ranges_exclusive(value.marks, container_length)) {
+		throw new Error(
+			`Node ${node_id} property ${prop_name} has overlapping marks. Marks must be mutually exclusive.`
+		);
+	}
+
+	validate_range_array(
+		node_id,
+		prop_name,
+		'annotation',
+		value.annotations,
+		container_length,
+		prop_def.annotation_types,
+		all_nodes,
+		require_references
+	);
+}
+
+/**
+ * Validate text property marks and annotations for bounds, references, allowed
+ * types, and mark exclusivity.
  *
  * @param {string} node_id - Owner node id, used for error messages
  * @param {string} prop_name - Owner property name, used for error messages
@@ -289,7 +381,7 @@ function validate_annotations_array(
  * @param {TextProperty} prop_def - Text property definition
  * @param {Record<string, any>} all_nodes - All document nodes
  * @param {boolean} require_references - Whether referenced nodes must already exist
- * @throws {Error} Throws if annotations are invalid
+ * @throws {Error} Throws if marks or annotations are invalid
  */
 function validate_text_property(
 	node_id,
@@ -300,12 +392,12 @@ function validate_text_property(
 	require_references
 ) {
 	const char_length = get_char_length(value.content);
-	validate_annotations_array(
+	validate_marks_and_annotations(
 		node_id,
 		prop_name,
-		value.annotations,
+		value,
+		prop_def,
 		char_length,
-		prop_def.annotation_types,
 		all_nodes,
 		require_references
 	);
@@ -389,15 +481,15 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 				!value ||
 				typeof value !== 'object' ||
 				!Array.isArray(value.nodes) ||
+				!Array.isArray(value.marks) ||
 				!Array.isArray(value.annotations)
 			) {
 				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be an object with nodes and annotations.`
+					`Node ${node.id} has an invalid property: ${prop_name} must be an object with nodes, marks and annotations.`
 				);
 			}
 
 			const node_array_nodes = value.nodes;
-			const node_array_annotations = value.annotations;
 
 			if (!node_array_nodes.every((id) => typeof id === 'string' && is_id_valid(id))) {
 				throw new Error(
@@ -422,12 +514,12 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 					);
 				}
 			}
-			validate_annotations_array(
+			validate_marks_and_annotations(
 				node.id,
 				prop_name,
-				node_array_annotations,
+				value,
+				prop_def,
 				node_array_nodes.length,
-				prop_def.annotation_types,
 				all_nodes,
 				require_references
 			);
@@ -454,59 +546,6 @@ export function validate_document(doc, schema) {
 			throw new Error(`Document node map key ${node_id} does not match node id ${node.id}.`);
 		}
 		validate_node(node, schema, doc.nodes);
-	}
-}
-
-/**
- * Validate that annotations rendered in-place by TextProperty/NodeArrayProperty
- * do not overlap. Annotation types without a registered component may overlap.
- *
- * @param {Document} doc - The document to validate
- * @param {DocumentSchema} schema - The document schema
- * @param {any} config - The Svedit config
- * @param {NodeId[]} [node_ids] - Optional owner node ids to validate
- * @throws {Error} Throws if in-place rendered annotations overlap
- */
-export function validate_in_place_annotations_do_not_overlap(
-	doc,
-	schema,
-	config,
-	node_ids = Object.keys(doc.nodes)
-) {
-	const component_backed_annotation_types = new Set(
-		Object.entries(schema)
-			.filter(
-				([node_type, node_schema]) =>
-					node_schema.kind === 'annotation' && config?.node_components?.[node_type]
-			)
-			.map(([node_type]) => node_type)
-	);
-
-	for (const node_id of node_ids) {
-		const node = doc.nodes[node_id];
-		if (!node) continue;
-
-		const node_schema = schema[node.type];
-		if (!node_schema) continue;
-
-		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
-			if (prop_def.type !== 'text' && prop_def.type !== 'node_array') continue;
-
-			const value = node[prop_name];
-			const annotations =
-				prop_def.type === 'node_array' ? get_node_array_annotations(value) : value.annotations;
-
-			const in_place_annotations = annotations.filter((annotation) => {
-				const annotation_node = doc.nodes[annotation.node_id];
-				return component_backed_annotation_types.has(annotation_node?.type);
-			});
-
-			if (!are_annotation_ranges_exclusive(in_place_annotations)) {
-				throw new Error(
-					`Node ${node_id} property ${prop_name} has overlapping annotations with registered components. Annotation types with components must not overlap.`
-				);
-			}
-		}
 	}
 }
 
@@ -557,15 +596,18 @@ export function get(schema, doc, path) {
 			if (path_segment === 'nodes') {
 				val = get_node_array_nodes(val);
 				val_type = 'node_id_array';
+			} else if (path_segment === 'marks') {
+				val = get_node_array_marks(val);
+				val_type = 'range_array';
 			} else if (path_segment === 'annotations') {
 				val = get_node_array_annotations(val);
-				val_type = 'annotation_array';
+				val_type = 'range_array';
 			} else if (typeof path_segment === 'number' || /^\d+$/.test(String(path_segment))) {
 				val = doc.nodes[val.nodes[path_segment]];
 				val_type = 'node';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for node_array. Use "nodes" or "annotations".`
+					`Invalid path segment "${path_segment}" for node_array. Use "nodes", "marks" or "annotations".`
 				);
 			}
 		} else if (val_type === 'node_id_array') {
@@ -578,18 +620,21 @@ export function get(schema, doc, path) {
 			if (path_segment === 'content') {
 				val = val.content;
 				val_type = 'value';
+			} else if (path_segment === 'marks') {
+				val = val.marks;
+				val_type = 'range_array';
 			} else if (path_segment === 'annotations') {
 				val = val.annotations;
-				val_type = 'annotation_array';
+				val_type = 'range_array';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for text. Use "content" or "annotations".`
+					`Invalid path segment "${path_segment}" for text. Use "content", "marks" or "annotations".`
 				);
 			}
-		} else if (val_type === 'annotation_array') {
+		} else if (val_type === 'range_array') {
 			val = val[path_segment];
-			val_type = 'annotation';
-		} else if (val_type === 'annotation') {
+			val_type = 'range';
+		} else if (val_type === 'range') {
 			if (path_segment === 'node_id') {
 				val = doc.nodes[val.node_id];
 				val_type = 'node';
@@ -601,7 +646,7 @@ export function get(schema, doc, path) {
 				val_type = 'value';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for annotation. Use "start_offset", "end_offset", or "node_id".`
+					`Invalid path segment "${path_segment}" for range. Use "start_offset", "end_offset", or "node_id".`
 				);
 			}
 		}
@@ -632,11 +677,11 @@ export function property_type(schema, type, property) {
 }
 
 /**
- * Determines the kind of a node ('block', 'text', or 'annotation').
+ * Determines the kind of a node ('block', 'text', 'mark', or 'annotation').
  *
  * @param {object} schema - The document schema
  * @param {any} node - The node to check
- * @returns {'block'|'text'|'annotation'} The node kind
+ * @returns {'block'|'text'|'mark'|'annotation'} The node kind
  */
 export function kind(schema, node) {
 	return schema[node.type].kind;
@@ -731,6 +776,7 @@ export function count_references(schema, doc, node_id) {
 
 			if (prop_type === 'node_array') {
 				count += get_node_array_nodes(value).filter((id) => id === node_id).length;
+				count += get_node_array_marks(value).filter((m) => m.node_id === node_id).length;
 				count += get_node_array_annotations(value).filter((a) => a.node_id === node_id).length;
 			} else if (prop_type === 'node' && value === node_id) {
 				count += 1;
@@ -743,51 +789,50 @@ export function count_references(schema, doc, node_id) {
 
 /**
  * @param {DocumentSchema} schema - The document schema
- * @param {string} from_type - Current annotation type
- * @param {string} to_type - Target annotation type
- * @returns {boolean} Whether an annotation can be switched between these types
+ * @param {string} from_type - Current mark type
+ * @param {string} to_type - Target mark type
+ * @returns {boolean} Whether a mark can be switched between these types
  */
-export function can_switch_annotation_type(schema, from_type, to_type) {
+export function can_switch_mark_type(schema, from_type, to_type) {
 	const from_schema = schema[from_type];
 	const to_schema = schema[to_type];
 	return (
-		from_schema?.kind === 'annotation' &&
-		to_schema?.kind === 'annotation' &&
+		from_schema?.kind === 'mark' &&
+		to_schema?.kind === 'mark' &&
 		Object.keys(from_schema.properties ?? {}).length === 0 &&
 		Object.keys(to_schema.properties ?? {}).length === 0
 	);
 }
 
 /**
- * Gets annotations touched by the current selection.
+ * Gets ranges of the given key ('marks' or 'annotations') touched by the
+ * current selection.
  *
  * Non-collapsed selections use strict half-open range intersection, so merely
  * adjacent boundaries do not count as touching. Collapsed text carets are only
- * inside an annotation when they are strictly between start and end; a caret at
+ * inside a range when they are strictly between start and end; a caret at
  * either boundary is not active.
  *
  * @param {DocumentSchema} schema - The document schema
  * @param {Document} doc - The document containing nodes
- * @param {Selection} [selection] - The current selection
- * @returns {(Annotation & { index: number, node: any })[]} Selected annotation records
+ * @param {Selection | null | undefined} selection - The current selection
+ * @param {'marks' | 'annotations'} key - Which range array to inspect
+ * @returns {(NodeRange & { index: number, node: any })[]} Selected range records
  */
-export function get_selected_annotations(schema, doc, selection) {
+function get_selected_ranges(schema, doc, selection, key) {
 	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
 	const range = get_selection_range(selection);
 	if (!range) return [];
 
 	const annotated_prop = get(schema, doc, selection.path);
-	const annotations =
-		selection.type === 'node'
-			? get_node_array_annotations(annotated_prop)
-			: annotated_prop.annotations;
+	const ranges = annotated_prop?.[key] ?? [];
 	const is_collapsed = range.start_offset === range.end_offset;
 
-	return annotations
-		.map((/** @type {Annotation} */ annotation, index) => {
-			const node = doc.nodes[annotation.node_id];
+	return ranges
+		.map((/** @type {NodeRange} */ node_range, index) => {
+			const node = doc.nodes[node_range.node_id];
 			return {
-				...annotation,
+				...node_range,
 				index,
 				node
 			};
@@ -801,11 +846,35 @@ export function get_selected_annotations(schema, doc, selection) {
 }
 
 /**
- * @param {(Annotation & { index: number, node: any })[]} selected_annotations
- * @returns {Set<string>} Annotation types represented in the selection
+ * Gets marks touched by the current selection.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
+ * @param {Selection} [selection] - The current selection
+ * @returns {(Mark & { index: number, node: any })[]} Selected mark records
  */
-export function get_selected_annotation_types(selected_annotations) {
-	return new Set(selected_annotations.map(({ node }) => node?.type).filter(Boolean));
+export function get_selected_marks(schema, doc, selection) {
+	return get_selected_ranges(schema, doc, selection, 'marks');
+}
+
+/**
+ * Gets annotations touched by the current selection.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
+ * @param {Selection} [selection] - The current selection
+ * @returns {(Annotation & { index: number, node: any })[]} Selected annotation records
+ */
+export function get_selected_annotations(schema, doc, selection) {
+	return get_selected_ranges(schema, doc, selection, 'annotations');
+}
+
+/**
+ * @param {(NodeRange & { index: number, node: any })[]} selected_ranges
+ * @returns {Set<string>} Node types represented in the selected ranges
+ */
+export function get_selected_range_types(selected_ranges) {
+	return new Set(selected_ranges.map(({ node }) => node?.type).filter(Boolean));
 }
 
 /**
@@ -830,14 +899,15 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 
 			if (prop_type === 'node_array') {
 				count += get_node_array_nodes(value).filter((id) => id === target_node_id).length;
+				count += get_node_array_marks(value).filter((m) => m.node_id === target_node_id).length;
 				count += get_node_array_annotations(value).filter(
 					(a) => a.node_id === target_node_id
 				).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
-			} else if (prop_type === 'text' && value && value.annotations) {
-				count += value.annotations.filter(
-					(annotation) => annotation.node_id === target_node_id
+			} else if (prop_type === 'text' && value) {
+				count += [...(value.marks ?? []), ...(value.annotations ?? [])].filter(
+					(range) => range.node_id === target_node_id
 				).length;
 			}
 		}
@@ -868,13 +938,21 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 			if (prop_type === 'node_array') {
 				if (get_node_array_nodes(value).some((id) => target_ids.has(id))) {
 					referencing_node_ids.add(node.id);
-				} else if (get_node_array_annotations(value).some((a) => target_ids.has(a.node_id))) {
+				} else if (
+					[...get_node_array_marks(value), ...get_node_array_annotations(value)].some((range) =>
+						target_ids.has(range.node_id)
+					)
+				) {
 					referencing_node_ids.add(node.id);
 				}
 			} else if (prop_type === 'node' && target_ids.has(value)) {
 				referencing_node_ids.add(node.id);
-			} else if (prop_type === 'text' && value?.annotations) {
-				if (value.annotations.some((annotation) => target_ids.has(annotation.node_id))) {
+			} else if (prop_type === 'text' && value) {
+				if (
+					[...(value.marks ?? []), ...(value.annotations ?? [])].some((range) =>
+						target_ids.has(range.node_id)
+					)
+				) {
 					referencing_node_ids.add(node.id);
 				}
 			}

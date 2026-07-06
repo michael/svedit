@@ -38,7 +38,7 @@ You can also install Svedit into an existing SvelteKit project with `npm install
 
 Svedit connects eight key pieces:
 
-1. **Schema** - Define your content structure (node types, properties, annotations)
+1. **Schema** - Define your content structure (node types, properties, marks, annotations)
 2. **Document** - An actual document, containing a `document_id` and a flat map of nodes that hold the content
 3. **Session** - Manages the document, selection state, and history
 4. **Transaction** - Groups multiple document operations (create, delete, set) into a single atomic unit with undo/redo support
@@ -64,7 +64,8 @@ Each node has a `kind` that determines its behavior:
 - `document`: A top-level node accessible via a route (e.g. a page, event)
 - `block`: A structured node that contains other nodes or properties
 - `text`: A node with editable text content (can be split and joined)
-- `annotation`: An annotation applied to a text range or a node-array range (bold, link, section, etc.)
+- `mark`: A content-level range applied to text or a node array (bold, link, section, etc.). Marks are mutually exclusive and render in-place.
+- `annotation`: A metadata/overlay range applied to text or a node array (comments, markers, etc.). Annotations may overlap and are data-only.
 
 ### Choosing between `text` and `block`
 
@@ -84,19 +85,23 @@ If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can stil
 ```mermaid
 flowchart TD
     Start(["I need a new node type"])
-    Q1{"Is it inline formatting applied within text?"}
+    Q1{"Is it a range applied within text or over child nodes?"}
+    Q1a{"Is it part of the content (formatting) rather than metadata?"}
     Q2{"Is it a top-level routable entry point?"}
     Q3{"Is text the node's entire purpose?"}
     Q4{"Does it have exactly one text property named content?"}
     Q5{"Does pressing Enter to split into two nodes make sense?"}
 
-    KindAnnotation["kind: annotation e.g. bold, italic, link"]
+    KindMark["kind: mark e.g. bold, italic, link, section"]
+    KindAnnotation["kind: annotation e.g. comment, marker"]
     KindDocument["kind: document e.g. page, article, event"]
     KindBlock["kind: block e.g. image+caption, quote+author, list, nav, embed"]
     KindText["kind: text e.g. paragraph, heading, list_item"]
 
     Start --> Q1
-    Q1 -->|Yes| KindAnnotation
+    Q1 -->|Yes| Q1a
+    Q1a -->|Yes| KindMark
+    Q1a -->|"No — it's metadata that may overlap"| KindAnnotation
     Q1 -->|No| Q2
     Q2 -->|Yes| KindDocument
     Q2 -->|No| Q3
@@ -121,14 +126,14 @@ Properties of nodes can hold values:
 - `number_array`: An array of numbers
 - `integer_array`: An array of integers
 - `boolean_array`: An array of booleans
-- `text`: Plain text content with annotations (bold, italic, link etc.). Text values use `{ content: '', annotations: [] }`. Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
+- `text`: Plain text content with marks (bold, italic, link etc.) and annotations (comments etc.). Text values use `{ content: '', marks: [], annotations: [] }`. Set `allow_newlines: true` to let users insert line breaks with Shift+Enter, or `false` to keep content single-line (e.g. for titles).
 
 Or references:
 
 - `node`: References a single node (e.g. an image node can reference a global asset node)
 - `node_array`: References a sequence of nodes (e.g. page.body references paragraph and list nodes)
 
-`node_array` properties use `node_types` for the child node types they can contain, and optional `annotation_types` for annotations that can wrap ranges of child nodes.
+`node_array` properties use `node_types` for the child node types they can contain, plus optional `mark_types` for marks that can wrap ranges of child nodes and optional `annotation_types` for overlay annotations.
 
 ```js
 const document_schema = {
@@ -138,7 +143,8 @@ const document_schema = {
 			body: {
 				type: 'node_array',
 				node_types: ['nav', 'paragraph', 'list'],
-				annotation_types: ['section'],
+				mark_types: ['section'],
+				annotation_types: ['comment'],
 				default_node_type: 'paragraph'
 			}
 		}
@@ -148,7 +154,8 @@ const document_schema = {
 		properties: {
 			content: {
 				type: 'text',
-				annotation_types: ['strong', 'emphasis', 'link'],
+				mark_types: ['strong', 'emphasis', 'link'],
+				annotation_types: ['comment'],
 				allow_newlines: true
 			}
 		}
@@ -158,7 +165,7 @@ const document_schema = {
 		properties: {
 			content: {
 				type: 'text',
-				annotation_types: ['strong', 'emphasis', 'link'],
+				mark_types: ['strong', 'emphasis', 'link'],
 				allow_newlines: true
 			}
 		}
@@ -191,27 +198,31 @@ const document_schema = {
 		}
 	},
 	strong: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
 	emphasis: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {}
 	},
 	link: {
-		kind: 'annotation',
+		kind: 'mark',
 		properties: {
 			href: { type: 'string' }
 		}
 	},
 	section: {
+		kind: 'mark',
+		properties: {}
+	},
+	comment: {
 		kind: 'annotation',
 		properties: {}
 	}
 };
 ```
 
-Annotation types are defined as nodes with `kind: 'annotation'`. Simple annotations like `strong` and `emphasis` have no properties, while annotations like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which annotation types are allowed via `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles).
+Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes with `kind: 'annotation'`. Simple marks like `strong` and `emphasis` have no properties, while marks like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which types are allowed via `mark_types` and `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles). `mark_types` may only reference `kind: 'mark'` node types and `annotation_types` only `kind: 'annotation'` node types.
 
 ## Document
 
@@ -221,12 +232,12 @@ Rules:
 
 - All nodes must be reachable from the document node (unreachable nodes are discarded)
 - No cyclic references allowed
-- Text properties use `{ content: '', annotations: [] }`
-- Node array properties use `{ nodes: [], annotations: [] }`
+- Text properties use `{ content: '', marks: [], annotations: [] }`
+- Node array properties use `{ nodes: [], marks: [], annotations: [] }`
 
 ### Node IDs
 
-Node IDs uniquely identify nodes inside a document. They are also used whenever one node references another node, for example in `node`, `node_array.nodes`, and annotation `node_id` values.
+Node IDs uniquely identify nodes inside a document. They are also used whenever one node references another node, for example in `node`, `node_array.nodes`, and mark or annotation `node_id` values.
 
 Because Svedit also uses these IDs in HTML ids, document paths, and CSS selectors, IDs need to follow a simple, safe format:
 
@@ -299,54 +310,61 @@ const doc = {
 		nav_1: {
 			id: 'nav_1',
 			type: 'nav',
-			nav_items: { nodes: ['nav_item_1'], annotations: [] }
+			nav_items: { nodes: ['nav_item_1'], marks: [], annotations: [] }
 		},
 		paragraph_1: {
 			id: 'paragraph_1',
 			type: 'paragraph',
 			content: {
 				content: 'Hello world.',
-				annotations: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }]
+				marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+				annotations: []
 			}
 		},
 		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
-			content: { content: 'First list item', annotations: [] }
+			content: { content: 'First list item', marks: [], annotations: [] }
 		},
 		list_item_2: {
 			id: 'list_item_2',
 			type: 'list_item',
-			content: { content: 'Second list item', annotations: [] }
+			content: { content: 'Second list item', marks: [], annotations: [] }
 		},
 		list_1: {
 			id: 'list_1',
 			type: 'list',
-			list_items: { nodes: ['list_item_1', 'list_item_2'], annotations: [] }
+			list_items: { nodes: ['list_item_1', 'list_item_2'], marks: [], annotations: [] }
 		},
 		page_1: {
 			id: 'page_1',
 			type: 'page',
 			body: {
 				nodes: ['nav_1', 'paragraph_1', 'list_1'],
-				annotations: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }]
+				marks: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }],
+				annotations: []
 			}
 		}
 	}
 };
 ```
 
-### Annotations
+### Marks and annotations
 
-Annotations are regular nodes referenced from a property value. A text or node-array annotation record has this shape:
+Marks and annotations are regular nodes referenced from a property value. Both use the same range shape:
 
 ```js
 {
 	start_offset: 0,
 	end_offset: 5,
-	node_id: 'annotation_1'
+	node_id: 'strong_1'
 }
 ```
+
+They differ in semantics:
+
+- **Marks** are part of the content (bold, italic, link, section). They are mutually exclusive within a property and are rendered in-place by `<TextProperty>`/`<NodeArrayProperty>`.
+- **Annotations** are metadata layered over the content (comments, markers). They may overlap marks and each other, and are data-only: Svedit keeps and transforms the data (and adds CSS classes to covered node wrappers), but your app is responsible for interpreting it. Annotation types must not have registered components.
 
 For `text` properties, offsets address character positions in the `content` string:
 
@@ -356,12 +374,13 @@ For `text` properties, offsets address character positions in the `content` stri
 	type: 'paragraph',
 	content: {
 		content: 'Hello world.',
-		annotations: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }]
+		marks: [{ start_offset: 0, end_offset: 5, node_id: 'strong_1' }],
+		annotations: [{ start_offset: 3, end_offset: 8, node_id: 'comment_1' }]
 	}
 }
 ```
 
-For `node_array` properties, offsets address node positions in the `nodes` array. This lets you annotate a contiguous group of child nodes with the same annotation model:
+For `node_array` properties, offsets address node positions in the `nodes` array. This lets you wrap a contiguous group of child nodes with the same range model:
 
 ```js
 {
@@ -369,12 +388,13 @@ For `node_array` properties, offsets address node positions in the `nodes` array
 	type: 'page',
 	body: {
 		nodes: ['paragraph_1', 'paragraph_2', 'paragraph_3'],
-		annotations: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }]
+		marks: [{ start_offset: 1, end_offset: 3, node_id: 'section_1' }],
+		annotations: []
 	}
 }
 ```
 
-The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Annotation types with registered components are rendered in-place and must not overlap. Annotation types without components may overlap; Svedit keeps and transforms the data, but your app is responsible for interpreting it.
+The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Marks must not overlap; annotations may overlap (including same-type annotations created through lower-level APIs).
 
 ### Document schema changes
 
@@ -435,7 +455,7 @@ const session_config = {
 
   // Functions that create and insert new nodes
   inserters: {
-    text: (tr, content = { content: '', annotations: [] }) => {
+    text: (tr, content = { content: '', marks: [], annotations: [] }) => {
       const text_id = nanoid();
       tr.create({ id: text_id, type: 'text', content });
       tr.insert_nodes([text_id]);
@@ -483,11 +503,11 @@ const session = new Session(schema, doc, config);
 ### Reading the graph
 
 ```js
-session.get(['page_1', 'body']); // => { nodes: ['nav_1', 'paragraph_1', 'list_1'], annotations: [] }
+session.get(['page_1', 'body']); // => { nodes: ['nav_1', 'paragraph_1', 'list_1'], marks: [], annotations: [] }
 session.get(['nav_1']); // => { id: 'nav_1', type: 'nav', ... }
 session.get('nav_1'); // => shorthand for above (single node ID)
 session.inspect(['page_1', 'body']); // => { kind: 'property', type: 'node_array', node_types: [...] }
-session.kind(node); // => 'text', 'block', or 'annotation'
+session.kind(node); // => 'text', 'block', 'mark', or 'annotation'
 ```
 
 ### Selection and state
@@ -495,9 +515,12 @@ session.kind(node); // => 'text', 'block', or 'annotation'
 ```js
 session.selection; // Current selection (text, node, or property)
 session.selected_node; // The currently selected node (derived)
+session.selected_marks; // Mark records touched by the current selection (derived)
+session.active_mark; // The selected mark record when exactly one mark is touched, otherwise null
 session.selected_annotations; // Annotation records touched by the current selection (derived)
 session.active_annotation; // The selected annotation record when exactly one annotation is touched, otherwise null
 session.can_insert('paragraph'); // Check if node type can be inserted
+session.available_mark_types; // Mark types allowed at current selection (derived)
 session.available_annotation_types; // Annotation types allowed at current selection (derived)
 ```
 
@@ -630,7 +653,7 @@ function insert_heading(tr) {
 
 	// Create and insert a heading node
 	const heading_id = tr.generate_id();
-	tr.create({ id: heading_id, type: 'heading', content: { content: '', annotations: [] } });
+	tr.create({ id: heading_id, type: 'heading', content: { content: '', marks: [], annotations: [] } });
 	tr.insert_nodes([heading_id]);
 
 	return true;
@@ -653,7 +676,7 @@ session.apply(tr); // Apply atomically
 
 ```js
 // Create a new node (must include all required properties from schema)
-tr.create({ id: 'paragraph_1', type: 'paragraph', content: { content: '', annotations: [] } });
+tr.create({ id: 'paragraph_1', type: 'paragraph', content: { content: '', marks: [], annotations: [] } });
 
 // Delete a node (cascades to unreferenced child nodes)
 tr.delete('paragraph_26');
@@ -671,7 +694,7 @@ const new_node_id = tr.build('the_list', {
 	the_list: {
 		id: 'the_list',
 		type: 'list',
-		list_items: { nodes: ['first_item'], annotations: [] }
+		list_items: { nodes: ['first_item'], marks: [], annotations: [] }
 	}
 });
 ```
@@ -682,9 +705,12 @@ const new_node_id = tr.build('the_list', {
 // Insert text at caret (replaces selection if expanded)
 tr.insert_text('Hello');
 
-// Toggle annotation on selected text
-tr.toggle_annotation('strong');
-tr.toggle_annotation('link', { href: 'https://example.com' });
+// Toggle mark on selected text (marks are mutually exclusive)
+tr.toggle_mark('strong');
+tr.toggle_mark('link', { href: 'https://example.com' });
+
+// Toggle annotation on selected text (competes only with same-type annotations)
+tr.toggle_annotation('comment');
 
 // Delete selected text or nodes
 tr.delete_selection();
@@ -736,7 +762,7 @@ class ToggleStrongCommand extends Command {
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.toggle_annotation('strong'));
+		this.context.session.apply(this.context.session.tr.toggle_mark('strong'));
 	}
 }
 ```
@@ -781,6 +807,7 @@ Svedit provides several [core commands](src/lib/Command.svelte.js) out of the bo
 - `UndoCommand` - Undo the last change
 - `RedoCommand` - Redo the last undone change
 - `SelectParentCommand` - Select the parent of the current selection
+- `ToggleMarkCommand` - Toggle marks on text or node-array selections
 - `ToggleAnnotationCommand` - Toggle annotations on text or node-array selections
 - `AddNewLineCommand` - Insert newline character in text
 - `BreakTextNodeCommand` - Split text node at caret
@@ -796,8 +823,8 @@ create_commands_and_keymap: (context) => {
 	const commands = {
 		undo: new UndoCommand(context),
 		redo: new RedoCommand(context),
-		toggle_strong: new ToggleAnnotationCommand('strong', context),
-		toggle_emphasis: new ToggleAnnotationCommand('emphasis', context)
+		toggle_strong: new ToggleMarkCommand('strong', context),
+		toggle_emphasis: new ToggleMarkCommand('emphasis', context)
 		// ... more commands
 	};
 
@@ -829,15 +856,15 @@ Commands can have derived state for reactive UI binding. The `active` property i
 
 ```js
 class ToggleEmphasisCommand extends Command {
-	// Automatically recomputes when annotation state changes
-	active = $derived(this.context.session.active_annotation?.node.type === 'emphasis');
+	// Automatically recomputes when mark state changes
+	active = $derived(this.context.session.active_mark?.node.type === 'emphasis');
 
 	is_enabled() {
 		return this.context.editable && this.context.session.selection?.type === 'text';
 	}
 
 	execute() {
-		this.context.session.apply(this.context.session.tr.toggle_annotation('emphasis'));
+		this.context.session.apply(this.context.session.tr.toggle_mark('emphasis'));
 	}
 }
 ```
@@ -1095,7 +1122,7 @@ Every node component must wrap its content in the `<Node>` component. This wrapp
 
 Svedit provides specialized components for rendering different property types:
 
-**`<TextProperty>`** - For editable text content with inline annotations:
+**`<TextProperty>`** - For editable text content with inline marks:
 
 ```svelte
 <TextProperty tag="p" class="body" path={[...path, 'content']} placeholder="Enter text here" />
@@ -1107,20 +1134,21 @@ Svedit provides specialized components for rendering different property types:
 <NodeArrayProperty class="list-items" path={[...path, 'list_items']} />
 ```
 
-Node arrays can also be annotated when their schema includes `annotation_types`. The value still has one `nodes` array, plus an `annotations` array whose offsets refer to node indexes:
+Node arrays can also carry marks and annotations when their schema includes `mark_types`/`annotation_types`. The value still has one `nodes` array, plus `marks` and `annotations` arrays whose offsets refer to node indexes:
 
 ```js
 buttons: {
 	nodes: ['button_1', 'button_2', 'button_3'],
-	annotations: [{ start_offset: 0, end_offset: 2, node_id: 'section_1' }]
+	marks: [{ start_offset: 0, end_offset: 2, node_id: 'section_1' }],
+	annotations: []
 }
 ```
 
-`<NodeArrayProperty>` wraps annotated ranges with the matching annotation component, just like `<TextProperty>` does for text ranges. Child node components also receive annotation context:
+`<NodeArrayProperty>` wraps marked ranges with the matching mark component, just like `<TextProperty>` does for text ranges. Child node components also receive range context:
 
 ```svelte
 <script>
-	let { path, annotation: section = null, annotations = [] } = $props();
+	let { path, mark: section = null, annotations = [] } = $props();
 </script>
 
 <div class:section-start={section?.is_start}>
@@ -1128,9 +1156,9 @@ buttons: {
 </div>
 ```
 
-`annotation` is the in-place (component-backed) annotation wrapping the child node, or `null` when none does — exclusivity guarantees there is at most one. Annotations without components are data-only: they never wrap, so they are not exposed through `annotation` and never affect it. `annotations` contains all annotations covering the child node, including overlapping data-only ones. Each entry contains the flattened annotation record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved annotation node, `index` is the position in the parent `annotations` array, and the `is_*` flags describe the current child node's position in the range.
+`mark` is the mark wrapping the child node, or `null` when none does — mark exclusivity guarantees there is at most one. `annotations` contains all annotations covering the child node, including overlapping ones. Annotations are data-only: they never wrap and are never rendered as components. Each entry contains the flattened range record plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved mark or annotation node, `index` is the position in the parent `marks`/`annotations` array, and the `is_*` flags describe the current child node's position in the range.
 
-For styling, you usually don't need the props at all: `<Node>` adds annotation classes to the node wrapper automatically. A node covered by a `marker` annotation gets `anno-marker`, plus `anno-marker-start`/`anno-marker-end` on the run's first/last covered node. So styling an annotation type — including data-only types without a component — is pure CSS:
+For styling, you usually don't need the props at all: `<Node>` adds range classes to the node wrapper automatically. A node covered by a `section` mark gets `mark-section`, a node covered by a `marker` annotation gets `anno-marker` — plus `-start`/`-end` variants on the run's first/last covered node. So styling a mark or annotation type — including types without a component — is pure CSS:
 
 ```css
 .anno-marker {

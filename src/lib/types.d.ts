@@ -147,10 +147,11 @@ export type PropertyType = PrimitiveType | ReferenceType;
 // };
 
 /**
- * A property that stores text with optional annotations and required allow_newlines setting.
+ * A property that stores text with optional marks and annotations and required allow_newlines setting.
  */
 export type TextProperty = {
 	type: 'text';
+	mark_types?: string[];
 	annotation_types?: string[];
 	allow_newlines: boolean;
 };
@@ -256,6 +257,7 @@ export type NodeProperty = {
 export type NodeArrayProperty = {
 	type: 'node_array';
 	node_types: string[];
+	mark_types?: string[];
 	annotation_types?: string[];
 	default_node_type?: string;
 };
@@ -269,7 +271,7 @@ export type PropertyDefinition =
 /**
  * Node kind values for different types of content nodes
  */
-export type NodeKind = 'document' | 'block' | 'text' | 'annotation';
+export type NodeKind = 'document' | 'block' | 'text' | 'mark' | 'annotation';
 
 /**
  * Schema for text nodes - must have a content property of type text.
@@ -321,7 +323,7 @@ export type ValidateDocumentSchema<Schema extends Record<string, NodeSchema>> = 
  * Schema for non-text nodes
  */
 export type NonTextNodeSchema = {
-	kind: 'document' | 'block' | 'annotation';
+	kind: 'document' | 'block' | 'mark' | 'annotation';
 	properties: Record<string, PropertyDefinition>;
 };
 
@@ -410,10 +412,10 @@ export type NodeArrayPropertyProps = {
 export type NodeProps = {
 	/** The full path to the node */
 	path: DocumentPath;
-	/** The in-place (component-backed) annotation wrapping this node, if any */
-	annotation?: NodeArrayAnnotationContext | null;
-	/** All node-array annotations covering this node, including data-only ones */
-	annotations?: Array<NodeArrayAnnotationContext>;
+	/** The single node-array mark wrapping this node, if any */
+	mark?: NodeArrayRangeContext | null;
+	/** All node-array annotations covering this node */
+	annotations?: Array<NodeArrayRangeContext>;
 	/** Optional custom HTML tag */
 	tag?: string;
 	/** Optional string of CSS classes */
@@ -443,36 +445,51 @@ export type SveditProps = {
 };
 
 /**
- * Represents an annotation in an annotated string
+ * A range referencing a node, used for both marks and annotations
  */
-export type Annotation = {
+export type NodeRange = {
 	start_offset: number;
 	end_offset: number;
 	node_id: NodeId;
 };
 
 /**
- * Represents text content with annotations.
+ * A content-level range (e.g. strong, emphasis, link, section).
+ * Marks are mutually exclusive within a property and render in-place.
+ */
+export type Mark = NodeRange;
+
+/**
+ * A metadata/overlay range (e.g. comment, marker).
+ * Annotations may overlap and are data-only.
+ */
+export type Annotation = NodeRange;
+
+/**
+ * Represents text content with marks and annotations.
  */
 export type AnnotatedText = {
 	content: string;
+	marks: Array<Mark>;
 	annotations: Array<Annotation>;
 };
 
 /**
- * Represents an annotated node array with nodes and annotations
+ * Represents an annotated node array with nodes, marks and annotations
  */
 export type AnnotatedNodeArray = {
 	nodes: Array<NodeId>;
+	marks: Array<Mark>;
 	annotations: Array<Annotation>;
 };
 
 /**
- * Annotation context passed to a node rendered inside an annotated node array.
- * It is the flattened annotation range, enriched with the resolved annotation node,
- * its index in the parent annotations array, and this child node's position in the range.
+ * Range context passed to a node rendered inside an annotated node array.
+ * It is the flattened mark or annotation range, enriched with the resolved
+ * range node, its index in the parent range array, and this child node's
+ * position in the range.
  */
-export type NodeArrayAnnotationContext = {
+export type NodeArrayRangeContext = {
 	start_offset: number;
 	end_offset: number;
 	node_id: NodeId;
@@ -492,22 +509,22 @@ export type SelectionHighlightFragment = {
 };
 
 /**
- * Represents an annotation fragment in annotated text content
+ * Represents a mark fragment in annotated text content
  */
-export type AnnotationFragment = {
-	type: 'annotation';
-	/** NodeId that has annotation type and details */
+export type MarkFragment = {
+	type: 'mark';
+	/** NodeId that has mark type and details */
 	node: any;
-	/** The text content of the annotation */
+	/** The text content of the mark */
 	content: string;
-	/** Index of the annotation in the original array */
-	annotation_index: number;
+	/** Index of the mark in the original array */
+	mark_index: number;
 };
 
 /**
  * Represents a fragment of annotated text content
  */
-export type Fragment = string | AnnotationFragment | SelectionHighlightFragment;
+export type Fragment = string | MarkFragment | SelectionHighlightFragment;
 
 /**
  * Represents a node array fragment for plain nodes
@@ -519,21 +536,21 @@ export type NodeArrayPlainFragment = {
 };
 
 /**
- * Represents an annotation fragment in node array content
+ * Represents a mark fragment in node array content
  */
-export type NodeArrayAnnotationFragment = {
-	type: 'annotation';
-	/** NodeId that has annotation type and details */
+export type NodeArrayMarkFragment = {
+	type: 'mark';
+	/** NodeId that has mark type and details */
 	node: any;
-	/** The nodes wrapped by the annotation */
+	/** The nodes wrapped by the mark */
 	nodes: Array<NodeId>;
 	/** Start index in the original nodes array */
 	start_index: number;
-	/** Index of the annotation in the original array */
-	annotation_index: number;
+	/** Index of the mark in the original array */
+	mark_index: number;
 };
 
 /**
  * Represents a fragment of annotated node array content
  */
-export type NodeArrayFragment = NodeArrayPlainFragment | NodeArrayAnnotationFragment;
+export type NodeArrayFragment = NodeArrayPlainFragment | NodeArrayMarkFragment;

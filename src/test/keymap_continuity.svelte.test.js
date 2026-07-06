@@ -55,12 +55,12 @@ function make_paragraph_session(text = 'Hello world') {
 					id: 'paragraph_1',
 					type: 'paragraph',
 					layout: 1,
-					content: { content: text, annotations: [] }
+					content: { content: text, marks: [], annotations: [] }
 				},
 				page_1: {
 					id: 'page_1',
 					type: 'page',
-					body: { nodes: ['paragraph_1'], annotations: [] },
+					body: { nodes: ['paragraph_1'], marks: [], annotations: [] },
 					keywords: [],
 					daily_visitors: [],
 					created_at: '2025-05-30T10:39:59.987Z'
@@ -181,7 +181,7 @@ describe('keymap continuity', () => {
 		const session = make_story_session(1);
 		const content_path = ['page_1', 'body', 0, 'description'];
 		const tr = session.tr;
-		tr.set(content_path, { content: 'Line\n\t  Item', annotations: [] });
+		tr.set(content_path, { content: 'Line\n\t  Item', marks: [], annotations: [] });
 		session.apply(tr);
 
 		const { container } = render(SveditTestWithKeymap, { session });

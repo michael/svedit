@@ -83,7 +83,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: { nodes: [], annotations: [] }
+						body: { nodes: [], marks: [], annotations: [] }
 					}
 				}
 			},
@@ -105,7 +105,7 @@ describe('Session.svelte.js', () => {
 		const body = session.get(['page_1', 'body']);
 		expect(body).toEqual({
 			nodes: ['story_1', 'story_1', 'list_1'],
-			annotations: []
+			marks: [], annotations: []
 		});
 
 		// Access an element of a node_array property
@@ -115,7 +115,7 @@ describe('Session.svelte.js', () => {
 
 		// Resolve text property
 		const fist_story_title = session.get(['page_1', 'body', 0, 'title']);
-		expect(fist_story_title).toEqual({ content: 'First story', annotations: [] });
+		expect(fist_story_title).toEqual({ content: 'First story', marks: [], annotations: [] });
 
 		// Resolve integer_array
 		const daily_visitors = session.get(['page_1', 'daily_visitors']);
@@ -137,12 +137,12 @@ describe('Session.svelte.js', () => {
 		const list_items_of_first_list = session.get(['page_1', 'body', 2, 'list_items']);
 		expect(list_items_of_first_list).toEqual({
 			nodes: ['list_item_1', 'list_item_2'],
-			annotations: []
+			marks: [], annotations: []
 		});
 
 		// Resolve hierarchy using node_array and accessing an text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
-		expect(first_list_item_content).toEqual({ content: 'first list item', annotations: [] });
+		expect(first_list_item_content).toEqual({ content: 'first list item', marks: [], annotations: [] });
 	});
 
 	describe('Selected node', () => {
@@ -192,7 +192,7 @@ describe('Session.svelte.js', () => {
 					id: '1_invalid_node',
 					type: 'text',
 					layout: 1,
-					content: { content: 'Invalid node', annotations: [] }
+					content: { content: 'Invalid node', marks: [], annotations: [] }
 				})
 			).toThrow('invalid id');
 		});
@@ -205,7 +205,7 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'different_page_id',
 						type: 'page',
-						body: { nodes: [], annotations: [] }
+						body: { nodes: [], marks: [], annotations: [] }
 					}
 				}
 			};
@@ -233,7 +233,7 @@ describe('Session.svelte.js', () => {
 						page_1: {
 							id: 'page_1',
 							type: 'page',
-							body: { nodes: [], annotations: [] }
+							body: { nodes: [], marks: [], annotations: [] }
 						}
 					}
 				},
@@ -254,12 +254,12 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: { nodes: ['text_1'], annotations: [] }
+						body: { nodes: ['text_1'], marks: [], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { content: 'Existing text with default layout', annotations: [] }
+						content: { content: 'Existing text with default layout', marks: [], annotations: [] }
 					}
 				}
 			};
@@ -299,12 +299,12 @@ describe('Session.svelte.js', () => {
 					page_1: {
 						id: 'page_1',
 						type: 'page',
-						body: { nodes: ['text_1'], annotations: [] }
+						body: { nodes: ['text_1'], marks: [], annotations: [] }
 					},
 					text_1: {
 						id: 'text_1',
 						type: 'text',
-						content: { content: 'Existing text', annotations: [] }
+						content: { content: 'Existing text', marks: [], annotations: [] }
 					}
 				}
 			};
@@ -327,7 +327,7 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes.text_1.layout).toBe(1);
-			expect(tr.doc.nodes.text_1.content).toEqual({ content: '', annotations: [] });
+			expect(tr.doc.nodes.text_1.content).toEqual({ content: '', marks: [], annotations: [] });
 		});
 
 		it('should fill omitted default properties when building a node', () => {
@@ -342,12 +342,12 @@ describe('Session.svelte.js', () => {
 			});
 
 			expect(tr.doc.nodes[new_id].layout).toBe(1);
-			expect(tr.doc.nodes[new_id].content).toEqual({ content: '', annotations: [] });
+			expect(tr.doc.nodes[new_id].content).toEqual({ content: '', marks: [], annotations: [] });
 		});
 	});
 
 	describe('Document validation', () => {
-		it('should allow overlapping annotations without registered annotation components', () => {
+		it('should allow overlapping annotations', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			session.schema.comment = { kind: 'annotation', properties: {} };
@@ -394,7 +394,7 @@ describe('Session.svelte.js', () => {
 			const doc = structuredClone(session.doc);
 			doc.nodes.page_1.body = {
 				nodes: ['story_1', 'missing_node'],
-				annotations: []
+				marks: [], annotations: []
 			};
 
 			expect(() => new Session(session.schema, doc, session.config)).toThrow(
@@ -421,7 +421,7 @@ describe('Session.svelte.js', () => {
 		it('should throw when applying a transaction that creates a missing node reference', () => {
 			const session = create_test_session();
 			const tr = session.tr;
-			tr.set(['page_1', 'body'], { nodes: ['missing_node'], annotations: [] });
+			tr.set(['page_1', 'body'], { nodes: ['missing_node'], marks: [], annotations: [] });
 
 			expect(() => session.apply(tr)).toThrow('references missing node missing_node');
 			expect(session.get(['page_1', 'body']).nodes).toEqual(['story_1', 'story_1', 'list_1']);
@@ -574,7 +574,7 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: { nodes: ['list_item_1'], annotations: [] }
+				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
 
 			// Step (2): drop list_item_1 from list_1.list_items. The set()
@@ -582,7 +582,7 @@ describe('Session.svelte.js', () => {
 			// node is still referenced by list_2 and must survive.
 			tr.set(['list_1', 'list_items'], {
 				nodes: ['list_item_2'],
-				annotations: []
+				marks: [], annotations: []
 			});
 
 			session.apply(tr);
@@ -600,11 +600,11 @@ describe('Session.svelte.js', () => {
 				id: 'list_2',
 				type: 'list',
 				layout: 1,
-				list_items: { nodes: ['list_item_1'], annotations: [] }
+				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
 			tr.set(['list_1', 'list_items'], {
 				nodes: ['list_item_2'],
-				annotations: []
+				marks: [], annotations: []
 			});
 			session.apply(tr);
 

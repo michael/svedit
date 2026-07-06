@@ -1,6 +1,7 @@
 /* Styles for the `marker` node-array annotation. Svedit adds `anno-<type>`
-   classes (plus `-start`/`-end` on the run's caps) to covered node wrappers
-   automatically, so styling an annotation is pure CSS — no component code.
+   classes for annotations (and `mark-<type>` classes for marks, plus
+   `-start`/`-end` on the run's caps) to covered node wrappers automatically,
+   so styling an annotation is pure CSS — no component code.
    A soft tint over a run of nodes, with rounded caps on the run's first and
    last node. Orientation follows the container's flow direction via the
    `--row` variable Svedit uses for node gaps (1 = row flow, 0 = column flow),

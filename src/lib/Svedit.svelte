@@ -185,21 +185,21 @@
 		}
 
 		if (event.inputType === 'formatBold' && session.selection?.type === 'text') {
-			session.apply(session.tr.toggle_annotation('strong'));
+			session.apply(session.tr.toggle_mark('strong'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
 		if (event.inputType === 'formatItalic' && session.selection?.type === 'text') {
-			session.apply(session.tr.toggle_annotation('emphasis'));
+			session.apply(session.tr.toggle_mark('emphasis'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
 
-		// NOTE: underline doesn't make much sense as a semantic annotation,
+		// NOTE: underline doesn't make much sense as a semantic mark,
 		// so we rewire `cmd + u` to toggle highlights
 		if (event.inputType === 'formatUnderline' && session.selection?.type === 'text') {
-			session.apply(session.tr.toggle_annotation('highlight'));
+			session.apply(session.tr.toggle_mark('highlight'));
 			event.preventDefault();
 			event.stopPropagation();
 		}
@@ -614,7 +614,7 @@ ${fallback_html}`;
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
 	function try_node_paste(pasted_json, selection) {
-		const { nodes, main_nodes, annotations = [] } = pasted_json || {};
+		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
 		let tr = session.tr;
@@ -652,7 +652,11 @@ ${fallback_html}`;
 						the_node: {
 							id: 'the_node',
 							type: default_text_node_type,
-							[target_text_property_name]: text_content || { content: '', annotations: [] }
+							[target_text_property_name]: text_content || {
+							content: '',
+							marks: [],
+							annotations: []
+						}
 						}
 					});
 					nodes_to_insert.push(new_node_id);
@@ -667,7 +671,7 @@ ${fallback_html}`;
 		}
 
 		if (!rejected) {
-			tr.insert_nodes(nodes_to_insert, annotations, nodes);
+			tr.insert_nodes(nodes_to_insert, marks, annotations, nodes);
 			session.apply(tr);
 			return true;
 		}
@@ -818,7 +822,12 @@ ${fallback_html}`;
 		} else if (session.selection?.type === 'text' && pasted_json?.content) {
 			// Paste text at a text selection
 			session.apply(
-				session.tr.insert_text(pasted_json.content, pasted_json.annotations, pasted_json.nodes)
+				session.tr.insert_text(
+					pasted_json.content,
+					pasted_json.marks,
+					pasted_json.annotations,
+					pasted_json.nodes
+				)
 			);
 		} else if (
 			session.selection?.type === 'text' &&
@@ -834,6 +843,7 @@ ${fallback_html}`;
 				session.apply(
 					session.tr.insert_text(
 						text_property.content,
+						text_property.marks,
 						text_property.annotations,
 						pasted_json.nodes
 					)

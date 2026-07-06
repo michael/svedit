@@ -77,9 +77,9 @@ describe('Svedit.svelte', () => {
 		const original_story = session.get('story_1');
 		const original_button = session.get('button_1');
 
-		expect(original_story.title).toEqual({ content: 'First story', annotations: [] });
+		expect(original_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(original_story.buttons.nodes).toEqual(['button_1']);
-		expect(original_button.content).toEqual({ content: 'Get started', annotations: [] });
+		expect(original_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 
 		// Initial body state: ['story_1, 'story_1, 'list_1]
 		const initial_body = session.get(['page_1', 'body']);
@@ -170,12 +170,12 @@ describe('Svedit.svelte', () => {
 		const first_new_button = session.get(first_new_button_id);
 
 		// Content should be the same as original
-		expect(first_new_story.title).toEqual({ content: 'First story', annotations: [] });
+		expect(first_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(first_new_story.description).toEqual({
 			content: 'First story description.',
-			annotations: []
+			marks: [], annotations: []
 		});
-		expect(first_new_button.content).toEqual({ content: 'Get started', annotations: [] });
+		expect(first_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 		expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different
@@ -218,12 +218,12 @@ describe('Svedit.svelte', () => {
 		const second_new_button = session.get(second_new_button_id);
 
 		// Content should still be the same
-		expect(second_new_story.title).toEqual({ content: 'First story', annotations: [] });
+		expect(second_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(second_new_story.description).toEqual({
 			content: 'First story description.',
-			annotations: []
+			marks: [], annotations: []
 		});
-		expect(second_new_button.content).toEqual({ content: 'Get started', annotations: [] });
+		expect(second_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
 		expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different from both original and first paste
@@ -257,7 +257,7 @@ describe('Svedit.svelte', () => {
 				id: empty_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: '', annotations: [] } // Empty content
+				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
 			const tr = session.tr;
@@ -304,7 +304,7 @@ describe('Svedit.svelte', () => {
 				id: text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: 'Some content', annotations: [] }
+				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -333,7 +333,7 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ content: 'Some content', annotations: [] });
+			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
@@ -349,7 +349,7 @@ describe('Svedit.svelte', () => {
 				id: empty_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: '', annotations: [] } // Empty content
+				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
 			const tr = session.tr;
@@ -396,7 +396,7 @@ describe('Svedit.svelte', () => {
 				id: text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: 'Some content', annotations: [] }
+				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -425,7 +425,7 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ content: 'Some content', annotations: [] });
+			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
@@ -443,14 +443,14 @@ describe('Svedit.svelte', () => {
 				id: first_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: 'First text', annotations: [] }
+				content: { content: 'First text', marks: [], annotations: [] }
 			};
 
 			const second_text_node = {
 				id: second_text_id,
 				type: 'paragraph',
 				layout: 1,
-				content: { content: ' second text', annotations: [] }
+				content: { content: ' second text', marks: [], annotations: [] }
 			};
 
 			const tr = session.tr;
@@ -460,7 +460,7 @@ describe('Svedit.svelte', () => {
 			// Replace body with our two text nodes
 			tr.set(['page_1', 'body'], {
 				nodes: [first_text_id, second_text_id],
-				annotations: []
+				marks: [], annotations: []
 			});
 			session.apply(tr);
 
@@ -482,7 +482,7 @@ describe('Svedit.svelte', () => {
 
 			// First text node should contain joined content
 			const first_text = session.get(first_text_id);
-			expect(first_text.content).toEqual({ content: 'First text second text', annotations: [] });
+			expect(first_text.content).toEqual({ content: 'First text second text', marks: [], annotations: [] });
 
 			// Body should only contain the first text node
 			const final_body = session.get(['page_1', 'body']);
@@ -633,7 +633,7 @@ describe('Svedit.svelte', () => {
 			id: unicode_text_id,
 			type: 'paragraph',
 			layout: 1,
-			content: { content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', annotations: [] }
+			content: { content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', marks: [], annotations: [] }
 		};
 
 		const tr = session.tr;
@@ -778,7 +778,7 @@ describe('Svedit.svelte', () => {
 			id: text_id,
 			type: 'paragraph',
 			layout: 1,
-			content: { content: '', annotations: [] }
+			content: { content: '', marks: [], annotations: [] }
 		});
 		const body_before_insert = session.get(['page_1', 'body']);
 		tr.set(['page_1', 'body'], {
