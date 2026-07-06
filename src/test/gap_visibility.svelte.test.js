@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
+import StoryHmrProxy from './testing_components/StoryHmrProxy.svelte';
 import {
 	settle,
 	settle_grid,
@@ -399,6 +400,60 @@ describe('NodeGap visibility & placement', () => {
 				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
 			);
 			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual(['0', '1', '2']);
+		});
+	});
+
+	describe('DOM recreation without document change (dev-mode HMR)', () => {
+		// Reproduces the "node gap no longer clickable after a code change in
+		// dev mode" bug. When Vite/Svelte HMR replaces a node component, the
+		// component's DOM subtree — including its node-gap elements — is
+		// recreated, but session.doc and editable are unchanged, so the
+		// reconcile effect in node_visibility never runs. The fresh .node-gap
+		// elements never receive .positioned (0×0, pointer-events: none →
+		// unclickable) and the fresh node elements are never observed by the
+		// IntersectionObserver, so scrolling can't heal it. The next document
+		// edit triggers reconcile and everything snaps back — matching the
+		// observed "save the doc, edit again, gap works" behaviour.
+		it('keeps gaps positioned after a node component subtree is recreated', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			let array_el = find_buttons_array(container);
+			const first_gap_before = find_first_gap(array_el);
+			expect(first_gap_before.classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+
+			// Simulate HMR: swap the story component for an identical wrapper
+			// (a fresh component reference). Svelte remounts the story subtree
+			// — new node and node-gap DOM elements — with no document change.
+			session.config = {
+				...session.config,
+				node_components: { ...session.config.node_components, story: StoryHmrProxy }
+			};
+			await settle();
+
+			array_el = find_buttons_array(container);
+			const first_gap = find_first_gap(array_el);
+			const last_gap = find_last_gap(array_el);
+			// Sanity: the swap really recreated the gap DOM.
+			expect(first_gap).not.toBeNull();
+			expect(first_gap).not.toBe(first_gap_before);
+
+			// Desired behaviour: recreated gaps are positioned (clickable).
+			expect(first_gap.classList.contains('positioned')).toBe(true);
+			expect(last_gap.classList.contains('positioned')).toBe(true);
+			const mid_gap = array_el.querySelector(
+				':scope > .node-gap.gap-after[data-gap-offset="1"]:not(.last)'
+			);
+			expect(mid_gap.classList.contains('positioned')).toBe(true);
+
+			// And the selectable hit area is actually clickable.
+			const sel = first_gap.querySelector('.svedit-selectable');
+			const sel_rect = sel.getBoundingClientRect();
+			expect(sel_rect.width).toBeGreaterThan(0);
+			expect(sel_rect.height).toBeGreaterThan(0);
+			expect(getComputedStyle(sel).pointerEvents).toBe('auto');
 		});
 	});
 });
