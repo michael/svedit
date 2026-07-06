@@ -1,5 +1,6 @@
 import Command from '$lib/Command.svelte.js';
 import { is_selection_collapsed } from '$lib/utils.js';
+import { insert_node_of_type } from '$lib/transforms.svelte.js';
 import {
 	get_closest_switchable_layout,
 	get_cycle_node_state,
@@ -116,7 +117,7 @@ export class CycleNodeTypeCommand extends Command {
 		});
 
 		if (is_node_subtree_empty(session, node)) {
-			session.config.inserters[new_type](tr);
+			insert_node_of_type(tr, new_type);
 		} else {
 			replace_node_with_equivalent_type(tr, node_array_path, node_index, node, new_type);
 		}

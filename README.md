@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
+Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/Toolbar.svelte), and render custom [Overlays](./src/routes/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
 
 You can also install Svedit into an existing SvelteKit project with `npm install svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
 
@@ -223,6 +223,67 @@ const document_schema = {
 ```
 
 Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes with `kind: 'annotation'`. Simple marks like `strong` and `emphasis` have no properties, while marks like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which types are allowed via `mark_types` and `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles). `mark_types` may only reference `kind: 'mark'` node types and `annotation_types` only `kind: 'annotation'` node types.
+
+## Adding a new node type
+
+Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry and a component:
+
+```js
+// src/packages/quote/package.js
+import Quote from './Quote.svelte';
+
+export default {
+	name: 'quote',
+	schema: {
+		quote: {
+			kind: 'block',
+			properties: {
+				content: { type: 'text', allow_newlines: true },
+				author: { type: 'string' }
+			}
+		}
+	},
+	node_components: { quote: Quote },
+	// Demo-app metadata; Svedit itself does not know about layouts.
+	node_layouts: { quote: 1 }
+};
+```
+
+Then compose your packages into the flat schema + config a `Session` expects, and allow the new type where it may appear (container wiring — `node_types`, `default_node_type`, `mark_types`, `annotation_types` — always stays with the property that owns the container, typically your document package):
+
+```js
+import { compose, Session } from 'svedit';
+import page_pkg from '../packages/page/package.js';
+import quote_pkg from '../packages/quote/package.js';
+
+const { schema, config } = compose([page_pkg, quote_pkg], {
+	generate_id: nanoid
+});
+
+const session = new Session(schema, doc, config);
+```
+
+That's usually all. Everything else is optional and only needed when the defaults don't fit:
+
+- **Inserter** — Svedit inserts new nodes generically from schema defaults: the node is created via `fill_node_defaults`, inserted, and for `kind: 'text'` nodes the caret is placed at the start of `content`. Add `inserters: { quote: (tr, content) => {...} }` to a package only when a new node needs more, e.g. seeded child nodes (see `list` and `story` in [`src/packages/`](src/packages/)).
+- **HTML exporter** — `html_exporters: { quote: (node) => ... }` improves copy/paste to external apps; without one a generic exporter is used.
+- **Commands and keymap** — a package can contribute commands (as a factory receiving the editor context) and keybindings that reference commands by name:
+- **App registries** — custom object-valued keys like `node_layouts: { quote: 1 }` are merged into `config.node_layouts`.
+
+```js
+commands: (context) => ({ toggle_strong: new ToggleMarkCommand('strong', context) }),
+keymap: { 'meta+b,ctrl+b': ['toggle_strong'] }
+```
+
+`compose` merges everything into one flat result: schema entries and object-valued registry keys (`node_components`, `system_components`, `inserters`, `html_exporters`, plus custom app registries like `node_layouts`) merge key-by-key and **collisions throw**, keymap entries for the same key concatenate in package order, and command names are resolved across all packages. Unknown scalar/function package keys throw; app-level scalar config belongs in the second `compose(..., app_config)` argument. There is no plugin runtime or registry — a package is just an object, and after composition the result is indistinguishable from a hand-written flat config. The flat style (as used in [`src/test/create_test_session.js`](src/test/create_test_session.js)) remains fully supported.
+
+To catch omissions early, `Session` runs completeness checks in dev mode and logs `[svedit]` warnings with a fix hint for each finding:
+
+- a `document`/`block`/`text` type has no registered component (it would render as `UnknownNode`),
+- a `default_node_type` can neither be auto-inserted from schema defaults nor has a custom inserter (Enter would fail),
+- a `mark`/`annotation` type is not referenced by any `mark_types`/`annotation_types` (it could never be applied).
+
+The demo app is the reference for this setup style — each folder in [`src/packages/`](src/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
 
 ## Document
 
@@ -475,7 +536,7 @@ const session_config = {
 - **`generate_id`** - Function that generates unique IDs for new nodes
 - **`node_components`** - Maps each node type from your schema to a Svelte component
 - **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
-  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
+  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/Overlays.svelte`](src/routes/Overlays.svelte) for an example.
   - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance

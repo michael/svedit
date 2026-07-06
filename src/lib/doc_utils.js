@@ -161,6 +161,15 @@ export function validate_document_schema(document_schema) {
 						`Node type "${node_type}" property "${prop_name}" references unknown node types: ${missing_types.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`
 					);
 				}
+				// node_types must reference content node kinds, not range kinds
+				const range_kind_types = prop_def.node_types.filter((ref_type) =>
+					['mark', 'annotation'].includes(document_schema[ref_type]?.kind)
+				);
+				if (range_kind_types.length > 0) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" node_types must not reference mark or annotation types, got: ${range_kind_types.join(', ')}. Use mark_types/annotation_types instead.`
+					);
+				}
 			}
 			if (prop_def.type === 'text' || prop_def.type === 'node_array') {
 				// mark_types must reference kind 'mark', annotation_types kind 'annotation'
@@ -200,6 +209,73 @@ export function validate_config_components(schema, config) {
 			);
 		}
 	}
+}
+
+/**
+ * Check schema and config for common omissions when setting up node types.
+ *
+ * Unlike the validate_* functions these are soft checks: each finding is a
+ * human-readable warning describing what was likely forgotten and how to fix
+ * it. Session logs them in dev mode; nothing throws.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {any} config - The Svedit config
+ * @returns {string[]} Warning messages, empty when the setup looks complete
+ */
+export function check_config_completeness(schema, config) {
+	const warnings = [];
+
+	// Referenced mark/annotation types, to detect unused range types
+	const referenced_range_types = new Set();
+	for (const node_schema of Object.values(schema)) {
+		for (const prop_def of Object.values(node_schema.properties)) {
+			for (const key of ['mark_types', 'annotation_types']) {
+				for (const type of prop_def[key] ?? []) {
+					referenced_range_types.add(type);
+				}
+			}
+		}
+	}
+
+	for (const [node_type, node_schema] of Object.entries(schema)) {
+		if (
+			['document', 'block', 'text'].includes(node_schema.kind) &&
+			!config?.node_components?.[node_type]
+		) {
+			warnings.push(
+				`Node type '${node_type}' has no registered component and will render as UnknownNode. Add it to config.node_components.`
+			);
+		}
+
+		if (
+			['mark', 'annotation'].includes(node_schema.kind) &&
+			!referenced_range_types.has(node_type)
+		) {
+			warnings.push(
+				`Node type '${node_type}' (kind '${node_schema.kind}') is not referenced by any ${node_schema.kind}_types and can never be applied.`
+			);
+		}
+
+		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
+			if (prop_def.type !== 'node_array') continue;
+			const default_type = get_default_node_type(prop_def);
+			if (!default_type || config?.inserters?.[default_type]) continue;
+
+			// Dry-run the generic inserter: a default node type must be
+			// constructible from schema defaults alone.
+			try {
+				validate_node(fill_node_defaults({ id: '_check', type: default_type }, schema), schema, {}, {
+					require_references: false
+				});
+			} catch (error) {
+				warnings.push(
+					`Node type '${default_type}' is the default node type of '${node_type}.${prop_name}' but cannot be auto-inserted (${/** @type {Error} */ (error).message}). Define config.inserters['${default_type}'].`
+				);
+			}
+		}
+	}
+
+	return warnings;
 }
 
 /**

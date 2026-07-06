@@ -10,6 +10,7 @@ import {
 	validate_document_schema,
 	validate_document,
 	validate_config_components,
+	check_config_completeness,
 	validate_node,
 	is_id_valid,
 	get_referencing_node_ids,
@@ -93,6 +94,15 @@ export default class Session {
 		this.config = config;
 		validate_document(this.doc, this.schema);
 		validate_config_components(this.schema, this.config);
+
+		// Soft completeness checks: point out likely setup omissions (missing
+		// components, non-insertable default node types, unused range types)
+		// during development without breaking the app.
+		if (import.meta.env?.DEV) {
+			for (const warning of check_config_completeness(this.schema, this.config)) {
+				console.warn(`[svedit] ${warning}`);
+			}
+		}
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;

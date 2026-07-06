@@ -24,8 +24,13 @@ export {
 	validate_document_schema,
 	validate_document,
 	validate_node,
+	validate_config_components,
+	check_config_completeness,
 	get_referencing_node_ids
 } from './doc_utils.js';
+
+// Config composition
+export { compose } from './compose.js';
 
 // Command system
 export { default as Command } from './Command.svelte.js';
