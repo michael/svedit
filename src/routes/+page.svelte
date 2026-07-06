@@ -35,6 +35,7 @@
 		async execute() {
 			// Example: async commands are supported
 			// await update_document(this.context.session);
+			console.log('Document saved', session.to_json());
 			this.context.editable = false;
 		}
 	}
