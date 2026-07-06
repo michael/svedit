@@ -208,7 +208,8 @@ export const document_schema = define_document_schema({
 		properties: {
 			list_items: {
 				type: 'node_array',
-				node_types: ['list_item']
+				node_types: ['list_item'],
+				annotation_types: ['marker'],
 			},
 			layout: { type: 'integer', default: 1 }
 		}
