@@ -3,15 +3,15 @@ import { define_document_schema } from '../lib/doc_utils.js';
 import nanoid from '../routes/nanoid.js';
 
 // Node components
-import Page from '../routes/components/Page.svelte';
-import Story from '../routes/components/Story.svelte';
-import Button from '../routes/components/Button.svelte';
-import Paragraph from '../routes/components/Paragraph.svelte';
-import Heading1 from '../routes/components/Heading1.svelte';
-import Heading2 from '../routes/components/Heading2.svelte';
-import Heading3 from '../routes/components/Heading3.svelte';
-import List from '../routes/components/List.svelte';
-import ListItem from '../routes/components/ListItem.svelte';
+import Page from '../routes/packages/page/Page.svelte';
+import Story from '../routes/packages/story/Story.svelte';
+import Button from '../routes/packages/story/Button.svelte';
+import Paragraph from '../routes/packages/text_blocks/Paragraph.svelte';
+import Heading1 from '../routes/packages/text_blocks/Heading1.svelte';
+import Heading2 from '../routes/packages/text_blocks/Heading2.svelte';
+import Heading3 from '../routes/packages/text_blocks/Heading3.svelte';
+import List from '../routes/packages/list/List.svelte';
+import ListItem from '../routes/packages/list/ListItem.svelte';
 
 const document_schema = define_document_schema({
 	page: {
@@ -306,7 +306,21 @@ const session_config = {
 	}
 };
 
+function create_session_config() {
+	return {
+		...session_config,
+		system_components: { ...session_config.system_components },
+		node_components: { ...session_config.node_components },
+		node_layouts: { ...session_config.node_layouts },
+		inserters: { ...session_config.inserters }
+	};
+}
+
 export default function create_test_session() {
-	const session = new Session(document_schema, doc, session_config);
+	const session = new Session(
+		structuredClone(document_schema),
+		structuredClone(doc),
+		create_session_config()
+	);
 	return session;
 }

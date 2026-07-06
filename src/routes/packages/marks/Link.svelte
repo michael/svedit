@@ -1,6 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
-	import { serialize_path } from '../../lib/utils.js';
+	import { serialize_path } from '../../../lib/utils.js';
 	const svedit = getContext('svedit');
 	let { path, content } = $props();
 	let node = $derived(svedit.session.get(path));

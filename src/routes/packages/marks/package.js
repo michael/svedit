@@ -1,11 +1,11 @@
 import { ToggleMarkCommand } from 'svedit';
-import { ToggleLinkCommand } from '../commands.svelte.js';
+import { ToggleLinkCommand } from '../../commands.svelte.js';
 
-import Strong from '../components/Strong.svelte';
-import Emphasis from '../components/Emphasis.svelte';
-import Highlight from '../components/Highlight.svelte';
-import Link from '../components/Link.svelte';
-import Section from '../components/Section.svelte';
+import Strong from './Strong.svelte';
+import Emphasis from './Emphasis.svelte';
+import Highlight from './Highlight.svelte';
+import Link from './Link.svelte';
+import Section from './Section.svelte';
 
 // Mark bundles other packages reference from their text properties
 export const ALL_MARKS = ['strong', 'emphasis', 'highlight', 'link'];

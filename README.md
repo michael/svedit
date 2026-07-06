@@ -229,8 +229,8 @@ Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes w
 Everything a node type needs can be grouped in one plain object — a package — and merged into your session setup with `compose`. Every package needs a unique `name`, used for diagnostics and duplicate-name checks. In the simplest case a new type is just a schema entry plus a component:
 
 ```js
-// packages/quote.js
-import Quote from '../components/Quote.svelte';
+// packages/quote/package.js
+import Quote from './Quote.svelte';
 
 export default {
 	name: 'quote',
@@ -251,8 +251,8 @@ Then compose your packages into the flat schema + config a `Session` expects, an
 
 ```js
 import { compose, Session } from 'svedit';
-import page from './packages/page.js';
-import quote from './packages/quote.js';
+import page from './packages/page/package.js';
+import quote from './packages/quote/package.js';
 
 const { schema, config } = compose([page, quote], {
 	generate_id: nanoid
@@ -280,7 +280,7 @@ To catch omissions early, `Session` runs completeness checks in dev mode and log
 - a `default_node_type` can neither be auto-inserted from schema defaults nor has a custom inserter (Enter would fail),
 - a `mark`/`annotation` type is not referenced by any `mark_types`/`annotation_types` (it could never be applied).
 
-The demo app is the reference for this setup style — each file in [`src/routes/packages/`](src/routes/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
+The demo app is the reference for this setup style — each folder in [`src/routes/packages/`](src/routes/packages/) is one self-contained package, and [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) composes them.
 
 ## Document
 

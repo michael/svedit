@@ -1,6 +1,6 @@
-import Story from '../components/Story.svelte';
-import Button from '../components/Button.svelte';
-import { ALL_MARKS, TITLE_MARKS } from './marks.js';
+import Story from './Story.svelte';
+import Button from './Button.svelte';
+import { ALL_MARKS, TITLE_MARKS } from '../marks/package.js';
 
 export default {
 	name: 'story',
@@ -48,6 +48,24 @@ export default {
 		button: 1
 	},
 	inserters: {
+		// Custom: direct button insertion should place the caret inside
+		// the newly-created button label.
+		button: function (tr, content = { content: '', marks: [], annotations: [] }) {
+			const new_button = {
+				id: tr.generate_id(),
+				type: 'button',
+				content,
+				href: 'https://editable.website'
+			};
+			tr.create(new_button);
+			tr.insert_nodes([new_button.id]);
+			tr.set_selection({
+				type: 'text',
+				path: [...tr.selection.path, tr.selection.focus_offset - 1, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+		},
 		// Custom: a new story is seeded with a nested button, which schema
 		// defaults alone can't express.
 		story: function (tr) {

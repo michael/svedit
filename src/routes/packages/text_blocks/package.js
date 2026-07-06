@@ -1,8 +1,8 @@
-import Paragraph from '../components/Paragraph.svelte';
-import Heading1 from '../components/Heading1.svelte';
-import Heading2 from '../components/Heading2.svelte';
-import Heading3 from '../components/Heading3.svelte';
-import { ALL_MARKS } from './marks.js';
+import Paragraph from './Paragraph.svelte';
+import Heading1 from './Heading1.svelte';
+import Heading2 from './Heading2.svelte';
+import Heading3 from './Heading3.svelte';
+import { ALL_MARKS } from '../marks/package.js';
 
 // Text blocks need no inserters: Svedit's generic schema-driven inserter
 // creates them from schema defaults and places the caret in `content`.

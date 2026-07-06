@@ -1,6 +1,6 @@
-import ImageGrid from '../components/ImageGrid.svelte';
-import ImageGridItem from '../components/ImageGridItem.svelte';
-import { ALL_MARKS, TITLE_MARKS } from './marks.js';
+import ImageGrid from './ImageGrid.svelte';
+import ImageGridItem from './ImageGridItem.svelte';
+import { ALL_MARKS, TITLE_MARKS } from '../marks/package.js';
 
 export default {
 	name: 'image_grid',

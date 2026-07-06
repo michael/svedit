@@ -3,8 +3,8 @@ import { compose } from '../lib/compose.js';
 import Session from '../lib/Session.svelte.js';
 import Command from '../lib/Command.svelte.js';
 
-import Page from '../routes/components/Page.svelte';
-import Paragraph from '../routes/components/Paragraph.svelte';
+import Page from '../routes/packages/page/Page.svelte';
+import Paragraph from '../routes/packages/text_blocks/Paragraph.svelte';
 
 class NoopCommand extends Command {
 	execute() {}

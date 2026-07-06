@@ -1,4 +1,4 @@
-import Page from '../components/Page.svelte';
+import Page from './Page.svelte';
 
 // The page package owns all container wiring: which node types are allowed in
 // the body, which marks/annotations may wrap body ranges, and what gets

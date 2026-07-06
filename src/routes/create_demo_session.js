@@ -10,15 +10,15 @@ import Overlays from './components/Overlays.svelte';
 // `compose` merges them into the flat schema + config a Session expects.
 // Container wiring (which node types the page body accepts) lives in the
 // page package — packages define node types, the app composes them.
-import page from './packages/page.js';
-import text_blocks from './packages/text_blocks.js';
-import marks from './packages/marks.js';
-import marker from './packages/marker.js';
-import story from './packages/story.js';
-import list from './packages/list.js';
-import image_grid from './packages/image_grid.js';
-import hero from './packages/hero.js';
-import core from './packages/core.js';
+import page from './packages/page/package.js';
+import text_blocks from './packages/text_blocks/package.js';
+import marks from './packages/marks/package.js';
+import marker from './packages/marker/package.js';
+import story from './packages/story/package.js';
+import list from './packages/list/package.js';
+import image_grid from './packages/image_grid/package.js';
+import hero from './packages/hero/package.js';
+import core from './packages/core/package.js';
 
 const { schema, config } = compose(
 	[page, text_blocks, marks, marker, story, list, image_grid, hero, core],

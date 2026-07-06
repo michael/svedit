@@ -1,6 +1,6 @@
-import List from '../components/List.svelte';
-import ListItem from '../components/ListItem.svelte';
-import { ALL_MARKS } from './marks.js';
+import List from './List.svelte';
+import ListItem from './ListItem.svelte';
+import { ALL_MARKS } from '../marks/package.js';
 
 export default {
 	name: 'list',

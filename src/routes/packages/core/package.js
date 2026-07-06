@@ -7,7 +7,7 @@ import {
 	RedoCommand,
 	SelectParentCommand
 } from 'svedit';
-import { CycleLayoutCommand, CycleNodeTypeCommand } from '../commands.svelte.js';
+import { CycleLayoutCommand, CycleNodeTypeCommand } from '../../commands.svelte.js';
 
 // App-level editing commands and their keybindings, independent of any
 // specific node type.

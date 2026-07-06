@@ -1,5 +1,5 @@
-import Hero from '../components/Hero.svelte';
-import { ALL_MARKS, TITLE_MARKS } from './marks.js';
+import Hero from './Hero.svelte';
+import { ALL_MARKS, TITLE_MARKS } from '../marks/package.js';
 
 // The hero needs no inserter: the generic schema-driven inserter creates it
 // from schema defaults.
