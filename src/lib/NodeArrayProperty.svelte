@@ -132,6 +132,7 @@
 	data-path={path_str}
 	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
 	{...rest}
+	{@attach svedit.visibility_registry.track_array(path_str)}
 >
 	{#if node_ids.length === 0 && svedit.editable}
 		<div
@@ -139,6 +140,7 @@
 			data-path={serialize_path([...path, 0])}
 			data-type="node"
 			style="anchor-name: --{serialize_path([...path, 0])};"
+			{@attach svedit.visibility_registry.track_node(serialize_path([...path, 0]))}
 		>
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>

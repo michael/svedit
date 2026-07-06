@@ -54,6 +54,7 @@
 	data-type="node"
 	style="anchor-name: --{path_str};{style}"
 	{...rest}
+	{@attach svedit.visibility_registry.track_node(path_str)}
 >
 	{@render children()}
 </svelte:element>
