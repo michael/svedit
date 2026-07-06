@@ -34,9 +34,9 @@
  *
  * ## Two observers
  *
- * **Overscan IO** (`rootMargin: 500px`, threshold `0`) — fills
- * `near_map` and per-array `array_indices`. NodeGap derives its
- * `.positioned` class reactively from these maps. Registration seeds
+ * **Overscan IO** (`rootMargin: 500px`, threshold `0`) — fills the
+ * per-array `array_indices` sets. NodeGap derives its `.positioned`
+ * class reactively from them. Registration seeds
  * the state synchronously from one getBoundingClientRect (so there's
  * no unpositioned flash on mount); the IO owns subsequent viewport
  * transitions, including layout-shift-induced ones.
@@ -70,8 +70,9 @@
  *
  * ## Reactivity
  *
- * State lives in SvelteMap (near_map, edge_map) and per-array SvelteSet
- * (array_indices). Consumers (NodeGap and NodeGapMarkers, both via
+ * State lives in per-array SvelteSets (array_indices, the single
+ * source of truth for node nearness) and a SvelteMap (edge_map).
+ * Consumers (NodeGap and NodeGapMarkers, both via
  * $derived) read via .has()/.get() — Svelte's runtime tracks at
  * per-key granularity, so only consumers whose specific dependencies
  * changed re-evaluate. Because the `.positioned` class is applied
@@ -112,13 +113,12 @@ const EDGE_TOLERANCE_PX = 10;
  * the track_node / track_array attachments.
  */
 class VisibilityRegistry {
-	/** Per-node "in overscan zone" flag. NodeGap reads via `.has(path)`. */
-	near_map = new SvelteMap();
-
 	/**
-	 * Per-array set of near child indices. NodeGapMarkers iterates the
-	 * set for its array. Stable references — once a SvelteSet is created
-	 * for an array path it survives re-renders so consumers stay subscribed.
+	 * Per-array set of near ("in overscan zone") child indices — the
+	 * single source of truth for node nearness. NodeGap reads via
+	 * `.has(index)`, NodeGapMarkers iterates the set for its array.
+	 * Stable references — once a SvelteSet is created for an array path
+	 * it survives re-renders so consumers stay subscribed.
 	 *
 	 * @type {Map<string, SvelteSet<number>>}
 	 */
@@ -203,7 +203,7 @@ class VisibilityRegistry {
 	view_classes = true;
 
 	/**
-	 * When true, the overscan IO populates near_map and NodeGap gates
+	 * When true, the overscan IO populates array_indices and NodeGap gates
 	 * `.positioned` by viewport proximity. When false, the overscan IO
 	 * is skipped and every registered node counts as near, so every gap
 	 * is `.positioned` and every marker renders.
@@ -254,7 +254,6 @@ class VisibilityRegistry {
 		this.#near_nodes.clear();
 		this.#array_els.clear();
 		this.#array_owners.clear();
-		this.near_map.clear();
 		this.edge_map.clear();
 		for (const set of this.#array_indices.values()) set.clear();
 	}
@@ -264,6 +263,13 @@ class VisibilityRegistry {
 	 * Callers should hold the returned reference for the lifetime of the
 	 * subscription — the same set is returned on subsequent calls so
 	 * Svelte's per-set tracking remains intact across re-evaluations.
+	 *
+	 * IMPORTANT: hold the returned set in its own $derived and read
+	 * membership from a different one (see NodeGap / NodeGapMarkers).
+	 * Svelte does not track dependencies on state created inside the
+	 * currently-evaluating reaction, so a consumer that lazily creates
+	 * the set and reads `.has()` in the same derived never subscribes
+	 * and never re-evaluates.
 	 *
 	 * @param {string} array_path_str
 	 * @returns {SvelteSet<number>}
@@ -394,7 +400,6 @@ class VisibilityRegistry {
 			// have already claimed this path — its state must survive.
 			if (this.#path_owners.get(path) === el) {
 				this.#path_owners.delete(path);
-				this.near_map.delete(path);
 				const split = this.#split_path(path);
 				if (split) this.#array_indices.get(split.array_path)?.delete(split.index);
 			}
@@ -407,7 +412,6 @@ class VisibilityRegistry {
 	 */
 	#add_near_node(el, path) {
 		this.#near_nodes.add(el);
-		this.near_map.set(path, true);
 		const split = this.#split_path(path);
 		if (split) this.get_array_indices(split.array_path).add(split.index);
 	}
@@ -419,7 +423,6 @@ class VisibilityRegistry {
 	#remove_near_node(el, path) {
 		this.#near_nodes.delete(el);
 		if (this.#path_owners.get(path) !== el) return;
-		this.near_map.delete(path);
 		const split = this.#split_path(path);
 		if (split) this.#array_indices.get(split.array_path)?.delete(split.index);
 	}
@@ -512,7 +515,7 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Overscan IO callback. Manages near_map and array_indices; NodeGap
+	 * Overscan IO callback. Manages the array_indices sets; NodeGap
 	 * reacts to the map writes and updates .positioned declaratively.
 	 *
 	 * @param {IntersectionObserverEntry[]} entries
@@ -628,27 +631,31 @@ export function create_node_visibility(svedit) {
 }
 
 /**
- * Reactive visibility check for a gap's `.positioned` class. NodeGap
- * calls this from a $derived, so the near_map / edge_map reads are
- * tracked at per-key granularity — a gap re-evaluates only when its
- * own dependencies change. Applying the class declaratively means it
+ * Pure visibility check for a gap's `.positioned` class. NodeGap calls
+ * this from a $derived, so the `near.has()` reads are tracked at
+ * per-key granularity — a gap re-evaluates only when its own
+ * dependencies change. Applying the class declaratively means it
  * survives DOM recreation without a document change (e.g. dev-mode
  * HMR component swaps).
  *
- * @param {VisibilityRegistry} registry
- * @param {string} array_path_str
+ * `near` must come from `get_array_indices` held in a SEPARATE
+ * $derived (see the note there): membership reads on a set created
+ * within the same derived are not tracked by Svelte.
+ *
+ * @param {SvelteSet<number>} near - near child indices of the array
+ * @param {{ first: boolean, last: boolean } | undefined} edge_state
  * @param {number} offset
  * @param {boolean} is_last
  * @param {boolean} empty
  */
-export function should_position_gap(registry, array_path_str, offset, is_last, empty) {
-	if (!registry) return false;
+export function should_position_gap(near, edge_state, offset, is_last, empty) {
+	if (!near) return false;
 
 	if (empty) {
-		return registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`);
+		return near.has(0);
 	}
 
-	// Edge gaps gate on near_map AND edge_map. edge_map is the
+	// Edge gaps gate on nearness AND edge state. edge_state is the
 	// scroll-aware check that the adjacent edge node has actually
 	// reached the matching end of its array container (within
 	// EDGE_TOLERANCE_PX). We can't rely on the IO here because it only
@@ -656,17 +663,14 @@ export function should_position_gap(registry, array_path_str, offset, is_last, e
 	// changes within a horizontal-overflow container that don't change
 	// the visibility ratio.
 	if (offset === 0) {
-		if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}0`)) return false;
-		return registry.edge_map.get(array_path_str)?.first === true;
+		if (!near.has(0)) return false;
+		return edge_state?.first === true;
 	}
 
 	if (is_last) {
-		if (!registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`)) return false;
-		return registry.edge_map.get(array_path_str)?.last === true;
+		if (!near.has(offset - 1)) return false;
+		return edge_state?.last === true;
 	}
 
-	return (
-		registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset - 1}`) &&
-		registry.near_map.has(`${array_path_str}${PATH_SEPARATOR}${offset}`)
-	);
+	return near.has(offset - 1) && near.has(offset);
 }
