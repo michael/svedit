@@ -1505,9 +1505,12 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the selection into view
+			// Scroll the selection into view. Deferred a tick, so focus may have
+			// left the canvas by now (e.g. into a form input or dialog), which
+			// clears the document selection and leaves focusNode null. Nothing to
+			// scroll to in that case.
 			setTimeout(() => {
-				const selectedElement = dom_selection.focusNode.parentElement;
+				const selectedElement = dom_selection.focusNode?.parentElement;
 				if (selectedElement) {
 					selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}
