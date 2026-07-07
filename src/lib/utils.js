@@ -404,6 +404,51 @@ export function paths_equal(a, b) {
 	return a.every((segment, index) => segment === b[index]);
 }
 
+/**
+ * Like traverse, but returns only node ids in depth-first order and never
+ * clones nodes. Use this when only the reachable id set is needed (e.g.
+ * reference bookkeeping) — traverse() deep-clones every visited node,
+ * which is wasteful for id-only consumers.
+ *
+ * @param {string} node_id - The ID of the node to start traversing from
+ * @param {object} schema - The document schema
+ * @param {Record<string, any>} nodes - All document nodes
+ * @returns {string[]} Node ids in depth-first order (entry point last)
+ */
+export function traverse_ids(node_id, schema, nodes) {
+	const ids = [];
+	const visited = {};
+	const visit = (node) => {
+		if (!node || visited[node.id]) {
+			return;
+		}
+		visited[node.id] = true;
+		for (const [property_name, value] of Object.entries(node)) {
+			const property_definition = schema[node.type].properties[property_name];
+
+			if (property_definition?.type === 'node_array') {
+				for (const v of value?.nodes || []) {
+					if (typeof v === 'string') {
+						visit(nodes[v]);
+					}
+				}
+				for (const range of [...(value?.marks || []), ...(value?.annotations || [])]) {
+					visit(nodes[range.node_id]);
+				}
+			} else if (property_definition?.type === 'node') {
+				visit(nodes[value]);
+			} else if (property_definition?.type === 'text') {
+				for (const range of [...(value.marks || []), ...(value.annotations || [])]) {
+					visit(nodes[range.node_id]);
+				}
+			}
+		}
+		ids.push(node.id);
+	};
+	visit(nodes[node_id]);
+	return ids;
+}
+
 export function traverse(node_id, schema, nodes) {
 	const json = [];
 	const visited = {};

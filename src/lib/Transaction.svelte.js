@@ -6,6 +6,7 @@ import {
 	get_char_length,
 	char_slice,
 	traverse,
+	traverse_ids,
 	get_selection_range,
 	is_selection_collapsed,
 	adjust_ranges_for_deletion,
@@ -18,8 +19,10 @@ import {
 	property_type as doc_property_type,
 	kind as doc_kind,
 	inspect as doc_inspect,
-	apply_op,
-	count_references_excluding_deleted,
+	create_document_draft,
+	apply_op_to_draft,
+	build_reference_counts,
+	visit_node_references,
 	validate_node,
 	is_id_valid,
 	fill_node_defaults,
@@ -73,8 +76,13 @@ export default class Transaction {
 	 */
 	constructor(schema, doc, selection, config) {
 		this.schema = schema;
+		// The transaction works on a draft: one shallow copy of the nodes map
+		// up front, then ops mutate the draft in place (copying node objects
+		// on write). This keeps the original document untouched and node
+		// identity stable for unchanged nodes, without the previous
+		// one-full-map-copy-per-op cost.
 		/** @type {object} */
-		this.doc = doc;
+		this.doc = create_document_draft(doc);
 		/** @type {Selection} */
 		this.selection = selection;
 		this.config = config;
@@ -92,6 +100,9 @@ export default class Transaction {
 		this.modified_node_ids = [];
 		/** @type {NodeId[]} */
 		this.deleted_node_ids = [];
+		// True when any op set a node's 'type' property — referrers must be
+		// re-validated against type constraints in that case.
+		this.changed_node_types = false;
 	}
 
 	/**
@@ -167,8 +178,7 @@ export default class Transaction {
 	 * @returns {NodeId[]} Array of referenced node IDs
 	 */
 	get_referenced_nodes(node_id) {
-		const traversed_nodes = traverse(node_id, this.schema, this.doc.nodes);
-		return traversed_nodes.slice(0, -1).map((node) => node.id);
+		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
 	}
 
 	/**
@@ -226,7 +236,7 @@ export default class Transaction {
 	 * @private
 	 */
 	_apply_op(op) {
-		this.doc = apply_op(this.doc, op);
+		apply_op_to_draft(this.doc, op);
 	}
 
 	/**
@@ -283,10 +293,11 @@ export default class Transaction {
 			removed_node_ids = [previous_value];
 		} else if (prop_type === 'node_array') {
 			const previous_node_ids = previous_value.nodes;
-			const next_node_ids = value.nodes;
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local lookup set.
+			const next_node_ids = new Set(value.nodes);
 
 			// Only include node IDs that were in previous_value but are not in the new value
-			removed_node_ids = previous_node_ids.filter((id) => !next_node_ids.includes(id));
+			removed_node_ids = previous_node_ids.filter((id) => !next_node_ids.has(id));
 		}
 
 		const op = ['set', normalized_path, value];
@@ -294,6 +305,7 @@ export default class Transaction {
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
 		this._apply_op(op);
 		this._track_node_id(this.modified_node_ids, node.id);
+		if (property_key_str === 'type') this.changed_node_types = true;
 
 		// Garbage-collect nodes whose only reference was via this property.
 		// We must use a ref-count-aware sweep instead of unconditional deletion
@@ -963,6 +975,15 @@ export default class Transaction {
 	 * @private
 	 */
 	_cascade_delete_unreferenced_nodes(potentially_orphaned_nodes) {
+		if (potentially_orphaned_nodes.length === 0) return;
+
+		// Build reference counts in ONE full-document scan, then maintain them
+		// incrementally: marking a node deleted decrements the counts of every
+		// node it references (per occurrence). This replaces the previous
+		// per-candidate full-document re-scan, which made deleting M nodes
+		// O(M·N) instead of O(N + M).
+		const ref_counts = build_reference_counts(this.schema, this.doc);
+
 		/** @type {Record<NodeId, boolean>} */
 		const nodes_to_delete = {};
 		const to_check = [...potentially_orphaned_nodes];
@@ -971,16 +992,20 @@ export default class Transaction {
 			const node_id = to_check.pop();
 			if (!node_id || nodes_to_delete[node_id]) continue;
 
-			// Count references to this node, excluding nodes already marked for deletion
-			const ref_count = this._count_references_excluding_deleted(node_id, nodes_to_delete);
-
-			if (ref_count === 0) {
+			if ((ref_counts.get(node_id) || 0) === 0) {
 				// No more references, safe to delete this node
 				nodes_to_delete[node_id] = true;
 
-				// Also check all nodes referenced by this node
-				const referenced_nodes = this.get_referenced_nodes(node_id);
-				to_check.push(...referenced_nodes);
+				// Release this node's outgoing references and re-check the
+				// nodes it pointed at — they may have become unreferenced.
+				const node = this.doc.nodes[node_id];
+				if (node) {
+					visit_node_references(this.schema, node, (referenced_id) => {
+						const count = ref_counts.get(referenced_id);
+						if (count !== undefined) ref_counts.set(referenced_id, count - 1);
+						to_check.push(referenced_id);
+					});
+				}
 			}
 		}
 
@@ -995,25 +1020,5 @@ export default class Transaction {
 				this._track_node_id(this.deleted_node_ids, node_id);
 			}
 		}
-	}
-
-	/**
-	 * Counts references to a node, excluding nodes that have been marked for deletion.
-	 *
-	 * This is used during cascade deletion to accurately count remaining references
-	 * as nodes are being deleted.
-	 *
-	 * @param {NodeId} target_node_id - The node ID to count references for
-	 * @param {Record<NodeId, boolean>} nodes_to_delete - Nodes already marked for deletion
-	 * @returns {number} The number of references to the target node
-	 * @private
-	 */
-	_count_references_excluding_deleted(target_node_id, nodes_to_delete) {
-		return count_references_excluding_deleted(
-			this.schema,
-			this.doc,
-			target_node_id,
-			nodes_to_delete
-		);
 	}
 }

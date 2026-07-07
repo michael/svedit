@@ -362,13 +362,11 @@ class VisibilityRegistry {
 		const path = /** @type {HTMLElement} */ (array_el).dataset.path;
 		if (!path) return false;
 
-		const sl = array_el.scrollLeft;
-		const sw = array_el.scrollWidth;
-		const cw = array_el.clientWidth;
-		const st = array_el.scrollTop;
-		const sh = array_el.scrollHeight;
-		const ch = array_el.clientHeight;
-
+		// Check computed overflow BEFORE touching scroll metrics. Reading
+		// scrollLeft/scrollWidth forces a synchronous layout when the DOM is
+		// dirty, while getComputedStyle only forces style recalc. Non-clipping
+		// arrays — the common case (a plain column body) — resolve to
+		// first=last=true without any scroll-metric read.
 		const style = getComputedStyle(array_el);
 		const clips_x = style.overflowX !== 'visible';
 		const clips_y = style.overflowY !== 'visible';
@@ -377,10 +375,18 @@ class VisibilityRegistry {
 		// Normal wrapping/grid node arrays often have harmless layout overflow
 		// (scrollWidth > clientWidth) while overflow remains visible; treating
 		// that as scroll position would incorrectly hide edge gaps.
-		const first = (!clips_x || sl <= EDGE_TOLERANCE_PX) && (!clips_y || st <= EDGE_TOLERANCE_PX);
-		const last =
-			(!clips_x || sl + cw >= sw - EDGE_TOLERANCE_PX) &&
-			(!clips_y || st + ch >= sh - EDGE_TOLERANCE_PX);
+		let first = true;
+		let last = true;
+		if (clips_x) {
+			const sl = array_el.scrollLeft;
+			first = sl <= EDGE_TOLERANCE_PX;
+			last = sl + array_el.clientWidth >= array_el.scrollWidth - EDGE_TOLERANCE_PX;
+		}
+		if (clips_y) {
+			const st = array_el.scrollTop;
+			first = first && st <= EDGE_TOLERANCE_PX;
+			last = last && st + array_el.clientHeight >= array_el.scrollHeight - EDGE_TOLERANCE_PX;
+		}
 
 		return untrack(() => {
 			const prev = this.edge_map.get(path);

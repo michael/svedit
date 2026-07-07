@@ -111,8 +111,29 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* Un-positioned: minimal in-DOM presence, no anchor resolution        */
+	/* Un-positioned: no layout box at all                                 */
 	/* ------------------------------------------------------------------ */
+
+	/*
+	 * display: none is load-bearing for large documents. A zero-size
+	 * absolutely-positioned selectable still belongs to the containing
+	 * block's out-of-flow list, and the browser lays out EVERY such box
+	 * on EVERY layout pass — measured ~430ms per pass at 2000 nodes
+	 * (~3500 gaps) in Chrome vs ~23ms with the boxes removed. That cost
+	 * hits every keystroke (the per-change reconcile reads a rect for
+	 * every node, and selection rendering forces layout), every window
+	 * resize frame, and every scroll-triggered layout.
+	 *
+	 * Off-screen gaps therefore contribute no layout box. DOM structure
+	 * stays stable (the .node-gap wrapper and selectable elements remain),
+	 * and DOM Ranges may still point into display:none elements, so
+	 * programmatic node selections targeting off-screen gaps keep working.
+	 * Empty-array gaps are excluded: they must stay clickable/visible even
+	 * before reconcile positions them.
+	 */
+	:global(.node-gap:not(.positioned):not(.empty) .svedit-selectable) {
+		display: none;
+	}
 
 	:global(.node-gap:not(.positioned) .svedit-selectable) {
 		position: absolute;
