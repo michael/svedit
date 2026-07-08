@@ -1,11 +1,12 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, traverse } from './utils.js';
+import { char_slice, traverse, traverse_ids } from './utils.js';
 import {
 	get as doc_get,
 	property_type as doc_property_type,
 	kind as doc_kind,
 	inspect as doc_inspect,
-	apply_op,
+	create_document_draft,
+	apply_op_to_draft,
 	count_references as doc_count_references,
 	validate_document_schema,
 	validate_document,
@@ -148,35 +149,33 @@ export default class Session {
 	 */
 	validate_transaction_result(transaction) {
 		const doc = transaction.doc;
-		/** @type {NodeId[]} */
-		const affected_node_ids = [];
+		/** @type {Set<NodeId>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
+		const affected_node_ids = new Set([
+			...transaction.created_node_ids,
+			...transaction.modified_node_ids
+		]);
 
-		function add_node_id(node_id) {
-			if (!affected_node_ids.includes(node_id)) affected_node_ids.push(node_id);
-		}
-
-		for (const node_id of transaction.created_node_ids) add_node_id(node_id);
-		for (const node_id of transaction.modified_node_ids) add_node_id(node_id);
-		for (const node_id of get_referencing_node_ids(
-			this.schema,
-			doc,
-			transaction.created_node_ids
-		)) {
-			add_node_id(node_id);
-		}
-		for (const node_id of get_referencing_node_ids(
-			this.schema,
-			doc,
-			transaction.modified_node_ids
-		)) {
-			add_node_id(node_id);
-		}
-		for (const node_id of get_referencing_node_ids(
-			this.schema,
-			doc,
-			transaction.deleted_node_ids
-		)) {
-			add_node_id(node_id);
+		// A full-document referrer scan is only needed when a reference held
+		// by an UNTOUCHED node can have become invalid:
+		// - deletions can leave dangling references behind
+		// - a 'type' change can violate a referrer's node/mark/annotation type
+		//   constraint
+		// References to created nodes can only live in nodes that were
+		// themselves created or modified in this transaction (the reference
+		// did not exist before), and modifying a node's other properties
+		// cannot invalidate its referrers — so those cases are already
+		// covered by the affected set and need no scan.
+		if (transaction.deleted_node_ids.length > 0 || transaction.changed_node_types) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
+			const scan_targets = new Set([
+				...transaction.created_node_ids,
+				...transaction.modified_node_ids,
+				...transaction.deleted_node_ids
+			]);
+			for (const node_id of get_referencing_node_ids(this.schema, doc, scan_targets)) {
+				affected_node_ids.add(node_id);
+			}
 		}
 
 		for (const node_id of affected_node_ids) {
@@ -266,7 +265,13 @@ export default class Session {
 	 */
 	apply(transaction, { batch = false } = {}) {
 		this.validate_transaction_result(transaction);
-		this.doc = transaction.doc;
+		// Only swap the doc when something changed. The transaction draft is
+		// always a fresh object, and assigning it for an ops-less transaction
+		// (e.g. selection-only) would needlessly invalidate every doc-dependent
+		// derived in the component tree.
+		if (transaction.ops.length > 0) {
+			this.doc = transaction.doc;
+		}
 		// Make sure selection gets a new reference (is rerendered)
 		this.selection = structuredClone(transaction.selection);
 		if (this.history_index < this.history.length - 1) {
@@ -315,12 +320,14 @@ export default class Session {
 			return;
 		}
 		const change = this.history[this.history_index];
-		let doc = this.doc;
+		// One draft for the whole change set — ops mutate the draft with
+		// node-level copy-on-write instead of copying the nodes map per op.
+		const doc = create_document_draft(this.doc);
 		change.inverse_ops
 			.slice()
 			.reverse()
 			.forEach((op) => {
-				doc = apply_op(doc, op);
+				apply_op_to_draft(doc, op);
 			});
 		this.doc = doc;
 		this.selection = change.selection_before;
@@ -334,9 +341,9 @@ export default class Session {
 		}
 		this.history_index = this.history_index + 1;
 		const change = this.history[this.history_index];
-		let doc = this.doc;
+		const doc = create_document_draft(this.doc);
 		change.ops.forEach((op) => {
-			doc = apply_op(doc, op);
+			apply_op_to_draft(doc, op);
 		});
 		this.doc = doc;
 		this.selection = change.selection_after;
@@ -542,7 +549,9 @@ export default class Session {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const node_array = this.get(this.selection.path);
-		return $state.snapshot(node_array.nodes.slice(start, end));
+		// node_array.nodes is a plain array of id strings (doc is $state.raw),
+		// so a slice is already a safe fresh copy.
+		return node_array.nodes.slice(start, end);
 	}
 
 	select_parent() {
@@ -595,7 +604,11 @@ export default class Session {
 	 * @note Nodes that are not reachable from the entry point node will not be included
 	 */
 	traverse(node_id) {
-		return traverse(node_id, this.schema, $state.snapshot(this.doc.nodes));
+		// doc is $state.raw, so doc.nodes is a plain (non-proxied) object —
+		// traverse() reads it directly and deep-clones each visited node.
+		// The previous $state.snapshot(this.doc.nodes) here deep-cloned the
+		// ENTIRE document per call, which made copying M nodes O(M·N).
+		return traverse(node_id, this.schema, this.doc.nodes);
 	}
 
 	/**
@@ -634,9 +647,7 @@ export default class Session {
 	 * @returns {NodeId[]}
 	 */
 	get_referenced_nodes(node_id) {
-		const traversed_nodes = this.traverse(node_id);
-
-		// Extract IDs and exclude the last element (root node)
-		return traversed_nodes.slice(0, -1).map((node) => node.id);
+		// Id-only traversal — no need to deep-clone the subgraph for ids.
+		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
 	}
 }

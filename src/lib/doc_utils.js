@@ -704,6 +704,53 @@ export function inspect(schema, doc, path) {
 }
 
 /**
+ * Creates a mutable draft of a document: a new document object with a new
+ * nodes map, sharing the (immutable) node objects with the original.
+ *
+ * apply_op_to_draft mutates the draft's nodes map but copies node objects
+ * before changing them, so node identity is preserved for unchanged nodes
+ * (fine-grained rendering relies on this) and the original document is
+ * never touched.
+ *
+ * @param {Document} doc - The document to create a draft of
+ * @returns {Document} A draft document safe to mutate via apply_op_to_draft
+ */
+export function create_document_draft(doc) {
+	return {
+		...doc,
+		nodes: { ...doc.nodes }
+	};
+}
+
+/**
+ * Applies an operation to a document draft in place.
+ *
+ * The draft's nodes map is mutated, but node objects are copied on write —
+ * one nodes-map copy per draft (see create_document_draft) replaces the
+ * previous one-copy-per-op behavior, which made transactions with many ops
+ * (paste, cascade delete) O(N·ops).
+ *
+ * @param {Document} draft - A draft created via create_document_draft
+ * @param {Array} op - The operation to apply [type, ...args]
+ * @returns {Document} The same draft, for convenience
+ */
+export function apply_op_to_draft(draft, op) {
+	const [type, ...args] = op;
+	if (type === 'set') {
+		const [node_id, property] = args[0];
+		draft.nodes[node_id] = {
+			...draft.nodes[node_id],
+			[property]: structuredClone(args[1])
+		};
+	} else if (type === 'create') {
+		draft.nodes[args[0].id] = structuredClone(args[0]);
+	} else if (type === 'delete') {
+		delete draft.nodes[args[0]];
+	}
+	return draft;
+}
+
+/**
  * Applies an operation to a document and returns the new document.
  * Uses copy-on-write semantics.
  *
@@ -712,37 +759,7 @@ export function inspect(schema, doc, path) {
  * @returns {Document} The new document with the operation applied
  */
 export function apply_op(doc, op) {
-	const [type, ...args] = op;
-	if (type === 'set') {
-		const [node_id, property] = args[0];
-		const value = structuredClone(args[1]);
-		return {
-			...doc,
-			nodes: {
-				...doc.nodes,
-				[node_id]: {
-					...doc.nodes[node_id],
-					[property]: value
-				}
-			}
-		};
-	} else if (type === 'create') {
-		return {
-			...doc,
-			nodes: {
-				...doc.nodes,
-				[args[0].id]: structuredClone(args[0])
-			}
-		};
-	} else if (type === 'delete') {
-		// eslint-disable-next-line
-		const { [args[0]]: _removed, ...remaining_nodes } = doc.nodes;
-		return {
-			...doc,
-			nodes: remaining_nodes
-		};
-	}
-	return doc;
+	return apply_op_to_draft(create_document_draft(doc), op);
 }
 
 /**
@@ -904,6 +921,60 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 	}
 
 	return count;
+}
+
+/**
+ * Iterates all node references going out of a node, invoking the visitor
+ * once per occurrence (multiplicity matters for reference counting).
+ * Covers the same reference kinds as count_references_excluding_deleted:
+ * a `node` property, `node_array` .nodes ids, and the mark/annotation
+ * node_ids carried on `text` and `node_array` properties.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {any} node - The node whose outgoing references to visit
+ * @param {(referenced_id: NodeId) => void} visit - Called per reference occurrence
+ */
+export function visit_node_references(schema, node, visit) {
+	const node_schema = schema[node.type];
+	if (!node_schema) return;
+
+	for (const [property, prop_def] of Object.entries(node_schema.properties)) {
+		const value = node[property];
+		if (value === undefined || value === null) continue;
+
+		const prop_type = prop_def.type;
+
+		if (prop_type === 'node_array') {
+			for (const id of value.nodes) visit(id);
+		} else if (prop_type === 'node' && typeof value === 'string') {
+			visit(value);
+		}
+
+		if ((prop_type === 'text' || prop_type === 'node_array') && value) {
+			for (const range of value.marks) visit(range.node_id);
+			for (const range of value.annotations) visit(range.node_id);
+		}
+	}
+}
+
+/**
+ * Builds reference counts for every referenced node in one full-document
+ * scan. Used by cascade deletion so the fixpoint can decrement counts
+ * incrementally instead of re-scanning the document per candidate node.
+ *
+ * @param {DocumentSchema} schema - The document schema
+ * @param {Document} doc - The document containing nodes
+ * @returns {Map<NodeId, number>} Reference count per referenced node id
+ */
+export function build_reference_counts(schema, doc) {
+	/** @type {Map<NodeId, number>} */
+	const counts = new Map();
+	for (const node of Object.values(doc.nodes)) {
+		visit_node_references(schema, node, (id) => {
+			counts.set(id, (counts.get(id) || 0) + 1);
+		});
+	}
+	return counts;
 }
 
 /**

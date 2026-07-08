@@ -13,6 +13,7 @@
 <script>
 	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
+	import { should_position_gap } from './node_visibility.svelte.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -37,10 +38,13 @@
 	 *
 	 * Always present in the DOM when editable (stable structure for
 	 * selection anchoring, scrollTo, etc.). Anchor positioning is
-	 * activated lazily via the `.positioned` class, toggled imperatively
-	 * by the IO callback / MO / bootstrap in node_visibility — keeps
-	 * NodeGap allocation-free of per-instance Svelte signals, which
-	 * matters at 1000+ NodeGaps per scroll frame.
+	 * activated lazily via the `.positioned` class, derived reactively
+	 * from the visibility registry's array_indices / edge_map. Svelte's
+	 * reactive collections track reads at per-key granularity, so a
+	 * registry write only
+	 * re-evaluates the adjacent gaps. Applying the class declaratively
+	 * (instead of imperative classList toggles) means it survives DOM
+	 * recreation without a document change (e.g. dev-mode HMR).
 	 *
 	 * `position-visibility: anchors-visible` does NOT skip anchor
 	 * resolution — the browser resolves all anchor() then hides the
@@ -61,6 +65,22 @@
 	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
 	let type = $derived(is_first ? 'gap-before' : 'gap-after');
+
+	let path_str = $derived(serialize_path(array_path));
+	// Two-derived split is load-bearing: get_array_indices lazily
+	// creates the set, and Svelte doesn't track deps on state created
+	// inside the reading derived — so acquire here, read in `positioned`.
+	let near_indices = $derived(svedit.visibility_registry.get_array_indices(path_str));
+	let positioned = $derived(
+		is_editable &&
+			should_position_gap(
+				near_indices,
+				svedit.visibility_registry.edge_map.get(path_str),
+				offset,
+				is_last,
+				empty
+			)
+	);
 
 	let gap_style = $derived.by(() => {
 		if (!is_editable) return '';
@@ -87,8 +107,9 @@
 		class:gap-after={!is_first}
 		class:empty
 		class:last={is_last}
+		class:positioned
 		data-type={type}
-		data-gap-array-path={serialize_path(array_path)}
+		data-gap-array-path={path_str}
 		data-gap-offset={offset}
 		style={gap_style}
 	>
@@ -111,8 +132,29 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* Un-positioned: minimal in-DOM presence, no anchor resolution        */
+	/* Un-positioned: no layout box at all                                 */
 	/* ------------------------------------------------------------------ */
+
+	/*
+	 * display: none is load-bearing for large documents. A zero-size
+	 * absolutely-positioned selectable still belongs to the containing
+	 * block's out-of-flow list, and the browser lays out EVERY such box
+	 * on EVERY layout pass — measured ~430ms per pass at 2000 nodes
+	 * (~3500 gaps) in Chrome vs ~23ms with the boxes removed. That cost
+	 * hits every keystroke (the per-change reconcile reads a rect for
+	 * every node, and selection rendering forces layout), every window
+	 * resize frame, and every scroll-triggered layout.
+	 *
+	 * Off-screen gaps therefore contribute no layout box. DOM structure
+	 * stays stable (the .node-gap wrapper and selectable elements remain),
+	 * and DOM Ranges may still point into display:none elements, so
+	 * programmatic node selections targeting off-screen gaps keep working.
+	 * Empty-array gaps are excluded: they must stay clickable/visible even
+	 * before reconcile positions them.
+	 */
+	:global(.node-gap:not(.positioned):not(.empty) .svedit-selectable) {
+		display: none;
+	}
 
 	:global(.node-gap:not(.positioned) .svedit-selectable) {
 		position: absolute;

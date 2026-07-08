@@ -6,13 +6,14 @@
  * behave like production. Each test builds a focused document shape and
  * asserts the DOM state after IO + edge_map have settled.
  *
- * Document changes reconcile mounted nodes after Svelte's DOM update.
- * IntersectionObserver then owns later viewport transitions.
+ * Node and array elements register with the visibility registry via
+ * attachments; IntersectionObserver owns later viewport transitions.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
+import StoryHmrProxy from './testing_components/StoryHmrProxy.svelte';
 import {
 	settle,
 	settle_grid,
@@ -217,7 +218,9 @@ describe('NodeGap visibility & placement', () => {
 				last_item_rect: { x: li_rect.x, y: li_rect.y, w: li_rect.width, h: li_rect.height },
 				last_item_in_viewport: li_rect.bottom > 0 && li_rect.top < window.innerHeight,
 				last_gap_prev_is_last_item: last_gap.previousElementSibling === last_item,
-				near_has_last: ctx.visibility_registry.near_map.has(last_item.dataset.path),
+				near_has_last: ctx.visibility_registry
+					.get_array_indices(array_el.dataset.path)
+					.has(items.length - 1),
 				edge_state
 			};
 			expect(last_gap.classList.contains('positioned'), JSON.stringify(diag, null, 2)).toBe(true);
@@ -304,10 +307,11 @@ describe('NodeGap visibility & placement', () => {
 		// NodeArrayProperty's `{#each ... (index)}` keys by index, so a
 		// mid-delete unmounts ONLY the trailing-index element. Surviving
 		// siblings keep their DOM nodes and data-path attributes; their
-		// content shifts but `near_map` entries remain valid. If anyone
-		// ever changes that keying to e.g. `(node.id)`, this invariant
-		// breaks and this test fails — pointing straight at the cause.
-		it('removes only the trailing path from near_map, keeps adjacent gaps positioned', async () => {
+		// content shifts but the near-index entries remain valid. If
+		// anyone ever changes that keying to e.g. `(node.id)`, this
+		// invariant breaks and this test fails — pointing straight at
+		// the cause.
+		it('removes only the trailing index from the near set, keeps adjacent gaps positioned', async () => {
 			// 3 buttons fit the narrow vitest viewport. The mid-delete
 			// invariant holds regardless of overflow, but a non-
 			// overflowing array makes the edge-gap assertions
@@ -320,11 +324,11 @@ describe('NodeGap visibility & placement', () => {
 			expect(array_el.scrollWidth).toBeLessThanOrEqual(array_el.clientWidth + 5);
 
 			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
-			const near_map = ctx.visibility_registry.near_map;
 			const array_path = 'page_1__body__0__buttons';
+			const near = ctx.visibility_registry.get_array_indices(array_path);
 
 			for (let i = 0; i < 3; i++) {
-				expect(near_map.has(`${array_path}__${i}`)).toBe(true);
+				expect(near.has(i)).toBe(true);
 			}
 
 			// Delete the button at offset 1 (mid).
@@ -343,13 +347,13 @@ describe('NodeGap visibility & placement', () => {
 
 			expect(session.doc.nodes.story_1.buttons.nodes.length).toBe(2);
 
-			// near_map: __0 and __1 remain (surviving DOM elements
-			// kept their data-path attributes — the element at __1 now
-			// renders what was at __2). __2 is gone (trailing index
-			// unmounted by Svelte's keyed-each-by-index).
-			expect(near_map.has(`${array_path}__0`)).toBe(true);
-			expect(near_map.has(`${array_path}__1`)).toBe(true);
-			expect(near_map.has(`${array_path}__2`)).toBe(false);
+			// Near set: indices 0 and 1 remain (surviving DOM elements
+			// kept their data-path attributes — the element at index 1
+			// now renders what was at index 2). Index 2 is gone (trailing
+			// element unmounted by Svelte's keyed-each-by-index).
+			expect(near.has(0)).toBe(true);
+			expect(near.has(1)).toBe(true);
+			expect(near.has(2)).toBe(false);
 
 			// Edge gaps stay positioned (no overflow → edge_map.first
 			// and .last both true).
@@ -399,6 +403,116 @@ describe('NodeGap visibility & placement', () => {
 				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
 			);
 			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual(['0', '1', '2']);
+		});
+	});
+
+	describe('container resize without scroll or document change', () => {
+		// A box-size change can flip an array between fitting and
+		// overflowing while scrollLeft stays 0 — no scroll event fires
+		// and no document change happens, so only the ResizeObserver
+		// can re-sync edge_map. Covers window resizes, sidebar toggles
+		// and responsive breakpoints alike.
+		it('re-syncs edge gaps when the array container is resized', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			// Fits → both edge gaps positioned.
+			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+
+			// Shrink the container so the last button is only PARTIALLY
+			// clipped (overflow past EDGE_TOLERANCE_PX, but well short of
+			// the whole button). scrollLeft stays 0 and the node stays
+			// near (a partial clip crosses no overscan-IO threshold), so
+			// only the ResizeObserver's edge_map re-sync can hide the
+			// last gap. A full clip would zero the node's intersection
+			// and hide the gap via near_map instead, making this test
+			// pass without the RO.
+			array_el.style.maxWidth = `${array_el.clientWidth - 40}px`;
+			await settle();
+			const overflow = array_el.scrollWidth - array_el.clientWidth;
+			expect(overflow).toBeGreaterThan(10); // past EDGE_TOLERANCE_PX
+			expect(array_el.scrollLeft).toBe(0);
+			// Guard against the vacuous pass: the last button must still
+			// be near, so the gap's visibility is decided by edge_map.
+			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			expect(ctx.visibility_registry.get_array_indices('page_1__body__0__buttons').has(2)).toBe(
+				true
+			);
+
+			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(false);
+
+			// Grow it back → fits again → last gap returns.
+			array_el.style.maxWidth = '';
+			await settle();
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+		});
+	});
+
+	describe('DOM recreation without document change (dev-mode HMR)', () => {
+		// Reproduces the "node gap no longer clickable after a code change in
+		// dev mode" bug. When Vite/Svelte HMR replaces a node component, the
+		// component's DOM subtree — including its node-gap elements — is
+		// recreated, but session.doc and editable are unchanged, so the
+		// reconcile effect in node_visibility never runs. The fresh .node-gap
+		// elements never receive .positioned (0×0, pointer-events: none →
+		// unclickable) and the fresh node elements are never observed by the
+		// IntersectionObserver, so scrolling can't heal it. The next document
+		// edit triggers reconcile and everything snaps back — matching the
+		// observed "save the doc, edit again, gap works" behaviour.
+		it('keeps gaps positioned after a node component subtree is recreated', async () => {
+			const session = make_story_session(3);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			let array_el = find_buttons_array(container);
+			const first_gap_before = find_first_gap(array_el);
+			expect(first_gap_before.classList.contains('positioned')).toBe(true);
+			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+
+			// Simulate HMR: swap the story component for an identical wrapper
+			// (a fresh component reference). Svelte remounts the story subtree
+			// — new node and node-gap DOM elements — with no document change.
+			session.config = {
+				...session.config,
+				node_components: { ...session.config.node_components, story: StoryHmrProxy }
+			};
+			await settle();
+
+			array_el = find_buttons_array(container);
+			const first_gap = find_first_gap(array_el);
+			const last_gap = find_last_gap(array_el);
+			// Sanity: the swap really recreated the gap DOM.
+			expect(first_gap).not.toBeNull();
+			expect(first_gap).not.toBe(first_gap_before);
+
+			// Desired behaviour: recreated gaps are positioned (clickable).
+			expect(first_gap.classList.contains('positioned')).toBe(true);
+			expect(last_gap.classList.contains('positioned')).toBe(true);
+			const mid_gap = array_el.querySelector(
+				':scope > .node-gap.gap-after[data-gap-offset="1"]:not(.last)'
+			);
+			expect(mid_gap.classList.contains('positioned')).toBe(true);
+
+			// And the selectable hit area is actually clickable.
+			const sel = first_gap.querySelector('.svedit-selectable');
+			const sel_rect = sel.getBoundingClientRect();
+			expect(sel_rect.width).toBeGreaterThan(0);
+			expect(sel_rect.height).toBeGreaterThan(0);
+			expect(getComputedStyle(sel).pointerEvents).toBe('auto');
+
+			// Recreated node elements must be re-registered with the
+			// observers too: view classes reappear without a document
+			// change, proving near-tracking follows the new elements.
+			const nodes = array_el.querySelectorAll(':scope > [data-type="node"]');
+			expect(nodes.length).toBe(3);
+			for (const node_el of nodes) {
+				expect(node_el.classList.contains('in-view')).toBe(true);
+				expect(node_el.classList.contains('seen')).toBe(true);
+			}
 		});
 	});
 });

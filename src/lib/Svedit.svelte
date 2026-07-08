@@ -118,7 +118,7 @@
 	}
 
 	// Test-only hook: expose the svedit context so test specs can read
-	// near_map / edge_map for diagnostics. Gated on `import.meta.env.MODE`
+	// array_indices / edge_map for diagnostics. Gated on `import.meta.env.MODE`
 	// — Vite replaces the literal so the comparison is constant-false in
 	// production and the branch is dead-code-eliminated. Wrapped in an
 	// effect so unmount clears the reference and tests don't leak state
@@ -1334,7 +1334,10 @@ ${fallback_html}`;
 			if (!anchor_sel || !focus_sel) return;
 
 			if (is_backward) {
-				dom_selection.removeAllRanges();
+				// setBaseAndExtent replaces the current selection, so no
+				// removeAllRanges is needed — every selection-API call forces a
+				// synchronous layout when the DOM is dirty, and this runs right
+				// after the per-change reconcile on every apply.
 				dom_selection.setBaseAndExtent(anchor_sel, 1, focus_sel, 1);
 			} else {
 				range.setStart(anchor_sel, 1);
@@ -1496,8 +1499,10 @@ ${fallback_html}`;
 
 		// Set the range if both start and end were found
 		if (anchor_node && focus_node) {
-			dom_selection.removeAllRanges();
-			// NOTE: Only using setBaseAndExtent() will preserve selection direction
+			// NOTE: Only using setBaseAndExtent() will preserve selection direction.
+			// It also replaces the current selection, so no removeAllRanges is
+			// needed — every selection-API call forces a synchronous layout when
+			// the DOM is dirty, and this runs on every apply.
 			dom_selection.setBaseAndExtent(
 				anchor_node,
 				anchor_node_offset,

@@ -25,9 +25,10 @@
 	});
 
 	let plain_text = $derived(svedit.session.get(path).content);
-	let is_empty = $derived(
-		get_char_length(plain_text) === 0 && !(svedit.is_composing && is_focused)
-	);
+	// A string has zero grapheme clusters iff it has zero code units, so a
+	// plain length check avoids a full Intl.Segmenter pass (this derived
+	// re-runs for every text property on every document change).
+	let is_empty = $derived(plain_text.length === 0 && !(svedit.is_composing && is_focused));
 
 	let is_collapsed = $derived(
 		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
@@ -65,6 +66,14 @@
 	 * @returns {Array<Fragment>} Array of fragments
 	 */
 	function get_fragments(text, marks, selection_highlight_range) {
+		// Fast path: no marks and no selection highlight means the whole text
+		// is a single content fragment. This runs for EVERY text property on
+		// EVERY document change, so skipping the two full Intl.Segmenter passes
+		// (get_char_length + char_slice over the whole text) matters at scale.
+		if (marks.length === 0 && !selection_highlight_range) {
+			return text.length > 0 ? [text] : [];
+		}
+
 		const ranges = calculate_fragment_ranges(
 			get_char_length(text),
 			marks,

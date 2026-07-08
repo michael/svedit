@@ -3,6 +3,21 @@
 	import { Svedit, Session, KeyMapper } from 'svedit';
 	import { document_schema, session_config } from '../create_demo_session.js';
 	import nanoid from '../nanoid.js';
+	import {
+		install_instrumentation,
+		timings_reset,
+		timings_get,
+		bench_enter,
+		bench_type,
+		bench_paste,
+		bench_copy,
+		bench_delete,
+		bench_undo,
+		bench_resize_layout,
+		profile
+	} from './bench.js';
+
+	install_instrumentation();
 
 	const PRESETS = [50, 100, 200, 500, 1000, 2000];
 
@@ -10,6 +25,8 @@
 	let editable = $state(true);
 	let mount_key = $state(0);
 	let editor_wrapper;
+	let svedit_ref;
+	let culling = $state(true);
 
 	let live_fps = $state(0);
 	let live_memory = $state(null);
@@ -128,7 +145,7 @@
 	}
 
 	function make_session() {
-		const config = { ...session_config };
+		const config = { ...session_config, visibility_culling: culling };
 		const doc = generate_document(node_count);
 		const s = new Session(document_schema, doc, config);
 		return s;
@@ -136,16 +153,51 @@
 
 	let session = $state(make_session());
 
+	// rAF that also resolves in hidden tabs (rAF never fires there).
+	function next_frame() {
+		return new Promise((resolve) => {
+			const id = requestAnimationFrame(() => {
+				clearTimeout(timer);
+				resolve(undefined);
+			});
+			const timer = setTimeout(() => {
+				cancelAnimationFrame(id);
+				resolve(undefined);
+			}, 32);
+		});
+	}
+
 	async function apply_settings() {
 		const t0 = performance.now();
 		session = make_session();
 		mount_key++;
 		await tick();
-		await new Promise((r) => requestAnimationFrame(r));
-		await new Promise((r) => requestAnimationFrame(r));
+		await next_frame();
+		await next_frame();
 		render_ms = Math.round(performance.now() - t0);
 		await new Promise((r) => setTimeout(r, 100));
 		snap_counts();
+	}
+
+	function bench_ctx() {
+		return {
+			session,
+			focus: () => svedit_ref?.focus_canvas()
+		};
+	}
+
+	/** @param {number} n */
+	async function set_nodes(n) {
+		node_count = n;
+		await apply_settings();
+	}
+
+	/** @param {{ nodes?: number, editable?: boolean, culling?: boolean }} opts */
+	async function set_state(opts = {}) {
+		if (typeof opts.nodes === 'number') node_count = opts.nodes;
+		if (typeof opts.editable === 'boolean') editable = opts.editable;
+		if (typeof opts.culling === 'boolean') culling = opts.culling;
+		await apply_settings();
 	}
 
 	function snap_counts() {
@@ -449,13 +501,31 @@
 			run_full_benchmark,
 			apply_settings,
 			run_matrix_test,
+			set_nodes,
+			set_state,
 			get results() {
 				return benchmark_results;
+			},
+			get session() {
+				return session;
 			}
+		};
+		/** @type {any} */ (window).__bench = {
+			enter: (/** @type {number} */ count) => bench_enter(bench_ctx(), count),
+			type: (/** @type {number} */ count) => bench_type(bench_ctx(), count),
+			paste: (/** @type {number} */ m, /** @type {any} */ mode) => bench_paste(bench_ctx(), m, mode),
+			copy: (/** @type {number} */ m) => bench_copy(bench_ctx(), m),
+			del: (/** @type {number} */ m) => bench_delete(bench_ctx(), m),
+			undo: () => bench_undo(bench_ctx()),
+			resize: (/** @type {number} */ steps) => bench_resize_layout({ wrapper: editor_wrapper }, steps),
+			profile,
+			timings_reset,
+			timings_get
 		};
 		return () => {
 			cancelAnimationFrame(raf_id);
 			delete (/** @type {any} */ (window).__perf);
+			delete (/** @type {any} */ (window).__bench);
 		};
 	});
 </script>
@@ -584,7 +654,7 @@
 
 <div class="editor-area" bind:this={editor_wrapper}>
 	{#key mount_key}
-		<Svedit {session} bind:editable path={[session.doc.document_id]} />
+		<Svedit bind:this={svedit_ref} {session} bind:editable path={[session.doc.document_id]} />
 	{/key}
 </div>
 
