@@ -190,6 +190,40 @@
 				<Icon name="italic" />
 			</button>
 		{/if}
+		{#if session.available_mark_types.includes('code')}
+			<button
+				title="Code (⌘ ⇧ C)"
+				class="code"
+				onmousedown={(event) => {
+					event.preventDefault();
+					session.commands.toggle_code?.execute();
+				}}
+				disabled={session.commands.toggle_code?.disabled}
+				class:active={session.commands.toggle_code?.active}
+			>
+				<svg
+					class="toolbar-icon"
+					viewBox="0 0 15 15"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
+				>
+					<path
+						d="M5.25 3.75L2.25 7.5L5.25 11.25"
+						stroke="currentColor"
+						stroke-linecap="square"
+						stroke-linejoin="miter"
+					/>
+					<path
+						d="M9.75 3.75L12.75 7.5L9.75 11.25"
+						stroke="currentColor"
+						stroke-linecap="square"
+						stroke-linejoin="miter"
+					/>
+					<path d="M8.5 2.5L6.5 12.5" stroke="currentColor" stroke-linecap="square" />
+				</svg>
+			</button>
+		{/if}
 		{#if session.available_mark_types.includes('highlight')}
 			<button
 				title="Highlight"

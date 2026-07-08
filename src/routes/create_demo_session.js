@@ -34,11 +34,12 @@ import ImageGridItem from './components/ImageGridItem.svelte';
 import Hero from './components/Hero.svelte';
 import Strong from './components/Strong.svelte';
 import Emphasis from './components/Emphasis.svelte';
+import Code from './components/Code.svelte';
 import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
 import Section from './components/Section.svelte';
 
-const ALL_MARKS = ['strong', 'emphasis', 'highlight', 'link'];
+const ALL_MARKS = ['strong', 'emphasis', 'code', 'highlight', 'link'];
 const TITLE_MARKS = ['emphasis', 'highlight'];
 
 export const document_schema = define_document_schema({
@@ -209,7 +210,7 @@ export const document_schema = define_document_schema({
 			list_items: {
 				type: 'node_array',
 				node_types: ['list_item'],
-				annotation_types: ['marker'],
+				annotation_types: ['marker']
 			},
 			layout: { type: 'integer', default: 1 }
 		}
@@ -225,6 +226,10 @@ export const document_schema = define_document_schema({
 		properties: {}
 	},
 	emphasis: {
+		kind: 'mark',
+		properties: {}
+	},
+	code: {
 		kind: 'mark',
 		properties: {}
 	},
@@ -492,6 +497,14 @@ const doc = {
 				annotations: []
 			}
 		},
+		ragwHxzMXNwbPMYNAJwjcnB: {
+			id: 'ragwHxzMXNwbPMYNAJwjcnB',
+			type: 'code'
+		},
+		WmymYMNaMsxFXFCaJrtyGZh: {
+			id: 'WmymYMNaMsxFXFCaJrtyGZh',
+			type: 'code'
+		},
 		story_4: {
 			id: 'story_4',
 			type: 'story',
@@ -505,7 +518,18 @@ const doc = {
 			description: {
 				content:
 					'They work just like text carets, but instead of a character position in a string they address a node position in a node_array.\n\nTry it by selecting one of the gaps between the nodes. Then press ↵ to insert a new node or ⌫ to delete the node before the caret.',
-				marks: [],
+				marks: [
+					{
+						start_offset: 194,
+						end_offset: 195,
+						node_id: 'ragwHxzMXNwbPMYNAJwjcnB'
+					},
+					{
+						start_offset: 220,
+						end_offset: 221,
+						node_id: 'WmymYMNaMsxFXFCaJrtyGZh'
+					}
+				],
 				annotations: []
 			},
 			buttons: {
@@ -578,13 +602,23 @@ const doc = {
 				annotations: []
 			}
 		},
+		zvjHhSAVYZBxqUBdKkmKFMj: {
+			id: 'zvjHhSAVYZBxqUBdKkmKFMj',
+			type: 'code'
+		},
 		list_item_1: {
 			id: 'list_item_1',
 			type: 'list_item',
 			content: {
 				content:
-					"It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the ESC key (or CMD+A) several times you can reach parent nodes easily.",
-				marks: [],
+					"It's a bit hard to select whole lists or image grids with the mouse still. We're looking to improve this. However, by pressing the Esc key  several times you can reach parent nodes easily.",
+				marks: [
+					{
+						start_offset: 131,
+						end_offset: 134,
+						node_id: 'zvjHhSAVYZBxqUBdKkmKFMj'
+					}
+				],
 				annotations: []
 			}
 		},
@@ -613,7 +647,7 @@ const doc = {
 			type: 'list_item',
 			content: {
 				content:
-					"Mobile support ist still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
+					"Mobile support is still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
 				marks: [],
 				annotations: []
 			}
@@ -626,7 +660,7 @@ const doc = {
 				marks: [],
 				annotations: []
 			},
-			layout: 3
+			layout: 2
 		},
 		link_4: {
 			id: 'link_4',
@@ -655,21 +689,21 @@ const doc = {
 			},
 			description: {
 				content:
-					'Thank you for all the stars on GitHub. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
+					'Thank you for all the stars you left us on GitHub. Svedit is made by Michael Aufreiter and Johannes Mutter and is licensed under the MIT License.',
 				marks: [
 					{
-						start_offset: 57,
-						end_offset: 74,
+						start_offset: 69,
+						end_offset: 86,
 						node_id: 'link_4'
 					},
 					{
-						start_offset: 79,
-						end_offset: 94,
+						start_offset: 91,
+						end_offset: 106,
 						node_id: 'link_5'
 					},
 					{
-						start_offset: 31,
-						end_offset: 37,
+						start_offset: 43,
+						end_offset: 49,
 						node_id: 'VgWNyDmWcpgtkHvZXhjYTPS'
 					}
 				],
@@ -744,6 +778,7 @@ export const session_config = {
 		hero: Hero,
 		strong: Strong,
 		emphasis: Emphasis,
+		code: Code,
 		highlight: Highlight,
 		link: Link,
 		section: Section
@@ -1065,6 +1100,7 @@ export const session_config = {
 			break_text_node: new BreakTextNodeCommand(context),
 			toggle_strong: new ToggleMarkCommand('strong', context),
 			toggle_emphasis: new ToggleMarkCommand('emphasis', context),
+			toggle_code: new ToggleMarkCommand('code', context),
 			toggle_highlight: new ToggleMarkCommand('highlight', context),
 			toggle_link: new ToggleLinkCommand(context),
 			toggle_section: new ToggleMarkCommand('section', context),
@@ -1087,6 +1123,7 @@ export const session_config = {
 			'shift+enter': [commands.add_new_line],
 			'meta+b,ctrl+b': [commands.toggle_strong],
 			'meta+i,ctrl+i': [commands.toggle_emphasis],
+			'meta+shift+c,ctrl+shift+c': [commands.toggle_code],
 			'meta+u,ctrl+u': [commands.toggle_highlight],
 			'meta+k,ctrl+k': [commands.toggle_link],
 			'meta+shift+s,ctrl+shift+s': [commands.toggle_section],
