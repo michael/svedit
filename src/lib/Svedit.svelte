@@ -1510,11 +1510,13 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the selection into view
+			// Scroll the rendered selection into view. Capture the target now:
+			// the browser selection is live and may be cleared before this
+			// deferred callback runs, e.g. when app UI focuses an external input.
+			const selected_element = focus_node.parentElement;
 			setTimeout(() => {
-				const selectedElement = dom_selection.focusNode.parentElement;
-				if (selectedElement) {
-					selectedElement.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				if (selected_element?.isConnected) {
+					selected_element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}
 			}, 0);
 		}

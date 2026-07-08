@@ -2,11 +2,51 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
+import SveditTestWithInput from './testing_components/SveditTestWithInput.svelte';
 import create_test_session from './create_test_session.js';
 import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
+	it('does not throw when focus leaves the canvas before deferred text-selection scroll runs', async () => {
+		const session = create_test_session();
+		const errors = [];
+		const on_error = (event) => {
+			if (String(event.error?.message ?? event.message).includes('parentElement')) {
+				errors.push(event.error ?? event.message);
+				event.preventDefault();
+			}
+		};
+		window.addEventListener('error', on_error);
+
+		try {
+			const { container } = render(SveditTestWithInput, { session });
+			const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+			const input = /** @type {HTMLInputElement} */ (
+				container.querySelector('[data-testid="external-input"]')
+			);
+
+			canvas.focus();
+			await tick();
+
+			session.selection = {
+				type: 'text',
+				path: ['page_1', 'body', 0, 'title'],
+				anchor_offset: 0,
+				focus_offset: 5
+			};
+			await tick();
+
+			input.focus();
+			window.getSelection()?.removeAllRanges();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(errors).toEqual([]);
+		} finally {
+			window.removeEventListener('error', on_error);
+		}
+	});
+
 	it('should map node caret to DOM', async () => {
 		const session = create_test_session();
 
