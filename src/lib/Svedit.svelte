@@ -1353,28 +1353,49 @@ ${fallback_html}`;
 		// — so an unconditional scroll would yank the viewport on each of
 		// them. cursor_offset is a gap offset and the gap has no box of
 		// its own, so visibility is judged from the nodes flanking it.
-		setTimeout(() => {
-			// Collapsed: anchor === focus, so focus is the gap offset.
-			// Range: cursor sits at the focus end (anchor when backward).
-			const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
-			const array_length = session.get(node_array_path).nodes.length;
+		const node_array = session.get(node_array_path);
+		if (!node_array?.nodes) return;
 
+		// Collapsed: anchor === focus, so focus is the gap offset.
+		// Range: cursor sits at the focus end (anchor when backward).
+		const cursor_offset = is_backward ? selection.anchor_offset : selection.focus_offset;
+		const array_length = node_array.nodes.length;
+
+		// node_before is null at offset 0: cursor_offset - 1 would be -1,
+		// and serialize_path rejects a negative index.
+		const node_before =
+			cursor_offset > 0 ? __get_node_element(node_array_path, cursor_offset - 1) : null;
+		const node_after = __get_node_element(node_array_path, cursor_offset);
+
+		let scroll_target = null;
+		let scroll_array_to_start = false;
+		let scroll_array_to_end = false;
+
+		if (cursor_offset === 0) {
+			scroll_array_to_start = true;
+		} else if (cursor_offset >= array_length) {
+			scroll_array_to_end = true;
+		} else {
+			// A range selection's selected node IS node_before; scrolling
+			// node_after would reveal the following node and leave the
+			// selection itself off-screen. For a collapsed caret node_after's
+			// leading edge is the cursor, so that stays the right target.
+			scroll_target = is_collapsed ? node_after : node_before;
+		}
+
+		setTimeout(() => {
 			// If either node flanking the cursor is already (even
 			// partially) on screen, the cursor is visible — keep the
-			// viewport stable and scroll nothing. node_before is null at
-			// offset 0: cursor_offset - 1 would be -1, and serialize_path
-			// rejects a negative index.
-			const node_before =
-				cursor_offset > 0 ? __get_node_element(node_array_path, cursor_offset - 1) : null;
-			const node_after = __get_node_element(node_array_path, cursor_offset);
+			// viewport stable and scroll nothing. Do this layout read in the
+			// deferred callback, after Svelte/browser layout has settled.
 			if (__intersects_viewport(node_before) || __intersects_viewport(node_after)) return;
 
-			if (cursor_offset === 0) {
+			if (scroll_array_to_start) {
 				node_array_el.scrollLeft = 0;
 				node_array_el.scrollTop = 0;
 				return;
 			}
-			if (cursor_offset >= array_length) {
+			if (scroll_array_to_end) {
 				const max_left = Math.max(0, node_array_el.scrollWidth - node_array_el.clientWidth);
 				const max_top = Math.max(0, node_array_el.scrollHeight - node_array_el.clientHeight);
 				node_array_el.scrollLeft = max_left;
@@ -1384,12 +1405,7 @@ ${fallback_html}`;
 				}
 				return;
 			}
-			// A range selection's selected node IS node_before; scrolling
-			// node_after would reveal the following node and leave the
-			// selection itself off-screen. For a collapsed caret node_after's
-			// leading edge is the cursor, so that stays the right target.
-			const target = is_collapsed ? node_after : node_before;
-			target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			scroll_target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
 	}
 
