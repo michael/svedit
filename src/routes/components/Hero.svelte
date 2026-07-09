@@ -6,6 +6,59 @@
 	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
 	let has_image = $derived(node.image && node.image.trim() !== '');
+	const static_star_count = 600;
+	let star_count = $state(static_star_count);
+	let formatted_star_count = $derived(star_count.toLocaleString());
+	let star_count_label = $derived(`${formatted_star_count} stars`);
+
+	function animate_star_count(target, is_cancelled) {
+		if (target === star_count) return;
+
+		const prefers_reduced_motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (prefers_reduced_motion) {
+			star_count = target;
+			return;
+		}
+
+		const start = star_count;
+		const delta = target - start;
+		const duration = 900;
+		const started_at = performance.now();
+
+		function step(now) {
+			if (is_cancelled()) return;
+			const progress = Math.min((now - started_at) / duration, 1);
+			const eased = 1 - Math.pow(1 - progress, 3);
+			star_count = Math.round(start + delta * eased);
+			if (progress < 1) requestAnimationFrame(step);
+		}
+
+		requestAnimationFrame(step);
+	}
+
+	$effect(() => {
+		let cancelled = false;
+
+		async function update_star_count() {
+			try {
+				const response = await fetch('https://api.github.com/repos/michael/svedit', {
+					headers: { Accept: 'application/vnd.github+json' }
+				});
+				if (!response.ok || cancelled) return;
+				const repo = await response.json();
+				if (!cancelled && Number.isInteger(repo.stargazers_count)) {
+					animate_star_count(repo.stargazers_count, () => cancelled);
+				}
+			} catch {
+				// Keep the static fallback when offline or rate-limited.
+			}
+		}
+
+		update_star_count();
+		return () => {
+			cancelled = true;
+		};
+	});
 </script>
 
 <Node
@@ -37,7 +90,7 @@
 			>
 				<img src="/images/github.svg" alt="" aria-hidden="true" />
 				<span>Star</span>
-				<span class="github-star-count" aria-label="600+ stars">630+</span>
+				<span class="github-star-count" aria-label={star_count_label}>{formatted_star_count}</span>
 			</a>
 		</div>
 	</div>
