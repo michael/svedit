@@ -74,7 +74,6 @@
 
 <svelte:head>
 	<title>Svedit - A tiny library for building editable websites in Svelte</title>
-	<script async defer src="https://buttons.github.io/buttons.js"></script>
 </svelte:head>
 
 <div class="demo-wrapper" bind:this={app_el}>

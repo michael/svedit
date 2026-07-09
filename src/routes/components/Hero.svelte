@@ -29,13 +29,16 @@
 		/>
 		<div class="github-button-wrapper" contenteditable="false">
 			<a
-				class="github-button"
+				class="github-repo-link"
 				href="https://github.com/michael/svedit"
-				data-color-scheme="no-preference: light; light: light; dark: dark;"
-				data-size="large"
-				data-show-count="true"
-				aria-label="Star michael/svedit on GitHub">Star</a
+				target="_blank"
+				rel="noreferrer"
+				aria-label="Open michael/svedit on GitHub"
 			>
+				<img src="/images/github.svg" alt="" aria-hidden="true" />
+				<span>Star</span>
+				<span class="github-star-count" aria-label="600+ stars">630+</span>
+			</a>
 		</div>
 	</div>
 </Node>
@@ -57,6 +60,42 @@
 
 	.github-button-wrapper {
 		margin-top: var(--s-6);
+		cursor: pointer;
+	}
+
+	.github-repo-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 86%, var(--app-primary-text));
+		border-radius: 9999px;
+		background: var(--app-canvas-fill);
+		padding: 0.5em 0.85em;
+		color: var(--app-primary-text);
+		font-size: 0.95rem;
+		font-weight: 650;
+		line-height: 1;
+		text-decoration: none;
+		box-shadow: 0 1px 2px color-mix(in oklch, var(--app-primary-text) 10%, transparent);
+	}
+
+	.github-repo-link:hover {
+		border-color: color-mix(in oklch, var(--app-canvas-fill) 72%, var(--app-primary-text));
+		background: color-mix(in oklch, var(--app-canvas-fill) 96%, var(--app-primary-text));
+	}
+
+	.github-repo-link img {
+		width: 1.1em;
+		height: 1.1em;
+	}
+
+	.github-star-count {
+		margin-inline-start: 0.1em;
+		border-inline-start: 1px solid
+			color-mix(in oklch, var(--app-canvas-fill) 82%, var(--app-primary-text));
+		padding-inline-start: 0.6em;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.75;
 	}
 
 	:global(.hero.has-image) {
