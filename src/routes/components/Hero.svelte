@@ -6,6 +6,59 @@
 	let { path } = $props();
 	let node = $derived(svedit.session.get(path));
 	let has_image = $derived(node.image && node.image.trim() !== '');
+	const static_star_count = 600;
+	let star_count = $state(static_star_count);
+	let formatted_star_count = $derived(star_count.toLocaleString());
+	let star_count_label = $derived(`${formatted_star_count} stars`);
+
+	function animate_star_count(target, is_cancelled) {
+		if (target === star_count) return;
+
+		const prefers_reduced_motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (prefers_reduced_motion) {
+			star_count = target;
+			return;
+		}
+
+		const start = star_count;
+		const delta = target - start;
+		const duration = 900;
+		const started_at = performance.now();
+
+		function step(now) {
+			if (is_cancelled()) return;
+			const progress = Math.min((now - started_at) / duration, 1);
+			const eased = 1 - Math.pow(1 - progress, 3);
+			star_count = Math.round(start + delta * eased);
+			if (progress < 1) requestAnimationFrame(step);
+		}
+
+		requestAnimationFrame(step);
+	}
+
+	$effect(() => {
+		let cancelled = false;
+
+		async function update_star_count() {
+			try {
+				const response = await fetch('https://api.github.com/repos/michael/svedit', {
+					headers: { Accept: 'application/vnd.github+json' }
+				});
+				if (!response.ok || cancelled) return;
+				const repo = await response.json();
+				if (!cancelled && Number.isInteger(repo.stargazers_count)) {
+					animate_star_count(repo.stargazers_count, () => cancelled);
+				}
+			} catch {
+				// Keep the static fallback when offline or rate-limited.
+			}
+		}
+
+		update_star_count();
+		return () => {
+			cancelled = true;
+		};
+	});
 </script>
 
 <Node
@@ -29,13 +82,16 @@
 		/>
 		<div class="github-button-wrapper" contenteditable="false">
 			<a
-				class="github-button"
+				class="github-repo-link"
 				href="https://github.com/michael/svedit"
-				data-color-scheme="no-preference: light; light: light; dark: dark;"
-				data-size="large"
-				data-show-count="true"
-				aria-label="Star michael/svedit on GitHub">Star</a
+				target="_blank"
+				rel="noreferrer"
+				aria-label="Open michael/svedit on GitHub"
 			>
+				<img src="/images/github.svg" alt="" aria-hidden="true" />
+				<span>Star</span>
+				<span class="github-star-count" aria-label={star_count_label}>{formatted_star_count}</span>
+			</a>
 		</div>
 	</div>
 </Node>
@@ -57,6 +113,42 @@
 
 	.github-button-wrapper {
 		margin-top: var(--s-6);
+		cursor: pointer;
+	}
+
+	.github-repo-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 86%, var(--app-primary-text));
+		border-radius: 9999px;
+		background: var(--app-canvas-fill);
+		padding: 0.5em 0.85em;
+		color: var(--app-primary-text);
+		font-size: 0.95rem;
+		font-weight: 650;
+		line-height: 1;
+		text-decoration: none;
+		box-shadow: 0 1px 2px color-mix(in oklch, var(--app-primary-text) 10%, transparent);
+	}
+
+	.github-repo-link:hover {
+		border-color: color-mix(in oklch, var(--app-canvas-fill) 72%, var(--app-primary-text));
+		background: color-mix(in oklch, var(--app-canvas-fill) 96%, var(--app-primary-text));
+	}
+
+	.github-repo-link img {
+		width: 1.1em;
+		height: 1.1em;
+	}
+
+	.github-star-count {
+		margin-inline-start: 0.1em;
+		border-inline-start: 1px solid
+			color-mix(in oklch, var(--app-canvas-fill) 82%, var(--app-primary-text));
+		padding-inline-start: 0.6em;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.75;
 	}
 
 	:global(.hero.has-image) {
