@@ -1,20 +1,25 @@
-<script>
+<script lang="ts">
 	import { getContext, setContext } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
 	import { serialize_path, calculate_fragment_ranges } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
+	import type {
+		NodeArrayPropertyProps,
+		NodeArrayAttachmentContext,
+		NodeArrayFragment,
+		NodeId,
+		Attachment,
+		Mark
+	} from './types.js';
 
-	/** @import { NodeArrayPropertyProps, NodeArrayAttachmentContext } from './types.d.ts'; */
-
-	const svedit = getContext('svedit');
+	const svedit = getContext<any>('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
 	let NodeGapMarkers = $derived(
 		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
 	);
 
-	/** @type {NodeArrayPropertyProps} */
-	let { path, tag = 'div', class: css_class, style = '', ...rest } = $props();
+	let { path, tag = 'div', class: css_class, style = '', ...rest }: NodeArrayPropertyProps = $props();
 
 	// Pre-joined once per path change; reused by data-path and by every
 	// NodeGap's should_position_gap call to avoid N+1 joins per render.
@@ -27,9 +32,9 @@
 
 	let fragments = $derived(get_fragments(node_ids, marks));
 
-	function get_fragments(node_ids, marks) {
+	function get_fragments(node_ids: NodeId[], marks: Mark[]): NodeArrayFragment[] {
 		const ranges = calculate_fragment_ranges(node_ids.length, marks);
-		let fragments = [];
+		const fragments: NodeArrayFragment[] = [];
 
 		for (const range of ranges) {
 			const nodes_slice = node_ids.slice(range.start_offset, range.end_offset);
@@ -41,7 +46,7 @@
 					node,
 					nodes: nodes_slice,
 					start_index: range.start_offset,
-					mark_index: range.mark_index
+					mark_index: range.mark_index!
 				});
 			} else if (range.type === 'content') {
 				fragments.push({
@@ -54,7 +59,7 @@
 		return fragments;
 	}
 
-	function get_node_key(node_id, index) {
+	function get_node_key(node_id: NodeId, index: number): string {
 		let occurrence = 0;
 		for (let current_index = 0; current_index < index; current_index++) {
 			if (node_ids[current_index] === node_id) occurrence += 1;
@@ -62,10 +67,11 @@
 		return `${node_id}:${occurrence}`;
 	}
 
-	/**
-	 * @returns {NodeArrayAttachmentContext}
-	 */
-	function get_range_context(range, index, node_index) {
+	function get_range_context(
+		range: Attachment,
+		index: number,
+		node_index: number
+	): NodeArrayAttachmentContext {
 		const node = svedit.session.get(range.node_id);
 		const is_start = node_index === range.start_offset;
 		const is_end = node_index === range.end_offset - 1;
@@ -80,18 +86,21 @@
 		};
 	}
 
-	function get_covering_ranges(ranges, node_index) {
+	function get_covering_ranges(
+		ranges: Attachment[],
+		node_index: number
+	): NodeArrayAttachmentContext[] {
 		return ranges
 			.map((range, index) => ({ range, index }))
 			.filter(({ range }) => range.start_offset <= node_index && node_index < range.end_offset)
 			.map(({ range, index }) => get_range_context(range, index, node_index));
 	}
 
-	function get_annotation_contexts(node_index) {
+	function get_annotation_contexts(node_index: number): NodeArrayAttachmentContext[] {
 		return get_covering_ranges(annotations, node_index);
 	}
 
-	function get_mark(node_index) {
+	function get_mark(node_index: number): NodeArrayAttachmentContext | null {
 		// The single mark wrapping this node, or null. Mark exclusivity
 		// guarantees at most one. Annotations never wrap and are exposed via
 		// `annotations` instead.
@@ -114,10 +123,10 @@
 		// Lets Node self-serve the marks and annotations covering a child, so
 		// node wrappers can carry range classes without every node component
 		// having to thread the `mark`/`annotations` props through.
-		mark_for(node_index) {
+		mark_for(node_index: number) {
 			return get_mark(node_index);
 		},
-		annotations_for(node_index) {
+		annotations_for(node_index: number) {
 			return get_annotation_contexts(node_index);
 		}
 	});
@@ -145,7 +154,7 @@
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
-	{#snippet render_nodes(nodes_slice, start_index)}
+	{#snippet render_nodes(nodes_slice: NodeId[], start_index: number)}
 		{#each nodes_slice as id, slice_index (get_node_key(id, start_index + slice_index))}
 			{@const index = start_index + slice_index}
 			{@const node = svedit.session.get(id)}

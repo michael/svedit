@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import LinkActionOverlay from './LinkActionOverlay.svelte';
 </script>
 

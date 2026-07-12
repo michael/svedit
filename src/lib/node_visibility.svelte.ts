@@ -120,9 +120,8 @@ class VisibilityRegistry {
 	 * Stable references — once a SvelteSet is created for an array path
 	 * it survives re-renders so consumers stay subscribed.
 	 *
-	 * @type {Map<string, SvelteSet<number>>}
 	 */
-	#array_indices = new Map();
+	#array_indices: Map<string, SvelteSet<number>> = new Map();
 
 	/**
 	 * Per-array edge-proximity state. `first` is true when the first
@@ -138,15 +137,12 @@ class VisibilityRegistry {
 	 * only render when the edge node has actually reached the matching
 	 * end of its container.
 	 *
-	 * @type {SvelteMap<string, { first: boolean, last: boolean }>}
 	 */
-	edge_map = new SvelteMap();
+	edge_map: SvelteMap<string, { first: boolean; last: boolean }> = new SvelteMap();
 
-	/** @type {IntersectionObserver | null} */
-	#io = null;
+	#io: IntersectionObserver | null = null;
 
-	/** @type {IntersectionObserver | null} */
-	#view_io = null;
+	#view_io: IntersectionObserver | null = null;
 
 	/**
 	 * Re-syncs edge state when a registered array's box changes size
@@ -156,35 +152,31 @@ class VisibilityRegistry {
 	 * change, so neither of the other two triggers would catch them.
 	 * Writes are change-detected, so redundant firings are no-ops.
 	 *
-	 * @type {ResizeObserver | null}
 	 */
-	#array_ro = null;
+	#array_ro: ResizeObserver | null = null;
 
 	/**
 	 * Registered node elements and the path each was registered under.
 	 * The attachment closure carries the path, so a stale data-path
 	 * attribute can never desync state.
 	 *
-	 * @type {Map<HTMLElement, string>}
 	 */
-	#registered_paths = new Map();
+	#registered_paths: Map<HTMLElement, string> = new Map();
 
 	/**
 	 * Which element currently owns a node path. Guards unregistration
 	 * against keyed-update collisions (see module doc).
 	 *
-	 * @type {Map<string, HTMLElement>}
 	 */
-	#path_owners = new Map();
+	#path_owners: Map<string, HTMLElement> = new Map();
 
-	/** @type {Set<HTMLElement>} */
-	#near_nodes = new Set();
+	#near_nodes: Set<HTMLElement> = new Set();
 
-	/** Registered node-array container elements. @type {Set<Element>} */
-	#array_els = new Set();
+	/** Registered node-array container elements. */
+	#array_els: Set<Element> = new Set();
 
-	/** Which element currently owns an array path. @type {Map<string, Element>} */
-	#array_owners = new Map();
+	/** Which element currently owns an array path. */
+	#array_owners: Map<string, Element> = new Map();
 
 	/**
 	 * When true, a second IO (rootMargin 0, actual viewport) toggles
@@ -271,10 +263,8 @@ class VisibilityRegistry {
 	 * the set and reads `.has()` in the same derived never subscribes
 	 * and never re-evaluates.
 	 *
-	 * @param {string} array_path_str
-	 * @returns {SvelteSet<number>}
 	 */
-	get_array_indices(array_path_str) {
+	get_array_indices(array_path_str: string): SvelteSet<number> {
 		let set = this.#array_indices.get(array_path_str);
 		if (!set) {
 			set = new SvelteSet();
@@ -291,10 +281,9 @@ class VisibilityRegistry {
 	 * viewport transitions. Re-runs when the element is recreated or
 	 * its path changes; the teardown unregisters collision-safely.
 	 *
-	 * @param {string} path
 	 */
-	track_node(path) {
-		return (/** @type {HTMLElement} */ el) => {
+	track_node(path: string) {
+		return (el: HTMLElement) => {
 			this.#register_node(el, path);
 			return () => this.#unregister_node(el, path);
 		};
@@ -305,10 +294,9 @@ class VisibilityRegistry {
 	 * arrays get their edge state synced on mount, on scroll (via the
 	 * document scroll listener) and after document changes.
 	 *
-	 * @param {string} path
 	 */
-	track_array(path) {
-		return (/** @type {Element} */ el) => {
+	track_array(path: string) {
+		return (el: Element) => {
 			this.start();
 			this.#array_els.add(el);
 			this.#array_owners.set(path, el);
@@ -334,9 +322,8 @@ class VisibilityRegistry {
 	 * registry instance. Scopes the document-level scroll listener to
 	 * this editor without any DOM traversal.
 	 *
-	 * @param {Element} el
 	 */
-	has_array(el) {
+	has_array(el: Element): boolean {
 		return this.#array_els.has(el);
 	}
 
@@ -351,11 +338,7 @@ class VisibilityRegistry {
 		}
 	}
 
-	/**
-	 * @param {HTMLElement} el
-	 * @param {string} path
-	 */
-	#register_node(el, path) {
+	#register_node(el: HTMLElement, path: string): void {
 		this.start();
 		untrack(() => {
 			this.#registered_paths.set(el, path);
@@ -373,24 +356,20 @@ class VisibilityRegistry {
 			const vw = window.innerWidth;
 			const is_near =
 				!this.visibility_culling ||
-				(bcr.bottom > -OVERSCAN_PX &&
-					bcr.top < vh + OVERSCAN_PX &&
-					bcr.right > -OVERSCAN_PX &&
-					bcr.left < vw + OVERSCAN_PX);
+				(bcr!.bottom > -OVERSCAN_PX &&
+					bcr!.top < vh + OVERSCAN_PX &&
+					bcr!.right > -OVERSCAN_PX &&
+					bcr!.left < vw + OVERSCAN_PX);
 			if (is_near) this.#add_near_node(el, path);
 
 			if (this.view_classes) {
-				const in_viewport = bcr.bottom > 0 && bcr.top < vh && bcr.right > 0 && bcr.left < vw;
-				this.#apply_view_classes(el, in_viewport, bcr, vh);
+				const in_viewport = bcr!.bottom > 0 && bcr!.top < vh && bcr!.right > 0 && bcr!.left < vw;
+				this.#apply_view_classes(el, in_viewport, bcr!, vh);
 			}
 		});
 	}
 
-	/**
-	 * @param {HTMLElement} el
-	 * @param {string} path
-	 */
-	#unregister_node(el, path) {
+	#unregister_node(el: HTMLElement, path: string): void {
 		this.#registered_paths.delete(el);
 		this.#near_nodes.delete(el);
 		this.#io?.unobserve(el);
@@ -406,21 +385,13 @@ class VisibilityRegistry {
 		});
 	}
 
-	/**
-	 * @param {HTMLElement} el
-	 * @param {string} path
-	 */
-	#add_near_node(el, path) {
+	#add_near_node(el: HTMLElement, path: string): void {
 		this.#near_nodes.add(el);
 		const split = this.#split_path(path);
 		if (split) this.get_array_indices(split.array_path).add(split.index);
 	}
 
-	/**
-	 * @param {HTMLElement} el
-	 * @param {string} path
-	 */
-	#remove_near_node(el, path) {
+	#remove_near_node(el: HTMLElement, path: string): void {
 		this.#near_nodes.delete(el);
 		if (this.#path_owners.get(path) !== el) return;
 		const split = this.#split_path(path);
@@ -445,12 +416,10 @@ class VisibilityRegistry {
 	 * called transitively from $effect contexts without self-
 	 * invalidation.
 	 *
-	 * @param {Element} array_el
-	 * @returns {boolean}
 	 */
-	sync_edge_state(array_el) {
+	sync_edge_state(array_el: Element): boolean {
 		if (!array_el) return false;
-		const path = /** @type {HTMLElement} */ (array_el).dataset.path;
+		const path = (array_el as HTMLElement).dataset.path;
 		if (!path) return false;
 
 		// Check computed overflow BEFORE touching scroll metrics. Reading
@@ -487,13 +456,12 @@ class VisibilityRegistry {
 		});
 	}
 
-	/**
-	 * @param {HTMLElement} el
-	 * @param {boolean} in_viewport
-	 * @param {DOMRectReadOnly} bcr
-	 * @param {number} vh
-	 */
-	#apply_view_classes(el, in_viewport, bcr, vh) {
+	#apply_view_classes(
+		el: HTMLElement,
+		in_viewport: boolean,
+		bcr: DOMRectReadOnly,
+		vh: number
+	): void {
 		const cl = el.classList;
 		cl.toggle('in-view', in_viewport);
 		if (in_viewport) {
@@ -508,11 +476,7 @@ class VisibilityRegistry {
 		}
 	}
 
-	/**
-	 * @param {string} path
-	 * @returns {{ array_path: string, index: number } | null}
-	 */
-	#split_path(path) {
+	#split_path(path: string): { array_path: string; index: number } | null {
 		const sep = path.lastIndexOf(PATH_SEPARATOR);
 		if (sep < 0) return null;
 		const index = parseInt(path.slice(sep + PATH_SEPARATOR.length), 10);
@@ -524,11 +488,10 @@ class VisibilityRegistry {
 	 * Overscan IO callback. Manages the array_indices sets; NodeGap
 	 * reacts to the map writes and updates .positioned declaratively.
 	 *
-	 * @param {IntersectionObserverEntry[]} entries
 	 */
-	#process_near(entries) {
+	#process_near(entries: IntersectionObserverEntry[]): void {
 		for (const entry of entries) {
-			const el = /** @type {HTMLElement} */ (entry.target);
+			const el = entry.target as HTMLElement;
 			const path = this.#registered_paths.get(el);
 			if (!path || !el.isConnected) continue;
 
@@ -544,12 +507,11 @@ class VisibilityRegistry {
 	 * Runs on a separate observer with rootMargin 0 so thresholds
 	 * fire at actual viewport edges, not the overscan boundary.
 	 *
-	 * @param {IntersectionObserverEntry[]} entries
 	 */
-	#process_view(entries) {
+	#process_view(entries: IntersectionObserverEntry[]): void {
 		const vh = window.innerHeight;
 		for (const entry of entries) {
-			const el = /** @type {HTMLElement} */ (entry.target);
+			const el = entry.target as HTMLElement;
 			if (!this.#registered_paths.has(el) || !el.isConnected) continue;
 			this.#apply_view_classes(el, entry.isIntersecting, entry.boundingClientRect, vh);
 		}
@@ -564,9 +526,9 @@ class VisibilityRegistry {
  * The IntersectionObservers own viewport changes; document changes
  * only trigger an edge-state re-sync over the registered arrays.
  *
- * @param {object} svedit - Svedit context (session, editable)
+ * @param svedit - Svedit context (session, editable)
  */
-export function create_node_visibility(svedit) {
+export function create_node_visibility(svedit: any): void {
 	const registry = new VisibilityRegistry();
 	registry.view_classes = svedit.session?.config?.view_classes !== false;
 	registry.visibility_culling = svedit.session?.config?.visibility_culling !== false;
@@ -587,9 +549,8 @@ export function create_node_visibility(svedit) {
 		 * coalesces array scrolls into one RAF that reads only scrollLeft /
 		 * scrollWidth / clientWidth — no per-node BCRs.
 		 */
-		/** @type {Set<Element>} */
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive RAF queue.
-		const pending_scroll_arrays = new Set();
+		const pending_scroll_arrays: Set<Element> = new Set();
 		let scroll_raf = 0;
 		function flush_scroll_sync() {
 			scroll_raf = 0;
@@ -598,9 +559,8 @@ export function create_node_visibility(svedit) {
 			}
 			pending_scroll_arrays.clear();
 		}
-		/** @param {Event} event */
-		function on_scroll(event) {
-			const target = /** @type {Element | null} */ (event.target);
+		function on_scroll(event: Event) {
+			const target = event.target as Element | null;
 			const arr = target?.closest?.('[data-type="node_array"]');
 			if (!arr || !registry.has_array(arr)) return;
 			pending_scroll_arrays.add(arr);
@@ -648,13 +608,15 @@ export function create_node_visibility(svedit) {
  * $derived (see the note there): membership reads on a set created
  * within the same derived are not tracked by Svelte.
  *
- * @param {SvelteSet<number>} near - near child indices of the array
- * @param {{ first: boolean, last: boolean } | undefined} edge_state
- * @param {number} offset
- * @param {boolean} is_last
- * @param {boolean} empty
+ * @param near - near child indices of the array
  */
-export function should_position_gap(near, edge_state, offset, is_last, empty) {
+export function should_position_gap(
+	near: SvelteSet<number>,
+	edge_state: { first: boolean; last: boolean } | undefined,
+	offset: number,
+	is_last: boolean,
+	empty: boolean
+): boolean {
 	if (!near) return false;
 
 	if (empty) {

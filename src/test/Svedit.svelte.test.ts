@@ -21,10 +21,8 @@ describe('Svedit.svelte', () => {
 
 		try {
 			const { container } = render(SveditTestWithInput, { session });
-			const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
-			const input = /** @type {HTMLInputElement} */ (
-				container.querySelector('[data-testid="external-input"]')
-			);
+			const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+			const input = (container.querySelector('[data-testid="external-input"]') as HTMLInputElement);
 
 			canvas.focus();
 			await tick();
@@ -53,7 +51,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -82,7 +80,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -109,7 +107,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -541,7 +539,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -663,7 +661,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -696,7 +694,7 @@ describe('Svedit.svelte', () => {
 		await tick();
 
 		// Mock clipboard API
-		let clipboard_data = /** @type {ClipboardItem | null} */ (null);
+		let clipboard_data = (null as ClipboardItem | null);
 		Object.defineProperty(navigator, 'clipboard', {
 			value: {
 				write: async (items) => {
@@ -808,7 +806,7 @@ describe('Svedit.svelte', () => {
 	it('should split multi-paragraph plain text into text nodes when selection is inside a text node', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -848,7 +846,7 @@ describe('Svedit.svelte', () => {
 	it('should paste multi-paragraph plain text as-is into a block text property with allow_newlines=true', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -870,7 +868,7 @@ describe('Svedit.svelte', () => {
 	it('should dedent plain text when most lines share leading whitespace', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -893,7 +891,7 @@ describe('Svedit.svelte', () => {
 	it('should normalize newlines to single spaces in block text properties with allow_newlines=false', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 
@@ -915,7 +913,7 @@ describe('Svedit.svelte', () => {
 	it('should paste plain text from a property selection by inserting text nodes into the nearest node_array', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
 		svedit_element?.focus();
 		await tick();
 

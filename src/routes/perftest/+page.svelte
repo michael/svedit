@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { setContext, onMount, tick } from 'svelte';
 	import { Svedit, Session, KeyMapper } from 'svedit';
 	import { document_schema, session_config } from '../create_demo_session.js';
@@ -24,8 +24,8 @@
 	let node_count = $state(200);
 	let editable = $state(true);
 	let mount_key = $state(0);
-	let editor_wrapper;
-	let svedit_ref;
+	let editor_wrapper: HTMLElement | undefined;
+	let svedit_ref: Svedit | undefined;
 	let culling = $state(true);
 
 	let live_fps = $state(0);
@@ -47,10 +47,8 @@
 	 * Generate a mixed document with the given number of top-level nodes.
 	 * Mix: ~60% text, ~15% story (with buttons), ~10% list (with items),
 	 * ~5% image_grid (with grid items), ~10% headings.
-	 * @param {number} count
 	 */
-	function generate_document(count) {
-		/** @type {Record<string, any>} */
+	function generate_document(count: number) {
 		const nodes = {};
 		const body = [];
 
@@ -155,7 +153,7 @@
 
 	// rAF that also resolves in hidden tabs (rAF never fires there).
 	function next_frame() {
-		return new Promise((resolve) => {
+		return new Promise<void>((resolve) => {
 			const id = requestAnimationFrame(() => {
 				clearTimeout(timer);
 				resolve(undefined);
@@ -186,14 +184,12 @@
 		};
 	}
 
-	/** @param {number} n */
-	async function set_nodes(n) {
+	async function set_nodes(n: number) {
 		node_count = n;
 		await apply_settings();
 	}
 
-	/** @param {{ nodes?: number, editable?: boolean, culling?: boolean }} opts */
-	async function set_state(opts = {}) {
+	async function set_state(opts: { nodes?: number; editable?: boolean; culling?: boolean } = {}) {
 		if (typeof opts.nodes === 'number') node_count = opts.nodes;
 		if (typeof opts.editable === 'boolean') editable = opts.editable;
 		if (typeof opts.culling === 'boolean') culling = opts.culling;
@@ -205,22 +201,21 @@
 		gap_mk_count = document.querySelectorAll('.gap-marker').length;
 	}
 
-	function fps_loop(now) {
+	function fps_loop(now: number) {
 		frame_times.push(now);
 		if (frame_times.length > 120) frame_times.shift();
 		if (frame_times.length >= 2) {
 			const dt = frame_times[frame_times.length - 1] - frame_times[0];
 			live_fps = Math.round(((frame_times.length - 1) * 1000) / dt);
 		}
-		const perf = /** @type {any} */ (performance);
+		const perf = performance as any;
 		if (perf.memory) {
 			live_memory = Math.round(perf.memory.usedJSHeapSize / 1024 / 1024);
 		}
 		raf_id = requestAnimationFrame(fps_loop);
 	}
 
-	/** @param {number[]} stamps */
-	function calc_fps_stats(stamps) {
+	function calc_fps_stats(stamps: number[]) {
 		if (stamps.length < 2) return { avg: 0, min: 0, p5: 0, frames: 0 };
 		const gaps = [];
 		for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1]);
@@ -247,7 +242,7 @@
 		const dur = 3000;
 		const stamps = [];
 		const t0 = performance.now();
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = Math.min((now - t0) / dur, 1);
@@ -268,7 +263,7 @@
 		const stamps = [];
 		const total_steps = 60;
 		let i = 0;
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = i / total_steps;
@@ -304,7 +299,7 @@
 
 			const d = document.querySelectorAll('.svedit *').length;
 			const g = document.querySelectorAll('.gap-marker').length;
-			const perf = /** @type {any} */ (performance);
+			const perf = performance as any;
 			const m = perf.memory ? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024) : null;
 
 			const s_fps = await quick_scroll_test(2000);
@@ -336,15 +331,14 @@
 		is_testing = false;
 	}
 
-	/** @param {number} dur */
-	async function quick_scroll_test(dur) {
+	async function quick_scroll_test(dur: number) {
 		const el = document.documentElement;
 		el.scrollTop = 0;
 		await new Promise((r) => setTimeout(r, 100));
 		const max_scroll = el.scrollHeight - window.innerHeight;
 		const stamps = [];
 		const t0 = performance.now();
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				const p = Math.min((now - t0) / dur, 1);
@@ -358,12 +352,11 @@
 		return calc_fps_stats(stamps);
 	}
 
-	/** @param {number} total_steps */
-	async function quick_resize_test(total_steps) {
+	async function quick_resize_test(total_steps: number) {
 		if (!editor_wrapper) return { avg: 0, min: 0, p5: 0, frames: 0 };
 		const stamps = [];
 		let i = 0;
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			function step(now) {
 				stamps.push(now);
 				editor_wrapper.style.maxWidth = `${Math.round(1200 - 800 * Math.sin((i / total_steps) * Math.PI))}px`;
@@ -382,10 +375,8 @@
 	/**
 	 * Add `count` button nodes one-per-frame to the first story's
 	 * buttons array and return FPS stats for the mutation frames.
-	 * @param {number} count
 	 */
-	async function run_mutation_frames(count) {
-		/** @type {{ node_id: string, prop: string } | undefined} */
+	async function run_mutation_frames(count: number) {
 		let target;
 		for (const node of Object.values(session.doc.nodes)) {
 			if (node.type === 'story') {
@@ -396,7 +387,7 @@
 		if (!target) return { avg: 0, min: 0, p5: 0, frames: 0 };
 
 		const stamps = [];
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			let i = 0;
 			function step(now) {
 				stamps.push(now);
@@ -449,8 +440,8 @@
 
 		for (const overscan of overscan_values) {
 			for (const debounce of debounce_values) {
-				/** @type {any} */ (window).__culling_config.overscan = overscan;
-				/** @type {any} */ (window).__culling_config.debounce = debounce;
+				(window as any).__culling_config.overscan = overscan;
+				(window as any).__culling_config.debounce = debounce;
 
 				for (const count of node_counts) {
 					node_count = count;
@@ -467,7 +458,7 @@
 
 					const dom = document.querySelectorAll('.svedit *').length;
 					const gap_mk = document.querySelectorAll('.gap-marker').length;
-					const perf = /** @type {any} */ (performance);
+					const perf = performance as any;
 					const mem = perf.memory ? Math.round(perf.memory.usedJSHeapSize / 1024 / 1024) : null;
 
 					results.push({
@@ -488,7 +479,7 @@
 			}
 		}
 
-		/** @type {any} */ (window).__matrix_results = results;
+		(window as any).__matrix_results = results;
 		console.log('DONE', JSON.stringify(results));
 		is_testing = false;
 		return results;
@@ -497,7 +488,7 @@
 	onMount(() => {
 		raf_id = requestAnimationFrame(fps_loop);
 		setTimeout(snap_counts, 500);
-		/** @type {any} */ (window).__perf = {
+		(window as any).__perf = {
 			run_full_benchmark,
 			apply_settings,
 			run_matrix_test,
@@ -510,7 +501,7 @@
 				return session;
 			}
 		};
-		/** @type {any} */ (window).__bench = {
+		(window as any).__bench = {
 			enter: (/** @type {number} */ count) => bench_enter(bench_ctx(), count),
 			type: (/** @type {number} */ count) => bench_type(bench_ctx(), count),
 			paste: (/** @type {number} */ m, /** @type {any} */ mode) => bench_paste(bench_ctx(), m, mode),
@@ -524,8 +515,8 @@
 		};
 		return () => {
 			cancelAnimationFrame(raf_id);
-			delete (/** @type {any} */ (window).__perf);
-			delete (/** @type {any} */ (window).__bench);
+			delete ((window as any).__perf);
+			delete ((window as any).__bench);
 		};
 	});
 </script>

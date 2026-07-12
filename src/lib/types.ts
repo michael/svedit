@@ -1,12 +1,11 @@
 import type Session from './Session.svelte.js';
-import type Svedit from './Svedit.svelte';
 
 // ===== SVELTE TYPE IMPORTS =====
 
 /**
  * Import Svelte's Snippet type for properly typing children in components
  */
-import type { Component, Snippet } from 'svelte';
+import type { Snippet } from 'svelte';
 
 // ===== SELECTION TYPE DEFINITIONS =====
 
@@ -98,53 +97,86 @@ export type PrimitiveType = ScalarType | ArrayType | RichType;
  */
 export type PropertyType = PrimitiveType | ReferenceType;
 
-// TODO: We may later want more sophisticated type inference, so that typing
-// e.g. `session.get('image')` auto-completes the node's properties based on
-// the schema definition. The types below are a starting point for that.
-//
-// export type DocumentSchemaPrimitive =
-// 	| 'string'
-// 	| 'number'
-// 	| 'boolean'
-// 	| 'integer'
-// 	| 'datetime'
-// 	| 'string_array'
-// 	| 'number_array'
-// 	| 'boolean_array'
-// 	| 'integer_array'
-// 	| 'text'
-// 	| 'node'
-// 	| 'node_array';
-//
-// export type DocumentSchemaValueToJs<T> = T extends 'string'
-// 	? string
-// 	: T extends 'number'
-// 		? number
-// 		: T extends 'boolean'
-// 			? boolean
-// 			: T extends 'integer'
-// 				? number
-// 				: T extends 'datetime'
-// 					? string
-// 					: T extends 'string_array'
-// 						? Array<string>
-// 						: T extends 'number_array'
-// 							? Array<number>
-// 							: T extends 'boolean_array'
-// 								? Array<boolean>
-// 								: T extends 'integer_array'
-// 									? Array<number>
-// 									: T extends 'text'
-// 										? AnnotatedText
-// 										: T extends 'node'
-// 											? string
-// 											: T extends 'node_array'
-// 												? Array<string>
-// 												: never;
-//
-// export type DocumentNodeToJs<S extends NodeSchema> = { id: string; type: string } & {
-// 	[K in keyof S['properties']]: DocumentSchemaValueToJs<S['properties'][K]['type']>;
-// };
+// ===== SCHEMA-DERIVED NODE TYPES =====
+
+/**
+ * Maps a schema property definition to the runtime value type it stores.
+ */
+export type PropertyValue<P extends PropertyDefinition> = P extends { type: 'string' }
+	? string
+	: P extends { type: 'number' }
+		? number
+		: P extends { type: 'integer' }
+			? number
+			: P extends { type: 'boolean' }
+				? boolean
+				: P extends { type: 'datetime' }
+					? string
+					: P extends { type: 'string_array' }
+						? string[]
+						: P extends { type: 'number_array' }
+							? number[]
+							: P extends { type: 'integer_array' }
+								? number[]
+								: P extends { type: 'boolean_array' }
+									? boolean[]
+									: P extends { type: 'text' }
+										? AnnotatedText
+										: P extends { type: 'node' }
+											? NodeId
+											: P extends { type: 'node_array' }
+												? AnnotatedNodeArray
+												: never;
+
+/**
+ * The runtime shape of a node of a specific type, derived from the schema.
+ *
+ * Falls back to the untyped DocumentNode when the schema is not a concrete
+ * schema literal (e.g. the DocumentSchema default of Session).
+ */
+export type NodeOfType<S extends DocumentSchema, T extends keyof S> = string extends keyof S
+	? DocumentNode
+	: {
+			id: NodeId;
+			type: T;
+		} & {
+			[K in keyof S[T]['properties']]: PropertyValue<S[T]['properties'][K]>;
+		};
+
+/**
+ * Discriminated union of all node types in a schema. Narrow with
+ * `node.type === '...'` to get exact property types.
+ *
+ * Falls back to the untyped DocumentNode when the schema is not a concrete
+ * schema literal (e.g. the DocumentSchema default of Session).
+ */
+export type AnyNode<S extends DocumentSchema> = string extends keyof S
+	? DocumentNode
+	: {
+			[T in keyof S]: NodeOfType<S, T>;
+		}[keyof S];
+
+/**
+ * Convenience map from node type name to its runtime node shape,
+ * e.g. `NodeMap<typeof document_schema>['story']`.
+ */
+export type NodeMap<S extends DocumentSchema> = {
+	[T in keyof S]: NodeOfType<S, T>;
+};
+
+/**
+ * Assert that a node is of the given type. Narrows the static type and
+ * checks at runtime — for call sites that know what they expect.
+ */
+export function assert_node_type<S extends DocumentSchema, T extends keyof S & string>(
+	node: AnyNode<S>,
+	type: T
+): NodeOfType<S, T> {
+	if (node.type !== type) {
+		throw new Error(`Expected node of type "${type}", got "${String(node.type)}" (id: ${node.id})`);
+	}
+	return node as NodeOfType<S, T>;
+}
 
 /**
  * A property that stores text with optional marks and annotations and required allow_newlines setting.
@@ -430,8 +462,8 @@ export type NodeProps = {
  * Props for the Svedit component
  */
 export type SveditProps = {
-	/** The session instance */
-	session: Session;
+	/** The session instance (any schema instantiation) */
+	session: Session<any>;
 	/** Determines wether the document should be editable or read-only. */
 	editable?: boolean;
 	/** The path to the root element (e.g. ['page_1']) */

@@ -104,7 +104,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -152,7 +152,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -187,7 +187,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -217,7 +217,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();

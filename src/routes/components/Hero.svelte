@@ -1,17 +1,20 @@
-<script>
-	import { getContext } from 'svelte';
+<script lang="ts">
 	import { Node, TextProperty } from 'svedit';
-	const svedit = getContext('svedit');
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../create_demo_session.js';
 
-	let { path } = $props();
-	let node = $derived(svedit.session.get(path));
+	const svedit = get_svedit_context();
+
+	let { path }: { path: DocumentPath } = $props();
+	let node: Nodes['hero'] = $derived(svedit.session.get(path));
 	let has_image = $derived(node.image && node.image.trim() !== '');
 	const static_star_count = 600;
 	let star_count = $state(static_star_count);
 	let formatted_star_count = $derived(star_count.toLocaleString());
 	let star_count_label = $derived(`${formatted_star_count} stars`);
 
-	function animate_star_count(target, is_cancelled) {
+	function animate_star_count(target: number, is_cancelled: () => boolean) {
 		if (target === star_count) return;
 
 		const prefers_reduced_motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25,7 +28,7 @@
 		const duration = 900;
 		const started_at = performance.now();
 
-		function step(now) {
+		function step(now: number) {
 			if (is_cancelled()) return;
 			const progress = Math.min((now - started_at) / duration, 1);
 			const eased = 1 - Math.pow(1 - progress, 3);

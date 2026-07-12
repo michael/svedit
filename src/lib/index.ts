@@ -13,6 +13,50 @@ export { default as NodeSelectionMarkers } from './NodeSelectionMarkers.svelte';
 export { default as Session } from './Session.svelte.js';
 export { default as Transaction } from './Transaction.svelte.js';
 
+// Schema-typed node helpers
+export { assert_node_type } from './types.js';
+
+// Public types
+export type {
+	// Schema definition
+	DocumentSchema,
+	NodeSchema,
+	NodeKind,
+	PropertyDefinition,
+	PropertyType,
+	// Schema-derived node types
+	PropertyValue,
+	NodeOfType,
+	AnyNode,
+	NodeMap,
+	// Documents and nodes
+	Document,
+	DocumentNode,
+	DocumentPath,
+	NodeId,
+	// Values
+	AnnotatedText,
+	AnnotatedNodeArray,
+	Attachment,
+	Mark,
+	Annotation,
+	// Selections
+	Selection,
+	TextSelection,
+	NodeSelection,
+	PropertySelection,
+	SelectionRange,
+	// Component props and render contexts
+	SveditProps,
+	TextPropertyProps,
+	CustomPropertyProps,
+	NodeArrayPropertyProps,
+	NodeProps,
+	NodeArrayAttachmentContext
+} from './types.js';
+export type { SelectedAttachment } from './doc_utils.js';
+export type { Keymap } from './KeyMapper.svelte.js';
+
 // Document utilities
 export {
 	define_document_schema,

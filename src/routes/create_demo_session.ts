@@ -14,6 +14,7 @@ import {
 	define_keymap
 } from 'svedit';
 import { CycleLayoutCommand, CycleNodeTypeCommand, ToggleLinkCommand } from './commands.svelte.js';
+import type { DocumentNode, NodeMap } from 'svedit';
 import nanoid from './nanoid.js';
 
 // System components
@@ -808,7 +809,10 @@ export const session_config = {
 			}
 			return null;
 		} else {
-			const pasted_json = { main_nodes: [], nodes: {} };
+			const pasted_json: { main_nodes: string[]; nodes: Record<string, DocumentNode> } = {
+				main_nodes: [],
+				nodes: {}
+			};
 			// When caret inside an image grid we want to insert an image_grid_item
 			// otherwise we want to insert a story, as that is the only body node,
 			// that can carry an image.
@@ -919,7 +923,7 @@ export const session_config = {
 	// intended behavior.
 	inserters: {
 		paragraph: function (tr, content, layout) {
-			const new_paragraph = {
+			const new_paragraph: DocumentNode = {
 				id: nanoid(),
 				type: 'paragraph'
 			};
@@ -935,7 +939,7 @@ export const session_config = {
 			});
 		},
 		heading_1: function (tr, content, layout) {
-			const new_heading_1 = {
+			const new_heading_1: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_1'
 			};
@@ -951,7 +955,7 @@ export const session_config = {
 			});
 		},
 		heading_2: function (tr, content, layout) {
-			const new_heading_2 = {
+			const new_heading_2: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_2'
 			};
@@ -967,7 +971,7 @@ export const session_config = {
 			});
 		},
 		heading_3: function (tr, content, layout) {
-			const new_heading_3 = {
+			const new_heading_3: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_3'
 			};
@@ -983,12 +987,12 @@ export const session_config = {
 			});
 		},
 		story: function (tr) {
-			const new_button = {
+			const new_button: DocumentNode = {
 				id: nanoid(),
 				type: 'button'
 			};
 			tr.create(new_button);
-			const new_story = {
+			const new_story: DocumentNode = {
 				id: nanoid(),
 				type: 'story',
 				buttons: { nodes: [new_button.id], marks: [], annotations: [] }
@@ -997,12 +1001,12 @@ export const session_config = {
 			tr.insert_nodes([new_story.id]);
 		},
 		list: function (tr) {
-			const new_list_item = {
+			const new_list_item: DocumentNode = {
 				id: nanoid(),
 				type: 'list_item'
 			};
 			tr.create(new_list_item);
-			const new_list = {
+			const new_list: DocumentNode = {
 				id: nanoid(),
 				type: 'list',
 				list_items: { nodes: [new_list_item.id], marks: [], annotations: [] },
@@ -1012,7 +1016,7 @@ export const session_config = {
 			tr.insert_nodes([new_list.id]);
 		},
 		list_item: function (tr, content) {
-			const new_list_item = {
+			const new_list_item: DocumentNode = {
 				id: nanoid(),
 				type: 'list_item'
 			};
@@ -1030,14 +1034,14 @@ export const session_config = {
 		image_grid: function (tr) {
 			const new_image_grid_items = [];
 			for (let i = 0; i < 6; i++) {
-				const image_grid_item = {
+				const image_grid_item: DocumentNode = {
 					id: nanoid(),
 					type: 'image_grid_item'
 				};
 				tr.create(image_grid_item);
 				new_image_grid_items.push(image_grid_item.id);
 			}
-			const new_image_grid = {
+			const new_image_grid: DocumentNode = {
 				id: nanoid(),
 				type: 'image_grid',
 				image_grid_items: { nodes: new_image_grid_items, marks: [], annotations: [] }
@@ -1046,7 +1050,7 @@ export const session_config = {
 			tr.insert_nodes([new_image_grid.id]);
 		},
 		image_grid_item: function (tr) {
-			const new_image_grid_item = {
+			const new_image_grid_item: DocumentNode = {
 				id: nanoid(),
 				type: 'image_grid_item'
 			};
@@ -1060,7 +1064,7 @@ export const session_config = {
 			});
 		},
 		button: function (tr, content) {
-			const new_button = {
+			const new_button: DocumentNode = {
 				id: nanoid(),
 				type: 'button'
 			};
@@ -1075,7 +1079,7 @@ export const session_config = {
 			});
 		},
 		hero: function (tr) {
-			const new_hero = {
+			const new_hero: DocumentNode = {
 				id: nanoid(),
 				type: 'hero'
 			};
@@ -1087,11 +1091,8 @@ export const session_config = {
 	/**
 	 * Factory function to create Svedit commands and keymap.
 	 * Called by Svedit component with the svedit context.
-	 *
-	 * @param {object} context - The svedit context with doc, editable, canvas.
-	 * @returns {{ commands: object, keymap: object }}
 	 */
-	create_commands_and_keymap: (context) => {
+	create_commands_and_keymap: (context: any) => {
 		// Create command instances with the provided context
 		const commands = {
 			select_all: new SelectAllCommand(context),
@@ -1141,7 +1142,18 @@ export const session_config = {
 	}
 };
 
-export default function create_demo_session() {
+/**
+ * The app's concrete session type — schema-typed, so get_node and friends
+ * return exact node types.
+ */
+export type AppSession = Session<typeof document_schema>;
+
+/**
+ * Map from node type name to its runtime node shape, e.g. `Nodes['story']`.
+ */
+export type Nodes = NodeMap<typeof document_schema>;
+
+export default function create_demo_session(): AppSession {
 	const demo_doc = fill_document_defaults(doc, document_schema);
 	const session = new Session(document_schema, demo_doc, session_config);
 	return session;

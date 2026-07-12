@@ -1,5 +1,6 @@
 import Command from '$lib/Command.svelte.js';
 import { is_selection_collapsed } from '$lib/utils.js';
+import type { Transaction, DocumentNode, DocumentPath } from 'svedit';
 import {
 	get_closest_switchable_layout,
 	get_cycle_node_state,
@@ -11,11 +12,13 @@ import {
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
+	direction: 'next' | 'previous';
+
 	closest_switchable_layout = $derived(
 		get_closest_switchable_layout(this.context.session, this.context.session.config)
 	);
 
-	constructor(direction, context) {
+	constructor(direction: 'next' | 'previous', context: any) {
 		super(context);
 		this.direction = direction;
 	}
@@ -51,16 +54,16 @@ export class CycleLayoutCommand extends Command {
 
 /**
  * Replace a node with a schema-equivalent node type while preserving property values.
- *
- * @param {import('svedit').Transaction} tr
- * @param {(string|number)[]} node_array_path
- * @param {number} node_index
- * @param {object} node
- * @param {string} new_type
  */
-function replace_node_with_equivalent_type(tr, node_array_path, node_index, node, new_type) {
+function replace_node_with_equivalent_type(
+	tr: Transaction,
+	node_array_path: DocumentPath,
+	node_index: number,
+	node: DocumentNode,
+	new_type: string
+) {
 	const node_schema = tr.schema[node.type];
-	const new_node = {
+	const new_node: DocumentNode = {
 		id: tr.generate_id(),
 		type: new_type
 	};
@@ -87,9 +90,11 @@ function replace_node_with_equivalent_type(tr, node_array_path, node_index, node
  * Direction can be 'next' or 'previous'.
  */
 export class CycleNodeTypeCommand extends Command {
+	direction: 'next' | 'previous';
+
 	cycle_node_state = $derived(get_cycle_node_state(this.context.session));
 
-	constructor(direction, context) {
+	constructor(direction: 'next' | 'previous', context: any) {
 		super(context);
 		this.direction = direction;
 	}

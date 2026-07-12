@@ -1,15 +1,18 @@
-<script>
-	import { getContext } from 'svelte';
+<script lang="ts">
 	import { serialize_path } from '../../lib/utils.js';
-	const svedit = getContext('svedit');
-	let { path, content } = $props();
-	let node = $derived(svedit.session.get(path));
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../create_demo_session.js';
+
+	const svedit = get_svedit_context();
+	let { path, content }: { path: DocumentPath; content: string } = $props();
+	let node: Nodes['link'] = $derived(svedit.session.get(path));
 </script>
 
 <a
 	id={node.id}
 	data-node-id={node.id}
 	href={node?.href}
-	target={node?.target || '_self'}
+	target={(node as any)?.target || '_self'}
 	style="anchor-name: --{serialize_path(path)};">{content}</a
 >

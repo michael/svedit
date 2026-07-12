@@ -1,6 +1,6 @@
-<script module>
-	function cycle_z_index(/** @type {MouseEvent} */ e) {
-		const el = /** @type {HTMLElement} */ (e.currentTarget);
+<script module lang="ts">
+	function cycle_z_index(e: MouseEvent) {
+		const el = e.currentTarget as HTMLElement;
 		if (el.hasAttribute('data-sent-to-back')) {
 			document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach((prev) => {
 				prev.removeAttribute('data-sent-to-back');
@@ -10,10 +10,11 @@
 	}
 </script>
 
-<script>
+<script lang="ts">
 	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
 	import { should_position_gap } from './node_visibility.svelte.js';
+	import type { DocumentPath } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -58,8 +59,13 @@
 	 * sure your custom component also handles read-only mode by rendering a
 	 * plain `.node-gap` placeholder without editable internals.
 	 */
-	const svedit = getContext('svedit');
-	let { array_path, offset, count, empty = false } = $props();
+	const svedit = getContext<any>('svedit');
+	let {
+		array_path,
+		offset,
+		count,
+		empty = false
+	}: { array_path: DocumentPath; offset: number; count: number; empty?: boolean } = $props();
 	let is_editable = $derived(svedit.editable);
 
 	let is_first = $derived(offset === 0);

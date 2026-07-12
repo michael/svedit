@@ -1,16 +1,17 @@
-<script>
+<script lang="ts">
 	import { Node, TextProperty } from 'svedit';
-	import { getContext } from 'svelte';
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../create_demo_session.js';
 
-	const svedit = getContext('svedit');
-	let { path } = $props();
+	const svedit = get_svedit_context();
+	let { path }: { path: DocumentPath } = $props();
 
 	// We expect the list_node to be the parent in the path
-	let list_node = $derived(svedit.session.get(path.slice(0, -2)));
+	let list_node: Nodes['list'] = $derived(svedit.session.get(path.slice(0, -2)));
 	let list_style = $derived(get_list_style_from_layout(list_node?.layout));
 
-	/** @param {number} layout */
-	function get_list_style_from_layout(layout) {
+	function get_list_style_from_layout(layout: number) {
 		if (layout === 1) return 'square';
 		if (layout === 2) return 'disc';
 		if (layout === 3) return 'decimal-leading-zero';

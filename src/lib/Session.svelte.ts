@@ -18,50 +18,47 @@ import {
 	get_selected_annotations,
 	validate_selection
 } from './doc_utils.js';
-
-/**
- * @import {
- *   NodeId,
- *   DocumentPath,
- *   Selection,
- *   Attachment,
- *   Mark,
- *   Annotation,
- *   NodeKind,
- *   DocumentSchema,
- *   DocumentNode,
- *   Document
- * } from './types.d.ts';
- */
+import type {
+	NodeId,
+	DocumentPath,
+	Selection,
+	Attachment,
+	NodeKind,
+	DocumentSchema,
+	DocumentNode,
+	Document,
+	AnyNode,
+	NodeOfType,
+	AnnotatedText,
+	AnnotatedNodeArray
+} from './types.js';
 
 const BATCH_WINDOW_MS = 1000; // 1 second
 
-/**
- * @typedef {Object} SessionOptions
- * @property {Selection} [selection] - Initial selection state
- */
+type HistoryEntry = {
+	ops: any[];
+	inverse_ops: any[];
+	selection_before: Selection | null;
+	selection_after: Selection | null;
+};
 
-export default class Session {
-	/** @type {Selection | null} */
-	#selection = $state.raw(null);
+export default class Session<S extends DocumentSchema = DocumentSchema> {
+	#selection: Selection | null = $state.raw(null);
 
-	/** @type {DocumentSchema} */
-	schema = $state.raw();
+	schema: S = $state.raw() as S;
 
-	/** @type {Document} */
-	doc = $state.raw();
+	doc: Document = $state.raw() as Document;
 
-	/** @type {any} */
-	config = $state.raw();
+	config: any = $state.raw();
 
-	history = $state.raw([]);
+	history: HistoryEntry[] = $state.raw([]);
 	history_index = $state.raw(-1);
-	last_batch_started = $state.raw(undefined); // Timestamp for debounced batching
+	last_batch_started: number | undefined = $state.raw(undefined); // Timestamp for debounced batching
 
 	// Commands and keymap - initialized by Svedit when ready
 	// NOTE: Assumes single Svedit instance per session
-	commands = $state.raw({});
-	keymap = $state.raw({});
+	commands: Record<string, any> = $state.raw({});
+	keymap: Record<string, any> = $state.raw({});
 
 	// Reactive helpers for UI state
 	can_undo = $derived(this.history_index >= 0);
@@ -79,13 +76,17 @@ export default class Session {
 	);
 
 	/**
-	 * @param {DocumentSchema} schema - The document schema
-	 * @param {Document} doc - The document
-	 * @param {object} config - configuration object
-	 * @param {Object} [options]
-	 * @param {Selection} [options.selection] - Initial selection state
+	 * @param schema - The document schema
+	 * @param doc - The document
+	 * @param config - configuration object
+	 * @param options - Optional settings (e.g. initial selection state)
 	 */
-	constructor(schema, doc, config, options = {}) {
+	constructor(
+		schema: S,
+		doc: Document,
+		config: any,
+		options: { selection?: Selection | null } = {}
+	) {
 		// Validate the schema first
 		validate_document_schema(schema);
 
@@ -101,18 +102,16 @@ export default class Session {
 
 	/**
 	 * Gets the current selection
-	 * @returns {Selection | null}
 	 */
-	get selection() {
+	get selection(): Selection | null {
 		return this.#selection;
 	}
 
 	/**
 	 * Sets the selection with validation
-	 * @param {Selection | null} value - The new selection
 	 * @throws {Error} Throws if the selection is invalid
 	 */
-	set selection(value) {
+	set selection(value: Selection | null) {
 		this._validate_selection(value);
 		this.#selection = value;
 	}
@@ -120,19 +119,16 @@ export default class Session {
 	/**
 	 * Validates that a selection is within bounds and refers to valid paths.
 	 *
-	 * @param {Selection} selection - The selection to validate
 	 * @throws {Error} Throws if the selection is invalid
-	 * @private
 	 */
-	_validate_selection(selection) {
+	private _validate_selection(selection: Selection | null): void {
 		validate_selection(selection, this);
 	}
 
 	/**
 	 * Gets the document_id from the doc
-	 * @returns {string}
 	 */
-	get document_id() {
+	get document_id(): string {
 		return this.doc.document_id;
 	}
 
@@ -144,14 +140,12 @@ export default class Session {
 	 * deleted nodes. That catches local node invariants and dangling references left
 	 * behind by deletes without scanning every node on every apply.
 	 *
-	 * @param {Transaction} transaction - The transaction result to validate
 	 * @throws {Error} Throws if the transaction result is invalid
 	 */
-	validate_transaction_result(transaction) {
+	validate_transaction_result(transaction: Transaction): void {
 		const doc = transaction.doc;
-		/** @type {Set<NodeId>} */
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
-		const affected_node_ids = new Set([
+		const affected_node_ids: Set<NodeId> = new Set([
 			...transaction.created_node_ids,
 			...transaction.modified_node_ids
 		]);
@@ -184,7 +178,7 @@ export default class Session {
 		}
 	}
 
-	generate_id() {
+	generate_id(): string {
 		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
 		if (!is_id_valid(id)) {
 			throw new Error(
@@ -202,9 +196,9 @@ export default class Session {
 	 * For multiple editors on the same document, this architecture would need
 	 * to be refactored to support multiple sessions per document.
 	 *
-	 * @param {object} context - The svedit context with session, editable, canvas, etc.
+	 * @param context - The svedit context with session, editable, canvas, etc.
 	 */
-	initialize_commands(context) {
+	initialize_commands(context: any): void {
 		if (this.config?.create_commands_and_keymap) {
 			const { commands, keymap } = this.config.create_commands_and_keymap(context);
 			this.commands = commands;
@@ -212,20 +206,20 @@ export default class Session {
 		}
 	}
 
-	get_available_mark_types() {
+	get_available_mark_types(): string[] {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.mark_types || [];
 	}
 
-	get_available_annotation_types() {
+	get_available_annotation_types(): string[] {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.annotation_types || [];
 	}
 
 	// Helper function to get the currently selected node
-	get_selected_node() {
+	get_selected_node(): AnyNode<S> | null {
 		if (!this.selection) return null;
 
 		if (this.selection.type === 'node') {
@@ -233,7 +227,7 @@ export default class Session {
 			const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 			// Only consider selection of a single node
 			if (end - start !== 1) return null;
-			const node_array = this.get(this.selection.path);
+			const node_array: AnnotatedNodeArray = this.get(this.selection.path);
 			const node_id = node_array.nodes[start];
 			return node_id ? this.get(node_id) : null;
 		} else {
@@ -247,10 +241,8 @@ export default class Session {
 
 	/**
 	 * Creates a new transaction for making atomic changes to the document.
-	 *
-	 * @returns {Transaction} A new transaction instance
 	 */
-	get tr() {
+	get tr(): Transaction {
 		// We create a copy of the current state to avoid modifying the original
 		return new Transaction(this.schema, this.doc, this.selection, this.config);
 	}
@@ -259,11 +251,10 @@ export default class Session {
 	 * Applies a transaction to the document.
 	 * Auto-batches history entries with debounced behavior (max one entry per 2 seconds) when batch is true.
 	 *
-	 * @param {Transaction} transaction - The transaction to apply
-	 * @param {object} [options] - Optional configuration
-	 * @param {boolean} [options.batch=false] - Whether to allow batching with previous transaction
+	 * @param transaction - The transaction to apply
+	 * @param options - Optional configuration (batch: whether to allow batching with previous transaction)
 	 */
-	apply(transaction, { batch = false } = {}) {
+	apply(transaction: Transaction, { batch = false }: { batch?: boolean } = {}): this {
 		this.validate_transaction_result(transaction);
 		// Only swap the doc when something changed. The transaction draft is
 		// always a fresh object, and assigning it for an ops-less transaction
@@ -315,7 +306,7 @@ export default class Session {
 		return this;
 	}
 
-	undo() {
+	undo(): this | undefined {
 		if (this.history_index < 0) {
 			return;
 		}
@@ -335,7 +326,7 @@ export default class Session {
 		return this;
 	}
 
-	redo() {
+	redo(): this | undefined {
 		if (this.history_index >= this.history.length - 1) {
 			return;
 		}
@@ -352,8 +343,11 @@ export default class Session {
 
 	/**
 	 * Gets a node instance or property value at the specified path.
-	 * @param {DocumentPath|string} path - Path to the node or property
-	 * @returns {any} Either a node instance object or the value of a property
+	 *
+	 * The result type defaults to `any` because a path can address a node or
+	 * any property value. Annotate the target to type the result, or use
+	 * get_node for schema-typed node access.
+	 *
 	 * @example
 	 * // Get a node by ID
 	 * session.get('list_1') // => { type: 'list', id: 'list_1', ... }
@@ -370,8 +364,41 @@ export default class Session {
 	 * // Get a text property
 	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', marks: [], annotations: []}
 	 */
-	get(path) {
+	get<T = any>(path: DocumentPath | string): T {
 		return doc_get(this.schema, this.doc, path);
+	}
+
+	/**
+	 * Gets a node at the specified path, typed via the document schema.
+	 *
+	 * Without expected_type, returns the discriminated union of all schema
+	 * node types — narrow with `node.type === '...'`. With expected_type,
+	 * asserts the node type at runtime and returns the exact node type.
+	 *
+	 * @example
+	 * const node = session.get_node(path);
+	 * if (node.type === 'story') node.title // typed
+	 *
+	 * @example
+	 * const story = session.get_node(path, 'story');
+	 * story.title // typed, runtime-checked
+	 *
+	 * @throws {Error} Throws if the path does not point to a node, or the node
+	 * is not of expected_type
+	 */
+	get_node(path: DocumentPath | NodeId): AnyNode<S>;
+	get_node<T extends keyof S & string>(path: DocumentPath | NodeId, expected_type: T): NodeOfType<S, T>;
+	get_node(path: DocumentPath | NodeId, expected_type?: string): any {
+		const node = doc_get(this.schema, this.doc, path);
+		if (!node || typeof node !== 'object' || typeof node.id !== 'string' || typeof node.type !== 'string') {
+			throw new Error(`Path ${JSON.stringify(path)} does not point to a node.`);
+		}
+		if (expected_type !== undefined && node.type !== expected_type) {
+			throw new Error(
+				`Expected node of type "${expected_type}" at path ${JSON.stringify(path)}, got "${node.type}" (id: ${node.id})`
+			);
+		}
+		return node;
 	}
 
 	/**
@@ -396,31 +423,28 @@ export default class Session {
 	 *   type: 'paragraph',
 	 *   properties: {...}
 	 * }
-	 *
-	 * @param {DocumentPath} path
-	 * @returns {{kind: 'property'|'node', [key: string]: any}}
 	 */
-	inspect(path) {
+	inspect(path: DocumentPath): { kind: 'property' | 'node'; [key: string]: any } {
 		return doc_inspect(this.schema, this.doc, path);
 	}
 
 	/**
-	 * Determines the kind of a node ('block' for structured blocks, 'text' for pure
-	 * text nodes, 'mark' for mark nodes or 'annotation' for annotation nodes.
-	 * @param {any} node
-	 * @returns {NodeKind}
+	 * Determines the kind of a node ('document' for root nodes, 'block' for
+	 * structured blocks, 'text' for pure text nodes, 'mark' for mark nodes or
+	 * 'annotation' for annotation nodes).
 	 */
-	kind(node) {
+	kind(node: DocumentNode): NodeKind {
 		return doc_kind(this.schema, node);
 	}
 
 	/**
 	 * Determines whether a node type can be inserted at a given selection.
-	 * @param {string} node_type - The type of node to insert.
-	 * @param {Selection} [selection] - The selection at which to insert the node.
-	 * @returns {boolean} True if the node type can be inserted, false otherwise.
+	 *
+	 * @param node_type - The type of node to insert.
+	 * @param selection - The selection at which to insert the node.
+	 * @returns True if the node type can be inserted, false otherwise.
 	 */
-	can_insert(node_type, selection = this.selection) {
+	can_insert(node_type: string, selection: Selection | null = this.selection): boolean {
 		if (selection?.type === 'node') {
 			const property_definition = this.inspect(selection.path);
 			if (property_definition.node_types.includes(node_type)) {
@@ -437,10 +461,10 @@ export default class Session {
 	/**
 	 * Compute next possible insert position from a given selection
 	 *
-	 * @param {Selection} [selection] - Reference selection
-	 * @returns {Selection|null} The next node insert caret selection, or null if none is available
+	 * @param selection - Reference selection
+	 * @returns The next node insert caret selection, or null if none is available
 	 */
-	get_next_node_insert_caret(selection = this.selection) {
+	get_next_node_insert_caret(selection: Selection | null = this.selection): Selection | null {
 		// There's no parent path to insert into
 		if (!selection || selection.path.length <= 2) {
 			return null;
@@ -455,16 +479,16 @@ export default class Session {
 		};
 	}
 
-	get_selected_text() {
+	get_selected_text(): (AnnotatedText & { nodes: Record<string, DocumentNode> }) | null {
 		if (this.selection?.type !== 'text') return null;
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text_value = this.get(this.selection.path);
+		const text_value: AnnotatedText = this.get(this.selection.path);
 		const selected_text = char_slice(text_value.content, selection_start, selection_end);
-		const nodes = {};
+		const nodes: Record<string, DocumentNode> = {};
 
-		const clip_ranges = (ranges) =>
+		const clip_ranges = (ranges: Attachment[]) =>
 			ranges
 				.map((range) => {
 					if (selection_start < range.end_offset && selection_end > range.start_offset) {
@@ -486,7 +510,7 @@ export default class Session {
 						return null;
 					}
 				})
-				.filter(Boolean);
+				.filter((range): range is Attachment => range !== null);
 
 		const marks = clip_ranges(text_value.marks);
 		const annotations = clip_ranges(text_value.annotations);
@@ -494,16 +518,21 @@ export default class Session {
 		return { content: selected_text, marks, annotations, nodes };
 	}
 
-	get_selected_annotated_nodes() {
+	get_selected_annotated_nodes(): {
+		nodes: Record<string, DocumentNode>;
+		main_nodes: NodeId[];
+		marks: Attachment[];
+		annotations: Attachment[];
+	} | null {
 		if (this.selection?.type !== 'node') return null;
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const node_array = this.get(this.selection.path);
+		const node_array: AnnotatedNodeArray = this.get(this.selection.path);
 		const main_nodes = node_array.nodes.slice(selection_start, selection_end);
-		const nodes = {};
+		const nodes: Record<string, DocumentNode> = {};
 
-		const add_subgraph = (node_id) => {
+		const add_subgraph = (node_id: NodeId) => {
 			for (const node of this.traverse(node_id)) {
 				if (!nodes[node.id]) nodes[node.id] = node;
 			}
@@ -511,7 +540,7 @@ export default class Session {
 
 		for (const node_id of main_nodes) add_subgraph(node_id);
 
-		const clip_ranges = (ranges) =>
+		const clip_ranges = (ranges: Attachment[]) =>
 			ranges
 				.map((range) => {
 					if (selection_start >= range.end_offset || selection_end <= range.start_offset) {
@@ -525,7 +554,7 @@ export default class Session {
 						node_id: range.node_id
 					};
 				})
-				.filter(Boolean);
+				.filter((range): range is Attachment => range !== null);
 
 		const marks = clip_ranges(node_array.marks);
 		const annotations = clip_ranges(node_array.annotations);
@@ -534,29 +563,29 @@ export default class Session {
 	}
 
 	// TODO: think about ways how we can also turn a node selection into plain text.
-	get_selected_plain_text() {
+	get_selected_plain_text(): string | null {
 		if (this.selection?.type !== 'text') return null;
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text = this.get(this.selection.path);
+		const text: AnnotatedText = this.get(this.selection.path);
 		return char_slice(text.content, start, end);
 	}
 
-	get_selected_nodes() {
+	get_selected_nodes(): NodeId[] | null {
 		if (this.selection?.type !== 'node') return null;
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const node_array = this.get(this.selection.path);
+		const node_array: AnnotatedNodeArray = this.get(this.selection.path);
 		// node_array.nodes is a plain array of id strings (doc is $state.raw),
 		// so a slice is already a safe fresh copy.
 		return node_array.nodes.slice(start, end);
 	}
 
-	select_parent() {
+	select_parent(): void {
 		if (!this.selection) return;
-		if (['text', 'property'].includes(this.selection?.type)) {
+		if (['text', 'property'].includes(this.selection.type)) {
 			// For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
 			// in the path
 			if (this.selection.path.length > 3) {
@@ -599,11 +628,9 @@ export default class Session {
 	 * 2. Branch nodes second
 	 * 3. Root node (entry point) last
 	 *
-	 * @param {string} node_id - The ID of the node to start traversing from
-	 * @returns {Array<DocumentNode>} Array of nodes in depth-first order
-	 * @note Nodes that are not reachable from the entry point node will not be included
+	 * Nodes that are not reachable from the entry point node will not be included.
 	 */
-	traverse(node_id) {
+	traverse(node_id: string): Array<DocumentNode> {
 		// doc is $state.raw, so doc.nodes is a plain (non-proxied) object —
 		// traverse() reads it directly and deep-clones each visited node.
 		// The previous $state.snapshot(this.doc.nodes) here deep-cloned the
@@ -616,10 +643,8 @@ export default class Session {
 	 *
 	 * We make a traversal to ensure that orphaned nodes are not included,
 	 * and that leaf nodes go first, followed by branches and the root node at last.
-	 *
-	 * @returns {Document} The document
 	 */
-	to_json() {
+	to_json(): Document {
 		// this will order the nodes (depth-first traversal)
 		const nodes_array = this.traverse(this.document_id);
 		// convert nodes array to object with node IDs as keys
@@ -632,21 +657,17 @@ export default class Session {
 
 	// property_type('page', 'body') => 'node_array'
 	// property_type('paragraph', 'content') => 'text'
-	property_type(type, property) {
+	property_type(type: string, property: string): string {
 		return doc_property_type(this.schema, type, property);
 	}
 
 	// Count how many times a node is referenced in the document
-	count_references(node_id) {
+	count_references(node_id: NodeId): number {
 		return doc_count_references(this.schema, this.doc, node_id);
 	}
 
 	// Get all nodes referenced by a given node (recursively)
-	/**
-	 * @param {NodeId} node_id
-	 * @returns {NodeId[]}
-	 */
-	get_referenced_nodes(node_id) {
+	get_referenced_nodes(node_id: NodeId): NodeId[] {
 		// Id-only traversal — no need to deep-clone the subgraph for ids.
 		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
 	}

@@ -267,7 +267,7 @@ describe('Session.svelte.js', () => {
 			const upgraded_doc = fill_document_defaults(doc, schema);
 
 			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
-			expect(doc.nodes.text_1.layout).toBeUndefined();
+			expect((doc.nodes.text_1 as any).layout).toBeUndefined();
 			expect(() => new Session(schema, upgraded_doc, {})).not.toThrow();
 		});
 
@@ -351,7 +351,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			session.schema.comment = { kind: 'annotation', properties: {} };
-			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			(session.schema.story.properties.title as any).annotation_types = ['comment'];
 			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
 			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
 			doc.nodes.story_1.title.annotations = [
@@ -366,7 +366,7 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
 			session.schema.comment = { kind: 'annotation', properties: {} };
-			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			(session.schema.story.properties.title as any).annotation_types = ['comment'];
 			doc.nodes.comment_a = { id: 'comment_a', type: 'comment' };
 			doc.nodes.comment_b = { id: 'comment_b', type: 'comment' };
 			doc.nodes.story_1.title.annotations = [
@@ -422,8 +422,8 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 			session.schema.strong = { kind: 'mark', properties: {} };
 			session.schema.comment = { kind: 'annotation', properties: {} };
-			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
-			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			(session.schema.story.properties.title as any).mark_types = ['strong'];
+			(session.schema.story.properties.title as any).annotation_types = ['comment'];
 
 			const tr = session.tr;
 			tr.create({ id: 'strong_1', type: 'strong' });
@@ -444,8 +444,8 @@ describe('Session.svelte.js', () => {
 			const session = create_test_session();
 			session.schema.strong = { kind: 'mark', properties: {} };
 			session.schema.comment = { kind: 'annotation', properties: {} };
-			/** @type {any} */ (session.schema.story.properties.title).mark_types = ['strong'];
-			/** @type {any} */ (session.schema.story.properties.title).annotation_types = ['comment'];
+			(session.schema.story.properties.title as any).mark_types = ['strong'];
+			(session.schema.story.properties.title as any).annotation_types = ['comment'];
 
 			const doc = structuredClone(session.doc);
 			doc.nodes.strong_1 = { id: 'strong_1', type: 'strong' };

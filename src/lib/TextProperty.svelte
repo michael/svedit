@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { getContext } from 'svelte';
 	import {
 		char_slice,
@@ -9,12 +9,11 @@
 		calculate_fragment_ranges
 	} from './utils.js';
 
-	/** @import { TextPropertyProps, Mark, Fragment, SelectionRange } from './types.d.ts'; */
+	import type { TextPropertyProps, Mark, Fragment, SelectionRange } from './types.js';
 
-	const svedit = getContext('svedit');
+	const svedit = getContext<any>('svedit');
 
-	/** @type {TextPropertyProps} */
-	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest } = $props();
+	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest }: TextPropertyProps = $props();
 
 	let path_str = $derived(serialize_path(path));
 
@@ -60,12 +59,12 @@
 	/**
 	 * Converts text with marks into renderable fragments for display.
 	 * Annotations never fragment the text; they are data-only.
-	 * @param {string} text - The plain text content
-	 * @param {Array<Mark>} marks - Marks to render in-place
-	 * @param {SelectionRange} [selection_highlight_range] - Optional selection highlight range
-	 * @returns {Array<Fragment>} Array of fragments
 	 */
-	function get_fragments(text, marks, selection_highlight_range) {
+	function get_fragments(
+		text: string,
+		marks: Array<Mark>,
+		selection_highlight_range?: SelectionRange | null
+	): Array<Fragment> {
 		// Fast path: no marks and no selection highlight means the whole text
 		// is a single content fragment. This runs for EVERY text property on
 		// EVERY document change, so skipping the two full Intl.Segmenter passes
@@ -79,8 +78,7 @@
 			marks,
 			selection_highlight_range
 		);
-		/** @type {Array<Fragment>} */
-		let fragments = [];
+		const fragments: Array<Fragment> = [];
 
 		for (const range of ranges) {
 			const content = char_slice(text, range.start_offset, range.end_offset);
@@ -93,7 +91,7 @@
 					type: 'mark',
 					node,
 					content,
-					mark_index: range.mark_index
+					mark_index: range.mark_index!
 				});
 			} else if (range.type === 'selection_highlight') {
 				fragments.push({

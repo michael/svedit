@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { flushSync, getContext, setContext } from 'svelte';
 	import {
 		get_char_length,
@@ -24,17 +24,14 @@
 	import './styles/svedit-colors.css';
 	import './styles/svedit-animations.css';
 
-	/** @import {
-	 *   SveditProps,
-	 *   Selection,
-	 *   TextSelection,
-	 *   NodeSelection,
-	 *   PropertySelection,
-	 *   NodeId
-	 * } from './types.d.ts';
-	 */
+	import type {
+		SveditProps,
+		Selection,
+		NodeSelection,
+		TextSelection,
+		PropertySelection
+	} from './types.js';
 
-	/** @type {SveditProps} */
 	let {
 		session,
 		editable = $bindable(false),
@@ -42,7 +39,7 @@
 		class: css_class,
 		autocapitalize = 'on',
 		spellcheck = 'true'
-	} = $props();
+	}: SveditProps = $props();
 
 	let canvas_el;
 	let root_node = $derived(session.get(path));
@@ -98,8 +95,7 @@
 	function check_duplicate_paths() {
 		if (!canvas_el) return;
 
-		/** @type {Record<string, true>} */
-		const mounted_paths = Object.create(null);
+		const mounted_paths: Record<string, true> = Object.create(null);
 
 		for (const element of canvas_el.querySelectorAll('[data-path]')) {
 			if (element.closest('.svedit-canvas') !== canvas_el) continue;
@@ -125,7 +121,7 @@
 	// across remounts.
 	if (import.meta.env?.MODE === 'test') {
 		$effect(() => {
-			const g = /** @type {any} */ (globalThis);
+			const g = globalThis as any;
 			g.__svedit_ctx_for_test = context;
 			return () => {
 				if (g.__svedit_ctx_for_test === context) {
@@ -136,7 +132,7 @@
 	}
 
 	// Get KeyMapper from context (may be undefined if not provided)
-	const key_mapper = getContext('key_mapper');
+	const key_mapper = getContext<any>('key_mapper');
 
 	// Initialize commands and keymap on the session
 	$effect(() => {
@@ -391,11 +387,11 @@ ${fallback_html}`;
 	 * @param {Object} node - Node object
 	 * @returns {string} HTML representation
 	 */
-	function default_node_html_exporter(node, session, html_exporters) {
+	function default_node_html_exporter(node: any, session: any, html_exporters: any) {
 		let html = '';
 		const node_schema = session.schema[node.type];
 
-		for (const [prop_name, prop_value] of Object.entries(node)) {
+		for (const [prop_name, prop_value] of Object.entries<any>(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
 			// Check if this is a text property.
@@ -415,10 +411,10 @@ ${fallback_html}`;
 		return html;
 	}
 
-	function default_node_plain_text_exporter(node) {
+	function default_node_plain_text_exporter(node: any) {
 		let plain_text = '';
 
-		for (const [prop_name, prop_value] of Object.entries(node)) {
+		for (const [prop_name, prop_value] of Object.entries<any>(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 
 			// Check if this is a text property value.
@@ -555,9 +551,11 @@ ${fallback_html}`;
 		const preferred_property_name =
 			root_schema.properties.body?.type === 'node_array'
 				? 'body'
-				: Object.entries(root_schema.properties).find(([, property_definition]) => {
-						return property_definition.type === 'node_array';
-					})?.[0];
+				: Object.entries(root_schema.properties).find(
+						([, property_definition]: [string, any]) => {
+							return property_definition.type === 'node_array';
+						}
+					)?.[0];
 		if (!preferred_property_name) return null;
 
 		const node_array_path = [...path, preferred_property_name];
@@ -565,7 +563,7 @@ ${fallback_html}`;
 		if (!node_array || !Array.isArray(node_array.nodes)) return null;
 
 		return {
-			type: /** @type {const} */ ('node'),
+			type: 'node' as const,
 			path: node_array_path,
 			anchor_offset: node_array.nodes.length,
 			focus_offset: node_array.nodes.length
@@ -599,7 +597,7 @@ ${fallback_html}`;
 		if (Number.isNaN(node_index)) return null;
 
 		return {
-			type: /** @type {const} */ ('node'),
+			type: 'node' as const,
 			path: selection.path.slice(0, -2),
 			anchor_offset: node_index + 1,
 			focus_offset: node_index + 1
@@ -613,7 +611,7 @@ ${fallback_html}`;
 	 * @param {Selection} [selection] - Optional selection (node caret) where the payload should be pasted
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
-	function try_node_paste(pasted_json, selection) {
+	function try_node_paste(pasted_json: any, selection?: Selection): boolean {
 		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
@@ -862,7 +860,7 @@ ${fallback_html}`;
 	}
 
 	function render_selection(dom_driven = false) {
-		const selection = /** @type {Selection} */ (session.selection);
+		const selection = session.selection as Selection;
 
 		if (!selection) {
 			// No model selection -> just leave things as they are
@@ -939,16 +937,14 @@ ${fallback_html}`;
 	 * @returns {HTMLElement | null}
 	 */
 	function __resolve_node_from_gap(el) {
-		const gap = /** @type {HTMLElement | null} */ (el.closest('[data-gap-array-path]'));
+		const gap = el.closest('[data-gap-array-path]') as HTMLElement | null;
 		if (!gap) return null;
 		const array_path = deserialize_path(gap.dataset.gapArrayPath);
 		const offset = parseInt(gap.dataset.gapOffset, 10);
 		const node_idx = offset > 0 ? offset - 1 : 0;
-		return /** @type {HTMLElement | null} */ (
-			canvas_el.querySelector(
-				`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`
-			)
-		);
+		return canvas_el.querySelector(
+			`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`
+		) as HTMLElement | null;
 	}
 
 	/**
@@ -958,12 +954,12 @@ ${fallback_html}`;
 	 * @returns {NodeSelection | null} A NodeSelection object if the DOM selection
 	 *   represents a valid node selection, null otherwise
 	 */
-	function __get_node_selection_from_dom() {
+	function __get_node_selection_from_dom(): NodeSelection | null {
 		const dom_selection = window.getSelection();
 		if (dom_selection.rangeCount === 0) return null;
 
-		let focus_node = /** @type {HTMLElement} */ (dom_selection.focusNode);
-		let anchor_node = /** @type {HTMLElement} */ (dom_selection.anchorNode);
+		let focus_node = dom_selection.focusNode as HTMLElement;
+		let anchor_node = dom_selection.anchorNode as HTMLElement;
 
 		// If focus_node or anchor_node not an element node (e.g. a text node), we need
 		// to use the parent element, so we can perform the closest() query on it.
@@ -973,12 +969,12 @@ ${fallback_html}`;
 		// EDGE CASE: Collapsed selection inside an empty node placeholder.
 		// Firefox can place the DOM selection on the placeholder node itself,
 		// which otherwise looks like selecting node index 0 in an empty array.
-		const focus_empty_placeholder = /** @type {HTMLElement | null} */ (
-			focus_node.closest('.empty-node-placeholder[data-path][data-type="node"]')
-		);
-		const anchor_empty_placeholder = /** @type {HTMLElement | null} */ (
-			anchor_node.closest('.empty-node-placeholder[data-path][data-type="node"]')
-		);
+		const focus_empty_placeholder = focus_node.closest(
+			'.empty-node-placeholder[data-path][data-type="node"]'
+		) as HTMLElement | null;
+		const anchor_empty_placeholder = anchor_node.closest(
+			'.empty-node-placeholder[data-path][data-type="node"]'
+		) as HTMLElement | null;
 		if (focus_empty_placeholder && focus_empty_placeholder === anchor_empty_placeholder) {
 			const empty_placeholder_path = deserialize_path(focus_empty_placeholder.dataset.path);
 			const array_path = empty_placeholder_path.slice(0, -1);
@@ -995,7 +991,7 @@ ${fallback_html}`;
 
 		// EDGE CASE: Collapsed selection inside a node gap (gap-after or gap-before).
 		// Gaps are siblings of nodes with data-gap-array-path and data-gap-offset.
-		const gap_el = /** @type {HTMLElement | null} */ (focus_node.closest('[data-gap-array-path]'));
+		const gap_el = focus_node.closest('[data-gap-array-path]') as HTMLElement | null;
 		if (gap_el && focus_node === anchor_node) {
 			const array_path = deserialize_path(gap_el.dataset.gapArrayPath);
 			const gap_offset = parseInt(gap_el.dataset.gapOffset, 10);
@@ -1009,12 +1005,12 @@ ${fallback_html}`;
 
 		let focus_root =
 			__resolve_node_from_gap(focus_node) ??
-			/** @type {HTMLElement} */ (focus_node.closest('[data-path][data-type="node"]'));
+			(focus_node.closest('[data-path][data-type="node"]') as HTMLElement);
 		if (!focus_root) return null;
 
 		let anchor_root =
 			__resolve_node_from_gap(anchor_node) ??
-			/** @type {HTMLElement} */ (anchor_node.closest('[data-path][data-type="node"]'));
+			(anchor_node.closest('[data-path][data-type="node"]') as HTMLElement);
 		if (!anchor_root) return null;
 
 		let focus_root_path = deserialize_path(focus_root.dataset.path);
@@ -1112,17 +1108,17 @@ ${fallback_html}`;
 	 * @returns {PropertySelection | null} A PropertySelection object if the DOM selection
 	 *   represents a valid property selection, null otherwise
 	 */
-	function __get_property_selection_from_dom() {
+	function __get_property_selection_from_dom(): PropertySelection | null {
 		const dom_selection = window.getSelection();
 		if (dom_selection.rangeCount === 0) return null;
 
-		let focus_root = /** @type {HTMLElement} */ (
-			dom_selection.focusNode.parentElement?.closest('[data-path][data-type="property"]')
-		);
+		let focus_root = dom_selection.focusNode.parentElement?.closest(
+			'[data-path][data-type="property"]'
+		) as HTMLElement;
 		if (!focus_root) return null;
-		let anchor_root = /** @type {HTMLElement} */ (
-			dom_selection.anchorNode.parentElement?.closest('[data-path][data-type="property"]')
-		);
+		let anchor_root = dom_selection.anchorNode.parentElement?.closest(
+			'[data-path][data-type="property"]'
+		) as HTMLElement;
 		if (!anchor_root) return null;
 
 		if (focus_root === anchor_root) {
@@ -1149,7 +1145,7 @@ ${fallback_html}`;
 	 * @returns {TextSelection | null} A TextSelection object if the DOM selection
 	 *   represents a valid text selection, null otherwise
 	 */
-	function __get_text_selection_from_dom(range = null) {
+	function __get_text_selection_from_dom(range: any = null): TextSelection | null {
 		let dom_selection;
 		let focus_node, anchor_node;
 		let focus_offset_in_node; // anchor_offset_in_node;
@@ -1175,14 +1171,11 @@ ${fallback_html}`;
 			if (!node) return null;
 
 			if (node.nodeType === Node.ELEMENT_NODE) {
-				return /** @type {HTMLElement | null} */ (
-					node.closest?.('[data-path][data-type="text"]') ?? null
-				);
+				return (node.closest?.('[data-path][data-type="text"]') ?? null) as HTMLElement | null;
 			}
 
-			return /** @type {HTMLElement | null} */ (
-				node.parentElement?.closest('[data-path][data-type="text"]') ?? null
-			);
+			return (node.parentElement?.closest('[data-path][data-type="text"]') ??
+				null) as HTMLElement | null;
 		}
 
 		let focus_root, anchor_root;
@@ -1296,7 +1289,7 @@ ${fallback_html}`;
 	}
 
 	function __render_node_selection() {
-		const selection = /** @type {NodeSelection} */ (session.selection);
+		const selection = session.selection as NodeSelection;
 		const node_array_path = selection.path;
 		const node_array_path_str = serialize_path(node_array_path);
 		const is_collapsed = is_selection_collapsed(selection);
@@ -1433,7 +1426,7 @@ ${fallback_html}`;
 	}
 
 	function __render_text_selection() {
-		const selection = /** @type {any} */ (session.selection);
+		const selection = session.selection as any;
 		// The element that holds the annotated string
 		const el = canvas_el.querySelector(
 			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
@@ -1441,14 +1434,10 @@ ${fallback_html}`;
 		const empty_text = session.get(selection.path).content.length === 0;
 		const dom_selection = window.getSelection();
 		let current_offset = 0;
-		/** @type {HTMLElement | Text} */
-		let anchor_node;
-		/** @type {HTMLElement | Text} */
-		let focus_node;
-		/** @type {number} */
-		let anchor_node_offset;
-		/** @type {number} */
-		let focus_node_offset;
+		let anchor_node: HTMLElement | Text;
+		let focus_node: HTMLElement | Text;
+		let anchor_node_offset: number;
+		let focus_node_offset: number;
 		const is_backward = selection.anchor_offset > selection.focus_offset;
 		const start_offset = Math.min(selection.anchor_offset, selection.focus_offset);
 		const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);

@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
 	import { PATH_SEPARATOR, serialize_path } from './utils.js';
+	import type { DocumentPath } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -28,9 +29,9 @@
 	 * re-evaluates when THIS array's visible-index set changes.
 	 */
 
-	let { path, count } = $props();
+	let { path, count }: { path: DocumentPath; count: number } = $props();
 
-	const svedit = getContext('svedit');
+	const svedit = getContext<any>('svedit');
 	let path_str = $derived(serialize_path(path));
 	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
 
@@ -51,8 +52,16 @@
 			? `;--_f:${anchor_prefix}${PATH_SEPARATOR}0;--_s:${anchor_prefix}${PATH_SEPARATOR}1`
 			: '';
 
-		/** @type {Array<{key:string,offset:number,type:string,vars:string,is_first:boolean,is_last:boolean,has_pair:boolean}>} */
-		const result = [];
+		type GapMarker = {
+			key: string;
+			offset: number;
+			type: string;
+			vars: string;
+			is_first: boolean;
+			is_last: boolean;
+			has_pair: boolean;
+		};
+		const result: GapMarker[] = [];
 
 		if (count === 0) {
 			if (visible.has(0)) {
@@ -73,15 +82,15 @@
 		// 1000 nodes with ~30 visible, this drops 1001 SvelteSet/SvelteMap
 		// reads per re-derivation to ~30. Filter stale indices >= count
 		// that may briefly remain after a node delete (until MO fires).
-		const sorted = [];
+		const sorted: number[] = [];
 		for (const i of visible) {
 			if (i >= 0 && i < count) sorted.push(i);
 		}
 		sorted.sort((a, b) => a - b);
 		if (sorted.length === 0) return result;
 
-		const offsets = [];
-		function add_offset(offset) {
+		const offsets: number[] = [];
+		function add_offset(offset: number) {
 			if (!offsets.includes(offset)) offsets.push(offset);
 		}
 
@@ -112,7 +121,7 @@
 				? `${g_prefix}${PATH_SEPARATOR}0-gap-before`
 				: `${g_prefix}${PATH_SEPARATOR}${offset - 1}-gap-after`;
 
-			let type, vars;
+			let type: string, vars: string;
 			if (is_first || is_last) {
 				type = 'gap-edge';
 				const adjacent = is_first

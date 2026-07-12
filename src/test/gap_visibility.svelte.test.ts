@@ -185,7 +185,7 @@ describe('NodeGap visibility & placement', () => {
 			// scrollLeft/scrollWidth/clientWidth — independent of IO timing
 			// or viewport size, so it's the load-bearing assertion for the
 			// wrap-fill behaviour.
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			expect(ctx).toBeTruthy();
 			const edge_state = ctx.visibility_registry.edge_map.get(array_el.dataset.path);
 			expect(edge_state).toBeTruthy();
@@ -197,7 +197,7 @@ describe('NodeGap visibility & placement', () => {
 			// sync_gap_class broke.
 			const last_gap = find_last_gap(array_el);
 			expect(last_gap).not.toBeNull();
-			const items = Array.from(array_el.querySelectorAll(':scope > [data-type="node"]'));
+			const items = Array.from(array_el.querySelectorAll<HTMLElement>(':scope > [data-type="node"]'));
 			const last_item = items[items.length - 1];
 			const li_rect = last_item.getBoundingClientRect();
 			const arr_rect = array_el.getBoundingClientRect();
@@ -234,7 +234,7 @@ describe('NodeGap visibility & placement', () => {
 			const array_el = find_image_grid_array(container);
 			await ensure_last_item_observed(array_el);
 
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			const edge_state = ctx.visibility_registry.edge_map.get(array_el.dataset.path);
 			expect(edge_state?.last).toBe(true);
 
@@ -294,7 +294,7 @@ describe('NodeGap visibility & placement', () => {
 
 			const array_el = find_buttons_array(container);
 			const path = array_el.dataset.path;
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			expect(ctx).toBeTruthy();
 			const state = ctx.visibility_registry.edge_map.get(path);
 			expect(state).toBeTruthy();
@@ -323,7 +323,7 @@ describe('NodeGap visibility & placement', () => {
 			const array_el = find_buttons_array(container);
 			expect(array_el.scrollWidth).toBeLessThanOrEqual(array_el.clientWidth + 5);
 
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			const array_path = 'page_1__body__0__buttons';
 			const near = ctx.visibility_registry.get_array_indices(array_path);
 
@@ -332,7 +332,7 @@ describe('NodeGap visibility & placement', () => {
 			}
 
 			// Delete the button at offset 1 (mid).
-			const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+			const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 			canvas.focus();
 			session.selection = {
 				type: 'node',
@@ -394,12 +394,12 @@ describe('NodeGap visibility & placement', () => {
 			expect(new_node.classList.contains('in-view')).toBe(true);
 			expect(new_node.classList.contains('seen')).toBe(true);
 
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			const array_path = array_el.dataset.path;
 			const visible = ctx.visibility_registry.get_array_indices(array_path);
-			expect(Array.from(visible).sort((a, b) => a - b)).toEqual([0, 1, 2]);
+			expect(Array.from(visible as Set<number>).sort((a, b) => a - b)).toEqual([0, 1, 2]);
 
-			const markers = array_el.querySelectorAll(
+			const markers = array_el.querySelectorAll<HTMLElement>(
 				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
 			);
 			expect(Array.from(markers, (marker) => marker.dataset.gapOffset)).toEqual(['0', '1', '2']);
@@ -437,7 +437,7 @@ describe('NodeGap visibility & placement', () => {
 			expect(array_el.scrollLeft).toBe(0);
 			// Guard against the vacuous pass: the last button must still
 			// be near, so the gap's visibility is decided by edge_map.
-			const ctx = /** @type {any} */ (globalThis).__svedit_ctx_for_test;
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			expect(ctx.visibility_registry.get_array_indices('page_1__body__0__buttons').has(2)).toBe(
 				true
 			);

@@ -24,18 +24,24 @@ export default [
 	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.js'],
-		languageOptions: { parserOptions: { svelteConfig } },
+		languageOptions: {
+			parserOptions: {
+				svelteConfig,
+				// Parses <script lang="ts"> blocks
+				parser: typescriptParser
+			}
+		},
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
-	// TypeScript configuration for .d.ts files
+	// TypeScript configuration for .ts files
 	{
-		files: ['**/*.d.ts'],
+		files: ['**/*.ts', '**/*.svelte.ts'],
 		languageOptions: {
 			parser: typescriptParser,
 			parserOptions: {
-				project: './jsconfig.json',
+				project: './tsconfig.json',
 				ecmaVersion: 2022,
 				sourceType: 'module'
 			}
@@ -44,16 +50,21 @@ export default [
 			'@typescript-eslint': typescript
 		},
 		rules: {
-			// Enable TypeScript-specific rules for .d.ts files
+			// The TypeScript compiler already checks undefined identifiers (and
+			// knows Svelte runes in .svelte.ts files); the base rule does not.
+			'no-undef': 'off',
+			// Disable the base rule in favor of the TS-aware variant
+			// (the base rule misreports mapped type parameters and type-only usage)
+			'no-unused-vars': 'off',
 			'@typescript-eslint/no-unused-vars': 'error',
 			'@typescript-eslint/consistent-type-definitions': ['error', 'type'],
 			'@typescript-eslint/no-explicit-any': 'warn',
 			'@typescript-eslint/prefer-namespace-keyword': 'error',
 			'@typescript-eslint/triple-slash-reference': 'error',
-			'@typescript-eslint/no-var-requires': 'off', // Often needed in .d.ts files
-			'@typescript-eslint/ban-types': 'error',
+			'@typescript-eslint/no-unsafe-function-type': 'error',
+			'@typescript-eslint/no-wrapper-object-types': 'error',
 			'@typescript-eslint/no-duplicate-enum-values': 'error',
-			'@typescript-eslint/no-empty-interface': 'error',
+			'@typescript-eslint/no-empty-object-type': 'error',
 			'@typescript-eslint/no-inferrable-types': 'off',
 			'@typescript-eslint/no-misused-new': 'error',
 			'@typescript-eslint/no-namespace': 'error',
