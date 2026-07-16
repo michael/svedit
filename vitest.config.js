@@ -10,9 +10,11 @@ export default defineConfig({
 			enabled: true,
 			// at least one instance is required
 			instances: [{ browser: 'chromium' }]
-		}
-	},
-	clearMocks: true,
-	include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-	exclude: ['src/lib/server/**']
+		},
+		// include is a test option — vitest ignores it at the config top
+		// level. Anchored to src/ so stray test-file copies (e.g. under
+		// .claude/worktrees/) never enter the run.
+		include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+		clearMocks: true
+	}
 });
