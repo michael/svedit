@@ -10,9 +10,8 @@ export default defineConfig({
 			enabled: true,
 			// at least one instance is required
 			instances: [{ browser: 'chromium' }]
-		}
+		},
+		clearMocks: true,
+		include: ['src/**/*.svelte.{test,spec}.{js,ts}']
 	},
-	clearMocks: true,
-	include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-	exclude: ['src/lib/server/**']
 });
