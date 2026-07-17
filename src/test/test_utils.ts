@@ -8,7 +8,7 @@
 
 import { tick } from 'svelte';
 import Session from '../lib/Session.svelte.js';
-import { session_config } from '../routes/create_demo_session.js';
+import { app_config } from '../routes/app_config.js';
 import { document_schema } from '../routes/document_schema.js';
 import type { Document } from '../lib/types.js';
 
@@ -72,7 +72,7 @@ export function make_story_session(n_buttons: number) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...app_config });
 }
 
 /** Build a session with a single image_grid containing `n` items. */
@@ -104,7 +104,7 @@ export function make_image_grid_session(n_items: number) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...app_config });
 }
 
 /** Find the (non-empty) buttons node-array inside the rendered tree. */

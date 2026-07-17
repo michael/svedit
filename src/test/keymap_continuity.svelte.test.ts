@@ -37,7 +37,7 @@ import { render } from 'vitest-browser-svelte';
 import SveditTestWithKeymap from './testing_components/SveditTestWithKeymap.svelte';
 import { settle, make_story_session } from './test_utils.js';
 import Session from '../lib/Session.svelte.js';
-import { session_config } from '../routes/create_demo_session.js';
+import { app_config } from '../routes/app_config.js';
 import { document_schema } from '../routes/document_schema.js';
 
 /**
@@ -68,7 +68,7 @@ function make_paragraph_session(text = 'Hello world') {
 				}
 			}
 		},
-		{ ...session_config }
+		{ ...app_config }
 	);
 }
 

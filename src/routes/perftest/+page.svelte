@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setContext, onMount, tick } from 'svelte';
 	import { Svedit, Session, KeyMapper } from 'svedit';
-	import { session_config } from '../create_demo_session.js';
+	import { app_config } from '../app_config.js';
 	import { document_schema } from '../document_schema.js';
 	import nanoid from '../nanoid.js';
 	import {
@@ -144,7 +144,7 @@
 	}
 
 	function make_session() {
-		const config = { ...session_config, visibility_culling: culling };
+		const config = { ...app_config, visibility_culling: culling };
 		const doc = generate_document(node_count);
 		const s = new Session(document_schema, doc, config);
 		return s;
