@@ -5,7 +5,7 @@
 		get_closest_switchable_type,
 		is_node_subtree_empty
 	} from '../app_utils.js';
-	import type { AppSession } from '../create_demo_session.js';
+	import type { AppSession } from '../demo_session.js';
 
 	let {
 		session,

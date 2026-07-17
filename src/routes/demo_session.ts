@@ -1,7 +1,7 @@
 import { Session, fill_document_defaults } from 'svedit';
-import { app_config } from './app_config.js';
+import { app_config } from './demo_config.js';
 import { demo_doc } from './demo_doc.js';
-import { document_schema } from './document_schema.js';
+import { document_schema } from './demo_schema.js';
 
 /** The app's concrete schema-typed session type. */
 export type AppSession = Session<typeof document_schema>;

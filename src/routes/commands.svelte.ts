@@ -7,7 +7,7 @@ import {
 	get_cycle_node_state,
 	is_node_subtree_empty
 } from './app_utils.js';
-import type { AppSession } from './create_demo_session.js';
+import type { AppSession } from './demo_session.js';
 
 export type AppCommandContext = CommandContext & { session: AppSession };
 

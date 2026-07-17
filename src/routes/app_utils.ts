@@ -6,7 +6,7 @@ import type {
 	DocumentSchema,
 	PropertyDefinition
 } from 'svedit';
-import type { AppSession } from './create_demo_session.js';
+import type { AppSession } from './demo_session.js';
 
 /**
  * Build the full path (including selected node index) and the starting

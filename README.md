@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/create_demo_session.js), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
+Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/demo_schema.ts), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
 
 You can also install Svedit into an existing SvelteKit project with `npm install svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
 
@@ -430,17 +430,17 @@ Defaults make it safe to add new defaultable properties, but they are not a repl
 
 ## Config
 
-Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
+Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
 
 Two optional hooks are especially useful when integrating custom media workflows:
 
 - `handle_media_paste(session, pasted_media)`  
   Called when media is pasted. You can upload/process files, replace an existing media property, or return a node payload to insert new content.  
-  See example implementation in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
+  See example implementation in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
 
 - `handle_property_deletion(session, path)`  
   Called when deleting/cutting a property selection. Use it to define app-specific reset behavior (for example clearing an image property or resetting a referenced media node).  
-  See example implementation in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js).
+  See example implementation in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
 
 ```js
 const session_config = {
@@ -816,7 +816,7 @@ Svedit provides several [core commands](src/lib/Command.svelte.js) out of the bo
 
 #### Using document commands
 
-Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/create_demo_session.js`](src/routes/create_demo_session.js) in the `create_commands_and_keymap` configuration function:
+Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts) in the `create_commands_and_keymap` configuration function:
 
 ```js
 create_commands_and_keymap: (context) => {

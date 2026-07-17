@@ -13,7 +13,7 @@ import {
 import type { DocumentNode } from 'svedit';
 import type { Component } from 'svelte';
 import { CycleLayoutCommand, CycleNodeTypeCommand, ToggleLinkCommand } from './commands.svelte.js';
-import { document_schema } from './document_schema.js';
+import { document_schema } from './demo_schema.js';
 import nanoid from './nanoid.js';
 
 import Overlays from './components/Overlays.svelte';

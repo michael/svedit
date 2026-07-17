@@ -1,6 +1,6 @@
 import { getContext } from 'svelte';
 import type { SveditContext as BaseSveditContext } from 'svedit';
-import type { document_schema } from './document_schema.js';
+import type { document_schema } from './demo_schema.js';
 
 /**
  * The svedit context as provided by Svedit.svelte, with the session typed

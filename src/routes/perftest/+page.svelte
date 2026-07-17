@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { setContext, onMount, tick } from 'svelte';
 	import { Svedit, Session, KeyMapper } from 'svedit';
-	import { app_config } from '../app_config.js';
-	import { document_schema } from '../document_schema.js';
+	import { app_config } from '../demo_config.js';
+	import { document_schema } from '../demo_schema.js';
 	import nanoid from '../nanoid.js';
 	import {
 		install_instrumentation,
