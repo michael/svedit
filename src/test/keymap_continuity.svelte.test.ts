@@ -55,7 +55,6 @@ function make_paragraph_session(text = 'Hello world') {
 				paragraph_1: {
 					id: 'paragraph_1',
 					type: 'paragraph',
-					layout: 1,
 					content: { content: text, marks: [], annotations: [] }
 				},
 				page_1: {
@@ -105,7 +104,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -153,7 +152,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -188,7 +187,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -218,7 +217,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();

@@ -117,9 +117,9 @@ flowchart TD
 
 Properties of nodes can hold values:
 
-- `string`: A good old JavaScript string
+- `string`: A good old JavaScript string. Use optional `values` to restrict it to an ordered set of allowed strings.
 - `number`: Just like a number in JavaScript
-- `integer`: A number for which Number.isInteger(number) returns true
+- `integer`: A number for which Number.isInteger(number) returns true. Optional `min` and `max` bounds are inclusive.
 - `boolean`: true or false
 - `datetime`: A date/time string parseable by `Date.parse()`
 - `string_array`: An array of strings
@@ -409,7 +409,11 @@ const document_schema = {
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'integer', default: 1 },
+			layout: {
+				type: 'string',
+				values: ['image-left', 'image-right', 'stacked'],
+				default: 'image-left'
+			},
 			content: {
 				type: 'text',
 				allow_newlines: true
@@ -422,7 +426,7 @@ const migrated_doc = fill_document_defaults(existing_doc, document_schema);
 const session = new Session(document_schema, migrated_doc, config);
 ```
 
-This only fills properties that are missing. Explicit schema `default` values are used when present; otherwise Svedit uses built-in defaults for value types such as strings, numbers, booleans, arrays, `node_array`, and `text`. Existing values are preserved, and the original document object is not mutated.
+This only fills properties that are missing. Explicit schema `default` values are used when present; otherwise Svedit uses built-in defaults for value types such as strings, numbers, booleans, arrays, `node_array`, and `text`. Constraints such as `values`, `min`, and `max` do not change those defaults, so declare an explicit `default` when the built-in value would be invalid. Existing values are preserved, and the original document object is not mutated.
 
 Defaults make it safe to add new defaultable properties, but they are not a replacement for real document migrations. If you rename a property, remove a property, split one property into several, change node types, or need to transform existing data, write your own migration first and use `fill_document_defaults` only as a helper where appropriate.
 
@@ -653,7 +657,11 @@ function insert_heading(tr) {
 
 	// Create and insert a heading node
 	const heading_id = tr.generate_id();
-	tr.create({ id: heading_id, type: 'heading', content: { content: '', marks: [], annotations: [] } });
+	tr.create({
+		id: heading_id,
+		type: 'heading',
+		content: { content: '', marks: [], annotations: [] }
+	});
 	tr.insert_nodes([heading_id]);
 
 	return true;
@@ -676,7 +684,11 @@ session.apply(tr); // Apply atomically
 
 ```js
 // Create a new node (must include all required properties from schema)
-tr.create({ id: 'paragraph_1', type: 'paragraph', content: { content: '', marks: [], annotations: [] } });
+tr.create({
+	id: 'paragraph_1',
+	type: 'paragraph',
+	content: { content: '', marks: [], annotations: [] }
+});
 
 // Delete a node (cascades to unreferenced child nodes)
 tr.delete('paragraph_26');

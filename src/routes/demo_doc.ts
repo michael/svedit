@@ -11,7 +11,6 @@ export const demo_doc: Document = {
 		hero_1: {
 			id: 'hero_1',
 			type: 'hero',
-			layout: 1,
 			title: {
 				content: 'Svedit',
 				marks: [],
@@ -33,7 +32,6 @@ export const demo_doc: Document = {
 		heading_1: {
 			id: 'heading_1',
 			type: 'heading_1',
-			layout: 1,
 			content: {
 				content: 'Text and structured content in symbiosis',
 				marks: [],
@@ -43,7 +41,6 @@ export const demo_doc: Document = {
 		paragraph_1: {
 			id: 'paragraph_1',
 			type: 'paragraph',
-			layout: 1,
 			content: {
 				content:
 					"Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
@@ -64,7 +61,7 @@ export const demo_doc: Document = {
 		story_1: {
 			id: 'story_1',
 			type: 'story',
-			layout: 1,
+			layout: 'image-left',
 			image: '/images/editable.svg',
 			title: {
 				content: 'Visual in‑place editing',
@@ -91,7 +88,7 @@ export const demo_doc: Document = {
 		story_2: {
 			id: 'story_2',
 			type: 'story',
-			layout: 2,
+			layout: 'image-right',
 			image: '/images/lightweight.svg',
 			title: {
 				content: 'Minimal viable editor',
@@ -211,7 +208,6 @@ export const demo_doc: Document = {
 		image_grid_1: {
 			id: 'image_grid_1',
 			type: 'image_grid',
-			layout: 1,
 			image_grid_items: {
 				nodes: [
 					'image_grid_item_1',
@@ -228,7 +224,7 @@ export const demo_doc: Document = {
 		story_3: {
 			id: 'story_3',
 			type: 'story',
-			layout: 1,
+			layout: 'image-left',
 			image: '/images/nested-blocks-illustration.svg',
 			title: {
 				content: 'Nested nodes',
@@ -258,7 +254,7 @@ export const demo_doc: Document = {
 		story_4: {
 			id: 'story_4',
 			type: 'story',
-			layout: 2,
+			layout: 'image-right',
 			image: '/images/node-carets.svg',
 			title: {
 				content: 'Node carets',
@@ -300,7 +296,7 @@ export const demo_doc: Document = {
 		story_5: {
 			id: 'story_5',
 			type: 'story',
-			layout: 1,
+			layout: 'image-left',
 			image: '/images/svelte-logo.svg',
 			title: {
 				content: 'Made for Svelte 5',
@@ -333,7 +329,7 @@ export const demo_doc: Document = {
 		story_6: {
 			id: 'story_6',
 			type: 'story',
-			layout: 2,
+			layout: 'image-right',
 			image: '/images/extendable.svg',
 			title: {
 				content: 'Alpha version',
@@ -410,7 +406,7 @@ export const demo_doc: Document = {
 				marks: [],
 				annotations: []
 			},
-			layout: 2
+			layout: 'disc'
 		},
 		link_4: {
 			id: 'link_4',
@@ -430,7 +426,7 @@ export const demo_doc: Document = {
 		story_7: {
 			id: 'story_7',
 			type: 'story',
-			layout: 1,
+			layout: 'image-left',
 			image: '/images/github.svg',
 			title: {
 				content: 'Find us on GitHub',

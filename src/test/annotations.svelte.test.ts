@@ -25,15 +25,8 @@ function create_annotation_session() {
 	session.schema.link = { kind: 'mark', properties: { href: { type: 'string' } } };
 	session.schema.comment = { kind: 'annotation', properties: {} };
 	session.schema.note = { kind: 'annotation', properties: {} };
-	(session.schema.story.properties.title as any).mark_types = [
-		'strong',
-		'emphasis',
-		'link'
-	];
-	(session.schema.story.properties.title as any).annotation_types = [
-		'comment',
-		'note'
-	];
+	(session.schema.story.properties.title as any).mark_types = ['strong', 'emphasis', 'link'];
+	(session.schema.story.properties.title as any).annotation_types = ['comment', 'note'];
 	(session.schema.page.properties.body as any).mark_types = ['section'];
 	(session.schema.page.properties.body as any).annotation_types = ['comment', 'note'];
 	session.config.node_components.section = Section;
@@ -74,7 +67,12 @@ function create_mark(session: any, type: string, selection: any, properties: any
 	session.apply(session.tr.toggle_mark(type, properties));
 }
 
-function create_annotation(session: any, type: string, selection: any, properties: any = undefined) {
+function create_annotation(
+	session: any,
+	type: string,
+	selection: any,
+	properties: any = undefined
+) {
 	session.selection = selection;
 	session.apply(session.tr.toggle_annotation(type, properties));
 }
@@ -235,7 +233,7 @@ describe('mark toggle selection semantics', () => {
 		const { container } = render(SveditTest, { session });
 		await tick();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		await tick();
 		canvas.blur();
@@ -386,9 +384,9 @@ describe('schema and config validation', () => {
 		schema.comment = { kind: 'annotation', properties: {} };
 		(schema.story.properties.title as any).mark_types = ['comment'];
 
-		expect(
-			() => new Session(schema, structuredClone(session.doc), session.config)
-		).toThrow("mark_types must reference node types of kind 'mark'");
+		expect(() => new Session(schema, structuredClone(session.doc), session.config)).toThrow(
+			"mark_types must reference node types of kind 'mark'"
+		);
 	});
 
 	it('rejects annotation_types referencing non-annotation node types', () => {
@@ -397,9 +395,9 @@ describe('schema and config validation', () => {
 		schema.strong = { kind: 'mark', properties: {} };
 		(schema.story.properties.title as any).annotation_types = ['strong'];
 
-		expect(
-			() => new Session(schema, structuredClone(session.doc), session.config)
-		).toThrow("annotation_types must reference node types of kind 'annotation'");
+		expect(() => new Session(schema, structuredClone(session.doc), session.config)).toThrow(
+			"annotation_types must reference node types of kind 'annotation'"
+		);
 	});
 });
 
@@ -596,7 +594,7 @@ describe('shared text and node marks and annotations', () => {
 		'toggles $name marks with the same create/remove/create behavior',
 		({ selection, value_path, first_type, second_type }) => {
 			const session = create_annotation_session();
-			session.selection = (selection as any);
+			session.selection = selection as any;
 
 			session.apply(session.tr.toggle_mark(first_type));
 			let value = session.get(value_path);
@@ -694,10 +692,10 @@ describe('shared text and node marks and annotations', () => {
 		'uses the same range transfer semantics when deleting $name',
 		({ key, toggle, selection, range_selection, value_path, type, expected_end }) => {
 			const session = create_annotation_session();
-			session.selection = (range_selection as any);
+			session.selection = range_selection as any;
 			session.apply(session.tr[toggle](type));
 
-			session.selection = (selection as any);
+			session.selection = selection as any;
 			session.apply(session.tr.delete_selection());
 
 			const ranges = session.get(value_path)[key];
@@ -719,7 +717,6 @@ describe('shared text and node marks and annotations', () => {
 		inside.create({
 			id: 'inside_paragraph',
 			type: 'paragraph',
-			layout: 1,
 			content: { content: 'inside', marks: [], annotations: [] }
 		});
 		inside.insert_nodes(['inside_paragraph']);
@@ -734,7 +731,6 @@ describe('shared text and node marks and annotations', () => {
 		edge.create({
 			id: 'edge_paragraph',
 			type: 'paragraph',
-			layout: 1,
 			content: { content: 'edge', marks: [], annotations: [] }
 		});
 		edge.insert_nodes(['edge_paragraph']);
@@ -794,18 +790,21 @@ describe('shared text and node marks and annotations', () => {
 			value_path: body_path,
 			type: 'comment'
 		}
-	])('removes fully deleted $name and their nodes', ({ key, toggle, selection, value_path, type }) => {
-		const session = create_annotation_session();
-		session.selection = (selection as any);
-		session.apply(session.tr[toggle](type));
-		const range_node_id = session.get(value_path)[key][0].node_id;
+	])(
+		'removes fully deleted $name and their nodes',
+		({ key, toggle, selection, value_path, type }) => {
+			const session = create_annotation_session();
+			session.selection = selection as any;
+			session.apply(session.tr[toggle](type));
+			const range_node_id = session.get(value_path)[key][0].node_id;
 
-		session.selection = (selection as any);
-		session.apply(session.tr.delete_selection());
+			session.selection = selection as any;
+			session.apply(session.tr.delete_selection());
 
-		expect(session.get(value_path)[key]).toEqual([]);
-		expect(session.get(range_node_id)).toBeUndefined();
-	});
+			expect(session.get(value_path)[key]).toEqual([]);
+			expect(session.get(range_node_id)).toBeUndefined();
+		}
+	);
 
 	it('preserves clipped node-array marks and annotations across cut and paste', () => {
 		const session = create_annotation_session();
@@ -816,7 +815,9 @@ describe('shared text and node marks and annotations', () => {
 
 		session.selection = node_selection(1, 2);
 		const payload = session.get_selected_annotated_nodes();
-		expect(payload.marks).toEqual([{ start_offset: 0, end_offset: 1, node_id: expect.any(String) }]);
+		expect(payload.marks).toEqual([
+			{ start_offset: 0, end_offset: 1, node_id: expect.any(String) }
+		]);
 		expect(payload.annotations).toEqual([
 			{ start_offset: 0, end_offset: 1, node_id: expect.any(String) }
 		]);
@@ -905,7 +906,7 @@ describe('shared text and node marks and annotations', () => {
 	it('transfers node-array marks through the actual cut and paste handlers', async () => {
 		const session = create_annotation_session();
 		const { container } = render(SveditTest, { session });
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 
 		session.selection = node_selection(0, 1);

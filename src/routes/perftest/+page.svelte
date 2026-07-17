@@ -72,12 +72,13 @@
 				nodes[id] = {
 					id,
 					type: 'story',
-					layout: (i % 3) + 1,
+					layout: ['image-left', 'image-right', 'stacked'][i % 3],
 					title: { content: `Story ${body.length + 1}`, marks: [], annotations: [] },
 					description: {
 						content:
 							'A paragraph of description text for this story block, providing enough content to simulate real editorial use in production.',
-						marks: [], annotations: []
+						marks: [],
+						annotations: []
 					},
 					image: '',
 					buttons: { nodes: btn_ids, marks: [], annotations: [] }
@@ -89,7 +90,11 @@
 					nodes[lid] = {
 						id: lid,
 						type: 'list_item',
-						content: { content: `List item ${j + 1} with sample content`, marks: [], annotations: [] }
+						content: {
+							content: `List item ${j + 1} with sample content`,
+							marks: [],
+							annotations: []
+						}
 					};
 					items.push(lid);
 				}
@@ -97,7 +102,7 @@
 					id,
 					type: 'list',
 					list_items: { nodes: items, marks: [], annotations: [] },
-					layout: 3
+					layout: 'decimal-leading-zero'
 				};
 			} else if (mod === 0 && i > 0) {
 				const grid_items = [];
@@ -115,17 +120,16 @@
 				nodes[id] = {
 					id,
 					type: 'image_grid',
-					layout: 1,
 					image_grid_items: { nodes: grid_items, marks: [], annotations: [] }
 				};
 			} else {
 				nodes[id] = {
 					id,
 					type: i % 10 === 0 ? 'heading_2' : 'paragraph',
-					layout: 1,
 					content: {
 						content: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
-						marks: [], annotations: []
+						marks: [],
+						annotations: []
 					}
 				};
 			}
@@ -505,19 +509,21 @@
 		(window as any).__bench = {
 			enter: (/** @type {number} */ count) => bench_enter(bench_ctx(), count),
 			type: (/** @type {number} */ count) => bench_type(bench_ctx(), count),
-			paste: (/** @type {number} */ m, /** @type {any} */ mode) => bench_paste(bench_ctx(), m, mode),
+			paste: (/** @type {number} */ m, /** @type {any} */ mode) =>
+				bench_paste(bench_ctx(), m, mode),
 			copy: (/** @type {number} */ m) => bench_copy(bench_ctx(), m),
 			del: (/** @type {number} */ m) => bench_delete(bench_ctx(), m),
 			undo: () => bench_undo(bench_ctx()),
-			resize: (/** @type {number} */ steps) => bench_resize_layout({ wrapper: editor_wrapper }, steps),
+			resize: (/** @type {number} */ steps) =>
+				bench_resize_layout({ wrapper: editor_wrapper }, steps),
 			profile,
 			timings_reset,
 			timings_get
 		};
 		return () => {
 			cancelAnimationFrame(raf_id);
-			delete ((window as any).__perf);
-			delete ((window as any).__bench);
+			delete (window as any).__perf;
+			delete (window as any).__bench;
 		};
 	});
 </script>

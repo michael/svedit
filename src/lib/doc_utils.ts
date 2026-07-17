@@ -161,6 +161,66 @@ export function validate_document_schema(document_schema: DocumentSchema): void 
 	for (const [node_type, node_schema] of Object.entries(document_schema)) {
 		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
 			assert_path_string_segment(prop_name, `Property name "${prop_name}"`);
+			if (prop_def.type === 'string' && prop_def.values !== undefined) {
+				if (
+					!Array.isArray(prop_def.values) ||
+					prop_def.values.some((value) => typeof value !== 'string')
+				) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" values must be an array of strings.`
+					);
+				}
+				if (prop_def.values.length === 0) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" values must not be empty.`
+					);
+				}
+				if (new Set(prop_def.values).size !== prop_def.values.length) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" values must be unique.`
+					);
+				}
+				if (prop_def.default !== undefined && !prop_def.values.includes(prop_def.default)) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" default must be one of its allowed values.`
+					);
+				}
+			}
+			if (prop_def.type === 'integer') {
+				if (prop_def.default !== undefined && !Number.isInteger(prop_def.default)) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" default must be an integer.`
+					);
+				}
+				if (prop_def.min !== undefined && !Number.isInteger(prop_def.min)) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" min must be an integer.`
+					);
+				}
+				if (prop_def.max !== undefined && !Number.isInteger(prop_def.max)) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" max must be an integer.`
+					);
+				}
+				if (
+					prop_def.min !== undefined &&
+					prop_def.max !== undefined &&
+					prop_def.min > prop_def.max
+				) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" min must not be greater than max.`
+					);
+				}
+				if (
+					prop_def.default !== undefined &&
+					((prop_def.min !== undefined && prop_def.default < prop_def.min) ||
+						(prop_def.max !== undefined && prop_def.default > prop_def.max))
+				) {
+					throw new Error(
+						`Node type "${node_type}" property "${prop_name}" default must be within its min/max range.`
+					);
+				}
+			}
 			if (prop_def.type === 'node' || prop_def.type === 'node_array') {
 				const missing_types = prop_def.node_types.filter(
 					(ref_type) => !(ref_type in document_schema)
@@ -413,6 +473,20 @@ export function validate_node(
 			if (!validate_primitive_value(prop_def.type, value)) {
 				throw new Error(
 					`Node ${node.id} has an invalid property: ${prop_name} must be of type ${prop_def.type}.`
+				);
+			}
+			if (prop_def.type === 'string' && prop_def.values && !prop_def.values.includes(value)) {
+				throw new Error(
+					`Node ${node.id} has an invalid property: ${prop_name} must be one of [${prop_def.values.join(', ')}].`
+				);
+			}
+			if (
+				prop_def.type === 'integer' &&
+				((prop_def.min !== undefined && value < prop_def.min) ||
+					(prop_def.max !== undefined && value > prop_def.max))
+			) {
+				throw new Error(
+					`Node ${node.id} has an invalid property: ${prop_name} must be between ${prop_def.min ?? '-Infinity'} and ${prop_def.max ?? 'Infinity'}.`
 				);
 			}
 		}

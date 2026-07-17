@@ -21,8 +21,8 @@ describe('Svedit.svelte', () => {
 
 		try {
 			const { container } = render(SveditTestWithInput, { session });
-			const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
-			const input = (container.querySelector('[data-testid="external-input"]') as HTMLInputElement);
+			const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
+			const input = container.querySelector('[data-testid="external-input"]') as HTMLInputElement;
 
 			canvas.focus();
 			await tick();
@@ -51,7 +51,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -80,7 +80,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -107,7 +107,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -211,9 +211,14 @@ describe('Svedit.svelte', () => {
 		expect(first_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(first_new_story.description).toEqual({
 			content: 'First story description.',
-			marks: [], annotations: []
+			marks: [],
+			annotations: []
 		});
-		expect(first_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
+		expect(first_new_button.content).toEqual({
+			content: 'Get started',
+			marks: [],
+			annotations: []
+		});
 		expect(first_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different
@@ -259,9 +264,14 @@ describe('Svedit.svelte', () => {
 		expect(second_new_story.title).toEqual({ content: 'First story', marks: [], annotations: [] });
 		expect(second_new_story.description).toEqual({
 			content: 'First story description.',
-			marks: [], annotations: []
+			marks: [],
+			annotations: []
 		});
-		expect(second_new_button.content).toEqual({ content: 'Get started', marks: [], annotations: [] });
+		expect(second_new_button.content).toEqual({
+			content: 'Get started',
+			marks: [],
+			annotations: []
+		});
 		expect(second_new_button.href).toBe('https://github.com/michael/svedit');
 
 		// But IDs should be different from both original and first paste
@@ -294,7 +304,6 @@ describe('Svedit.svelte', () => {
 			const empty_text_node = {
 				id: empty_text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
@@ -341,7 +350,6 @@ describe('Svedit.svelte', () => {
 			const text_node = {
 				id: text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
@@ -371,7 +379,11 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
+			expect(session.get(text_id).content).toEqual({
+				content: 'Some content',
+				marks: [],
+				annotations: []
+			});
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
@@ -386,7 +398,6 @@ describe('Svedit.svelte', () => {
 			const empty_text_node = {
 				id: empty_text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
@@ -433,7 +444,6 @@ describe('Svedit.svelte', () => {
 			const text_node = {
 				id: text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
@@ -463,7 +473,11 @@ describe('Svedit.svelte', () => {
 
 			// Text node should still exist
 			expect(session.get(text_id)).toBeDefined();
-			expect(session.get(text_id).content).toEqual({ content: 'Some content', marks: [], annotations: [] });
+			expect(session.get(text_id).content).toEqual({
+				content: 'Some content',
+				marks: [],
+				annotations: []
+			});
 
 			// Body should remain unchanged
 			const final_body = session.get(['page_1', 'body']);
@@ -480,14 +494,12 @@ describe('Svedit.svelte', () => {
 			const first_text_node = {
 				id: first_text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: 'First text', marks: [], annotations: [] }
 			};
 
 			const second_text_node = {
 				id: second_text_id,
 				type: 'paragraph',
-				layout: 1,
 				content: { content: ' second text', marks: [], annotations: [] }
 			};
 
@@ -498,7 +510,8 @@ describe('Svedit.svelte', () => {
 			// Replace body with our two text nodes
 			tr.set(['page_1', 'body'], {
 				nodes: [first_text_id, second_text_id],
-				marks: [], annotations: []
+				marks: [],
+				annotations: []
 			});
 			session.apply(tr);
 
@@ -520,7 +533,11 @@ describe('Svedit.svelte', () => {
 
 			// First text node should contain joined content
 			const first_text = session.get(first_text_id);
-			expect(first_text.content).toEqual({ content: 'First text second text', marks: [], annotations: [] });
+			expect(first_text.content).toEqual({
+				content: 'First text second text',
+				marks: [],
+				annotations: []
+			});
 
 			// Body should only contain the first text node
 			const final_body = session.get(['page_1', 'body']);
@@ -539,7 +556,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -661,7 +678,7 @@ describe('Svedit.svelte', () => {
 		const { container } = render(SveditTest, { session });
 
 		// Focus the canvas first so render_selection() runs when selection is set
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -670,8 +687,11 @@ describe('Svedit.svelte', () => {
 		const unicode_text_node = {
 			id: unicode_text_id,
 			type: 'paragraph',
-			layout: 1,
-			content: { content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!', marks: [], annotations: [] }
+			content: {
+				content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!',
+				marks: [],
+				annotations: []
+			}
 		};
 
 		const tr = session.tr;
@@ -694,7 +714,7 @@ describe('Svedit.svelte', () => {
 		await tick();
 
 		// Mock clipboard API
-		let clipboard_data = (null as ClipboardItem | null);
+		let clipboard_data = null as ClipboardItem | null;
 		Object.defineProperty(navigator, 'clipboard', {
 			value: {
 				write: async (items) => {
@@ -806,7 +826,7 @@ describe('Svedit.svelte', () => {
 	it('should split multi-paragraph plain text into text nodes when selection is inside a text node', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -815,7 +835,6 @@ describe('Svedit.svelte', () => {
 		tr.create({
 			id: text_id,
 			type: 'paragraph',
-			layout: 1,
 			content: { content: '', marks: [], annotations: [] }
 		});
 		const body_before_insert = session.get(['page_1', 'body']);
@@ -846,7 +865,7 @@ describe('Svedit.svelte', () => {
 	it('should paste multi-paragraph plain text as-is into a block text property with allow_newlines=true', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -868,7 +887,7 @@ describe('Svedit.svelte', () => {
 	it('should dedent plain text when most lines share leading whitespace', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -891,7 +910,7 @@ describe('Svedit.svelte', () => {
 	it('should normalize newlines to single spaces in block text properties with allow_newlines=false', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 
@@ -913,7 +932,7 @@ describe('Svedit.svelte', () => {
 	it('should paste plain text from a property selection by inserting text nodes into the nearest node_array', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });
-		const svedit_element = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const svedit_element = container.querySelector('.svedit-canvas') as HTMLElement;
 		svedit_element?.focus();
 		await tick();
 

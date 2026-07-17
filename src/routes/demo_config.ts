@@ -195,28 +195,15 @@ export const app_config = {
 			return `<li>${content}</li>\n`;
 		}
 	},
-	node_layouts: {
-		button: 1,
-		paragraph: 1,
-		heading_1: 1,
-		heading_2: 1,
-		heading_3: 1,
-		story: 3,
-		list: 5,
-		list_item: 1,
-		image_grid: 1,
-		hero: 1
-	},
 	// Custom functions to insert new "blank" nodes and setting the selection depening on the
 	// intended behavior.
 	inserters: {
-		paragraph: function (tr, content, layout) {
+		paragraph: function (tr, content) {
 			const new_paragraph: DocumentNode = {
 				id: nanoid(),
 				type: 'paragraph'
 			};
 			if (content !== undefined) new_paragraph.content = content;
-			if (layout !== undefined) new_paragraph.layout = layout;
 			tr.create(new_paragraph);
 			tr.insert_nodes([new_paragraph.id]);
 			tr.set_selection({
@@ -226,13 +213,12 @@ export const app_config = {
 				focus_offset: 0
 			});
 		},
-		heading_1: function (tr, content, layout) {
+		heading_1: function (tr, content) {
 			const new_heading_1: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_1'
 			};
 			if (content !== undefined) new_heading_1.content = content;
-			if (layout !== undefined) new_heading_1.layout = layout;
 			tr.create(new_heading_1);
 			tr.insert_nodes([new_heading_1.id]);
 			tr.set_selection({
@@ -242,13 +228,12 @@ export const app_config = {
 				focus_offset: 0
 			});
 		},
-		heading_2: function (tr, content, layout) {
+		heading_2: function (tr, content) {
 			const new_heading_2: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_2'
 			};
 			if (content !== undefined) new_heading_2.content = content;
-			if (layout !== undefined) new_heading_2.layout = layout;
 			tr.create(new_heading_2);
 			tr.insert_nodes([new_heading_2.id]);
 			tr.set_selection({
@@ -258,13 +243,12 @@ export const app_config = {
 				focus_offset: 0
 			});
 		},
-		heading_3: function (tr, content, layout) {
+		heading_3: function (tr, content) {
 			const new_heading_3: DocumentNode = {
 				id: nanoid(),
 				type: 'heading_3'
 			};
 			if (content !== undefined) new_heading_3.content = content;
-			if (layout !== undefined) new_heading_3.layout = layout;
 			tr.create(new_heading_3);
 			tr.insert_nodes([new_heading_3.id]);
 			tr.set_selection({
@@ -298,7 +282,7 @@ export const app_config = {
 				id: nanoid(),
 				type: 'list',
 				list_items: { nodes: [new_list_item.id], marks: [], annotations: [] },
-				layout: 3
+				layout: 'decimal-leading-zero'
 			};
 			tr.create(new_list);
 			tr.insert_nodes([new_list.id]);
