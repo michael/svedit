@@ -37,7 +37,8 @@ import { render } from 'vitest-browser-svelte';
 import SveditTestWithKeymap from './testing_components/SveditTestWithKeymap.svelte';
 import { settle, make_story_session } from './test_utils.js';
 import Session from '../lib/Session.svelte.js';
-import { document_schema, session_config } from '../routes/create_demo_session.js';
+import { session_config } from '../routes/create_demo_session.js';
+import { document_schema } from '../routes/document_schema.js';
 
 /**
  * Build a session whose body holds a single paragraph text node.

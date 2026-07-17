@@ -2,7 +2,8 @@
 	import { setContext } from 'svelte';
 	import { Svedit, Command, KeyMapper, define_keymap } from 'svedit';
 	import Toolbar from './components/Toolbar.svelte';
-	import create_demo_session, { document_schema } from './create_demo_session.js';
+	import create_demo_session from './create_demo_session.js';
+	import { document_schema } from './document_schema.js';
 
 	const session = create_demo_session();
 	let app_el: HTMLElement | undefined;

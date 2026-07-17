@@ -8,7 +8,8 @@
 
 import { tick } from 'svelte';
 import Session from '../lib/Session.svelte.js';
-import { document_schema, session_config } from '../routes/create_demo_session.js';
+import { session_config } from '../routes/create_demo_session.js';
+import { document_schema } from '../routes/document_schema.js';
 import type { Document } from '../lib/types.js';
 
 /** Sleep one or more requestAnimationFrame ticks. */
