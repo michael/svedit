@@ -129,11 +129,11 @@ export type PropertyValue<P extends PropertyDefinition> = P extends { type: 'str
 								: P extends { type: 'boolean_array' }
 									? boolean[]
 									: P extends { type: 'text' }
-										? AnnotatedText
+										? Text
 										: P extends { type: 'node' }
 											? NodeId
 											: P extends { type: 'node_array' }
-												? AnnotatedNodeArray
+												? NodeArray
 												: never;
 
 /**
@@ -530,23 +530,23 @@ export type Annotation = Attachment;
 /**
  * Represents text content with marks and annotations.
  */
-export type AnnotatedText = {
+export type Text = {
 	content: string;
 	marks: Array<Mark>;
 	annotations: Array<Annotation>;
 };
 
 /**
- * Represents an annotated node array with nodes, marks and annotations
+ * Represents a node array with nodes, marks and annotations.
  */
-export type AnnotatedNodeArray = {
+export type NodeArray = {
 	nodes: Array<NodeId>;
 	marks: Array<Mark>;
 	annotations: Array<Annotation>;
 };
 
 /**
- * Attachment context passed to a node rendered inside an annotated node array.
+ * Attachment context passed to a node rendered inside a node array.
  * It is the flattened mark or annotation attachment, enriched with the resolved
  * payload node, its index in the parent attachment array, and this child node's
  * position in the attachment range.
@@ -570,7 +570,7 @@ export type NodeArrayRenderContext = {
 };
 
 /**
- * Represents a selection highlight fragment for non-annotated text selections
+ * Represents a selection highlight fragment for unmarked text selections
  */
 export type SelectionHighlightFragment = {
 	type: 'selection_highlight';
@@ -578,7 +578,7 @@ export type SelectionHighlightFragment = {
 };
 
 /**
- * Represents a mark fragment in annotated text content
+ * Represents a mark fragment in text content
  */
 export type MarkFragment = {
 	type: 'mark';
@@ -591,7 +591,7 @@ export type MarkFragment = {
 };
 
 /**
- * Represents a fragment of annotated text content
+ * Represents a fragment of text content
  */
 export type Fragment = string | MarkFragment | SelectionHighlightFragment;
 
@@ -620,6 +620,6 @@ export type NodeArrayMarkFragment = {
 };
 
 /**
- * Represents a fragment of annotated node array content
+ * Represents a fragment of node array content
  */
 export type NodeArrayFragment = NodeArrayPlainFragment | NodeArrayMarkFragment;

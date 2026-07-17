@@ -30,7 +30,7 @@ import type {
 	Document,
 	DocumentNode,
 	TextProperty,
-	AnnotatedText,
+	Text,
 	ValidateDocumentSchema,
 	Inspection,
 	DocumentOperation,
@@ -358,7 +358,7 @@ function validate_marks_and_annotations(
 function validate_text_property(
 	node_id: string,
 	prop_name: string,
-	value: AnnotatedText,
+	value: Text,
 	prop_def: TextProperty,
 	all_nodes: Record<string, DocumentNode>,
 	require_references: boolean

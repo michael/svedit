@@ -29,8 +29,8 @@ import type {
 	DocumentNode,
 	Document,
 	AnyNode,
-	AnnotatedText,
-	AnnotatedNodeArray,
+	Text,
+	NodeArray,
 	CommandRegistry,
 	Inspection,
 	SessionConfig,
@@ -234,7 +234,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 			// Only consider selection of a single node
 			if (end - start !== 1) return null;
-			const node_array: AnnotatedNodeArray = this.get(this.selection.path);
+			const node_array: NodeArray = this.get(this.selection.path);
 			const node_id = node_array.nodes[start];
 			return node_id ? this.get(node_id) : null;
 		} else {
@@ -453,12 +453,12 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		};
 	}
 
-	get_selected_text(): (AnnotatedText & { nodes: Record<string, DocumentNode> }) | null {
+	get_selected_text(): (Text & { nodes: Record<string, DocumentNode> }) | null {
 		if (this.selection?.type !== 'text') return null;
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text_value: AnnotatedText = this.get(this.selection.path);
+		const text_value: Text = this.get(this.selection.path);
 		const selected_text = char_slice(text_value.content, selection_start, selection_end);
 		const nodes: Record<string, DocumentNode> = {};
 
@@ -502,7 +502,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const node_array: AnnotatedNodeArray = this.get(this.selection.path);
+		const node_array: NodeArray = this.get(this.selection.path);
 		const main_nodes = node_array.nodes.slice(selection_start, selection_end);
 		const nodes: Record<string, DocumentNode> = {};
 
@@ -545,7 +545,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text: AnnotatedText = this.get(this.selection.path);
+		const text: Text = this.get(this.selection.path);
 		return char_slice(text.content, start, end);
 	}
 
@@ -554,7 +554,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const node_array: AnnotatedNodeArray = this.get(this.selection.path);
+		const node_array: NodeArray = this.get(this.selection.path);
 		// node_array.nodes is a plain array of id strings (doc is $state.raw),
 		// so a slice is already a safe fresh copy.
 		return node_array.nodes.slice(start, end);

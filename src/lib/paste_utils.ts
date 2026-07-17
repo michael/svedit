@@ -1,14 +1,10 @@
-import type {
-	AnnotatedText,
-	DocumentNode,
-	DocumentSchema
-} from './types.js';
+import type { Text, DocumentNode, DocumentSchema } from './types.js';
 
 function is_record(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
-function is_annotated_text(value: unknown): value is AnnotatedText {
+function is_text(value: unknown): value is Text {
 	return (
 		is_record(value) &&
 		typeof value.content === 'string' &&
@@ -83,16 +79,16 @@ export function get_text_property_name(
 	);
 }
 
-export function get_text_content(node: unknown, schema: DocumentSchema): AnnotatedText | null {
+export function get_text_content(node: unknown, schema: DocumentSchema): Text | null {
 	if (!is_record(node)) return null;
 
 	const node_type = typeof node.type === 'string' ? node.type : null;
 	const text_property_name = get_text_property_name(node_type, schema);
-	if (text_property_name && is_annotated_text(node[text_property_name])) {
+	if (text_property_name && is_text(node[text_property_name])) {
 		return node[text_property_name];
 	}
 
-	if (is_annotated_text(node.content)) {
+	if (is_text(node.content)) {
 		return node.content;
 	}
 
@@ -122,11 +118,9 @@ export function get_default_text_node(
 		return default_node_type;
 	}
 
-	return (
-		node_array_property_definition.node_types.find(
-			(node_type: unknown) => typeof node_type === 'string' && schema[node_type]?.kind === 'text'
-		) || null
-	) as string | null;
+	return (node_array_property_definition.node_types.find(
+		(node_type: unknown) => typeof node_type === 'string' && schema[node_type]?.kind === 'text'
+	) || null) as string | null;
 }
 
 export function create_plain_text_nodes_payload(

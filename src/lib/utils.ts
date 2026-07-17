@@ -1,7 +1,7 @@
 import type {
 	Attachment,
 	Mark,
-	AnnotatedText,
+	Text,
 	SelectionRange,
 	Selection,
 	DocumentSchema,
@@ -101,7 +101,11 @@ export function get_char_at(str: string, index: number): string {
  * char_slice('Hello 😀 World', 6, 8) // Returns: '😀 ' (emoji stays intact)
  * char_slice('a👋🏽b', 1, 2) // Returns: '👋🏽' (skin tone modifier included)
  */
-export function char_slice(str: string, start: number, end: number | undefined = undefined): string {
+export function char_slice(
+	str: string,
+	start: number,
+	end: number | undefined = undefined
+): string {
 	const segments = [...SEGMENTER.segment(str)];
 	return segments
 		.slice(start, end)
@@ -156,7 +160,7 @@ export function char_to_utf16_offset(str: string, char_offset: number): number {
 }
 
 /**
- * Splits an annotated text at the specified character position.
+ * Splits a text value at the specified character position.
  *
  * Marks and annotations that span the split point will be divided
  * appropriately, with offsets adjusted for each resulting part.
@@ -169,19 +173,16 @@ export function char_to_utf16_offset(str: string, char_offset: number): number {
  * //   {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []}
  * // ]
  */
-export function split_text(
-	text_value: AnnotatedText,
-	at_position: number
-): [AnnotatedText, AnnotatedText] {
+export function split_text(text_value: Text, at_position: number): [Text, Text] {
 	const { content } = text_value;
 
 	// Split the text using character-aware slicing
-	const left: AnnotatedText = {
+	const left: Text = {
 		content: char_slice(content, 0, at_position),
 		marks: [],
 		annotations: []
 	};
-	const right: AnnotatedText = {
+	const right: Text = {
 		content: char_slice(content, at_position),
 		marks: [],
 		annotations: []
@@ -212,7 +213,7 @@ export function split_text(
 }
 
 /**
- * Joins two annotated texts into a single annotated text.
+ * Joins two text values into a single text value.
  *
  * Marks and annotations from the second text will have their offsets shifted
  * by the length of the first text. Adjacent ranges referencing the same node
@@ -222,9 +223,9 @@ export function split_text(
  * join_text({content: "Hello wo", marks: [{start_offset: 6, end_offset: 8, node_id: "strong"}], annotations: []}, {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []})
  * // Returns: {content: "Hello world", marks: [{start_offset: 6, end_offset: 11, node_id: "strong"}], annotations: []}
  */
-export function join_text(first_text: AnnotatedText, second_text: AnnotatedText): AnnotatedText {
+export function join_text(first_text: Text, second_text: Text): Text {
 	// Join the text content
-	const joined: AnnotatedText = {
+	const joined: Text = {
 		content: first_text.content + second_text.content,
 		marks: [],
 		annotations: []
@@ -486,7 +487,7 @@ export function is_selection_collapsed(selection?: Selection | null): boolean {
 /**
  * Adjust ranges (marks or annotations) after deleting a sequence range.
  *
- * Works for both annotated text (character offsets) and annotated node arrays
+ * Works for both text values (character offsets) and node arrays
  * (node offsets).
  */
 export function adjust_ranges_for_deletion(
