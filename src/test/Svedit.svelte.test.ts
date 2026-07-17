@@ -304,7 +304,6 @@ describe('Svedit.svelte', () => {
 			const empty_text_node = {
 				id: empty_text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
@@ -351,7 +350,6 @@ describe('Svedit.svelte', () => {
 			const text_node = {
 				id: text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
@@ -400,7 +398,6 @@ describe('Svedit.svelte', () => {
 			const empty_text_node = {
 				id: empty_text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: '', marks: [], annotations: [] } // Empty content
 			};
 
@@ -447,7 +444,6 @@ describe('Svedit.svelte', () => {
 			const text_node = {
 				id: text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: 'Some content', marks: [], annotations: [] }
 			};
 
@@ -498,14 +494,12 @@ describe('Svedit.svelte', () => {
 			const first_text_node = {
 				id: first_text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: 'First text', marks: [], annotations: [] }
 			};
 
 			const second_text_node = {
 				id: second_text_id,
 				type: 'paragraph',
-				layout: 'default',
 				content: { content: ' second text', marks: [], annotations: [] }
 			};
 
@@ -693,7 +687,6 @@ describe('Svedit.svelte', () => {
 		const unicode_text_node = {
 			id: unicode_text_id,
 			type: 'paragraph',
-			layout: 'default',
 			content: {
 				content: 'Hello 🌍 Unicode: café, naïve, 中文, 🚀 test!',
 				marks: [],
@@ -842,7 +835,6 @@ describe('Svedit.svelte', () => {
 		tr.create({
 			id: text_id,
 			type: 'paragraph',
-			layout: 'default',
 			content: { content: '', marks: [], annotations: [] }
 		});
 		const body_before_insert = session.get(['page_1', 'body']);

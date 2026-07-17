@@ -120,14 +120,12 @@
 				nodes[id] = {
 					id,
 					type: 'image_grid',
-					layout: 'default',
 					image_grid_items: { nodes: grid_items, marks: [], annotations: [] }
 				};
 			} else {
 				nodes[id] = {
 					id,
 					type: i % 10 === 0 ? 'heading_2' : 'paragraph',
-					layout: 'default',
 					content: {
 						content: `Paragraph ${body.length + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
 						marks: [],

@@ -104,7 +104,6 @@ export function make_image_grid_session(n_items: number) {
 	nodes.image_grid_1 = {
 		id: 'image_grid_1',
 		type: 'image_grid',
-		layout: 'default',
 		image_grid_items: { nodes: item_ids, marks: [], annotations: [] }
 	};
 	nodes.page_1 = {

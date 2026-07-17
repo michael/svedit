@@ -55,7 +55,6 @@ function make_paragraph_session(text = 'Hello world') {
 				paragraph_1: {
 					id: 'paragraph_1',
 					type: 'paragraph',
-					layout: 'default',
 					content: { content: text, marks: [], annotations: [] }
 				},
 				page_1: {

@@ -32,7 +32,6 @@ export const document_schema = define_document_schema({
 	hero: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
 			description: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true },
 			image: { type: 'string' }
@@ -41,28 +40,24 @@ export const document_schema = define_document_schema({
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
@@ -94,7 +89,6 @@ export const document_schema = define_document_schema({
 	image_grid: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			image_grid_items: {
 				type: 'node_array',
 				node_types: ['image_grid_item'],

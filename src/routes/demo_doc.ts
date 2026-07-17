@@ -11,7 +11,6 @@ export const demo_doc: Document = {
 		hero_1: {
 			id: 'hero_1',
 			type: 'hero',
-			layout: 'default',
 			title: {
 				content: 'Svedit',
 				marks: [],
@@ -33,7 +32,6 @@ export const demo_doc: Document = {
 		heading_1: {
 			id: 'heading_1',
 			type: 'heading_1',
-			layout: 'default',
 			content: {
 				content: 'Text and structured content in symbiosis',
 				marks: [],
@@ -43,7 +41,6 @@ export const demo_doc: Document = {
 		paragraph_1: {
 			id: 'paragraph_1',
 			type: 'paragraph',
-			layout: 'default',
 			content: {
 				content:
 					"Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
@@ -211,7 +208,6 @@ export const demo_doc: Document = {
 		image_grid_1: {
 			id: 'image_grid_1',
 			type: 'image_grid',
-			layout: 'default',
 			image_grid_items: {
 				nodes: [
 					'image_grid_item_1',

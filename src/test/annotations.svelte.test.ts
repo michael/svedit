@@ -717,7 +717,6 @@ describe('shared text and node marks and annotations', () => {
 		inside.create({
 			id: 'inside_paragraph',
 			type: 'paragraph',
-			layout: 'default',
 			content: { content: 'inside', marks: [], annotations: [] }
 		});
 		inside.insert_nodes(['inside_paragraph']);
@@ -732,7 +731,6 @@ describe('shared text and node marks and annotations', () => {
 		edge.create({
 			id: 'edge_paragraph',
 			type: 'paragraph',
-			layout: 'default',
 			content: { content: 'edge', marks: [], annotations: [] }
 		});
 		edge.insert_nodes(['edge_paragraph']);

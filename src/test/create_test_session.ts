@@ -43,28 +43,24 @@ const document_schema = define_document_schema({
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
@@ -187,7 +183,6 @@ const session_config = {
 			const new_paragraph = {
 				id: nanoid(),
 				type: 'paragraph',
-				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_paragraph);
@@ -204,7 +199,6 @@ const session_config = {
 			const new_heading_1 = {
 				id: nanoid(),
 				type: 'heading_1',
-				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_1);
@@ -221,7 +215,6 @@ const session_config = {
 			const new_heading_2 = {
 				id: nanoid(),
 				type: 'heading_2',
-				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_2);
@@ -238,7 +231,6 @@ const session_config = {
 			const new_heading_3 = {
 				id: nanoid(),
 				type: 'heading_3',
-				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_3);
