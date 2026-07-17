@@ -73,7 +73,7 @@ export const document_schema = define_document_schema({
 		properties: {
 			layout: {
 				type: 'string',
-				values: ['image-left', 'image-right', 'stacked'] as const,
+				values: ['image-left', 'image-right', 'stacked'],
 				default: 'image-left'
 			},
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
@@ -120,7 +120,7 @@ export const document_schema = define_document_schema({
 			},
 			layout: {
 				type: 'string',
-				values: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'] as const,
+				values: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'],
 				default: 'square'
 			}
 		}
