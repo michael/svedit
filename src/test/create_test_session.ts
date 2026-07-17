@@ -43,35 +43,39 @@ const document_schema = define_document_schema({
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string' },
+			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string' },
+			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string' },
+			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string' },
+			layout: { type: 'string', values: ['default'], default: 'default' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	story: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string' },
+			layout: {
+				type: 'string',
+				values: ['image-left', 'image-right', 'stacked'],
+				default: 'image-left'
+			},
 			title: { type: 'text', allow_newlines: false },
 			description: { type: 'text', allow_newlines: true },
 			buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
@@ -87,7 +91,11 @@ const document_schema = define_document_schema({
 	list: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string' },
+			layout: {
+				type: 'string',
+				values: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'],
+				default: 'square'
+			},
 			list_items: {
 				type: 'node_array',
 				node_types: ['list_item'],
@@ -156,14 +164,6 @@ const session_config = {
 		story: Story,
 		list: List,
 		list_item: ListItem
-	},
-	node_layouts: {
-		paragraph: ['default'],
-		heading_1: ['default'],
-		heading_2: ['default'],
-		heading_3: ['default'],
-		story: ['image-left', 'image-right', 'stacked'],
-		list: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman']
 	},
 	inserters: {
 		button: function (tr, content = { content: '', marks: [], annotations: [] }) {

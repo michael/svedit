@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { serialize_path } from 'svedit';
 	import type { DocumentNode, DocumentPath } from 'svedit';
-	import { get_selection_node_ancestors, is_node_subtree_empty } from '../app_utils.js';
+	import {
+		get_node_layouts,
+		get_selection_node_ancestors,
+		is_node_subtree_empty
+	} from '../app_utils.js';
 	import type { AppSession } from '../demo_session.js';
 
 	type VariantOption = { layout: string | null; value: string };
@@ -45,9 +49,9 @@
 		return serialize_path([...state.node_array_path, state.node_index]);
 	}
 
-	function get_layouts(node_type: string): (string | null)[] {
+	function get_layouts(node_type: string): readonly (string | null)[] {
 		if (!('layout' in (session.schema[node_type]?.properties ?? {}))) return [null];
-		const layouts = session.config.node_layouts[node_type] ?? [];
+		const layouts = get_node_layouts(session, node_type);
 		return layouts.length > 0 ? layouts : [null];
 	}
 

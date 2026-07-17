@@ -195,16 +195,6 @@ export const app_config = {
 			return `<li>${content}</li>\n`;
 		}
 	},
-	node_layouts: {
-		paragraph: ['default'],
-		heading_1: ['default'],
-		heading_2: ['default'],
-		heading_3: ['default'],
-		story: ['image-left', 'image-right', 'stacked'],
-		list: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'],
-		image_grid: ['default'],
-		hero: ['default']
-	},
 	// Custom functions to insert new "blank" nodes and setting the selection depening on the
 	// intended behavior.
 	inserters: {

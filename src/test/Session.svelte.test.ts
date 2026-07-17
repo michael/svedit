@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import Session from '../lib/Session.svelte.js';
-import { count_references, define_document_schema, fill_document_defaults } from '../lib/doc_utils.js';
+import {
+	count_references,
+	define_document_schema,
+	fill_document_defaults
+} from '../lib/doc_utils.js';
 import { deserialize_path, serialize_path } from '../lib/utils.js';
 import create_test_session from './create_test_session.js';
 
@@ -105,7 +109,8 @@ describe('Session.svelte.js', () => {
 		const body = session.get(['page_1', 'body']);
 		expect(body).toEqual({
 			nodes: ['story_1', 'story_1', 'list_1'],
-			marks: [], annotations: []
+			marks: [],
+			annotations: []
 		});
 
 		// Access an element of a node_array property
@@ -137,12 +142,17 @@ describe('Session.svelte.js', () => {
 		const list_items_of_first_list = session.get(['page_1', 'body', 2, 'list_items']);
 		expect(list_items_of_first_list).toEqual({
 			nodes: ['list_item_1', 'list_item_2'],
-			marks: [], annotations: []
+			marks: [],
+			annotations: []
 		});
 
 		// Resolve hierarchy using node_array and accessing an text property
 		const first_list_item_content = session.get(['page_1', 'body', 2, 'list_items', 0, 'content']);
-		expect(first_list_item_content).toEqual({ content: 'first list item', marks: [], annotations: [] });
+		expect(first_list_item_content).toEqual({
+			content: 'first list item',
+			marks: [],
+			annotations: []
+		});
 	});
 
 	describe('Selected node', () => {
@@ -347,6 +357,78 @@ describe('Session.svelte.js', () => {
 	});
 
 	describe('Document validation', () => {
+		it('should reject strings outside values and integers outside min/max', () => {
+			const schema = define_document_schema({
+				page: {
+					kind: 'document',
+					properties: {
+						layout: { type: 'string', values: ['wide', 'narrow'] },
+						columns: { type: 'integer', min: 1, max: 4 }
+					}
+				}
+			});
+
+			expect(
+				() =>
+					new Session(
+						schema,
+						{
+							document_id: 'page_1',
+							nodes: {
+								page_1: { id: 'page_1', type: 'page', layout: 'centered', columns: 2 }
+							}
+						},
+						{}
+					)
+			).toThrow('layout must be one of [wide, narrow]');
+
+			expect(
+				() =>
+					new Session(
+						schema,
+						{
+							document_id: 'page_1',
+							nodes: {
+								page_1: { id: 'page_1', type: 'page', layout: 'wide', columns: 5 }
+							}
+						},
+						{}
+					)
+			).toThrow('columns must be between 1 and 4');
+		});
+
+		it('should reject invalid string values and integer bounds in schemas', () => {
+			expect(
+				() =>
+					new Session(
+						{
+							page: {
+								kind: 'document',
+								properties: {
+									layout: { type: 'string', values: ['wide'], default: 'narrow' }
+								}
+							}
+						},
+						{ document_id: 'page_1', nodes: {} },
+						{}
+					)
+			).toThrow('default must be one of its allowed values');
+
+			expect(
+				() =>
+					new Session(
+						{
+							page: {
+								kind: 'document',
+								properties: { columns: { type: 'integer', min: 4, max: 2 } }
+							}
+						},
+						{ document_id: 'page_1', nodes: {} },
+						{}
+					)
+			).toThrow('min must not be greater than max');
+		});
+
 		it('should allow overlapping annotations', () => {
 			const session = create_test_session();
 			const doc = structuredClone(session.doc);
@@ -394,7 +476,8 @@ describe('Session.svelte.js', () => {
 			const doc = structuredClone(session.doc);
 			doc.nodes.page_1.body = {
 				nodes: ['story_1', 'missing_node'],
-				marks: [], annotations: []
+				marks: [],
+				annotations: []
 			};
 
 			expect(() => new Session(session.schema, doc, session.config)).toThrow(
@@ -411,7 +494,7 @@ describe('Session.svelte.js', () => {
 			expect(() =>
 				tr.set(['story_1'], {
 					...session.get('story_1'),
-					layout: 2
+					layout: 'image-right'
 				})
 			).toThrow('Transaction.set requires a path that points to a property');
 		});
@@ -615,7 +698,7 @@ describe('Session.svelte.js', () => {
 			tr.create({
 				id: 'list_2',
 				type: 'list',
-				layout: 1,
+				layout: 'square',
 				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
 
@@ -624,7 +707,8 @@ describe('Session.svelte.js', () => {
 			// node is still referenced by list_2 and must survive.
 			tr.set(['list_1', 'list_items'], {
 				nodes: ['list_item_2'],
-				marks: [], annotations: []
+				marks: [],
+				annotations: []
 			});
 
 			session.apply(tr);
@@ -641,12 +725,13 @@ describe('Session.svelte.js', () => {
 			tr.create({
 				id: 'list_2',
 				type: 'list',
-				layout: 1,
+				layout: 'square',
 				list_items: { nodes: ['list_item_1'], marks: [], annotations: [] }
 			});
 			tr.set(['list_1', 'list_items'], {
 				nodes: ['list_item_2'],
-				marks: [], annotations: []
+				marks: [],
+				annotations: []
 			});
 			session.apply(tr);
 

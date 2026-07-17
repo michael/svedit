@@ -281,14 +281,19 @@ export function get_cycle_node_state(session: AppSession): {
 	return { ...closest_switchable_type, available_types };
 }
 
+/** Return the ordered layout IDs declared by a node's layout property. */
+export function get_node_layouts(session: AppSession, node_type: string): readonly string[] {
+	const layout_property = session.schema[node_type]?.properties.layout;
+	return layout_property?.type === 'string' ? (layout_property.values ?? []) : [];
+}
+
 /**
  * Find the closest ancestor node whose layout can be switched
  * (has a layout property and more than one configured layout ID).
  *
  */
 export function get_closest_switchable_layout(
-	session: AppSession,
-	app_config: { node_layouts?: Record<string, readonly string[]> }
+	session: AppSession
 ): { node: DocumentNode; node_array_path: DocumentPath; node_index: number } | null {
 	const paths = get_ancestor_walk_paths(session);
 	if (!paths) return null;
@@ -301,10 +306,7 @@ export function get_closest_switchable_layout(
 		const node_index = get_node_index_at(full_path, path);
 		if (node_index !== null) {
 			const node = session.get([...path, node_index]);
-			if (
-				typeof node?.layout === 'string' &&
-				(app_config.node_layouts?.[node.type]?.length ?? 0) > 1
-			) {
+			if (typeof node?.layout === 'string' && get_node_layouts(session, node.type).length > 1) {
 				return { node, node_array_path: path, node_index };
 			}
 		}

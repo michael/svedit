@@ -26,6 +26,7 @@ const test_schema = define_document_schema({
 		kind: 'block',
 		properties: {
 			layout: { type: 'integer', default: 1 },
+			variant: { type: 'string', values: ['image-left', 'image-right'] as const },
 			title: { type: 'text', allow_newlines: false },
 			description: { type: 'text', allow_newlines: true },
 			image: { type: 'string' },
@@ -66,6 +67,7 @@ type Expect<T extends true> = T;
 type _title_is_text = Expect<Equal<Story['title'], Text>>;
 type _image_is_string = Expect<Equal<Story['image'], string>>;
 type _layout_is_number = Expect<Equal<Story['layout'], number>>;
+type _variant_is_allowed_value = Expect<Equal<Story['variant'], 'image-left' | 'image-right'>>;
 type _buttons_is_node_array = Expect<Equal<Story['buttons'], NodeArray>>;
 type _keywords_is_string_array = Expect<Equal<Nodes['page']['keywords'], string[]>>;
 

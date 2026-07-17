@@ -5,6 +5,7 @@ import type { Transaction, DocumentNode, DocumentPath } from 'svedit';
 import {
 	get_closest_switchable_layout,
 	get_cycle_node_state,
+	get_node_layouts,
 	is_node_subtree_empty
 } from './app_utils.js';
 import type { AppSession } from './demo_session.js';
@@ -19,10 +20,7 @@ export class CycleLayoutCommand extends Command {
 	direction: 'next' | 'previous';
 
 	closest_switchable_layout = $derived(
-		get_closest_switchable_layout(
-			this.context.session as AppSession,
-			(this.context.session as AppSession).config
-		)
+		get_closest_switchable_layout(this.context.session as AppSession)
 	);
 
 	constructor(direction: 'next' | 'previous', context: AppCommandContext) {
@@ -40,7 +38,7 @@ export class CycleLayoutCommand extends Command {
 		if (!closest_switchable_layout) return;
 
 		const { node } = closest_switchable_layout;
-		const layouts = session.config.node_layouts[node.type] ?? [];
+		const layouts = get_node_layouts(session, node.type);
 		const current_layout_index = layouts.indexOf(node.layout);
 		if (current_layout_index === -1) return;
 
@@ -55,7 +53,7 @@ export class CycleLayoutCommand extends Command {
 		if (!closest_switchable_layout) return;
 
 		const { node, node_array_path, node_index } = closest_switchable_layout;
-		const layouts = session.config.node_layouts[node.type] ?? [];
+		const layouts = get_node_layouts(session, node.type);
 		if (!layouts.includes(new_layout) || new_layout === node.layout) return;
 
 		const tr = session.tr;
@@ -143,7 +141,7 @@ export class CycleNodeTypeCommand extends Command {
 		if (!cycle_node_state?.available_types.includes(new_type)) return;
 
 		const { node, node_array_path, node_index } = cycle_node_state;
-		const allowed_layouts = session.config.node_layouts[new_type] ?? [];
+		const allowed_layouts = get_node_layouts(session, new_type);
 		const selected_layout =
 			new_layout !== null && allowed_layouts.includes(new_layout) ? new_layout : null;
 		const tr = session.tr;

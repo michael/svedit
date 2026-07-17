@@ -32,7 +32,7 @@ export const document_schema = define_document_schema({
 	hero: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
 			description: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true },
 			image: { type: 'string' }
@@ -41,28 +41,28 @@ export const document_schema = define_document_schema({
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
 		}
 	},
@@ -76,7 +76,11 @@ export const document_schema = define_document_schema({
 	story: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string', default: 'image-left' },
+			layout: {
+				type: 'string',
+				values: ['image-left', 'image-right', 'stacked'] as const,
+				default: 'image-left'
+			},
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
 			description: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true },
 			buttons: {
@@ -90,7 +94,7 @@ export const document_schema = define_document_schema({
 	image_grid: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'string', default: 'default' },
+			layout: { type: 'string', values: ['default'] as const, default: 'default' },
 			image_grid_items: {
 				type: 'node_array',
 				node_types: ['image_grid_item'],
@@ -120,7 +124,11 @@ export const document_schema = define_document_schema({
 				node_types: ['list_item'],
 				annotation_types: ['marker']
 			},
-			layout: { type: 'string', default: 'square' }
+			layout: {
+				type: 'string',
+				values: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'] as const,
+				default: 'square'
+			}
 		}
 	},
 	link: { kind: 'mark', properties: { href: { type: 'string' } } },

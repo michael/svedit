@@ -110,31 +110,36 @@ export type PropertyType = PrimitiveType | ReferenceType;
 /**
  * Maps a schema property definition to the runtime value type it stores.
  */
-export type PropertyValue<P extends PropertyDefinition> = P extends { type: 'string' }
-	? string
-	: P extends { type: 'number' }
-		? number
-		: P extends { type: 'integer' }
+export type PropertyValue<P extends PropertyDefinition> = P extends {
+	type: 'string';
+	values: readonly (infer Value extends string)[];
+}
+	? Value
+	: P extends { type: 'string' }
+		? string
+		: P extends { type: 'number' }
 			? number
-			: P extends { type: 'boolean' }
-				? boolean
-				: P extends { type: 'datetime' }
-					? string
-					: P extends { type: 'string_array' }
-						? string[]
-						: P extends { type: 'number_array' }
-							? number[]
-							: P extends { type: 'integer_array' }
+			: P extends { type: 'integer' }
+				? number
+				: P extends { type: 'boolean' }
+					? boolean
+					: P extends { type: 'datetime' }
+						? string
+						: P extends { type: 'string_array' }
+							? string[]
+							: P extends { type: 'number_array' }
 								? number[]
-								: P extends { type: 'boolean_array' }
-									? boolean[]
-									: P extends { type: 'text' }
-										? Text
-										: P extends { type: 'node' }
-											? NodeId
-											: P extends { type: 'node_array' }
-												? NodeArray
-												: never;
+								: P extends { type: 'integer_array' }
+									? number[]
+									: P extends { type: 'boolean_array' }
+										? boolean[]
+										: P extends { type: 'text' }
+											? Text
+											: P extends { type: 'node' }
+												? NodeId
+												: P extends { type: 'node_array' }
+													? NodeArray
+													: never;
 
 /**
  * The runtime shape of a node of a specific type, derived from the schema.
@@ -192,6 +197,7 @@ export type TextProperty = {
 export type StringProperty = {
 	type: 'string';
 	default?: string;
+	values?: readonly string[];
 };
 
 /**
@@ -216,6 +222,8 @@ export type BooleanProperty = {
 export type IntegerProperty = {
 	type: 'integer';
 	default?: number;
+	min?: number;
+	max?: number;
 };
 
 /**
