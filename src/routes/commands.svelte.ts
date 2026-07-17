@@ -36,15 +36,27 @@ export class CycleLayoutCommand extends Command {
 
 	execute() {
 		const session = this.context.session as AppSession;
-		const { node, node_array_path, node_index } = this.closest_switchable_layout;
-		const layout_count = session.config.node_layouts[node.type];
+		const closest_switchable_layout = this.closest_switchable_layout;
+		if (!closest_switchable_layout) return;
 
-		let new_layout;
-		if (this.direction === 'next') {
-			new_layout = (node.layout % layout_count) + 1;
-		} else {
-			new_layout = ((node.layout - 2 + layout_count) % layout_count) + 1;
-		}
+		const { node } = closest_switchable_layout;
+		const layouts = session.config.node_layouts[node.type] ?? [];
+		const current_layout_index = layouts.indexOf(node.layout);
+		if (current_layout_index === -1) return;
+
+		const offset = this.direction === 'next' ? 1 : -1;
+		const new_layout_index = (current_layout_index + offset + layouts.length) % layouts.length;
+		this.execute_with_layout(layouts[new_layout_index]);
+	}
+
+	execute_with_layout(new_layout: string) {
+		const session = this.context.session as AppSession;
+		const closest_switchable_layout = this.closest_switchable_layout;
+		if (!closest_switchable_layout) return;
+
+		const { node, node_array_path, node_index } = closest_switchable_layout;
+		const layouts = session.config.node_layouts[node.type] ?? [];
+		if (!layouts.includes(new_layout) || new_layout === node.layout) return;
 
 		const tr = session.tr;
 		// Set node selection so it's clear which node's layout changed
@@ -67,17 +79,22 @@ function replace_node_with_equivalent_type(
 	node_array_path: DocumentPath,
 	node_index: number,
 	node: DocumentNode,
-	new_type: string
+	new_type: string,
+	new_layout: string | null = null
 ) {
 	const node_schema = tr.schema[node.type];
+	const new_node_schema = tr.schema[new_type];
 	const new_node: DocumentNode = {
 		id: tr.generate_id(),
 		type: new_type
 	};
 
 	for (const property_name of Object.keys(node_schema.properties)) {
-		new_node[property_name] = structuredClone(node[property_name]);
+		if (property_name in new_node_schema.properties) {
+			new_node[property_name] = structuredClone(node[property_name]);
+		}
 	}
+	if (new_layout && 'layout' in new_node_schema.properties) new_node.layout = new_layout;
 
 	tr.create(new_node);
 
@@ -111,14 +128,24 @@ export class CycleNodeTypeCommand extends Command {
 	}
 
 	execute() {
-		const session = this.context.session as AppSession;
 		const cycle_node_state = this.cycle_node_state;
 		if (!cycle_node_state || cycle_node_state.available_types.length === 0) return;
 
-		const { node, node_array_path, node_index, available_types } = cycle_node_state;
+		const { available_types } = cycle_node_state;
 		const new_type = this.direction === 'next' ? available_types[0] : available_types.at(-1);
 		if (!new_type) return;
+		this.execute_with_type(new_type);
+	}
 
+	execute_with_type(new_type: string, new_layout: string | null = null) {
+		const session = this.context.session as AppSession;
+		const cycle_node_state = this.cycle_node_state;
+		if (!cycle_node_state?.available_types.includes(new_type)) return;
+
+		const { node, node_array_path, node_index } = cycle_node_state;
+		const allowed_layouts = session.config.node_layouts[new_type] ?? [];
+		const selected_layout =
+			new_layout !== null && allowed_layouts.includes(new_layout) ? new_layout : null;
 		const tr = session.tr;
 		tr.set_selection({
 			type: 'node',
@@ -129,8 +156,19 @@ export class CycleNodeTypeCommand extends Command {
 
 		if (is_node_subtree_empty(session, node)) {
 			session.config.inserters[new_type](tr);
+			const replacement_id = tr.get(node_array_path)?.nodes?.[node_index];
+			if (replacement_id && selected_layout && 'layout' in tr.schema[new_type].properties) {
+				tr.set([replacement_id, 'layout'], selected_layout);
+			}
 		} else {
-			replace_node_with_equivalent_type(tr, node_array_path, node_index, node, new_type);
+			replace_node_with_equivalent_type(
+				tr,
+				node_array_path,
+				node_index,
+				node,
+				new_type,
+				selected_layout
+			);
 		}
 
 		session.apply(tr);

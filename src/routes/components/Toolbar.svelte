@@ -1,10 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import {
-		get_closest_switchable_layout,
-		get_closest_switchable_type,
-		is_node_subtree_empty
-	} from '../app_utils.js';
+	import NodeNavigator from './NodeNavigator.svelte';
 	import type { AppSession } from '../demo_session.js';
 
 	let {
@@ -12,20 +8,6 @@
 		focus_canvas,
 		editable = $bindable(false)
 	}: { session: AppSession; focus_canvas: () => void; editable?: boolean } = $props();
-
-	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
-	let closest_switchable_type = $derived(get_closest_switchable_type(session));
-	let cycle_node_state = $derived(session.commands.next_type?.cycle_node_state ?? null);
-	let should_pulse_cycle_type = $derived(
-		!session.commands.next_type?.disabled &&
-			cycle_node_state?.node &&
-			is_node_subtree_empty(session, cycle_node_state.node)
-	);
-	let should_pulse_cycle_layout = $derived(
-		!session.commands.next_layout?.disabled &&
-			closest_switchable_layout?.node &&
-			is_node_subtree_empty(session, closest_switchable_layout.node)
-	);
 
 	let input_ref: HTMLInputElement | undefined = $state();
 
@@ -40,17 +22,6 @@
 	let is_node_caret = $derived(
 		session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset
-	);
-
-	let is_single_node_selection = $derived(
-		session.selection?.type === 'node' &&
-			Math.abs(session.selection.focus_offset - session.selection.anchor_offset) === 1
-	);
-
-	let can_show_cycle_tools = $derived(
-		is_single_node_selection ||
-			session.selection?.type === 'text' ||
-			session.selection?.type === 'property'
 	);
 
 	// Get default node_type for current node_array
@@ -90,18 +61,6 @@
 	function delete_node_selection(event: Event) {
 		event.preventDefault();
 		session.apply(session.tr.delete_selection('backward'));
-	}
-
-	function cycle_node_type(event: Event) {
-		event.preventDefault();
-		if (session.commands.next_type?.disabled) return;
-		session.commands.next_type?.execute();
-	}
-
-	function cycle_layout(event: Event) {
-		event.preventDefault();
-		if (session.commands.next_layout?.disabled) return;
-		session.commands.next_layout?.execute();
 	}
 
 	function select_parent(event: Event) {
@@ -297,15 +256,7 @@
 					aria-hidden="true"
 				>
 					<rect x="2.5" y="4.5" width="10" height="6" rx="2" stroke="currentColor" />
-					<rect
-						x="4.5"
-						y="6.5"
-						width="6"
-						height="2"
-						rx="1"
-						fill="currentColor"
-						stroke="none"
-					/>
+					<rect x="4.5" y="6.5" width="6" height="2" rx="1" fill="currentColor" stroke="none" />
 				</svg>
 			</button>
 		{/if}
@@ -362,53 +313,8 @@
 		</button>
 	{/if}
 
-	{#if can_show_cycle_tools}
-		<button
-			title="Cycle type (⌃ ⇧ ↓)"
-			onmousedown={cycle_node_type}
-			disabled={!closest_switchable_type || session.commands.next_type?.disabled}
-			class:pulse={should_pulse_cycle_type}
-		>
-			<svg
-				class="toolbar-icon"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<line x1="6" y1="4" x2="18" y2="4" />
-				<line x1="12" y1="4" x2="12" y2="14" />
-				<polyline points="8 18 12 22 16 18" />
-				<line x1="12" y1="14" x2="12" y2="22" />
-			</svg>
-		</button>
-		<button
-			title="Cycle layout (⌃ ⇧ →)"
-			onmousedown={cycle_layout}
-			disabled={!closest_switchable_layout || session.commands.next_layout?.disabled}
-			class:pulse={should_pulse_cycle_layout}
-		>
-			<svg
-				class="toolbar-icon"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<line x1="4" y1="6" x2="4" y2="18" />
-				<line x1="4" y1="12" x2="14" y2="12" />
-				<polyline points="18 8 22 12 18 16" />
-				<line x1="14" y1="12" x2="22" y2="12" />
-			</svg>
-		</button>
-	{/if}
 	{#if editable}
+		<NodeNavigator {session} {focus_canvas} />
 		<button
 			title="Select parent (Esc)"
 			onmousedown={select_parent}
@@ -548,17 +454,6 @@
 			transform: translateY(1px) scale(0.95);
 		}
 
-		button:not(.toggle-editable).pulse::after {
-			content: '';
-			position: absolute;
-			inset: -2px;
-			border: 1px solid var(--svedit-editing-stroke);
-			border-radius: 9999px;
-			opacity: 0;
-			animation: pulse-ring 1.6s ease-out infinite;
-			pointer-events: none;
-		}
-
 		button:not(.toggle-editable):focus-visible {
 			outline: 1px solid var(--svedit-editing-stroke);
 			outline-offset: 1px;
@@ -620,24 +515,6 @@
 					border-color: var(--svedit-editing-stroke);
 				}
 			}
-		}
-	}
-
-	@keyframes pulse-ring {
-		0% {
-			opacity: 0.5;
-			transform: scale(1);
-		}
-		100% {
-			opacity: 0;
-			transform: scale(1.25);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		button:not(.toggle-editable).pulse::after {
-			animation: none;
-			opacity: 0;
 		}
 	}
 </style>

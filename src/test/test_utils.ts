@@ -69,7 +69,7 @@ export function make_story_session(n_buttons: number) {
 	nodes.story_1 = {
 		id: 'story_1',
 		type: 'story',
-		layout: 1,
+		layout: 'image-left',
 		image: '',
 		title: { content: 'Test story', marks: [], annotations: [] },
 		description: { content: 'desc', marks: [], annotations: [] },
@@ -104,7 +104,7 @@ export function make_image_grid_session(n_items: number) {
 	nodes.image_grid_1 = {
 		id: 'image_grid_1',
 		type: 'image_grid',
-		layout: 1,
+		layout: 'default',
 		image_grid_items: { nodes: item_ids, marks: [], annotations: [] }
 	};
 	nodes.page_1 = {

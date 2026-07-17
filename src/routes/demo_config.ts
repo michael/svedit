@@ -196,16 +196,14 @@ export const app_config = {
 		}
 	},
 	node_layouts: {
-		button: 1,
-		paragraph: 1,
-		heading_1: 1,
-		heading_2: 1,
-		heading_3: 1,
-		story: 3,
-		list: 5,
-		list_item: 1,
-		image_grid: 1,
-		hero: 1
+		paragraph: ['default'],
+		heading_1: ['default'],
+		heading_2: ['default'],
+		heading_3: ['default'],
+		story: ['image-left', 'image-right', 'stacked'],
+		list: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman'],
+		image_grid: ['default'],
+		hero: ['default']
 	},
 	// Custom functions to insert new "blank" nodes and setting the selection depening on the
 	// intended behavior.
@@ -298,7 +296,7 @@ export const app_config = {
 				id: nanoid(),
 				type: 'list',
 				list_items: { nodes: [new_list_item.id], marks: [], annotations: [] },
-				layout: 3
+				layout: 'decimal-leading-zero'
 			};
 			tr.create(new_list);
 			tr.insert_nodes([new_list.id]);

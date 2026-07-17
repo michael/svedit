@@ -43,35 +43,35 @@ const document_schema = define_document_schema({
 	paragraph: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			content: { type: 'text', allow_newlines: true }
 		}
 	},
 	story: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			title: { type: 'text', allow_newlines: false },
 			description: { type: 'text', allow_newlines: true },
 			buttons: { type: 'node_array', node_types: ['button'], default_node_type: 'button' },
@@ -87,7 +87,7 @@ const document_schema = define_document_schema({
 	list: {
 		kind: 'block',
 		properties: {
-			layout: { type: 'integer' },
+			layout: { type: 'string' },
 			list_items: {
 				type: 'node_array',
 				node_types: ['list_item'],
@@ -109,7 +109,7 @@ const doc = {
 		story_1: {
 			id: 'story_1',
 			type: 'story',
-			layout: 1,
+			layout: 'image-left',
 			image:
 				'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
 			title: { content: 'First story', marks: [], annotations: [] },
@@ -129,7 +129,7 @@ const doc = {
 		list_1: {
 			id: 'list_1',
 			type: 'list',
-			layout: 1,
+			layout: 'square',
 			list_items: { nodes: ['list_item_1', 'list_item_2'], marks: [], annotations: [] }
 		},
 		page_1: {
@@ -158,13 +158,12 @@ const session_config = {
 		list_item: ListItem
 	},
 	node_layouts: {
-		paragraph: 1,
-		heading_1: 1,
-		heading_2: 1,
-		heading_3: 1,
-		story: 3,
-		list: 5,
-		list_item: 1
+		paragraph: ['default'],
+		heading_1: ['default'],
+		heading_2: ['default'],
+		heading_3: ['default'],
+		story: ['image-left', 'image-right', 'stacked'],
+		list: ['square', 'disc', 'decimal-leading-zero', 'lower-alpha', 'upper-roman']
 	},
 	inserters: {
 		button: function (tr, content = { content: '', marks: [], annotations: [] }) {
@@ -188,7 +187,7 @@ const session_config = {
 			const new_paragraph = {
 				id: nanoid(),
 				type: 'paragraph',
-				layout: 1,
+				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_paragraph);
@@ -205,7 +204,7 @@ const session_config = {
 			const new_heading_1 = {
 				id: nanoid(),
 				type: 'heading_1',
-				layout: 1,
+				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_1);
@@ -222,7 +221,7 @@ const session_config = {
 			const new_heading_2 = {
 				id: nanoid(),
 				type: 'heading_2',
-				layout: 1,
+				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_2);
@@ -239,7 +238,7 @@ const session_config = {
 			const new_heading_3 = {
 				id: nanoid(),
 				type: 'heading_3',
-				layout: 1,
+				layout: 'default',
 				content: text_content
 			};
 			tr.create(new_heading_3);
@@ -262,7 +261,7 @@ const session_config = {
 			const new_story = {
 				id: nanoid(),
 				type: 'story',
-				layout: 1,
+				layout: 'image-left',
 				image: '',
 				title: { content: '', marks: [], annotations: [] },
 				description: { content: '', marks: [], annotations: [] },
@@ -282,7 +281,7 @@ const session_config = {
 				id: nanoid(),
 				type: 'list',
 				list_items: { nodes: [new_list_item.id], marks: [], annotations: [] },
-				layout: 3
+				layout: 'decimal-leading-zero'
 			};
 			tr.create(new_list);
 			tr.insert_nodes([new_list.id]);

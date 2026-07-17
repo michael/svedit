@@ -9,16 +9,7 @@
 
 	// We expect the list_node to be the parent in the path
 	let list_node: Nodes['list'] = $derived(svedit.session.get(path.slice(0, -2)));
-	let list_style = $derived(get_list_style_from_layout(list_node?.layout));
-
-	function get_list_style_from_layout(layout: number) {
-		if (layout === 1) return 'square';
-		if (layout === 2) return 'disc';
-		if (layout === 3) return 'decimal-leading-zero';
-		if (layout === 4) return 'lower-latin';
-		if (layout === 5) return 'upper-roman';
-		return 'square';
-	}
+	let list_style = $derived(list_node?.layout ?? 'square');
 </script>
 
 <Node {path}>

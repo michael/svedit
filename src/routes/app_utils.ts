@@ -24,6 +24,14 @@ function get_ancestor_walk_paths(
 	if (session.selection.type === 'node') {
 		const start = Math.min(session.selection.anchor_offset, session.selection.focus_offset);
 		const end = Math.max(session.selection.anchor_offset, session.selection.focus_offset);
+		if (end === start) {
+			const owner_path = session.selection.path.slice(0, -1);
+			if (owner_path.length === 0) return null;
+			return {
+				full_path: owner_path,
+				start_path: session.selection.path.slice(0, -2)
+			};
+		}
 
 		// Only walk from a single selected node. Multi-node selections do not
 		// identify one unambiguous node whose type/layout should change.
@@ -45,6 +53,32 @@ function get_ancestor_walk_paths(
 	}
 
 	return null;
+}
+
+/**
+ * Return the nodes between the document root and the current selection.
+ * The document node is omitted unless it owns a collapsed top-level node gap.
+ */
+export function get_selection_node_ancestors(
+	session: AppSession
+): { node: DocumentNode; path: DocumentPath }[] {
+	const paths = get_ancestor_walk_paths(session);
+	if (!paths) return [];
+
+	const include_document =
+		session.selection?.type === 'node' &&
+		session.selection.anchor_offset === session.selection.focus_offset;
+	const ancestors: { node: DocumentNode; path: DocumentPath }[] = [];
+
+	for (let path_length = 1; path_length <= paths.full_path.length; path_length += 1) {
+		const path = paths.full_path.slice(0, path_length);
+		const node = session.get(path);
+		if (!node || typeof node.type !== 'string' || !session.schema[node.type]) continue;
+		if (session.schema[node.type].kind === 'document' && !include_document) continue;
+		ancestors.push({ node, path });
+	}
+
+	return ancestors;
 }
 
 /**
@@ -249,12 +283,12 @@ export function get_cycle_node_state(session: AppSession): {
 
 /**
  * Find the closest ancestor node whose layout can be switched
- * (has a layout property and `node_layouts[type] > 1`).
+ * (has a layout property and more than one configured layout ID).
  *
  */
 export function get_closest_switchable_layout(
 	session: AppSession,
-	app_config: { node_layouts?: Record<string, number> }
+	app_config: { node_layouts?: Record<string, readonly string[]> }
 ): { node: DocumentNode; node_array_path: DocumentPath; node_index: number } | null {
 	const paths = get_ancestor_walk_paths(session);
 	if (!paths) return null;
@@ -267,7 +301,10 @@ export function get_closest_switchable_layout(
 		const node_index = get_node_index_at(full_path, path);
 		if (node_index !== null) {
 			const node = session.get([...path, node_index]);
-			if (node?.layout && app_config.node_layouts?.[node.type] > 1) {
+			if (
+				typeof node?.layout === 'string' &&
+				(app_config.node_layouts?.[node.type]?.length ?? 0) > 1
+			) {
 				return { node, node_array_path: path, node_index };
 			}
 		}
