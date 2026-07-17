@@ -405,7 +405,7 @@ export type TextPropertyProps = {
 	/** A placeholder to be rendered for empty content */
 	placeholder?: string;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -421,7 +421,7 @@ export type CustomPropertyProps = {
 	/** The content of the custom property (e.g. an image) */
 	children: Snippet;
 	/** Rest props to spread onto the rendered element */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -435,7 +435,7 @@ export type NodeArrayPropertyProps = {
 	/** The `class` attribute on the container element */
 	class?: string;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -455,7 +455,7 @@ export type NodeProps = {
 	/** The type-specific content of the node */
 	children: Snippet;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -546,7 +546,7 @@ export type SelectionHighlightFragment = {
 export type MarkFragment = {
 	type: 'mark';
 	/** NodeId that has mark type and details */
-	node: any;
+	node: DocumentNode;
 	/** The text content of the mark */
 	content: string;
 	/** Index of the mark in the original array */
@@ -573,7 +573,7 @@ export type NodeArrayPlainFragment = {
 export type NodeArrayMarkFragment = {
 	type: 'mark';
 	/** NodeId that has mark type and details */
-	node: any;
+	node: DocumentNode;
 	/** The nodes wrapped by the mark */
 	nodes: Array<NodeId>;
 	/** Start index in the original nodes array */

@@ -528,7 +528,14 @@ class VisibilityRegistry {
  *
  * @param svedit - Svedit context (session, editable)
  */
-export function create_node_visibility(svedit: any): void {
+export function create_node_visibility(svedit: {
+	session: {
+		config?: { view_classes?: boolean; visibility_culling?: boolean };
+		doc: unknown;
+	};
+	editable: boolean;
+	visibility_registry?: VisibilityRegistryApi;
+}): void {
 	const registry = new VisibilityRegistry();
 	registry.view_classes = svedit.session?.config?.view_classes !== false;
 	registry.visibility_culling = svedit.session?.config?.visibility_culling !== false;
@@ -595,6 +602,13 @@ export function create_node_visibility(svedit: any): void {
 		};
 	});
 }
+
+export type VisibilityRegistryApi = {
+	edge_map: SvelteMap<string, { first: boolean; last: boolean }>;
+	get_array_indices(array_path_str: string): SvelteSet<number>;
+	track_node(path: string): (el: HTMLElement) => () => void;
+	track_array(path: string): (el: Element) => () => void;
+};
 
 /**
  * Pure visibility check for a gap's `.positioned` class. NodeGap calls

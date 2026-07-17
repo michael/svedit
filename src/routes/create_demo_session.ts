@@ -1092,7 +1092,7 @@ export const session_config = {
 	 * Factory function to create Svedit commands and keymap.
 	 * Called by Svedit component with the svedit context.
 	 */
-	create_commands_and_keymap: (context: any) => {
+	create_commands_and_keymap: (context: import('./commands.svelte.js').AppCommandContext) => {
 		// Create command instances with the provided context
 		const commands = {
 			select_all: new SelectAllCommand(context),

@@ -11,7 +11,7 @@ const MODIFIER_EVENT_KEYS: Record<string, 'metaKey' | 'ctrlKey' | 'altKey' | 'sh
 /**
  * A command as required by the key mapper: anything with is_enabled/execute.
  */
-type KeymapCommand = { is_enabled: () => boolean; execute: () => any };
+type KeymapCommand = { is_enabled: () => boolean; execute: () => unknown };
 
 /**
  * A keymap maps key combo strings to arrays of commands.

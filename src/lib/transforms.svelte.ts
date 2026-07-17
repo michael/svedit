@@ -1,7 +1,14 @@
 import { split_text, join_text, get_char_length } from './utils.js';
 import { get_default_node_type } from './doc_utils.js';
 import type Transaction from './Transaction.svelte.js';
-import type { DocumentPath, Selection, TextSelection } from './types.js';
+import type {
+	DocumentNode,
+	DocumentPath,
+	NodeArrayProperty,
+	NodeProperty,
+	Selection,
+	TextSelection
+} from './types.js';
 
 /**
  * Set multiple properties on a node via a transaction.
@@ -13,7 +20,7 @@ import type { DocumentPath, Selection, TextSelection } from './types.js';
 export function set_properties(
 	tr: Transaction,
 	path: DocumentPath,
-	properties: Record<string, any>
+	properties: Record<string, unknown>
 ): void {
 	for (const [key, value] of Object.entries(properties)) {
 		tr.set([...path, key], value);
@@ -60,7 +67,9 @@ export function break_text_node(tr: Transaction): boolean {
 	// TODO: Only use default_node_type when caret is at the end of
 	const node_array_property_definition =
 		tr.schema[node_array_node.type].properties[node_array_prop];
-	const target_node_type = get_default_node_type(node_array_property_definition as any);
+	const target_node_type = get_default_node_type(
+		node_array_property_definition as NodeProperty | NodeArrayProperty
+	);
 
 	if (!target_node_type) {
 		console.warn(
@@ -90,7 +99,7 @@ export function join_text_node(tr: Transaction): boolean {
 
 	// Determine if we can join with the previous node
 	let can_join = false;
-	let predecessor_node: any = null;
+	let predecessor_node: DocumentNode | null = null;
 
 	if (node_index > 0) {
 		const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
@@ -111,7 +120,7 @@ export function join_text_node(tr: Transaction): boolean {
 	}
 
 	// If we can't join for any reason, return false
-	if (!can_join) {
+	if (!can_join || !predecessor_node) {
 		return false;
 	}
 
@@ -159,7 +168,9 @@ export function insert_default_node(tr: Transaction): boolean {
 
 	// Get the definition for this property
 	const property_definition = tr.schema[node_array_node.type].properties[property_name];
-	const default_type = get_default_node_type(property_definition as any);
+	const default_type = get_default_node_type(
+		property_definition as NodeProperty | NodeArrayProperty
+	);
 
 	// Use the inserter function if available
 	if (tr.config?.inserters?.[default_type as string]) {

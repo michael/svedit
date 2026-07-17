@@ -1,5 +1,6 @@
 import { getContext } from 'svelte';
 import type { AppSession } from './create_demo_session.js';
+import type { VisibilityRegistryApi } from '$lib/node_visibility.svelte.js';
 
 /**
  * The svedit context as provided by Svedit.svelte, with the session typed
@@ -12,7 +13,7 @@ export type SveditContext = {
 	canvas_el: HTMLElement | undefined;
 	canvas_focused: boolean;
 	focus_canvas: () => void;
-	visibility_registry?: any;
+	visibility_registry?: VisibilityRegistryApi;
 };
 
 /**

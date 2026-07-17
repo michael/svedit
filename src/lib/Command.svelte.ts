@@ -1,6 +1,16 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
 import { can_switch_mark_type, get_selected_range_types } from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
+import type Session from './Session.svelte.js';
+
+// Commands operate on sessions with arbitrary application schemas.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CommandSession = Session<any>;
+
+export type CommandContext = {
+	session: CommandSession;
+	editable: boolean;
+};
 
 /**
  * Base class for commands that can be executed in response to user actions
@@ -25,7 +35,7 @@ import { is_selection_collapsed, get_char_length, char_slice } from './utils.js'
  * ```
  */
 export default class Command {
-	context: any;
+	context: CommandContext;
 
 	/**
 	 * Derived state that indicates if the command is disabled.
@@ -38,7 +48,7 @@ export default class Command {
 	 *
 	 * @param context - The context object providing access to application state
 	 */
-	constructor(context: any) {
+	constructor(context: CommandContext) {
 		this.context = context;
 	}
 
@@ -114,7 +124,7 @@ export class SelectParentCommand extends Command {
 export class ToggleMarkCommand extends Command {
 	node_type: string;
 
-	constructor(node_type: string, context: any) {
+	constructor(node_type: string, context: CommandContext) {
 		super(context);
 		this.node_type = node_type;
 	}
@@ -125,7 +135,7 @@ export class ToggleMarkCommand extends Command {
 		const selected_marks = this.context.session.selected_marks;
 		return (
 			selected_marks.length > 0 &&
-			selected_marks.every(({ node }: { node: any }) => node?.type === this.node_type)
+			selected_marks.every(({ node }) => node?.type === this.node_type)
 		);
 	}
 
@@ -169,7 +179,7 @@ export class ToggleMarkCommand extends Command {
 export class ToggleAnnotationCommand extends Command {
 	node_type: string;
 
-	constructor(node_type: string, context: any) {
+	constructor(node_type: string, context: CommandContext) {
 		super(context);
 		this.node_type = node_type;
 	}
@@ -179,9 +189,7 @@ export class ToggleAnnotationCommand extends Command {
 	// Mirrors the filter in tr.toggle_annotation, so active/enabled match what
 	// execute() does.
 	relevant_annotations() {
-		return this.context.session.selected_annotations.filter(
-			({ node }: { node: any }) => node?.type === this.node_type
-		);
+		return this.context.session.selected_annotations.filter(({ node }) => node?.type === this.node_type);
 	}
 
 	is_active() {
@@ -236,6 +244,7 @@ export class AddNewLineCommand extends Command {
 		if (selection.anchor_offset !== selection.focus_offset) {
 			tr.delete_selection();
 		}
+		if (tr.selection.type !== 'text') return;
 
 		const collapsed_offset = tr.selection.anchor_offset;
 		const content = tr.get(tr.selection.path);
@@ -282,7 +291,7 @@ export class BreakTextNodeCommand extends Command {
  */
 export class SelectAllCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.session.selection;
+		return Boolean(this.context.editable && this.context.session.selection);
 	}
 
 	execute() {

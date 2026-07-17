@@ -70,5 +70,11 @@ export default [
 			'@typescript-eslint/no-namespace': 'error',
 			'@typescript-eslint/no-this-alias': 'error'
 		}
+	},
+	{
+		files: ['src/test/**', 'src/routes/perftest/**'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off'
+		}
 	}
 ];
