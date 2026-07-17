@@ -1,13 +1,17 @@
-<script>
-	import { getContext } from 'svelte';
+<script lang="ts">
 	import Icon from './Icon.svelte';
 	import { serialize_path } from '../../lib/utils.js';
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../demo_schema.js';
 
-	const svedit = getContext('svedit');
+	const svedit = get_svedit_context();
 	let active_link_path = $derived(get_active_link_path());
-	let active_link = $derived(active_link_path ? svedit.session.get(active_link_path) : null);
+	let active_link: Nodes['link'] | null = $derived(
+		active_link_path ? svedit.session.get(active_link_path) : null
+	);
 
-	function get_active_link_path() {
+	function get_active_link_path(): DocumentPath | null {
 		const sel = svedit.session.selection;
 		if (!sel || sel.type !== 'text') return null;
 

@@ -3,8 +3,6 @@
  *
  * These functions operate on the core document state (schema, doc, selection, config)
  * without any history management or transaction tracking.
- *
- * @import { NodeId, DocumentPath, PrimitiveType, NodeProperty, NodeArrayProperty, NodeSchema, DocumentSchema, Selection, Attachment, Mark, Annotation, Document, TextProperty, AnnotatedText, ValidateDocumentSchema } from './types'
  */
 
 import {
@@ -15,25 +13,44 @@ import {
 	serialize_path,
 	are_ranges_exclusive
 } from './utils.js';
+import type {
+	NodeId,
+	DocumentPath,
+	PrimitiveType,
+	PropertyDefinition,
+	NodeProperty,
+	NodeArrayProperty,
+	NodeSchema,
+	NodeKind,
+	DocumentSchema,
+	Selection,
+	Attachment,
+	Mark,
+	Annotation,
+	Document,
+	DocumentNode,
+	TextProperty,
+	AnnotatedText,
+	ValidateDocumentSchema,
+	Inspection,
+	DocumentOperation,
+	SessionConfig
+} from './types.js';
 
 /**
  * Identity function — keeps schema at runtime & makes IDE infer types.
  * Similar to your define_schema pattern but for document schemas.
- *
- * @template {Record<string, NodeSchema>} S
- * @param {S & ValidateDocumentSchema<S>} schema - The document schema to validate
- * @returns {S} The same schema, but with type information preserved
  */
-export function define_document_schema(schema) {
+export function define_document_schema<S extends Record<string, NodeSchema>>(
+	schema: S & ValidateDocumentSchema<S>
+): S {
 	return schema;
 }
 
 /**
  * Check if a string represents a valid primitive type.
- * @param {string} type - The type string to check
- * @returns {type is PrimitiveType} True if it's a valid primitive type
  */
-export function is_primitive_type(type) {
+export function is_primitive_type(type: string): type is PrimitiveType {
 	return [
 		'string',
 		'number',
@@ -50,10 +67,11 @@ export function is_primitive_type(type) {
 
 /**
  * Get the default node type for a property that references nodes.
- * @param {NodeProperty | NodeArrayProperty} property_definition - The property definition
- * @returns {string | null} The default node type, or null if none specified
+ * Returns null if none specified.
  */
-export function get_default_node_type(property_definition) {
+export function get_default_node_type(
+	property_definition: NodeProperty | NodeArrayProperty
+): string | null {
 	if (!property_definition || !property_definition.node_types) {
 		return null;
 	}
@@ -64,11 +82,8 @@ export function get_default_node_type(property_definition) {
 	);
 }
 
-/**
- * @param {import('./types').PropertyDefinition} property_definition
- * @returns {any}
- */
-export function get_property_default(property_definition) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function get_property_default(property_definition: PropertyDefinition): any {
 	if ('default' in property_definition) return structuredClone(property_definition.default);
 
 	if (property_definition.type === 'string') return '';
@@ -97,11 +112,9 @@ export function get_property_default(property_definition) {
  * schema changes cannot be represented by defaults, such as property renames or
  * data transformations.
  *
- * @param {any} node - The node to fill defaults for
- * @param {DocumentSchema} schema - The document schema
- * @returns {any} A shallow copy of the node with cloned default values filled in
+ * @returns A shallow copy of the node with cloned default values filled in
  */
-export function fill_node_defaults(node, schema) {
+export function fill_node_defaults(node: DocumentNode, schema: DocumentSchema): DocumentNode {
 	const node_schema = schema[node.type];
 	if (!node_schema) return { ...node };
 
@@ -124,13 +137,10 @@ export function fill_node_defaults(node, schema) {
  * by itself. Call this as one step in an explicit document migration when it is
  * appropriate.
  *
- * @param {Document} doc - The document to fill defaults for
- * @param {DocumentSchema} schema - The document schema
- * @returns {Document} A document copy with cloned default values filled in
+ * @returns A document copy with cloned default values filled in
  */
-export function fill_document_defaults(doc, schema) {
-	/** @type {Record<string, any>} */
-	const nodes = {};
+export function fill_document_defaults(doc: Document, schema: DocumentSchema): Document {
+	const nodes: Record<string, DocumentNode> = {};
 
 	for (const [node_id, node] of Object.entries(doc.nodes)) {
 		nodes[node_id] = fill_node_defaults(node, schema);
@@ -144,10 +154,9 @@ export function fill_document_defaults(doc, schema) {
 
 /**
  * Validate a document schema to ensure all referenced node types exist.
- * @param {DocumentSchema} document_schema - The document schema to validate
  * @throws {Error} Throws if the document schema is invalid
  */
-export function validate_document_schema(document_schema) {
+export function validate_document_schema(document_schema: DocumentSchema): void {
 	// Check that all referenced node types exist
 	for (const [node_type, node_schema] of Object.entries(document_schema)) {
 		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
@@ -167,7 +176,7 @@ export function validate_document_schema(document_schema) {
 				for (const [key, expected_kind] of [
 					['mark_types', 'mark'],
 					['annotation_types', 'annotation']
-				]) {
+				] as const) {
 					const invalid_types = (prop_def[key] ?? []).filter(
 						(ref_type) => document_schema[ref_type]?.kind !== expected_kind
 					);
@@ -188,11 +197,9 @@ export function validate_document_schema(document_schema) {
  * Marks render in-place via components; annotations are data-only overlay
  * ranges that must be interpreted by the app (via CSS classes or props).
  *
- * @param {DocumentSchema} schema - The document schema
- * @param {any} config - The Svedit config
  * @throws {Error} Throws if a kind 'annotation' type has a registered component
  */
-export function validate_config_components(schema, config) {
+export function validate_config_components(schema: DocumentSchema, config: SessionConfig): void {
 	for (const [node_type, node_schema] of Object.entries(schema)) {
 		if (node_schema.kind === 'annotation' && config?.node_components?.[node_type]) {
 			throw new Error(
@@ -204,11 +211,9 @@ export function validate_config_components(schema, config) {
 
 /**
  * Validate a primitive value against its schema type.
- * @param {PrimitiveType} type - The expected type
- * @param {any} value - The value to validate
- * @returns {boolean} True if the value matches the type
  */
-function validate_primitive_value(type, value) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function validate_primitive_value(type: PrimitiveType, value: any): boolean {
 	switch (type) {
 		case 'string':
 			return typeof value === 'string';
@@ -244,26 +249,18 @@ function validate_primitive_value(type, value) {
 /**
  * Validate ranges (marks or annotations) for bounds, references, and allowed types.
  *
- * @param {string} node_id - Owner node id, used for error messages
- * @param {string} prop_name - Owner property name, used for error messages
- * @param {'mark' | 'annotation'} label - Range label, used for error messages
- * @param {Array<Attachment>} ranges - Ranges to validate
- * @param {number} container_length - Length of the annotated text or node array
- * @param {Array<string> | null | undefined} allowed_types - Allowed node types
- * @param {Record<string, any>} all_nodes - All document nodes
- * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if ranges are invalid
  */
 function validate_range_array(
-	node_id,
-	prop_name,
-	label,
-	ranges,
-	container_length,
-	allowed_types,
-	all_nodes,
-	require_references
-) {
+	node_id: string,
+	prop_name: string,
+	label: 'mark' | 'annotation',
+	ranges: Array<Attachment>,
+	container_length: number,
+	allowed_types: Array<string> | null | undefined,
+	all_nodes: Record<string, DocumentNode>,
+	require_references: boolean
+): void {
 	for (const [index, range] of ranges.entries()) {
 		if (
 			typeof range !== 'object' ||
@@ -312,24 +309,17 @@ function validate_range_array(
  *
  * Marks must be mutually exclusive; annotations may overlap.
  *
- * @param {string} node_id - Owner node id, used for error messages
- * @param {string} prop_name - Owner property name, used for error messages
- * @param {{ marks: Array<Mark>, annotations: Array<Annotation> }} value - Annotated value to validate
- * @param {{ mark_types?: string[], annotation_types?: string[] }} prop_def - Property definition
- * @param {number} container_length - Length of the annotated text or node array
- * @param {Record<string, any>} all_nodes - All document nodes
- * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if marks or annotations are invalid
  */
 function validate_marks_and_annotations(
-	node_id,
-	prop_name,
-	value,
-	prop_def,
-	container_length,
-	all_nodes,
-	require_references
-) {
+	node_id: string,
+	prop_name: string,
+	value: { marks: Array<Mark>; annotations: Array<Annotation> },
+	prop_def: { mark_types?: string[]; annotation_types?: string[] },
+	container_length: number,
+	all_nodes: Record<string, DocumentNode>,
+	require_references: boolean
+): void {
 	validate_range_array(
 		node_id,
 		prop_name,
@@ -363,22 +353,16 @@ function validate_marks_and_annotations(
  * Validate text property marks and annotations for bounds, references, allowed
  * types, and mark exclusivity.
  *
- * @param {string} node_id - Owner node id, used for error messages
- * @param {string} prop_name - Owner property name, used for error messages
- * @param {AnnotatedText} value - Annotated text value to validate
- * @param {TextProperty} prop_def - Text property definition
- * @param {Record<string, any>} all_nodes - All document nodes
- * @param {boolean} require_references - Whether referenced nodes must already exist
  * @throws {Error} Throws if marks or annotations are invalid
  */
 function validate_text_property(
-	node_id,
-	prop_name,
-	value,
-	prop_def,
-	all_nodes,
-	require_references
-) {
+	node_id: string,
+	prop_name: string,
+	value: AnnotatedText,
+	prop_def: TextProperty,
+	all_nodes: Record<string, DocumentNode>,
+	require_references: boolean
+): void {
 	const char_length = get_char_length(value.content);
 	validate_marks_and_annotations(
 		node_id,
@@ -391,23 +375,25 @@ function validate_text_property(
 	);
 }
 
-/**
- * @param {string} id
- * @returns {boolean}
- */
-export function is_id_valid(id) {
+export function is_id_valid(id: string): boolean {
 	return typeof id === 'string' && id.length > 0 && is_path_string_segment_valid(id);
 }
 
 /**
  * Validate a node against its schema.
- * @param {any} node - The node to validate
- * @param {DocumentSchema} schema - The document schema
- * @param {Record<string, any>} all_nodes - All nodes in the document to check references
- * @param {{ require_references?: boolean }} [options] - Validation options
+ *
+ * @param node - The node to validate
+ * @param schema - The document schema
+ * @param all_nodes - All nodes in the document to check references
+ * @param options - Validation options
  * @throws {Error} Throws if the node is invalid
  */
-export function validate_node(node, schema, all_nodes = {}, options = {}) {
+export function validate_node(
+	node: DocumentNode,
+	schema: DocumentSchema,
+	all_nodes: Record<string, DocumentNode> = {},
+	options: { require_references?: boolean } = {}
+): void {
 	const require_references = options.require_references ?? true;
 	if (!is_id_valid(node.id)) {
 		throw new Error(`Node ${node.id} has an invalid id.`);
@@ -435,7 +421,7 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 				node.id,
 				prop_name,
 				value,
-				/** @type {TextProperty} */ (prop_def),
+				prop_def as TextProperty,
 				all_nodes,
 				require_references
 			);
@@ -459,7 +445,7 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 			}
 			if (!prop_def.node_types.includes(referenced_node.type)) {
 				throw new Error(
-					`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${/** @type {NodeProperty} */ (prop_def).node_types.join(', ')}] are allowed.`
+					`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${(prop_def as NodeProperty).node_types.join(', ')}] are allowed.`
 				);
 			}
 		}
@@ -479,7 +465,7 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 
 			const node_array_nodes = value.nodes;
 
-			if (!node_array_nodes.every((id) => typeof id === 'string' && is_id_valid(id))) {
+			if (!node_array_nodes.every((id: unknown) => typeof id === 'string' && is_id_valid(id))) {
 				throw new Error(
 					`Node ${node.id} has an invalid property: ${prop_name} must contain valid node ids.`
 				);
@@ -518,11 +504,9 @@ export function validate_node(node, schema, all_nodes = {}, options = {}) {
 /**
  * Validate a document against its schema.
  *
- * @param {Document} doc - The document to validate
- * @param {DocumentSchema} schema - The document schema
  * @throws {Error} Throws if the document is invalid
  */
-export function validate_document(doc, schema) {
+export function validate_document(doc: Document, schema: DocumentSchema): void {
 	if (!is_id_valid(doc.document_id)) {
 		throw new Error(`Document ${doc.document_id} has an invalid id.`);
 	}
@@ -540,12 +524,13 @@ export function validate_document(doc, schema) {
 /**
  * Gets a value from the document at the specified path.
  *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {DocumentPath|string} path - Array path to the value, or a string node ID
- * @returns {any} The value at the specified path
+ * @param schema - The document schema
+ * @param doc - The document containing nodes
+ * @param path - Array path to the value, or a string node ID
+ * @returns The value at the specified path
  */
-export function get(schema, doc, path) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): any {
 	if (typeof path === 'string') {
 		path = [path];
 	}
@@ -553,7 +538,8 @@ export function get(schema, doc, path) {
 		throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 	}
 
-	let val = doc.nodes[path[0]];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let val: any = doc.nodes[path[0]];
 	let val_type = 'node';
 
 	for (let i = 1; i < path.length; i++) {
@@ -644,13 +630,8 @@ export function get(schema, doc, path) {
 
 /**
  * Gets the type of a property from the schema.
- *
- * @param {object} schema - The document schema
- * @param {string} type - The node type
- * @param {string} property - The property name
- * @returns {string} The property type
  */
-export function property_type(schema, type, property) {
+export function property_type(schema: DocumentSchema, type: string, property: string): string {
 	if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
 	if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
 
@@ -665,28 +646,19 @@ export function property_type(schema, type, property) {
 }
 
 /**
- * Determines the kind of a node ('block', 'text', 'mark', or 'annotation').
- *
- * @param {object} schema - The document schema
- * @param {any} node - The node to check
- * @returns {'block'|'text'|'mark'|'annotation'} The node kind
+ * Determines the kind of a node ('document', 'block', 'text', 'mark', or 'annotation').
  */
-export function kind(schema, node) {
+export function kind(schema: DocumentSchema, node: DocumentNode): NodeKind {
 	return schema[node.type].kind;
 }
 
 /**
  * Inspects a path to get metadata about the value at that location.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {DocumentPath} path - The path to inspect
- * @returns {{kind: 'property'|'node', [key: string]: any}} Metadata about the path
  */
-export function inspect(schema, doc, path) {
+export function inspect(schema: DocumentSchema, doc: Document, path: DocumentPath): Inspection {
 	const parent = path.length > 1 ? get(schema, doc, path.slice(0, -1)) : undefined;
 	if (parent?.type) {
-		const property_name = path.at(-1);
+		const property_name = path.at(-1) as string;
 		return {
 			kind: 'property',
 			name: property_name,
@@ -712,10 +684,9 @@ export function inspect(schema, doc, path) {
  * (fine-grained rendering relies on this) and the original document is
  * never touched.
  *
- * @param {Document} doc - The document to create a draft of
- * @returns {Document} A draft document safe to mutate via apply_op_to_draft
+ * @returns A draft document safe to mutate via apply_op_to_draft
  */
-export function create_document_draft(doc) {
+export function create_document_draft(doc: Document): Document {
 	return {
 		...doc,
 		nodes: { ...doc.nodes }
@@ -730,11 +701,11 @@ export function create_document_draft(doc) {
  * previous one-copy-per-op behavior, which made transactions with many ops
  * (paste, cascade delete) O(N·ops).
  *
- * @param {Document} draft - A draft created via create_document_draft
- * @param {Array} op - The operation to apply [type, ...args]
- * @returns {Document} The same draft, for convenience
+ * @param draft - A draft created via create_document_draft
+ * @param op - The operation to apply [type, ...args]
+ * @returns The same draft, for convenience
  */
-export function apply_op_to_draft(draft, op) {
+export function apply_op_to_draft(draft: Document, op: DocumentOperation): Document {
 	const [type, ...args] = op;
 	if (type === 'set') {
 		const [node_id, property] = args[0];
@@ -754,23 +725,18 @@ export function apply_op_to_draft(draft, op) {
  * Applies an operation to a document and returns the new document.
  * Uses copy-on-write semantics.
  *
- * @param {Document} doc - The document to apply the operation to
- * @param {Array} op - The operation to apply [type, ...args]
- * @returns {Document} The new document with the operation applied
+ * @param doc - The document to apply the operation to
+ * @param op - The operation to apply [type, ...args]
+ * @returns The new document with the operation applied
  */
-export function apply_op(doc, op) {
+export function apply_op(doc: Document, op: DocumentOperation): Document {
 	return apply_op_to_draft(create_document_draft(doc), op);
 }
 
 /**
  * Counts how many times a node is referenced in the document.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {NodeId} node_id - The node ID to count references for
- * @returns {number} The number of references
  */
-export function count_references(schema, doc, node_id) {
+export function count_references(schema: DocumentSchema, doc: Document, node_id: NodeId): number {
 	let count = 0;
 
 	for (const node of Object.values(doc.nodes)) {
@@ -780,7 +746,7 @@ export function count_references(schema, doc, node_id) {
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				count += value.nodes.filter((id) => id === node_id).length;
+				count += value.nodes.filter((id: NodeId) => id === node_id).length;
 			} else if (prop_type === 'node' && value === node_id) {
 				count += 1;
 			}
@@ -797,12 +763,13 @@ export function count_references(schema, doc, node_id) {
 }
 
 /**
- * @param {DocumentSchema} schema - The document schema
- * @param {string} from_type - Current mark type
- * @param {string} to_type - Target mark type
- * @returns {boolean} Whether a mark can be switched between these types
+ * Whether a mark can be switched between these types.
  */
-export function can_switch_mark_type(schema, from_type, to_type) {
+export function can_switch_mark_type(
+	schema: DocumentSchema,
+	from_type: string,
+	to_type: string
+): boolean {
 	const from_schema = schema[from_type];
 	const to_schema = schema[to_type];
 	return (
@@ -814,6 +781,12 @@ export function can_switch_mark_type(schema, from_type, to_type) {
 }
 
 /**
+ * An attachment (mark or annotation) enriched with its index in the parent
+ * attachment array and the resolved payload node.
+ */
+export type SelectedAttachment = Attachment & { index: number; node: DocumentNode };
+
+/**
  * Gets ranges of the given key ('marks' or 'annotations') touched by the
  * current selection.
  *
@@ -821,14 +794,13 @@ export function can_switch_mark_type(schema, from_type, to_type) {
  * adjacent boundaries do not count as touching. Collapsed text carets are only
  * inside a range when they are strictly between start and end; a caret at
  * either boundary is not active.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {Selection | null | undefined} selection - The current selection
- * @param {'marks' | 'annotations'} key - Which range array to inspect
- * @returns {(Attachment & { index: number, node: any })[]} Selected attachment records
  */
-function get_selected_ranges(schema, doc, selection, key) {
+function get_selected_ranges(
+	schema: DocumentSchema,
+	doc: Document,
+	selection: Selection | null | undefined,
+	key: 'marks' | 'annotations'
+): SelectedAttachment[] {
 	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
 	const range = get_selection_range(selection);
 	if (!range) return [];
@@ -838,7 +810,7 @@ function get_selected_ranges(schema, doc, selection, key) {
 	const is_collapsed = range.start_offset === range.end_offset;
 
 	return ranges
-		.map((/** @type {Attachment} */ attachment, index) => {
+		.map((attachment: Attachment, index: number) => {
 			const node = doc.nodes[attachment.node_id];
 			return {
 				...attachment,
@@ -846,7 +818,7 @@ function get_selected_ranges(schema, doc, selection, key) {
 				node
 			};
 		})
-		.filter(({ start_offset, end_offset }) => {
+		.filter(({ start_offset, end_offset }: SelectedAttachment) => {
 			if (is_collapsed) {
 				return start_offset < range.start_offset && end_offset > range.start_offset;
 			}
@@ -856,46 +828,44 @@ function get_selected_ranges(schema, doc, selection, key) {
 
 /**
  * Gets marks touched by the current selection.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {Selection} [selection] - The current selection
- * @returns {(Mark & { index: number, node: any })[]} Selected mark records
  */
-export function get_selected_marks(schema, doc, selection) {
+export function get_selected_marks(
+	schema: DocumentSchema,
+	doc: Document,
+	selection?: Selection | null
+): SelectedAttachment[] {
 	return get_selected_ranges(schema, doc, selection, 'marks');
 }
 
 /**
  * Gets annotations touched by the current selection.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {Selection} [selection] - The current selection
- * @returns {(Annotation & { index: number, node: any })[]} Selected annotation records
  */
-export function get_selected_annotations(schema, doc, selection) {
+export function get_selected_annotations(
+	schema: DocumentSchema,
+	doc: Document,
+	selection?: Selection | null
+): SelectedAttachment[] {
 	return get_selected_ranges(schema, doc, selection, 'annotations');
 }
 
 /**
- * @param {(Attachment & { index: number, node: any })[]} selected_ranges
- * @returns {Set<string>} Node types represented in the selected ranges
+ * Node types represented in the selected ranges.
  */
-export function get_selected_range_types(selected_ranges) {
-	return new Set(selected_ranges.map(({ node }) => node?.type).filter(Boolean));
+export function get_selected_range_types(selected_ranges: SelectedAttachment[]): Set<string> {
+	return new Set(
+		selected_ranges.map(({ node }) => node?.type).filter((type): type is string => Boolean(type))
+	);
 }
 
 /**
  * Counts references to a node, excluding nodes marked for deletion.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {NodeId} target_node_id - The node ID to count references for
- * @param {Record<NodeId, boolean>} nodes_to_delete - Nodes marked for deletion
- * @returns {number} The number of references excluding deleted nodes
  */
-export function count_references_excluding_deleted(schema, doc, target_node_id, nodes_to_delete) {
+export function count_references_excluding_deleted(
+	schema: DocumentSchema,
+	doc: Document,
+	target_node_id: NodeId,
+	nodes_to_delete: Record<NodeId, boolean>
+): number {
 	let count = 0;
 
 	for (const node of Object.values(doc.nodes)) {
@@ -907,7 +877,7 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				count += value.nodes.filter((id) => id === target_node_id).length;
+				count += value.nodes.filter((id: NodeId) => id === target_node_id).length;
 			} else if (prop_type === 'node' && value === target_node_id) {
 				count += 1;
 			}
@@ -929,12 +899,12 @@ export function count_references_excluding_deleted(schema, doc, target_node_id, 
  * Covers the same reference kinds as count_references_excluding_deleted:
  * a `node` property, `node_array` .nodes ids, and the mark/annotation
  * node_ids carried on `text` and `node_array` properties.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {any} node - The node whose outgoing references to visit
- * @param {(referenced_id: NodeId) => void} visit - Called per reference occurrence
  */
-export function visit_node_references(schema, node, visit) {
+export function visit_node_references(
+	schema: DocumentSchema,
+	node: DocumentNode,
+	visit: (referenced_id: NodeId) => void
+): void {
 	const node_schema = schema[node.type];
 	if (!node_schema) return;
 
@@ -961,14 +931,9 @@ export function visit_node_references(schema, node, visit) {
  * Builds reference counts for every referenced node in one full-document
  * scan. Used by cascade deletion so the fixpoint can decrement counts
  * incrementally instead of re-scanning the document per candidate node.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @returns {Map<NodeId, number>} Reference count per referenced node id
  */
-export function build_reference_counts(schema, doc) {
-	/** @type {Map<NodeId, number>} */
-	const counts = new Map();
+export function build_reference_counts(schema: DocumentSchema, doc: Document): Map<NodeId, number> {
+	const counts: Map<NodeId, number> = new Map();
 	for (const node of Object.values(doc.nodes)) {
 		visit_node_references(schema, node, (id) => {
 			counts.set(id, (counts.get(id) || 0) + 1);
@@ -979,15 +944,14 @@ export function build_reference_counts(schema, doc) {
 
 /**
  * Gets ids of nodes that reference any of the target nodes.
- *
- * @param {DocumentSchema} schema - The document schema
- * @param {Document} doc - The document containing nodes
- * @param {Iterable<NodeId>} target_node_ids - Node IDs to find referrers for
- * @returns {NodeId[]} IDs of nodes with references to any target node
  */
-export function get_referencing_node_ids(schema, doc, target_node_ids) {
+export function get_referencing_node_ids(
+	schema: DocumentSchema,
+	doc: Document,
+	target_node_ids: Iterable<NodeId>
+): NodeId[] {
 	const target_ids = new Set(target_node_ids);
-	const referencing_node_ids = new Set();
+	const referencing_node_ids: Set<NodeId> = new Set();
 	if (target_ids.size === 0) return [];
 
 	for (const node of Object.values(doc.nodes)) {
@@ -997,7 +961,7 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 			const prop_type = property_type(schema, node.type, property);
 
 			if (prop_type === 'node_array') {
-				if (value.nodes.some((id) => target_ids.has(id))) {
+				if (value.nodes.some((id: NodeId) => target_ids.has(id))) {
 					referencing_node_ids.add(node.id);
 				}
 			} else if (prop_type === 'node' && target_ids.has(value)) {
@@ -1007,9 +971,7 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
 			if (
 				(prop_type === 'text' || prop_type === 'node_array') &&
 				value &&
-				[...value.marks, ...value.annotations].some((range) =>
-					target_ids.has(range.node_id)
-				)
+				[...value.marks, ...value.annotations].some((range) => target_ids.has(range.node_id))
 			) {
 				referencing_node_ids.add(node.id);
 			}
@@ -1023,11 +985,16 @@ export function get_referencing_node_ids(schema, doc, target_node_ids) {
  * Validates a selection against the current document state.
  * Works with any object that implements get() and inspect() (Session or Transaction).
  *
- * @param {Selection} selection - The selection to validate
- * @param {{ get: Function, inspect: Function }} session_or_transaction - A Session or Transaction instance
  * @throws {Error} Throws if the selection is invalid
  */
-export function validate_selection(selection, session_or_transaction) {
+export function validate_selection(
+	selection: Selection | null | undefined,
+	session_or_transaction: {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		get: (path: DocumentPath) => any;
+		inspect: (path: DocumentPath) => Inspection;
+	}
+): void {
 	if (!selection) return;
 
 	const selection_type = selection.type;

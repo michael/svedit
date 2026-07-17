@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import '../styles/reset.css';
 	import '../styles/typography.css';
 	import '../styles/colors.css';

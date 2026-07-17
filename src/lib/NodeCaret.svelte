@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	/**
 	 * Visual insertion caret rendered inside the active insertion marker.
 	 *

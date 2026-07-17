@@ -1,12 +1,13 @@
-<script>
+<script lang="ts">
 	import { setContext } from 'svelte';
 	import { Svedit, Command, KeyMapper, define_keymap } from 'svedit';
 	import Toolbar from './components/Toolbar.svelte';
-	import create_demo_session from './create_demo_session.js';
+	import create_demo_session from './demo_session.js';
+	import { document_schema } from './demo_schema.js';
 
 	const session = create_demo_session();
-	let app_el;
-	let svedit_ref;
+	let app_el: HTMLElement | undefined;
+	let svedit_ref: Svedit<typeof document_schema> | undefined;
 	let editable = $state(true);
 
 	function focus_canvas() {

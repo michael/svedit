@@ -1,12 +1,12 @@
 import type Session from './Session.svelte.js';
-import type Svedit from './Svedit.svelte';
+import type { VisibilityRegistryApi } from './node_visibility.svelte.js';
 
 // ===== SVELTE TYPE IMPORTS =====
 
 /**
  * Import Svelte's Snippet type for properly typing children in components
  */
-import type { Component, Snippet } from 'svelte';
+import type { Snippet } from 'svelte';
 
 // ===== SELECTION TYPE DEFINITIONS =====
 
@@ -18,6 +18,13 @@ import type { Component, Snippet } from 'svelte';
  * dashes, and must not contain `__`.
  */
 export type NodeId = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DynamicRecord = Record<string, any>;
+export type SessionConfig = DynamicRecord;
+export type CommandRegistry = DynamicRecord;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DocumentOperation = [string, ...any[]];
 
 /**
  * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document.
@@ -98,54 +105,77 @@ export type PrimitiveType = ScalarType | ArrayType | RichType;
  */
 export type PropertyType = PrimitiveType | ReferenceType;
 
-// TODO: We may later want more sophisticated type inference, so that typing
-// e.g. `session.get('image')` auto-completes the node's properties based on
-// the schema definition. The types below are a starting point for that.
-//
-// export type DocumentSchemaPrimitive =
-// 	| 'string'
-// 	| 'number'
-// 	| 'boolean'
-// 	| 'integer'
-// 	| 'datetime'
-// 	| 'string_array'
-// 	| 'number_array'
-// 	| 'boolean_array'
-// 	| 'integer_array'
-// 	| 'text'
-// 	| 'node'
-// 	| 'node_array';
-//
-// export type DocumentSchemaValueToJs<T> = T extends 'string'
-// 	? string
-// 	: T extends 'number'
-// 		? number
-// 		: T extends 'boolean'
-// 			? boolean
-// 			: T extends 'integer'
-// 				? number
-// 				: T extends 'datetime'
-// 					? string
-// 					: T extends 'string_array'
-// 						? Array<string>
-// 						: T extends 'number_array'
-// 							? Array<number>
-// 							: T extends 'boolean_array'
-// 								? Array<boolean>
-// 								: T extends 'integer_array'
-// 									? Array<number>
-// 									: T extends 'text'
-// 										? AnnotatedText
-// 										: T extends 'node'
-// 											? string
-// 											: T extends 'node_array'
-// 												? Array<string>
-// 												: never;
-//
-// export type DocumentNodeToJs<S extends NodeSchema> = { id: string; type: string } & {
-// 	[K in keyof S['properties']]: DocumentSchemaValueToJs<S['properties'][K]['type']>;
-// };
+// ===== SCHEMA-DERIVED NODE TYPES =====
 
+/**
+ * Maps a schema property definition to the runtime value type it stores.
+ */
+export type PropertyValue<P extends PropertyDefinition> = P extends { type: 'string' }
+	? string
+	: P extends { type: 'number' }
+		? number
+		: P extends { type: 'integer' }
+			? number
+			: P extends { type: 'boolean' }
+				? boolean
+				: P extends { type: 'datetime' }
+					? string
+					: P extends { type: 'string_array' }
+						? string[]
+						: P extends { type: 'number_array' }
+							? number[]
+							: P extends { type: 'integer_array' }
+								? number[]
+								: P extends { type: 'boolean_array' }
+									? boolean[]
+									: P extends { type: 'text' }
+										? AnnotatedText
+										: P extends { type: 'node' }
+											? NodeId
+											: P extends { type: 'node_array' }
+												? AnnotatedNodeArray
+												: never;
+
+/**
+ * The runtime shape of a node of a specific type, derived from the schema.
+ *
+ * Falls back to the untyped DocumentNode when the schema is not a concrete
+ * schema literal (e.g. the DocumentSchema default of Session).
+ */
+export type NodeOfType<S extends DocumentSchema, T extends keyof S> = string extends keyof S
+	? DocumentNode
+	: {
+			id: NodeId;
+			type: T;
+		} & {
+			[K in keyof S[T]['properties']]: PropertyValue<S[T]['properties'][K]>;
+		};
+
+/**
+ * Discriminated union of all node types in a schema. Narrow with
+ * `node.type === '...'` to get exact property types.
+ *
+ * Falls back to the untyped DocumentNode when the schema is not a concrete
+ * schema literal (e.g. the DocumentSchema default of Session).
+ */
+export type AnyNode<S extends DocumentSchema> = string extends keyof S
+	? DocumentNode
+	: {
+			[T in keyof S]: NodeOfType<S, T>;
+		}[keyof S];
+
+/**
+ * Convenience map from node type name to its runtime node shape,
+ * e.g. `NodeMap<typeof document_schema>['story']`.
+ */
+export type NodeMap<S extends DocumentSchema> = {
+	[T in keyof S]: NodeOfType<S, T>;
+};
+
+/**
+ * Assert that a node is of the given type. Narrows the static type and
+ * checks at runtime — for call sites that know what they expect.
+ */
 /**
  * A property that stores text with optional marks and annotations and required allow_newlines setting.
  */
@@ -346,6 +376,13 @@ export type DocumentSchema = Record<string, NodeSchema>;
 export type DocumentNode = {
 	id: string;
 	type: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[key: string]: any;
+};
+
+export type Inspection = {
+	kind: 'property' | 'node';
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	[key: string]: any;
 };
 
@@ -360,6 +397,13 @@ export type Document = {
 	};
 };
 
+/** Converts a document node to HTML, with access to recursive exporters. */
+export type NodeHtmlExporter<S extends DocumentSchema = DocumentSchema> = (
+	node: DocumentNode,
+	session: Session<S>,
+	html_exporters: Record<string, NodeHtmlExporter<S>>
+) => string;
+
 /**
  * Props for the TextProperty component
  */
@@ -373,7 +417,7 @@ export type TextPropertyProps = {
 	/** A placeholder to be rendered for empty content */
 	placeholder?: string;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -389,7 +433,7 @@ export type CustomPropertyProps = {
 	/** The content of the custom property (e.g. an image) */
 	children: Snippet;
 	/** Rest props to spread onto the rendered element */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -403,7 +447,7 @@ export type NodeArrayPropertyProps = {
 	/** The `class` attribute on the container element */
 	class?: string;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
@@ -423,15 +467,15 @@ export type NodeProps = {
 	/** The type-specific content of the node */
 	children: Snippet;
 	/** Rest props to spread onto the rendered element (e.g. href, target, etc.) */
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
 /**
  * Props for the Svedit component
  */
-export type SveditProps = {
-	/** The session instance */
-	session: Session;
+export type SveditProps<S extends DocumentSchema = DocumentSchema> = {
+	/** The schema-typed session instance */
+	session: Session<S>;
 	/** Determines wether the document should be editable or read-only. */
 	editable?: boolean;
 	/** The path to the root element (e.g. ['page_1']) */
@@ -442,6 +486,24 @@ export type SveditProps = {
 	autocapitalize?: 'on' | 'off';
 	/** The `spellcheck` attribute on the canvas element */
 	spellcheck?: 'true' | 'false';
+};
+
+/**
+ * Context provided by the Svedit component to commands and descendant components.
+ */
+export type SveditContext<S extends DocumentSchema = DocumentSchema> = {
+	session: Session<S>;
+	editable: boolean;
+	is_composing: boolean;
+	canvas_el: HTMLElement | undefined;
+	canvas_focused: boolean;
+	focus_canvas: () => void;
+	visibility_registry?: VisibilityRegistryApi;
+};
+
+/** Internal descendant context after Svedit's visibility registry is installed. */
+export type SveditRenderContext<S extends DocumentSchema = DocumentSchema> = SveditContext<S> & {
+	visibility_registry: VisibilityRegistryApi;
 };
 
 /**
@@ -500,6 +562,13 @@ export type NodeArrayAttachmentContext = {
 	is_end: boolean;
 };
 
+/** Internal context shared by a node array and its rendered child nodes. */
+export type NodeArrayRenderContext = {
+	length: number;
+	mark_for: (node_index: number) => NodeArrayAttachmentContext | null;
+	annotations_for: (node_index: number) => NodeArrayAttachmentContext[];
+};
+
 /**
  * Represents a selection highlight fragment for non-annotated text selections
  */
@@ -514,7 +583,7 @@ export type SelectionHighlightFragment = {
 export type MarkFragment = {
 	type: 'mark';
 	/** NodeId that has mark type and details */
-	node: any;
+	node: DocumentNode;
 	/** The text content of the mark */
 	content: string;
 	/** Index of the mark in the original array */
@@ -541,7 +610,7 @@ export type NodeArrayPlainFragment = {
 export type NodeArrayMarkFragment = {
 	type: 'mark';
 	/** NodeId that has mark type and details */
-	node: any;
+	node: DocumentNode;
 	/** The nodes wrapped by the mark */
 	nodes: Array<NodeId>;
 	/** Start index in the original nodes array */

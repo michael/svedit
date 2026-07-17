@@ -1,9 +1,12 @@
-<script>
-	import { getContext } from 'svelte';
+<script lang="ts">
 	import { Node, TextProperty, CustomProperty } from 'svedit';
-	const svedit = getContext('svedit');
-	let { path } = $props();
-	let node = $derived(svedit.session.get(path));
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../demo_schema.js';
+
+	const svedit = get_svedit_context();
+	let { path }: { path: DocumentPath } = $props();
+	let node: Nodes['image_grid_item'] = $derived(svedit.session.get(path));
 </script>
 
 <Node {path}>

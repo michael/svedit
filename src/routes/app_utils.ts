@@ -1,4 +1,12 @@
 import { get_property_default } from 'svedit';
+import type {
+	AnnotatedNodeArray,
+	DocumentNode,
+	DocumentPath,
+	DocumentSchema,
+	PropertyDefinition
+} from 'svedit';
+import type { AppSession } from './demo_session.js';
 
 /**
  * Build the full path (including selected node index) and the starting
@@ -7,10 +15,10 @@ import { get_property_default } from 'svedit';
  * For node selections, the selected node index is the lower edge of the
  * selection range. For text/property selections, the path already contains all indices.
  *
- * @param {import('svedit').Session} session
- * @returns {{ full_path: (string|number)[], start_path: (string|number)[] } | null}
  */
-function get_ancestor_walk_paths(session) {
+function get_ancestor_walk_paths(
+	session: AppSession
+): { full_path: DocumentPath; start_path: DocumentPath } | null {
 	if (!session.selection) return null;
 
 	if (session.selection.type === 'node') {
@@ -42,23 +50,17 @@ function get_ancestor_walk_paths(session) {
 /**
  * Extract the numeric node index from full_path at the given ancestor level.
  *
- * @param {(string|number)[]} full_path
- * @param {(string|number)[]} ancestor_path
- * @returns {number | null}
  */
-function get_node_index_at(full_path, ancestor_path) {
+function get_node_index_at(full_path: DocumentPath, ancestor_path: DocumentPath): number | null {
 	if (full_path.length <= ancestor_path.length) return null;
-	return parseInt(String(full_path[ancestor_path.length]));
+	return full_path[ancestor_path.length] as number;
 }
 
 /**
  * Compare schema/value objects deeply. Object key order is ignored, array order is not.
  *
- * @param {any} left
- * @param {any} right
- * @returns {boolean}
  */
-function are_values_equal(left, right) {
+function are_values_equal(left: unknown, right: unknown): boolean {
 	if (Object.is(left, right)) return true;
 	if (typeof left !== typeof right) return false;
 	if (left === null || right === null) return false;
@@ -70,11 +72,14 @@ function are_values_equal(left, right) {
 	}
 
 	if (typeof left === 'object') {
+		const left_record = left as Record<string, unknown>;
+		const right_record = right as Record<string, unknown>;
 		const left_keys = Object.keys(left);
 		const right_keys = Object.keys(right);
 		if (left_keys.length !== right_keys.length) return false;
 		return left_keys.every(
-			(key) => Object.hasOwn(right, key) && are_values_equal(left[key], right[key])
+			(key) =>
+				Object.hasOwn(right_record, key) && are_values_equal(left_record[key], right_record[key])
 		);
 	}
 
@@ -84,10 +89,8 @@ function are_values_equal(left, right) {
 /**
  * Check if a primitive or custom extra value is empty without schema context.
  *
- * @param {any} value
- * @returns {boolean}
  */
-function is_empty_literal(value) {
+function is_empty_literal(value: unknown): boolean {
 	if (value === undefined || value === null || value === '') return true;
 	if (Array.isArray(value)) return value.length === 0;
 	return false;
@@ -96,22 +99,25 @@ function is_empty_literal(value) {
 /**
  * Check if a property value is empty/default, recursing through child nodes.
  *
- * @param {import('svedit').Session} session
- * @param {object} property_definition
- * @param {any} value
- * @returns {boolean}
  */
-function is_property_value_empty(session, property_definition, value) {
+function is_property_value_empty(
+	session: AppSession,
+	property_definition: PropertyDefinition,
+	value: unknown
+): boolean {
 	if (property_definition.type === 'node') {
 		if (is_empty_literal(value)) return true;
+		if (typeof value !== 'string') return false;
 		const child_node = session.get(value);
 		return child_node ? is_node_subtree_empty(session, child_node) : false;
 	}
 
 	if (property_definition.type === 'node_array') {
-		if (!Array.isArray(value?.nodes)) return false;
-		if (value.marks?.length > 0 || value.annotations?.length > 0) return false;
-		return value.nodes.every((node_id) => {
+		if (!value || typeof value !== 'object') return false;
+		const node_array = value as AnnotatedNodeArray;
+		if (!Array.isArray(node_array.nodes)) return false;
+		if (node_array.marks?.length > 0 || node_array.annotations?.length > 0) return false;
+		return node_array.nodes.every((node_id: string) => {
 			const child_node = session.get(node_id);
 			return child_node ? is_node_subtree_empty(session, child_node) : false;
 		});
@@ -124,17 +130,21 @@ function is_property_value_empty(session, property_definition, value) {
 /**
  * Check whether a node and all descendants contain only empty/default values.
  *
- * @param {import('svedit').Session} session
- * @param {object} node
- * @returns {boolean}
  */
-export function is_node_subtree_empty(session, node) {
+export function is_node_subtree_empty(session: AppSession, node: DocumentNode): boolean {
 	const node_schema = session.schema[node.type];
 	if (!node_schema) return false;
 
 	for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
 		if (property_name === 'layout') continue;
-		if (!is_property_value_empty(session, property_definition, node[property_name])) return false;
+		if (
+			!is_property_value_empty(
+				session,
+				property_definition as PropertyDefinition,
+				node[property_name]
+			)
+		)
+			return false;
 	}
 
 	for (const property_name of Object.keys(node)) {
@@ -149,12 +159,12 @@ export function is_node_subtree_empty(session, node) {
 /**
  * Check whether two node types have exactly equivalent property schemas.
  *
- * @param {object} schema
- * @param {string} source_type
- * @param {string} target_type
- * @returns {boolean}
  */
-function have_same_property_schema(schema, source_type, target_type) {
+function have_same_property_schema(
+	schema: DocumentSchema,
+	source_type: string,
+	target_type: string
+): boolean {
 	const source_properties = schema[source_type]?.properties;
 	const target_properties = schema[target_type]?.properties;
 	return (
@@ -168,10 +178,10 @@ function have_same_property_schema(schema, source_type, target_type) {
  * Find the closest ancestor node whose type can be switched
  * (lives in a node_array with multiple node_types).
  *
- * @param {import('svedit').Session} session - The session instance
- * @returns {{ node: object, node_array_path: (string|number)[], node_index: number } | null}
  */
-export function get_closest_switchable_type(session) {
+export function get_closest_switchable_type(
+	session: AppSession
+): { node: DocumentNode; node_array_path: DocumentPath; node_index: number } | null {
 	const paths = get_ancestor_walk_paths(session);
 	if (!paths) return null;
 
@@ -204,10 +214,13 @@ export function get_closest_switchable_type(session) {
 /**
  * Get the current cycle node state, including compatible target types.
  *
- * @param {import('svedit').Session} session - The session instance
- * @returns {{ node: object, node_array_path: (string|number)[], node_index: number, available_types: string[] } | null}
  */
-export function get_cycle_node_state(session) {
+export function get_cycle_node_state(session: AppSession): {
+	node: DocumentNode;
+	node_array_path: DocumentPath;
+	node_index: number;
+	available_types: string[];
+} | null {
 	const closest_switchable_type = get_closest_switchable_type(session);
 	if (!closest_switchable_type) return null;
 
@@ -227,7 +240,7 @@ export function get_cycle_node_state(session) {
 	const node_is_empty = is_node_subtree_empty(session, node);
 	const available_types = node_is_empty
 		? cycle_ordered_types
-		: cycle_ordered_types.filter((node_type) =>
+		: cycle_ordered_types.filter((node_type: string) =>
 				have_same_property_schema(session.schema, node.type, node_type)
 			);
 
@@ -238,11 +251,11 @@ export function get_cycle_node_state(session) {
  * Find the closest ancestor node whose layout can be switched
  * (has a layout property and `node_layouts[type] > 1`).
  *
- * @param {import('svedit').Session} session - The session instance
- * @param {object} session_config - The session config (so it can check session_config.node_layouts)
- * @returns {{ node: object, node_array_path: (string|number)[], node_index: number } | null}
  */
-export function get_closest_switchable_layout(session, session_config) {
+export function get_closest_switchable_layout(
+	session: AppSession,
+	app_config: { node_layouts?: Record<string, number> }
+): { node: DocumentNode; node_array_path: DocumentPath; node_index: number } | null {
 	const paths = get_ancestor_walk_paths(session);
 	if (!paths) return null;
 
@@ -254,7 +267,7 @@ export function get_closest_switchable_layout(session, session_config) {
 		const node_index = get_node_index_at(full_path, path);
 		if (node_index !== null) {
 			const node = session.get([...path, node_index]);
-			if (node?.layout && session_config.node_layouts?.[node.type] > 1) {
+			if (node?.layout && app_config.node_layouts?.[node.type] > 1) {
 				return { node, node_array_path: path, node_index };
 			}
 		}

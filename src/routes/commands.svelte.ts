@@ -1,21 +1,31 @@
 import Command from '$lib/Command.svelte.js';
+import type { CommandContext } from '$lib/Command.svelte.js';
 import { is_selection_collapsed } from '$lib/utils.js';
+import type { Transaction, DocumentNode, DocumentPath } from 'svedit';
 import {
 	get_closest_switchable_layout,
 	get_cycle_node_state,
 	is_node_subtree_empty
 } from './app_utils.js';
+import type { AppSession } from './demo_session.js';
+
+export type AppCommandContext = CommandContext & { session: AppSession };
 
 /**
  * Command that cycles through available layouts for a node.
  * Direction can be 'next' or 'previous'.
  */
 export class CycleLayoutCommand extends Command {
+	direction: 'next' | 'previous';
+
 	closest_switchable_layout = $derived(
-		get_closest_switchable_layout(this.context.session, this.context.session.config)
+		get_closest_switchable_layout(
+			this.context.session as AppSession,
+			(this.context.session as AppSession).config
+		)
 	);
 
-	constructor(direction, context) {
+	constructor(direction: 'next' | 'previous', context: AppCommandContext) {
 		super(context);
 		this.direction = direction;
 	}
@@ -25,7 +35,7 @@ export class CycleLayoutCommand extends Command {
 	}
 
 	execute() {
-		const session = this.context.session;
+		const session = this.context.session as AppSession;
 		const { node, node_array_path, node_index } = this.closest_switchable_layout;
 		const layout_count = session.config.node_layouts[node.type];
 
@@ -51,16 +61,16 @@ export class CycleLayoutCommand extends Command {
 
 /**
  * Replace a node with a schema-equivalent node type while preserving property values.
- *
- * @param {import('svedit').Transaction} tr
- * @param {(string|number)[]} node_array_path
- * @param {number} node_index
- * @param {object} node
- * @param {string} new_type
  */
-function replace_node_with_equivalent_type(tr, node_array_path, node_index, node, new_type) {
+function replace_node_with_equivalent_type(
+	tr: Transaction,
+	node_array_path: DocumentPath,
+	node_index: number,
+	node: DocumentNode,
+	new_type: string
+) {
 	const node_schema = tr.schema[node.type];
-	const new_node = {
+	const new_node: DocumentNode = {
 		id: tr.generate_id(),
 		type: new_type
 	};
@@ -87,9 +97,11 @@ function replace_node_with_equivalent_type(tr, node_array_path, node_index, node
  * Direction can be 'next' or 'previous'.
  */
 export class CycleNodeTypeCommand extends Command {
-	cycle_node_state = $derived(get_cycle_node_state(this.context.session));
+	direction: 'next' | 'previous';
 
-	constructor(direction, context) {
+	cycle_node_state = $derived(get_cycle_node_state(this.context.session as AppSession));
+
+	constructor(direction: 'next' | 'previous', context: AppCommandContext) {
 		super(context);
 		this.direction = direction;
 	}
@@ -99,7 +111,7 @@ export class CycleNodeTypeCommand extends Command {
 	}
 
 	execute() {
-		const session = this.context.session;
+		const session = this.context.session as AppSession;
 		const cycle_node_state = this.cycle_node_state;
 		if (!cycle_node_state || cycle_node_state.available_types.length === 0) return;
 

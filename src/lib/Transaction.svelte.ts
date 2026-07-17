@@ -1,7 +1,3 @@
-/**
- * @import { NodeId, Selection, Document, DocumentSchema, DocumentPath, Attachment, Mark, Annotation } from './types.d.js'
- */
-
 import {
 	get_char_length,
 	char_slice,
@@ -32,15 +28,28 @@ import {
 	get_selected_range_types,
 	validate_selection
 } from './doc_utils.js';
+import type { SelectedAttachment } from './doc_utils.js';
+import type {
+	NodeId,
+	NodeKind,
+	Selection,
+	Document,
+	DocumentSchema,
+	DocumentNode,
+	DocumentPath,
+	Attachment,
+	Mark,
+	Annotation,
+	DocumentOperation,
+	DynamicRecord,
+	Inspection,
+	SessionConfig
+} from './types.js';
 
 /**
  * Check whether a selection-relative range fits within a container length.
- *
- * @param {Attachment} range
- * @param {number} length
- * @returns {boolean}
  */
-function is_range_within_bounds(range, length) {
+function is_range_within_bounds(range: Attachment, length: number): boolean {
 	return (
 		Number.isInteger(range.start_offset) &&
 		Number.isInteger(range.end_offset) &&
@@ -66,39 +75,52 @@ function is_range_within_bounds(range, length) {
  * ```
  */
 export default class Transaction {
+	schema: DocumentSchema;
+	doc: Document;
+	// NOTE: Typed non-null for historical reasons — most methods assume a
+	// selection is present. A null selection is cast here and would surface at
+	// runtime exactly as before the TypeScript conversion.
+	selection: Selection;
+	config: SessionConfig;
+	ops: DocumentOperation[];
+	inverse_ops: DocumentOperation[];
+	selection_before: Selection | null;
+	created_node_ids: NodeId[];
+	modified_node_ids: NodeId[];
+	deleted_node_ids: NodeId[];
+	changed_node_types: boolean;
+
 	/**
 	 * Creates a new Transaction with the given state.
 	 *
-	 * @param {DocumentSchema} schema - The document schema
-	 * @param {Document} doc - The document state {document_id, nodes}
-	 * @param {Selection | null} selection - The current selection
-	 * @param {object} config - The document config (including generate_id)
+	 * @param schema - The document schema
+	 * @param doc - The document state {document_id, nodes}
+	 * @param selection - The current selection
+	 * @param config - The document config (including generate_id)
 	 */
-	constructor(schema, doc, selection, config) {
+	constructor(
+		schema: DocumentSchema,
+		doc: Document,
+		selection: Selection | null,
+		config: SessionConfig
+	) {
 		this.schema = schema;
 		// The transaction works on a draft: one shallow copy of the nodes map
 		// up front, then ops mutate the draft in place (copying node objects
 		// on write). This keeps the original document untouched and node
 		// identity stable for unchanged nodes, without the previous
 		// one-full-map-copy-per-op cost.
-		/** @type {object} */
 		this.doc = create_document_draft(doc);
-		/** @type {Selection} */
-		this.selection = selection;
+		this.selection = selection as Selection;
 		this.config = config;
 		// Here we track the ops during the transaction
-		/** @type {Record<string, any>[]} */
 		this.ops = [];
-		/** @type {Record<string, any>[]} */
 		this.inverse_ops = [];
 		// Remember the selection before the transaction started
 		this.selection_before = selection;
 
-		/** @type {NodeId[]} */
 		this.created_node_ids = [];
-		/** @type {NodeId[]} */
 		this.modified_node_ids = [];
-		/** @type {NodeId[]} */
 		this.deleted_node_ids = [];
 		// True when any op set a node's 'type' property — referrers must be
 		// re-validated against type constraints in that case.
@@ -108,50 +130,39 @@ export default class Transaction {
 	/**
 	 * Gets a value from the document at the specified path.
 	 *
-	 * @param {DocumentPath|string} path - The path to the value in the document, or a string node ID
-	 * @returns {any} The value at the specified path
+	 * @param path - The path to the value in the document, or a string node ID
+	 * @returns The value at the specified path
 	 */
-	get(path) {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	get(path: DocumentPath | string): any {
 		return doc_get(this.schema, this.doc, path);
 	}
 
 	/**
 	 * Gets the type of a property from the schema.
-	 *
-	 * @param {string} type - The node type
-	 * @param {string} property - The property name
-	 * @returns {string} The property type
 	 */
-	property_type(type, property) {
+	property_type(type: string, property: string): string {
 		return doc_property_type(this.schema, type, property);
 	}
 
 	/**
-	 * Determines the kind of a node ('block', 'text', 'mark', or 'annotation').
-	 *
-	 * @param {any} node - The node to check
-	 * @returns {'block'|'text'|'mark'|'annotation'} The node kind
+	 * Determines the kind of a node ('document', 'block', 'text', 'mark', or 'annotation').
 	 */
-	kind(node) {
+	kind(node: DocumentNode): NodeKind {
 		return doc_kind(this.schema, node);
 	}
 
 	/**
 	 * Inspects a path to get metadata about the value at that location.
-	 *
-	 * @param {DocumentPath} path - The path to inspect
-	 * @returns {{kind: 'property'|'node', [key: string]: any}} Metadata about the path
 	 */
-	inspect(path) {
+	inspect(path: DocumentPath): Inspection {
 		return doc_inspect(this.schema, this.doc, path);
 	}
 
 	/**
 	 * Generates a new unique ID using the config's generate_id function.
-	 *
-	 * @returns {string} A new unique ID
 	 */
-	generate_id() {
+	generate_id(): string {
 		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
 		if (!is_id_valid(id)) {
 			throw new Error(
@@ -164,29 +175,23 @@ export default class Transaction {
 	/**
 	 * Validates a node against the document schema.
 	 *
-	 * @param {any} node - The node to validate
 	 * @throws {Error} Throws if the node is invalid
 	 */
-	validate_node(node) {
+	validate_node(node: DocumentNode): void {
 		validate_node(node, this.schema, this.doc.nodes, { require_references: false });
 	}
 
 	/**
 	 * Gets all nodes referenced by a given node (recursively).
-	 *
-	 * @param {NodeId} node_id - The node ID to get references for
-	 * @returns {NodeId[]} Array of referenced node IDs
 	 */
-	get_referenced_nodes(node_id) {
+	get_referenced_nodes(node_id: NodeId): NodeId[] {
 		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
 	}
 
 	/**
 	 * Gets the available mark types for the current selection.
-	 *
-	 * @returns {string[]} Array of available mark type names
 	 */
-	get available_mark_types() {
+	get available_mark_types(): string[] {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.mark_types || [];
@@ -194,10 +199,8 @@ export default class Transaction {
 
 	/**
 	 * Gets the available annotation types for the current selection.
-	 *
-	 * @returns {string[]} Array of available annotation type names
 	 */
-	get available_annotation_types() {
+	get available_annotation_types(): string[] {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.annotation_types || [];
@@ -205,46 +208,34 @@ export default class Transaction {
 
 	/**
 	 * Returns marks touched by the current selection.
-	 *
-	 * @returns {Array<Mark & { index: number, node: any }>}
 	 */
-	get selected_marks() {
+	get selected_marks(): SelectedAttachment[] {
 		return get_selected_marks(this.schema, this.doc, this.selection);
 	}
 
-	get active_mark() {
+	get active_mark(): SelectedAttachment | null {
 		return this.selected_marks.length === 1 ? this.selected_marks[0] : null;
 	}
 
 	/**
 	 * Returns annotations touched by the current selection.
-	 *
-	 * @returns {Array<Annotation & { index: number, node: any }>}
 	 */
-	get selected_annotations() {
+	get selected_annotations(): SelectedAttachment[] {
 		return get_selected_annotations(this.schema, this.doc, this.selection);
 	}
 
-	get active_annotation() {
+	get active_annotation(): SelectedAttachment | null {
 		return this.selected_annotations.length === 1 ? this.selected_annotations[0] : null;
 	}
 
 	/**
 	 * Applies an operation to the document (internal).
-	 *
-	 * @param {Array} op - The operation to apply
-	 * @private
 	 */
-	_apply_op(op) {
+	private _apply_op(op: DocumentOperation): void {
 		apply_op_to_draft(this.doc, op);
 	}
 
-	/**
-	 * @param {NodeId[]} node_ids
-	 * @param {NodeId} node_id
-	 * @private
-	 */
-	_track_node_id(node_ids, node_id) {
+	private _track_node_id(node_ids: NodeId[], node_id: NodeId): void {
 		if (!node_ids.includes(node_id)) node_ids.push(node_id);
 	}
 
@@ -254,9 +245,9 @@ export default class Transaction {
 	 * This is the core operation for modifying document properties. It records
 	 * both the forward operation and its inverse for undo support.
 	 *
-	 * @param {DocumentPath} path - Array path to the property (e.g., ["node_1", "title"])
-	 * @param {any} value - The new value to set
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param path - Array path to the property (e.g., ["node_1", "title"])
+	 * @param value - The new value to set
+	 * @returns This transaction instance for method chaining
 	 *
 	 * @example
 	 * ```js
@@ -264,7 +255,8 @@ export default class Transaction {
 	 * tr.set(["page_1", "body", "0", "description"], {content: "Hello world", marks: [], annotations: []});
 	 * ```
 	 */
-	set(path, value) {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	set(path: DocumentPath, value: any): this {
 		const path_info = this.inspect(path);
 		if (path_info?.kind !== 'property') {
 			throw new Error(
@@ -286,8 +278,7 @@ export default class Transaction {
 
 		// Collect node IDs that might need to be deleted after the set operation
 		const prop_type = this.property_type(node.type, property_key_str);
-		/** @type {NodeId[]} */
-		let removed_node_ids = [];
+		let removed_node_ids: NodeId[] = [];
 
 		if (prop_type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
 			removed_node_ids = [previous_value];
@@ -297,10 +288,10 @@ export default class Transaction {
 			const next_node_ids = new Set(value.nodes);
 
 			// Only include node IDs that were in previous_value but are not in the new value
-			removed_node_ids = previous_node_ids.filter((id) => !next_node_ids.has(id));
+			removed_node_ids = previous_node_ids.filter((id: NodeId) => !next_node_ids.has(id));
 		}
 
-		const op = ['set', normalized_path, value];
+		const op: DocumentOperation = ['set', normalized_path, value];
 		this.ops.push(op);
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
 		this._apply_op(op);
@@ -324,15 +315,15 @@ export default class Transaction {
 	// Takes a subgraph and constructs new nodes from it
 	// NOTE: all ids will be mapped to new unique ids.
 	// NOTE: Omitted properties will be populated with default values.
-	build(node_id, nodes) {
+	build(node_id: NodeId, nodes: Record<string, DocumentNode>): NodeId {
 		const depth_first_nodes = traverse(node_id, this.schema, nodes);
 		// This maps original ids to newly generated ids
-		const id_map = {};
+		const id_map: Record<string, string> = {};
 
 		for (const node of depth_first_nodes) {
 			const new_id = this.generate_id();
 			id_map[node.id] = new_id;
-			let new_node = { ...node, id: new_id };
+			let new_node: DocumentNode = { ...node, id: new_id };
 			const node_schema = this.schema[node.type];
 
 			// Update all property references to use new IDs
@@ -340,14 +331,14 @@ export default class Transaction {
 				const prop_type = property_definition.type;
 				const value = new_node[property_name];
 
-				const remap_ranges = (ranges) =>
+				const remap_ranges = (ranges: Attachment[] | undefined) =>
 					(ranges ?? []).map(({ start_offset, end_offset, node_id }) => {
 						return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
 					});
 
 				if (prop_type === 'node_array' && value && typeof value === 'object') {
 					new_node[property_name] = {
-						nodes: value.nodes.map((ref_id) => id_map[ref_id]),
+						nodes: value.nodes.map((ref_id: NodeId) => id_map[ref_id]),
 						marks: remap_ranges(value.marks),
 						annotations: remap_ranges(value.annotations)
 					};
@@ -366,7 +357,7 @@ export default class Transaction {
 			this.create(new_node);
 		}
 
-		return id_map[depth_first_nodes.at(-1).id];
+		return id_map[depth_first_nodes.at(-1)!.id];
 	}
 
 	/**
@@ -375,8 +366,8 @@ export default class Transaction {
 	 * The node must have a valid id and must not already exist in the document.
 	 * Omitted properties with schema defaults are filled before validation.
 	 *
-	 * @param {any} node - The node object to create (must include id, type, and required properties)
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param node - The node object to create (must include id, type, and required properties)
+	 * @returns This transaction instance for method chaining
 	 * @throws {Error} If the node ID is invalid or if the node already exists
 	 *
 	 * @example
@@ -388,7 +379,7 @@ export default class Transaction {
 	 * });
 	 * ```
 	 */
-	create(node) {
+	create(node: DocumentNode): this {
 		const node_with_defaults = fill_node_defaults(node, this.schema);
 
 		// Validate node against schema
@@ -398,7 +389,7 @@ export default class Transaction {
 			throw new Error('Node with id ' + node_with_defaults.id + ' already exists');
 		}
 
-		const op = ['create', node_with_defaults];
+		const op: DocumentOperation = ['create', node_with_defaults];
 		this.ops.push(op);
 		this.inverse_ops.push(['delete', node_with_defaults.id]);
 		this._apply_op(op);
@@ -418,15 +409,15 @@ export default class Transaction {
 	 * For ref-count-aware cleanup, see how `set` calls
 	 * `_cascade_delete_unreferenced_nodes`.
 	 *
-	 * @param {any} id - The ID of the node to delete
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param id - The ID of the node to delete
+	 * @returns This transaction instance for method chaining
 	 *
 	 * @example
 	 * ```js
 	 * tr.delete('node_123');
 	 * ```
 	 */
-	delete(id) {
+	delete(id: NodeId): this {
 		const previous_value = this.get(id);
 		if (!previous_value) {
 			console.warn(`Deletion of node ${id} skipped, as it does not exist.`);
@@ -434,7 +425,7 @@ export default class Transaction {
 		}
 		// Get nodes referenced by this node BEFORE deleting it.
 		const referenced_nodes = this.get_referenced_nodes(id);
-		const op = ['delete', id];
+		const op: DocumentOperation = ['delete', id];
 		this.ops.push(op);
 		this.inverse_ops.push(['create', previous_value]);
 		this._apply_op(op);
@@ -447,11 +438,11 @@ export default class Transaction {
 	/**
 	 * Sets the document selection.
 	 *
-	 * @param {Selection} selection - The new selection object
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param selection - The new selection object
+	 * @returns This transaction instance for method chaining
 	 * @throws {Error} Throws if the selection is invalid or out of bounds
 	 */
-	set_selection(selection) {
+	set_selection(selection: Selection): this {
 		this._validate_selection(selection);
 		this.selection = selection;
 		return this;
@@ -460,11 +451,9 @@ export default class Transaction {
 	/**
 	 * Validates a selection against the current document state.
 	 *
-	 * @param {Selection} selection - The selection to validate
 	 * @throws {Error} Throws if the selection is invalid
-	 * @private
 	 */
-	_validate_selection(selection) {
+	private _validate_selection(selection: Selection | null): void {
 		validate_selection(selection, this);
 	}
 
@@ -474,9 +463,9 @@ export default class Transaction {
 	 * Marks are mutually exclusive. Whole marks are toggled, removed, or
 	 * switched; ranges are never truncated or expanded by this command.
 	 *
-	 * @param {any} mark_type - The type of mark (e.g., 'link', 'strong', 'emphasis')
-	 * @param {any} mark_properties - Additional data for the mark (e.g., href for links)
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param mark_type - The type of mark (e.g., 'link', 'strong', 'emphasis')
+	 * @param mark_properties - Additional data for the mark (e.g., href for links)
+	 * @returns This transaction instance for method chaining
 	 *
 	 * @example
 	 * ```js
@@ -487,7 +476,7 @@ export default class Transaction {
 	 * tr.toggle_mark('emphasis', {});
 	 * ```
 	 */
-	toggle_mark(mark_type, mark_properties) {
+	toggle_mark(mark_type: string, mark_properties?: DynamicRecord): this {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
 		if (!this.available_mark_types.includes(mark_type)) {
@@ -535,7 +524,7 @@ export default class Transaction {
 			const selected_indices = new Set(selected_marks.map(({ index }) => index));
 			const removed_node_ids = selected_marks.map(({ node_id }) => node_id);
 			annotated_value.marks = annotated_value.marks.filter(
-				(_, index) => !selected_indices.has(index)
+				(_: Attachment, index: number) => !selected_indices.has(index)
 			);
 			this.set(this.selection.path, annotated_value);
 			this._cascade_delete_unreferenced_nodes(removed_node_ids);
@@ -569,9 +558,9 @@ export default class Transaction {
 	 * same-type annotations may still overlap when created through lower-level
 	 * APIs.
 	 *
-	 * @param {any} annotation_type - The type of annotation (e.g., 'comment', 'marker')
-	 * @param {any} annotation_properties - Additional data for the annotation
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param annotation_type - The type of annotation (e.g., 'comment', 'marker')
+	 * @param annotation_properties - Additional data for the annotation
+	 * @returns This transaction instance for method chaining
 	 *
 	 * @example
 	 * ```js
@@ -579,7 +568,7 @@ export default class Transaction {
 	 * tr.toggle_annotation('comment', { text: 'Please review' });
 	 * ```
 	 */
-	toggle_annotation(annotation_type, annotation_properties) {
+	toggle_annotation(annotation_type: string, annotation_properties?: DynamicRecord): this {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
 		if (!this.available_annotation_types.includes(annotation_type)) {
@@ -621,7 +610,7 @@ export default class Transaction {
 		const selected_indices = new Set(selected_annotations.map(({ index }) => index));
 		const removed_node_ids = selected_annotations.map(({ node_id }) => node_id);
 		annotated_value.annotations = annotated_value.annotations.filter(
-			(_, index) => !selected_indices.has(index)
+			(_: Attachment, index: number) => !selected_indices.has(index)
 		);
 		this.set(this.selection.path, annotated_value);
 		this._cascade_delete_unreferenced_nodes(removed_node_ids);
@@ -637,10 +626,10 @@ export default class Transaction {
 	 * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
 	 * - For property selections: Delegates to the config's handle_property_deletion hook
 	 *
-	 * @param {'backward' | 'forward'} [direction] - Direction of deletion for collapsed selections
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param direction - Direction of deletion for collapsed selections
+	 * @returns This transaction instance for method chaining
 	 */
-	delete_selection(direction = 'backward') {
+	delete_selection(direction: 'backward' | 'forward' = 'backward'): this {
 		if (!this.selection) return this;
 
 		if (this.selection.type === 'property') {
@@ -653,7 +642,7 @@ export default class Transaction {
 		// Get the start and end indices for the selection
 		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		let length;
+		let length = 0;
 
 		if (this.selection?.type === 'text') {
 			const text_content = this.get(this.selection.path).content;
@@ -675,7 +664,7 @@ export default class Transaction {
 				return this;
 			} else if (direction === 'forward' && end === length) {
 				// At end of text - try to join with next text node
-				const node_index = parseInt(String(this.selection.path.at(-2)), 10);
+				const node_index = this.selection.path.at(-2) as number;
 				const successor_node = this.get([...this.selection.path.slice(0, -2), node_index + 1]);
 				// Check if next node is a text node
 				if (successor_node && this.kind(successor_node) === 'text') {
@@ -724,7 +713,7 @@ export default class Transaction {
 			};
 		} else if (this.selection.type === 'text') {
 			const path = this.selection.path;
-			let text = structuredClone($state.snapshot(this.get(path)));
+			const text = structuredClone($state.snapshot(this.get(path)));
 
 			// Update the text content using character-based operations
 			const original_text = text.content;
@@ -763,13 +752,18 @@ export default class Transaction {
 	 * If the selection is expanded (not collapsed), first deletes the selected nodes
 	 * before inserting the new ones.
 	 *
-	 * @param {NodeId[]} node_ids - Array of node IDs to insert
-	 * @param {Array<Mark>} [marks] - Selection-relative marks to restore
-	 * @param {Array<Annotation>} [annotations] - Selection-relative annotations to restore
-	 * @param {Record<NodeId, any>} [nodes] - Node graph for restored marks and annotations
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param node_ids - Array of node IDs to insert
+	 * @param marks - Selection-relative marks to restore
+	 * @param annotations - Selection-relative annotations to restore
+	 * @param nodes - Node graph for restored marks and annotations
+	 * @returns This transaction instance for method chaining
 	 */
-	insert_nodes(node_ids, marks = [], annotations = [], nodes = {}) {
+	insert_nodes(
+		node_ids: NodeId[],
+		marks: Array<Mark> = [],
+		annotations: Array<Annotation> = [],
+		nodes: Record<NodeId, DocumentNode> = {}
+	): this {
 		if (this.selection.type !== 'node') return this;
 
 		// Unless caret is collapsed, delete the selected nodes as a first step
@@ -781,7 +775,7 @@ export default class Transaction {
 		const current_value = structuredClone($state.snapshot(this.get(path)));
 		const node_array = [...current_value.nodes];
 
-		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
+		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 
 		let next_marks = adjust_ranges_for_insertion(current_value.marks, start, node_ids.length);
 		let next_annotations = adjust_ranges_for_insertion(
@@ -816,7 +810,7 @@ export default class Transaction {
 						node_id: new_mark_node_id
 					};
 				})
-				.filter(Boolean);
+				.filter((mark): mark is Attachment => mark !== null);
 			const combined_marks = next_marks.concat(restored_marks);
 			if (are_ranges_exclusive(combined_marks)) {
 				next_marks = combined_marks;
@@ -841,7 +835,7 @@ export default class Transaction {
 					node_id: new_annotation_node_id
 				};
 			})
-			.filter(Boolean);
+			.filter((annotation): annotation is Attachment => annotation !== null);
 		next_annotations = next_annotations.concat(restored_annotations);
 
 		this.set(path, { nodes: node_array, marks: next_marks, annotations: next_annotations });
@@ -856,13 +850,18 @@ export default class Transaction {
 	 * - Shifting ranges that come after the insertion point
 	 * - Optionally applying new marks and annotations to the inserted text
 	 *
-	 * @param {string} replaced_text - The text to insert
-	 * @param {Array<Mark>} [marks] - Optional marks to apply to the inserted text
-	 * @param {Array<Annotation>} [annotations] - Optional annotations to apply to the inserted text
-	 * @param {object} [nodes] - Optional node definitions for mark and annotation nodes
-	 * @returns {Transaction} This transaction instance for method chaining
+	 * @param replaced_text - The text to insert
+	 * @param marks - Optional marks to apply to the inserted text
+	 * @param annotations - Optional annotations to apply to the inserted text
+	 * @param nodes - Optional node definitions for mark and annotation nodes
+	 * @returns This transaction instance for method chaining
 	 */
-	insert_text(replaced_text, marks = [], annotations = [], nodes = {}) {
+	insert_text(
+		replaced_text: string,
+		marks: Array<Mark> = [],
+		annotations: Array<Annotation> = [],
+		nodes: Record<NodeId, DocumentNode> = {}
+	): this {
 		if (this.selection?.type !== 'text') return this;
 
 		// Unless selection is collapsed, delete the selected content
@@ -872,7 +871,7 @@ export default class Transaction {
 		}
 
 		const text_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-		const range = get_selection_range(this.selection);
+		const range = get_selection_range(this.selection)!;
 
 		// Transform the plain text string using character-based operations
 		const current_text = text_value.content;
@@ -893,9 +892,8 @@ export default class Transaction {
 		this.set(this.selection.path, text_value); // this will update the current state and create a history entry
 
 		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
-		/** @type {Selection} */
-		const new_selection = {
-			type: /** @type {const} */ ('text'),
+		const new_selection: Selection = {
+			type: 'text',
 			path: this.selection.path,
 			anchor_offset: range.start_offset + get_char_length(replaced_text),
 			focus_offset: range.start_offset + get_char_length(replaced_text)
@@ -922,7 +920,7 @@ export default class Transaction {
 					}
 					return null;
 				})
-				.filter(Boolean);
+				.filter((mark): mark is Attachment => mark !== null);
 			const combined_marks = text_value.marks.concat(restored_marks);
 			if (are_ranges_exclusive(combined_marks)) {
 				next_text.marks = combined_marks;
@@ -950,7 +948,7 @@ export default class Transaction {
 					}
 					return null;
 				})
-				.filter(Boolean);
+				.filter((annotation): annotation is Attachment => annotation !== null);
 			if (restored_annotations.length > 0) {
 				next_text.annotations = text_value.annotations.concat(restored_annotations);
 				text_changed = true;
@@ -971,10 +969,9 @@ export default class Transaction {
 	 * references are removed. Uses reference counting to determine which
 	 * nodes are safe to delete.
 	 *
-	 * @param {NodeId[]} potentially_orphaned_nodes - Array of node IDs to check
-	 * @private
+	 * @param potentially_orphaned_nodes - Array of node IDs to check
 	 */
-	_cascade_delete_unreferenced_nodes(potentially_orphaned_nodes) {
+	private _cascade_delete_unreferenced_nodes(potentially_orphaned_nodes: NodeId[]): void {
 		if (potentially_orphaned_nodes.length === 0) return;
 
 		// Build reference counts in ONE full-document scan, then maintain them
@@ -984,8 +981,7 @@ export default class Transaction {
 		// O(M·N) instead of O(N + M).
 		const ref_counts = build_reference_counts(this.schema, this.doc);
 
-		/** @type {Record<NodeId, boolean>} */
-		const nodes_to_delete = {};
+		const nodes_to_delete: Record<NodeId, boolean> = {};
 		const to_check = [...potentially_orphaned_nodes];
 
 		while (to_check.length > 0) {
@@ -1013,7 +1009,7 @@ export default class Transaction {
 		for (const node_id of Object.keys(nodes_to_delete)) {
 			const previous_value = this.get([node_id]);
 			if (previous_value) {
-				const op = ['delete', node_id];
+				const op: DocumentOperation = ['delete', node_id];
 				this.ops.push(op);
 				this.inverse_ops.push(['create', previous_value]);
 				this._apply_op(op);

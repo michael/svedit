@@ -1,8 +1,16 @@
-<script>
-	import { getContext } from 'svelte';
-	const svedit = getContext('svedit');
-	let { path, content, children } = $props();
-	let node = $derived(svedit.session.get(path));
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../demo_schema.js';
+
+	const svedit = get_svedit_context();
+	let {
+		path,
+		content,
+		children
+	}: { path: DocumentPath; content?: string; children?: Snippet } = $props();
+	let node: Nodes['section'] = $derived(svedit.session.get(path));
 </script>
 
 <section id={node.id} class="section" data-node-id={node.id}>

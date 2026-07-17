@@ -8,11 +8,24 @@
 
 import { tick } from 'svelte';
 import Session from '../lib/Session.svelte.js';
-import { document_schema, session_config } from '../routes/create_demo_session.js';
+import { app_config } from '../routes/demo_config.js';
+import { document_schema } from '../routes/demo_schema.js';
+import type { Document } from '../lib/types.js';
+import SveditContextProbe from './testing_components/SveditContextProbe.svelte';
+
+function create_test_config() {
+	return {
+		...app_config,
+		system_components: {
+			...app_config.system_components,
+			overlays: SveditContextProbe
+		}
+	};
+}
 
 /** Sleep one or more requestAnimationFrame ticks. */
 export function raf(times = 1) {
-	return new Promise((resolve) => {
+	return new Promise<void>((resolve) => {
 		let remaining = times;
 		function step() {
 			remaining -= 1;
@@ -29,9 +42,8 @@ export function raf(times = 1) {
  * RAF count and ms tail because grid layout settles a frame or two
  * later than a fixed-width row.
  *
- * @param {{ rafs?: number, ms?: number }} [opts]
  */
-export async function settle({ rafs = 3, ms = 60 } = {}) {
+export async function settle({ rafs = 3, ms = 60 }: { rafs?: number; ms?: number } = {}) {
 	await tick();
 	await raf(rafs);
 	await new Promise((r) => setTimeout(r, ms));
@@ -41,10 +53,9 @@ export async function settle({ rafs = 3, ms = 60 } = {}) {
 export const settle_grid = () => settle({ rafs: 8, ms: 150 });
 
 /** Build a session with a single story whose `buttons` array holds `n` buttons. */
-export function make_story_session(n_buttons) {
-	const button_ids = [];
-	/** @type {import('../lib/types.d.ts').Document['nodes']} */
-	const nodes = {};
+export function make_story_session(n_buttons: number) {
+	const button_ids: string[] = [];
+	const nodes: Document['nodes'] = {};
 	for (let i = 0; i < n_buttons; i++) {
 		const id = `btn_${i}`;
 		nodes[id] = {
@@ -72,14 +83,13 @@ export function make_story_session(n_buttons) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
 /** Build a session with a single image_grid containing `n` items. */
-export function make_image_grid_session(n_items) {
-	const item_ids = [];
-	/** @type {import('../lib/types.d.ts').Document['nodes']} */
-	const nodes = {};
+export function make_image_grid_session(n_items: number) {
+	const item_ids: string[] = [];
+	const nodes: Document['nodes'] = {};
 	for (let i = 0; i < n_items; i++) {
 		const id = `igi_${i}`;
 		nodes[id] = {
@@ -105,25 +115,29 @@ export function make_image_grid_session(n_items) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...session_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
 /** Find the (non-empty) buttons node-array inside the rendered tree. */
-export function find_buttons_array(container) {
-	return container.querySelector('[data-type="node_array"][data-path$="buttons"]:not(.empty)');
+export function find_buttons_array(container: HTMLElement) {
+	return container.querySelector<HTMLElement>(
+		'[data-type="node_array"][data-path$="buttons"]:not(.empty)'
+	);
 }
 
 /** Find the image-grid items node-array inside the rendered tree. */
-export function find_image_grid_array(container) {
-	return container.querySelector('[data-type="node_array"][data-path$="image_grid_items"]');
+export function find_image_grid_array(container: HTMLElement) {
+	return container.querySelector<HTMLElement>(
+		'[data-type="node_array"][data-path$="image_grid_items"]'
+	);
 }
 
 /** The trailing .gap-after.last element of a node-array. */
-export function find_last_gap(array_el) {
-	return array_el.querySelector(':scope > .node-gap.gap-after.last');
+export function find_last_gap(array_el: Element) {
+	return array_el.querySelector<HTMLElement>(':scope > .node-gap.gap-after.last');
 }
 
 /** The leading .gap-before element of a node-array (skips the empty-array placeholder). */
-export function find_first_gap(array_el) {
-	return array_el.querySelector(':scope > .node-gap.gap-before:not(.empty)');
+export function find_first_gap(array_el: Element) {
+	return array_el.querySelector<HTMLElement>(':scope > .node-gap.gap-before:not(.empty)');
 }

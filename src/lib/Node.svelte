@@ -1,19 +1,22 @@
-<script>
+<script lang="ts">
 	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
+	import type {
+		NodeArrayAttachmentContext,
+		NodeArrayRenderContext,
+		NodeProps,
+		SveditRenderContext
+	} from './types.js';
 
-	/** @import { NodeProps } from './types.d.ts'; */
+	const svedit = getContext<SveditRenderContext>('svedit');
 
-	const svedit = getContext('svedit');
-
-	/** @type {NodeProps} */
-	let { path, children, tag = 'div', class: css_class, style = '', ...rest } = $props();
+	let { path, children, tag = 'div', class: css_class, style = '', ...rest }: NodeProps = $props();
 
 	let node = $derived(svedit.session.get(path));
 	let path_str = $derived(serialize_path(path));
 
-	const node_array_meta = getContext('node_array_meta');
-	let child_index = $derived(node_array_meta ? parseInt(String(path.at(-1)), 10) : -1);
+	const node_array_meta = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
+	let child_index = $derived(node_array_meta ? (path.at(-1) as number) : -1);
 	let is_first = $derived(node_array_meta && child_index === 0);
 	let is_last = $derived(node_array_meta && child_index === node_array_meta.length - 1);
 
@@ -25,9 +28,9 @@
 	// `annotations` props.
 	let range_classes = $derived.by(() => {
 		if (child_index < 0 || !node_array_meta?.annotations_for) return '';
-		const classes = [];
+		const classes: string[] = [];
 
-		const add_classes = (range, prefix) => {
+		const add_classes = (range: NodeArrayAttachmentContext | null | undefined, prefix: string) => {
 			const range_type = range?.node?.type;
 			if (!range_type) return;
 			classes.push(`${prefix}-${range_type}`);
@@ -46,9 +49,9 @@
 <svelte:element
 	this={tag}
 	id={node.id}
-	class="node-{node.type} {css_class}{range_classes
-		? ` ${range_classes}`
-		: ''}{is_first ? ' first' : ''}{is_last ? ' last' : ''}"
+	class="node-{node.type} {css_class}{range_classes ? ` ${range_classes}` : ''}{is_first
+		? ' first'
+		: ''}{is_last ? ' last' : ''}"
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"

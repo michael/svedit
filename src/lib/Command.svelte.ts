@@ -1,6 +1,16 @@
 import { insert_default_node, break_text_node } from './transforms.svelte.js';
 import { can_switch_mark_type, get_selected_range_types } from './doc_utils.js';
 import { is_selection_collapsed, get_char_length, char_slice } from './utils.js';
+import type Session from './Session.svelte.js';
+
+// Commands operate on sessions with arbitrary application schemas.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CommandSession = Session<any>;
+
+export type CommandContext = {
+	session: CommandSession;
+	editable: boolean;
+};
 
 /**
  * Base class for commands that can be executed in response to user actions
@@ -25,6 +35,8 @@ import { is_selection_collapsed, get_char_length, char_slice } from './utils.js'
  * ```
  */
 export default class Command {
+	context: CommandContext;
+
 	/**
 	 * Derived state that indicates if the command is disabled.
 	 * Automatically computed from is_enabled().
@@ -34,19 +46,17 @@ export default class Command {
 	/**
 	 * Creates a new Command instance.
 	 *
-	 * @param {any} context - The context object providing access to application state
+	 * @param context - The context object providing access to application state
 	 */
-	constructor(context) {
+	constructor(context: CommandContext) {
 		this.context = context;
 	}
 
 	/**
 	 * Determines if the command can currently be executed.
 	 * Override this method to implement command-specific logic.
-	 *
-	 * @returns {boolean} true if the command can be executed, false otherwise
 	 */
-	is_enabled() {
+	is_enabled(): boolean {
 		return true;
 	}
 
@@ -54,10 +64,8 @@ export default class Command {
 	 * Executes the command.
 	 * Override this method to implement the command's behavior.
 	 * Can be async for commands that need to perform asynchronous operations.
-	 *
-	 * @returns {void | Promise<void>}
 	 */
-	execute() {
+	execute(): void | Promise<void> {
 		throw new Error('Not implemented');
 	}
 }
@@ -94,7 +102,7 @@ export class RedoCommand extends Command {
  */
 export class SelectParentCommand extends Command {
 	is_enabled() {
-		return (
+		return Boolean(
 			this.context.editable &&
 			this.context.session.selection &&
 			this.context.session.selection.path.length > 3
@@ -114,7 +122,9 @@ export class SelectParentCommand extends Command {
  * touched types disable the command. Annotations never affect mark toggling.
  */
 export class ToggleMarkCommand extends Command {
-	constructor(node_type, context) {
+	node_type: string;
+
+	constructor(node_type: string, context: CommandContext) {
 		super(context);
 		this.node_type = node_type;
 	}
@@ -124,8 +134,7 @@ export class ToggleMarkCommand extends Command {
 	is_active() {
 		const selected_marks = this.context.session.selected_marks;
 		return (
-			selected_marks.length > 0 &&
-			selected_marks.every(({ node }) => node?.type === this.node_type)
+			selected_marks.length > 0 && selected_marks.every(({ node }) => node?.type === this.node_type)
 		);
 	}
 
@@ -167,7 +176,9 @@ export class ToggleMarkCommand extends Command {
  * Marks and other annotation types never block the toggle.
  */
 export class ToggleAnnotationCommand extends Command {
-	constructor(node_type, context) {
+	node_type: string;
+
+	constructor(node_type: string, context: CommandContext) {
 		super(context);
 		this.node_type = node_type;
 	}
@@ -234,6 +245,7 @@ export class AddNewLineCommand extends Command {
 		if (selection.anchor_offset !== selection.focus_offset) {
 			tr.delete_selection();
 		}
+		if (tr.selection.type !== 'text') return;
 
 		const collapsed_offset = tr.selection.anchor_offset;
 		const content = tr.get(tr.selection.path);
@@ -280,7 +292,7 @@ export class BreakTextNodeCommand extends Command {
  */
 export class SelectAllCommand extends Command {
 	is_enabled() {
-		return this.context.editable && this.context.session.selection;
+		return Boolean(this.context.editable && this.context.session.selection);
 	}
 
 	execute() {
@@ -318,7 +330,7 @@ export class SelectAllCommand extends Command {
 						session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_inside_node_array) {
-						const node_index = parseInt(node_path.at(-1));
+						const node_index = node_path.at(-1) as number;
 						session.selection = {
 							type: 'node',
 							path: node_path.slice(0, -1),
@@ -356,7 +368,7 @@ export class SelectAllCommand extends Command {
 						session.inspect(parent_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_parent_node_array) {
-						const parent_node_index = parseInt(parent_path.at(-1));
+						const parent_node_index = parent_path.at(-1) as number;
 						session.selection = {
 							type: 'node',
 							path: parent_path.slice(0, -1),
@@ -376,7 +388,7 @@ export class SelectAllCommand extends Command {
 				const is_inside_node_array = session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 				if (is_inside_node_array) {
-					const node_index = parseInt(node_path.at(-1));
+					const node_index = node_path.at(-1) as number;
 					session.selection = {
 						type: 'node',
 						path: node_path.slice(0, -1),

@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
 	import { Node, NodeArrayProperty } from 'svedit';
-	let { path } = $props();
+	import type { DocumentPath } from 'svedit';
+	let { path }: { path: DocumentPath } = $props();
 </script>
 
 <Node {path}>

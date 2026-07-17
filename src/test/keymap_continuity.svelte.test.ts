@@ -37,7 +37,8 @@ import { render } from 'vitest-browser-svelte';
 import SveditTestWithKeymap from './testing_components/SveditTestWithKeymap.svelte';
 import { settle, make_story_session } from './test_utils.js';
 import Session from '../lib/Session.svelte.js';
-import { document_schema, session_config } from '../routes/create_demo_session.js';
+import { app_config } from '../routes/demo_config.js';
+import { document_schema } from '../routes/demo_schema.js';
 
 /**
  * Build a session whose body holds a single paragraph text node.
@@ -67,7 +68,7 @@ function make_paragraph_session(text = 'Hello world') {
 				}
 			}
 		},
-		{ ...session_config }
+		{ ...app_config }
 	);
 }
 
@@ -104,7 +105,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -152,7 +153,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -187,7 +188,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();
@@ -217,7 +218,7 @@ describe('keymap continuity', () => {
 		const { container } = render(SveditTestWithKeymap, { session });
 		await settle();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		expect(canvas).not.toBeNull();
 		canvas.focus();
 		await settle();

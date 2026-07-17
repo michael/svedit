@@ -1,20 +1,33 @@
 import { split_text, join_text, get_char_length } from './utils.js';
 import { get_default_node_type } from './doc_utils.js';
+import type Transaction from './Transaction.svelte.js';
+import type {
+	DocumentNode,
+	DocumentPath,
+	NodeArrayProperty,
+	NodeProperty,
+	Selection,
+	TextSelection
+} from './types.js';
 
 /**
  * Set multiple properties on a node via a transaction.
  *
- * @param {object} tr - The transaction
- * @param {Array} path - Path to the node
- * @param {Record<string, any>} properties - Key/value pairs to set
+ * @param tr - The transaction
+ * @param path - Path to the node
+ * @param properties - Key/value pairs to set
  */
-export function set_properties(tr, path, properties) {
+export function set_properties(
+	tr: Transaction,
+	path: DocumentPath,
+	properties: Record<string, unknown>
+): void {
 	for (const [key, value] of Object.entries(properties)) {
 		tr.set([...path, key], value);
 	}
 }
 
-export function break_text_node(tr) {
+export function break_text_node(tr: Transaction): boolean {
 	// Keep a reference of the original selection (before any transforms are applied)
 	const selection = tr.selection;
 	// First we need to ensure we have a text selection
@@ -28,7 +41,7 @@ export function break_text_node(tr) {
 	if (tr.kind(node) !== 'text') return false;
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
-	const node_array_prop = selection.path.at(-3);
+	const node_array_prop = String(selection.path.at(-3));
 	// Get the node that owns the node_array property (e.g. a page.body)
 	const node_array_node = tr.get(selection.path.slice(0, -3));
 
@@ -37,23 +50,26 @@ export function break_text_node(tr) {
 		tr.delete_selection();
 	}
 
-	const split_at_position = tr.selection.anchor_offset;
+	// After delete_selection the selection is still a (collapsed) text selection
+	const split_at_position = (tr.selection as TextSelection).anchor_offset;
 	const content = tr.get(selection.path);
 	const [left_text, right_text] = split_text(content, split_at_position);
 
 	tr.set([node.id, 'content'], left_text);
 
-	const node_insert_position = {
+	const node_insert_position: Selection = {
 		type: 'node',
 		path: tr.selection.path.slice(0, -2),
-		anchor_offset: parseInt(tr.selection.path.at(-2), 10) + 1,
-		focus_offset: parseInt(tr.selection.path.at(-2), 10) + 1
+		anchor_offset: (tr.selection.path.at(-2) as number) + 1,
+		focus_offset: (tr.selection.path.at(-2) as number) + 1
 	};
 
 	// TODO: Only use default_node_type when caret is at the end of
 	const node_array_property_definition =
 		tr.schema[node_array_node.type].properties[node_array_prop];
-	const target_node_type = get_default_node_type(node_array_property_definition);
+	const target_node_type = get_default_node_type(
+		node_array_property_definition as NodeProperty | NodeArrayProperty
+	);
 
 	if (!target_node_type) {
 		console.warn(
@@ -68,7 +84,7 @@ export function break_text_node(tr) {
 	return true;
 }
 
-export function join_text_node(tr) {
+export function join_text_node(tr: Transaction): boolean {
 	// Keep a reference of the original selection (before any transforms are applied)
 	const selection = tr.selection;
 	// First we need to ensure we have a text selection
@@ -79,16 +95,16 @@ export function join_text_node(tr) {
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
-	const node_index = parseInt(tr.selection.path.at(-2), 10);
+	const node_index = tr.selection.path.at(-2) as number;
 
 	// Determine if we can join with the previous node
 	let can_join = false;
-	let predecessor_node = null;
+	let predecessor_node: DocumentNode | null = null;
 
 	if (node_index > 0) {
 		const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
 		predecessor_node = tr.get(previous_text_path);
-		can_join = tr.kind(predecessor_node) === 'text';
+		can_join = predecessor_node !== null && tr.kind(predecessor_node) === 'text';
 	}
 
 	// Special behavior: if we can't join and current node is empty, delete it
@@ -104,7 +120,7 @@ export function join_text_node(tr) {
 	}
 
 	// If we can't join for any reason, return false
-	if (!can_join) {
+	if (!can_join || !predecessor_node) {
 		return false;
 	}
 
@@ -138,7 +154,7 @@ export function join_text_node(tr) {
 	return true;
 }
 
-export function insert_default_node(tr) {
+export function insert_default_node(tr: Transaction): boolean {
 	const selection = tr.selection;
 
 	// Only work with collapsed node selections
@@ -148,15 +164,17 @@ export function insert_default_node(tr) {
 
 	const path = selection.path;
 	const node_array_node = tr.get(path.slice(0, -1));
-	const property_name = path.at(-1);
+	const property_name = String(path.at(-1));
 
 	// Get the definition for this property
 	const property_definition = tr.schema[node_array_node.type].properties[property_name];
-	const default_type = get_default_node_type(property_definition);
+	const default_type = get_default_node_type(
+		property_definition as NodeProperty | NodeArrayProperty
+	);
 
 	// Use the inserter function if available
-	if (tr.config?.inserters?.[default_type]) {
-		tr.config.inserters[default_type](tr);
+	if (tr.config?.inserters?.[default_type as string]) {
+		tr.config.inserters[default_type as string](tr);
 		return true;
 	} else {
 		throw new Error(`No inserter function available for default node type '${default_type}'`);

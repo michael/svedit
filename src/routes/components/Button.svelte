@@ -1,10 +1,13 @@
-<script>
-	import { getContext } from 'svelte';
+<script lang="ts">
 	import { Node, TextProperty } from 'svedit';
-	const svedit = getContext('svedit');
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '../demo_schema.js';
 
-	let { path } = $props();
-	let node = $derived(svedit.session.get(path));
+	const svedit = get_svedit_context();
+
+	let { path }: { path: DocumentPath } = $props();
+	let node: Nodes['button'] = $derived(svedit.session.get(path));
 </script>
 
 <Node {path}>

@@ -1,12 +1,13 @@
-<script>
+<script lang="ts">
 	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
+	import type { DocumentPath, SveditContext } from './types.js';
 
-	const svedit = getContext('svedit');
+	const svedit = getContext<SveditContext>('svedit');
 	let selected_node_paths = $derived(get_selected_node_paths());
 
-	function get_selected_node_paths() {
-		const paths = [];
+	function get_selected_node_paths(): DocumentPath[] | undefined {
+		const paths: DocumentPath[] = [];
 		const selection = svedit.session.selection;
 		if (!selection) return;
 		if (selection.type !== 'node' || selection.anchor_offset === selection.focus_offset) return;

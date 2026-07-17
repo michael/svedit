@@ -1,12 +1,17 @@
-<script>
+<script lang="ts">
 	import Icon from './Icon.svelte';
 	import {
 		get_closest_switchable_layout,
 		get_closest_switchable_type,
 		is_node_subtree_empty
 	} from '../app_utils.js';
+	import type { AppSession } from '../demo_session.js';
 
-	let { session, focus_canvas, editable = $bindable(false) } = $props();
+	let {
+		session,
+		focus_canvas,
+		editable = $bindable(false)
+	}: { session: AppSession; focus_canvas: () => void; editable?: boolean } = $props();
 
 	let closest_switchable_layout = $derived(get_closest_switchable_layout(session, session.config));
 	let closest_switchable_type = $derived(get_closest_switchable_type(session));
@@ -22,7 +27,7 @@
 			is_node_subtree_empty(session, closest_switchable_layout.node)
 	);
 
-	let input_ref = $state();
+	let input_ref: HTMLInputElement | undefined = $state();
 
 	function toggle_editable() {
 		if (editable) {
@@ -70,7 +75,7 @@
 		);
 	});
 
-	function insert_default_node(event) {
+	function insert_default_node(event: Event) {
 		event.preventDefault();
 		if (!is_node_caret || !default_node_type) return;
 
@@ -82,24 +87,24 @@
 		session.apply(tr);
 	}
 
-	function delete_node_selection(event) {
+	function delete_node_selection(event: Event) {
 		event.preventDefault();
 		session.apply(session.tr.delete_selection('backward'));
 	}
 
-	function cycle_node_type(event) {
+	function cycle_node_type(event: Event) {
 		event.preventDefault();
 		if (session.commands.next_type?.disabled) return;
 		session.commands.next_type?.execute();
 	}
 
-	function cycle_layout(event) {
+	function cycle_layout(event: Event) {
 		event.preventDefault();
 		if (session.commands.next_layout?.disabled) return;
 		session.commands.next_layout?.execute();
 	}
 
-	function select_parent(event) {
+	function select_parent(event: Event) {
 		event.preventDefault();
 		if (session.commands.select_parent?.disabled) return;
 		session.commands.select_parent?.execute();
@@ -111,13 +116,13 @@
 	);
 
 	// Check if we should show the link URL input
-	let show_link_input = $derived(typeof session.selected_node?.href === 'string');
+	let show_link_input = $derived(typeof (session.selected_node as any)?.href === 'string');
 
 	// Get current image URL value
 	let current_image_url = $derived(show_image_input ? session.get(session.selection.path) : '');
 
 	// Get current link URL value
-	let current_link_url = $derived(show_link_input ? session.selected_node?.href : '');
+	let current_link_url = $derived(show_link_input ? (session.selected_node as any)?.href : '');
 
 	function update_url() {
 		const tr = session.tr;
@@ -131,7 +136,7 @@
 		session.apply(tr);
 	}
 
-	function handle_toolbar_keydown(event) {
+	function handle_toolbar_keydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' && input_ref) {
 			update_url();
 			event.preventDefault();

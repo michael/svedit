@@ -1,12 +1,27 @@
-/**
- * @import { DocumentSchema } from './types.d.ts'
- */
+import type {
+	AnnotatedText,
+	DocumentNode,
+	DocumentSchema
+} from './types.js';
 
-export function normalize_line_endings(text) {
+function is_record(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
+function is_annotated_text(value: unknown): value is AnnotatedText {
+	return (
+		is_record(value) &&
+		typeof value.content === 'string' &&
+		Array.isArray(value.marks) &&
+		Array.isArray(value.annotations)
+	);
+}
+
+export function normalize_line_endings(text: string): string {
 	return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
-export function dedent_plain_text(plain_text) {
+export function dedent_plain_text(plain_text: string): string {
 	const lines = normalize_line_endings(plain_text).split('\n');
 	if (lines.length < 2) return plain_text;
 
@@ -42,23 +57,21 @@ export function dedent_plain_text(plain_text) {
 		.join('\n');
 }
 
-export function split_plain_text_paragraphs(plain_text) {
+export function split_plain_text_paragraphs(plain_text: string): string[] {
 	return normalize_line_endings(plain_text)
 		.split(/\n{2,}/)
 		.map((fragment) => fragment.trim())
 		.filter(Boolean);
 }
 
-export function normalize_plain_text_for_single_line_property(plain_text) {
+export function normalize_plain_text_for_single_line_property(plain_text: string): string {
 	return normalize_line_endings(plain_text).replace(/\s*\n+\s*/g, ' ');
 }
 
-/**
- * @param {string | null | undefined} node_type
- * @param {DocumentSchema} schema
- * @returns {string | null}
- */
-export function get_text_property_name(node_type, schema) {
+export function get_text_property_name(
+	node_type: string | null | undefined,
+	schema: DocumentSchema
+): string | null {
 	if (!node_type) return null;
 	const node_schema = schema[node_type];
 	if (!node_schema || node_schema.kind !== 'text') return null;
@@ -70,75 +83,57 @@ export function get_text_property_name(node_type, schema) {
 	);
 }
 
-/**
- * @param {any} node
- * @param {DocumentSchema} schema
- * @returns {{ content: string, marks: any[], annotations: any[] } | null}
- */
-export function get_text_content(node, schema) {
-	if (!node || typeof node !== 'object') return null;
+export function get_text_content(node: unknown, schema: DocumentSchema): AnnotatedText | null {
+	if (!is_record(node)) return null;
 
-	const is_text_value = (value) =>
-		value &&
-		typeof value.content === 'string' &&
-		Array.isArray(value.marks) &&
-		Array.isArray(value.annotations);
-
-	const text_property_name = get_text_property_name(node.type, schema);
-	if (text_property_name && is_text_value(node[text_property_name])) {
+	const node_type = typeof node.type === 'string' ? node.type : null;
+	const text_property_name = get_text_property_name(node_type, schema);
+	if (text_property_name && is_annotated_text(node[text_property_name])) {
 		return node[text_property_name];
 	}
 
-	if (is_text_value(node.content)) {
+	if (is_annotated_text(node.content)) {
 		return node.content;
 	}
 
 	return null;
 }
 
-/**
- * @param {any} node
- * @param {DocumentSchema} schema
- * @returns {boolean}
- */
-export function is_text_like_node_payload(node, schema) {
-	if (!node || typeof node !== 'object') return false;
-	if (schema[node.type]?.kind === 'text') return true;
+export function is_text_like_node_payload(node: unknown, schema: DocumentSchema): boolean {
+	if (!is_record(node)) return false;
+	if (typeof node.type === 'string' && schema[node.type]?.kind === 'text') return true;
 	return !!get_text_content(node, schema);
 }
 
-/**
- * @param {any} node_array_property_definition
- * @param {DocumentSchema} schema
- * @returns {string | null}
- */
-export function get_default_text_node(node_array_property_definition, schema) {
+export function get_default_text_node(
+	node_array_property_definition: unknown,
+	schema: DocumentSchema
+): string | null {
 	if (
-		node_array_property_definition?.type !== 'node_array' ||
+		!is_record(node_array_property_definition) ||
+		node_array_property_definition.type !== 'node_array' ||
 		!Array.isArray(node_array_property_definition.node_types)
 	) {
 		return null;
 	}
 
 	const default_node_type = node_array_property_definition.default_node_type;
-	if (default_node_type && schema[default_node_type]?.kind === 'text') {
+	if (typeof default_node_type === 'string' && schema[default_node_type]?.kind === 'text') {
 		return default_node_type;
 	}
 
 	return (
 		node_array_property_definition.node_types.find(
-			(node_type) => schema[node_type]?.kind === 'text'
+			(node_type: unknown) => typeof node_type === 'string' && schema[node_type]?.kind === 'text'
 		) || null
-	);
+	) as string | null;
 }
 
-/**
- * @param {string[]} paragraph_fragments
- * @param {string | null | undefined} node_type
- * @param {DocumentSchema} schema
- * @returns {{ main_nodes: string[], nodes: Record<string, any> } | null}
- */
-export function create_plain_text_nodes_payload(paragraph_fragments, node_type, schema) {
+export function create_plain_text_nodes_payload(
+	paragraph_fragments: string[],
+	node_type: string | null | undefined,
+	schema: DocumentSchema
+): { main_nodes: string[]; nodes: Record<string, DocumentNode> } | null {
 	if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0 || !node_type) {
 		return null;
 	}
@@ -146,7 +141,7 @@ export function create_plain_text_nodes_payload(paragraph_fragments, node_type, 
 	const text_property_name = get_text_property_name(node_type, schema);
 	if (!text_property_name) return null;
 
-	const payload = {
+	const payload: { main_nodes: string[]; nodes: Record<string, DocumentNode> } = {
 		main_nodes: [],
 		nodes: {}
 	};

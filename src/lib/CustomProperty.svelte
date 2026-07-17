@@ -1,10 +1,8 @@
-<script>
+<script lang="ts">
 	import { serialize_path } from './utils.js';
+	import type { CustomPropertyProps } from './types.js';
 
-	/** @import { CustomPropertyProps } from './types.d.ts'; */
-
-	/** @type {CustomPropertyProps} */
-	let { path, tag = 'div', class: css_class, children, style, ...rest } = $props();
+	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
 	let path_str = $derived(serialize_path(path));
 
 </script>

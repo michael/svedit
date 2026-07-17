@@ -13,17 +13,11 @@
 import { tick } from 'svelte';
 import { Session, Transaction } from 'svedit';
 
-/** @type {Record<string, { calls: number, ms: number }>} */
-let timings = {};
+let timings: Record<string, { calls: number; ms: number }> = {};
 
 let instrumented = false;
 
-/**
- * @param {any} proto
- * @param {string} name
- * @param {string} label
- */
-function wrap_method(proto, name, label) {
+function wrap_method(proto: any, name: string, label: string) {
 	const original = proto[name];
 	if (typeof original !== 'function') return;
 	proto[name] = function (...args) {
@@ -60,7 +54,7 @@ export function timings_reset() {
 }
 
 export function timings_get() {
-	/** @type {Record<string, { calls: number, ms: number }>} */
+	
 	const out = {};
 	for (const [key, value] of Object.entries(timings)) {
 		out[key] = { calls: value.calls, ms: Math.round(value.ms * 100) / 100 };
@@ -96,14 +90,13 @@ function force_layout() {
 	return performance.now() - t0;
 }
 
-/** @param {number[]} values */
-function stats(values) {
+function stats(values: number[]) {
 	if (values.length === 0) return { avg: 0, p50: 0, p95: 0, max: 0 };
 	const sorted = [...values].sort((a, b) => a - b);
 	const sum = sorted.reduce((acc, value) => acc + value, 0);
-	const pick = (/** @type {number} */ q) =>
+	const pick = (q: number) =>
 		sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))];
-	const round = (/** @type {number} */ value) => Math.round(value * 100) / 100;
+	const round = (value: number) => Math.round(value * 100) / 100;
 	return {
 		avg: round(sum / sorted.length),
 		p50: round(pick(0.5)),
@@ -113,10 +106,9 @@ function stats(values) {
 }
 
 /**
- * @param {any} session
- * @returns {number} index of the last text-kind node in the document body
+ * @returns index of the last text-kind node in the document body
  */
-function last_text_node_index(session) {
+function last_text_node_index(session: any): number {
 	const body = session.get([session.document_id, 'body']).nodes;
 	for (let i = body.length - 1; i >= 0; i--) {
 		if (session.kind(session.get(body[i])) === 'text') return i;
@@ -126,9 +118,8 @@ function last_text_node_index(session) {
 
 /**
  * Put a collapsed text caret at the end of the last text node in the body.
- * @param {any} session
  */
-function place_caret_in_last_text_node(session) {
+function place_caret_in_last_text_node(session: any) {
 	const index = last_text_node_index(session);
 	const path = [session.document_id, 'body', index, 'content'];
 	const text = session.get(path).content;
@@ -146,10 +137,8 @@ function place_caret_in_last_text_node(session) {
  * Simulate holding Enter: repeatedly execute the break_text_node command,
  * exactly like the keymap does on a real keydown.
  *
- * @param {{ session: any, focus: () => void }} ctx
- * @param {number} count
  */
-export async function bench_enter(ctx, count = 20) {
+export async function bench_enter(ctx: { session: any; focus: () => void }, count = 20) {
 	const { session } = ctx;
 	ctx.focus();
 	place_caret_in_last_text_node(session);
@@ -183,10 +172,8 @@ export async function bench_enter(ctx, count = 20) {
  * Simulate fast typing: insert one character per iteration via insert_text,
  * like onbeforeinput does.
  *
- * @param {{ session: any, focus: () => void }} ctx
- * @param {number} count
  */
-export async function bench_type(ctx, count = 30) {
+export async function bench_type(ctx: { session: any; focus: () => void }, count = 30) {
 	const { session } = ctx;
 	ctx.focus();
 	place_caret_in_last_text_node(session);
@@ -218,9 +205,7 @@ export async function bench_type(ctx, count = 30) {
 	};
 }
 
-/** @param {number} m */
-function make_paste_payload(m) {
-	/** @type {Record<string, any>} */
+function make_paste_payload(m: number) {
 	const nodes = {};
 	const main_nodes = [];
 	for (let i = 0; i < m; i++) {
@@ -243,11 +228,8 @@ function make_paste_payload(m) {
  * Simulate pasting m text nodes, replicating the node-paste data path
  * (tr.build per node + insert_nodes + apply).
  *
- * @param {{ session: any, focus: () => void }} ctx
- * @param {number} m
- * @param {'append' | 'replace'} mode - replace selects the first m nodes first
  */
-export async function bench_paste(ctx, m = 100, mode = 'append') {
+export async function bench_paste(ctx: { session: any; focus: () => void }, m = 100, mode = 'append') {
 	const { session } = ctx;
 	ctx.focus();
 	const body_path = [session.document_id, 'body'];
@@ -284,10 +266,8 @@ export async function bench_paste(ctx, m = 100, mode = 'append') {
  * Simulate copying m nodes, replicating the copy path
  * (session.traverse per selected node).
  *
- * @param {{ session: any, focus: () => void }} ctx
- * @param {number} m
  */
-export async function bench_copy(ctx, m = 100) {
+export async function bench_copy(ctx: { session: any; focus: () => void }, m = 100) {
 	const { session } = ctx;
 	ctx.focus();
 	const body_path = [session.document_id, 'body'];
@@ -322,10 +302,8 @@ export async function bench_copy(ctx, m = 100) {
 /**
  * Simulate deleting m selected nodes (cut without clipboard).
  *
- * @param {{ session: any, focus: () => void }} ctx
- * @param {number} m
  */
-export async function bench_delete(ctx, m = 100) {
+export async function bench_delete(ctx: { session: any; focus: () => void }, m = 100) {
 	const { session } = ctx;
 	ctx.focus();
 	const body_path = [session.document_id, 'body'];
@@ -358,7 +336,7 @@ export async function bench_delete(ctx, m = 100) {
  *
  * @param {{ session: any }} ctx
  */
-export async function bench_undo(ctx) {
+export async function bench_undo(ctx: { session: any; focus: () => void }) {
 	const { session } = ctx;
 	const t0 = performance.now();
 	session.undo();
@@ -378,11 +356,10 @@ export async function bench_undo(ctx) {
  * Run a function under the JS self-profiling API and return top stack frames
  * by sample count. Requires the Document-Policy: js-profiling header.
  *
- * @param {() => Promise<any>} fn
- * @param {number} top - how many frames to report
+ * @param top - how many frames to report
  */
-export async function profile(fn, top = 30) {
-	const ProfilerCtor = /** @type {any} */ (window).Profiler;
+export async function profile(fn: () => Promise<any>, top = 30) {
+	const ProfilerCtor = (window as any).Profiler;
 	if (!ProfilerCtor) return { error: 'Profiler API unavailable (missing js-profiling document policy?)' };
 	const profiler = new ProfilerCtor({ sampleInterval: 1, maxBufferSize: 1_000_000 });
 	const result = await fn();
@@ -435,10 +412,8 @@ export async function profile(fn, top = 30) {
  * width — a deterministic proxy for window-resize cost that also works in
  * hidden tabs. Each step invalidates layout and forces a full reflow.
  *
- * @param {{ wrapper: HTMLElement }} ctx
- * @param {number} steps
  */
-export async function bench_resize_layout(ctx, steps = 20) {
+export async function bench_resize_layout(ctx: { wrapper: HTMLElement }, steps = 20) {
 	const wrapper = ctx.wrapper;
 	if (!wrapper) throw new Error('No editor wrapper');
 	const layout_ms = [];

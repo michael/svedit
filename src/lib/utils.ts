@@ -1,6 +1,13 @@
-/**
- * @import { Attachment, Mark, Annotation, AnnotatedText, SelectionRange, Selection } from './types.d.ts';
- */
+import type {
+	Attachment,
+	Mark,
+	AnnotatedText,
+	SelectionRange,
+	Selection,
+	DocumentSchema,
+	DocumentNode,
+	DocumentPath
+} from './types.js';
 
 const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
@@ -9,10 +16,8 @@ const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
  *
  * This is a heuristic based on the visual viewport becoming smaller than the
  * layout viewport.
- *
- * @returns {boolean} true if the virtual keyboard is likely active, false otherwise
  */
-export function is_virtual_keyboard_active() {
+export function is_virtual_keyboard_active(): boolean {
 	if (typeof window === 'undefined' || typeof document === 'undefined') {
 		return false;
 	}
@@ -30,10 +35,8 @@ export function is_virtual_keyboard_active() {
  *
  * This uses the user agent only so touch-capable laptops are not treated as
  * mobile browsers.
- *
- * @returns {boolean} true if mobile browser, false otherwise
  */
-export function is_mobile_browser() {
+export function is_mobile_browser(): boolean {
 	if (typeof navigator === 'undefined') {
 		return false;
 	}
@@ -45,9 +48,8 @@ export function is_mobile_browser() {
 // ‼️‼️‼️‼️‼️‼️ UNUSED UTILITY BELOW ‼️‼️‼️‼️‼️‼️
 /**
  * Detect if the current browser is Chrome on desktop
- * @returns {boolean} true if Chrome desktop browser, false otherwise
  */
-export function is_chrome_desktop_browser() {
+export function is_chrome_desktop_browser(): boolean {
 	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
 		return false;
 	}
@@ -63,15 +65,12 @@ export function is_chrome_desktop_browser() {
  * Uses Intl.Segmenter to count grapheme clusters rather than UTF-16 code units,
  * ensuring emojis and other complex Unicode sequences are counted as single characters.
  *
- * @param {string} str - The string to measure
- * @returns {number} The number of visual characters (grapheme clusters)
- *
  * @example
  * get_char_length('Hello') // Returns: 5
  * get_char_length('a😀b') // Returns: 3 (not 4)
  * get_char_length('👋🏽') // Returns: 1 (not 4 - skin tone modifier treated as single char)
  */
-export function get_char_length(str) {
+export function get_char_length(str: string): number {
 	return [...SEGMENTER.segment(str)].length;
 }
 
@@ -82,16 +81,12 @@ export function get_char_length(str) {
  * Uses Intl.Segmenter to access grapheme clusters rather than UTF-16 code units,
  * ensuring emojis and other complex Unicode sequences are treated as single characters.
  *
- * @param {string} str - The string to access
- * @param {number} index - Character position (0-based)
- * @returns {string} The character at the specified position, or empty string if index is out of bounds
- *
  * @example
  * get_char_at('Hello', 1) // Returns: 'e'
  * get_char_at('a😀b', 1) // Returns: '😀' (full emoji)
  * get_char_at('👋🏽', 0) // Returns: '👋🏽' (skin tone modifier included)
  */
-export function get_char_at(str, index) {
+export function get_char_at(str: string, index: number): string {
 	const segments = [...SEGMENTER.segment(str)];
 	return segments[index].segment;
 }
@@ -102,16 +97,11 @@ export function get_char_at(str, index) {
  * Uses Intl.Segmenter to slice by grapheme clusters rather than UTF-16 code units,
  * ensuring emojis and other complex Unicode sequences remain intact.
  *
- * @param {string} str - The string to slice
- * @param {number} start - Starting character position (inclusive)
- * @param {number} [end] - Ending character position (exclusive). If undefined, slices to end
- * @returns {string} The sliced string with complete characters
- *
  * @example
  * char_slice('Hello 😀 World', 6, 8) // Returns: '😀 ' (emoji stays intact)
  * char_slice('a👋🏽b', 1, 2) // Returns: '👋🏽' (skin tone modifier included)
  */
-export function char_slice(str, start, end = undefined) {
+export function char_slice(str: string, start: number, end: number | undefined = undefined): string {
 	const segments = [...SEGMENTER.segment(str)];
 	return segments
 		.slice(start, end)
@@ -125,15 +115,11 @@ export function char_slice(str, start, end = undefined) {
  * Converts DOM selection offsets (which use UTF-16 code units) to character-based
  * offsets (grapheme clusters) for consistent text manipulation.
  *
- * @param {string} str - The string to convert offsets within
- * @param {number} utf16_offset - The UTF-16 code unit offset from DOM
- * @returns {number} The corresponding grapheme cluster offset
- *
  * @example
  * // For string "a😀b" where 😀 uses 2 UTF-16 code units
  * utf16_to_char_offset("a😀b", 3) // Returns: 2 (position after emoji)
  */
-export function utf16_to_char_offset(str, utf16_offset) {
+export function utf16_to_char_offset(str: string, utf16_offset: number): number {
 	const segments = [...SEGMENTER.segment(str)];
 	let char_offset = 0;
 	let utf16_count = 0;
@@ -154,15 +140,11 @@ export function utf16_to_char_offset(str, utf16_offset) {
  * Converts character-based offsets (grapheme clusters) to DOM selection offsets
  * (UTF-16 code units) for proper DOM selection positioning.
  *
- * @param {string} str - The string to convert offsets within
- * @param {number} char_offset - The grapheme cluster offset
- * @returns {number} The corresponding UTF-16 code unit offset for DOM operations
- *
  * @example
  * // For string "a😀b" where 😀 uses 2 UTF-16 code units
  * char_to_utf16_offset("a😀b", 2) // Returns: 3 (UTF-16 position after emoji)
  */
-export function char_to_utf16_offset(str, char_offset) {
+export function char_to_utf16_offset(str: string, char_offset: number): number {
 	const segments = [...SEGMENTER.segment(str)];
 	let utf16_offset = 0;
 
@@ -179,10 +161,6 @@ export function char_to_utf16_offset(str, char_offset) {
  * Marks and annotations that span the split point will be divided
  * appropriately, with offsets adjusted for each resulting part.
  *
- * @param {AnnotatedText} text_value - Annotated text object
- * @param {number} at_position - Character position where to split (0-based)
- * @returns {[AnnotatedText, AnnotatedText]} Tuple of [left_part, right_part]
- *
  * @example
  * split_text({content: "Hello world", marks: [{start_offset: 6, end_offset: 11, node_id: "strong"}], annotations: []}, 8)
  * // Returns:
@@ -191,15 +169,26 @@ export function char_to_utf16_offset(str, char_offset) {
  * //   {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []}
  * // ]
  */
-export function split_text(text_value, at_position) {
+export function split_text(
+	text_value: AnnotatedText,
+	at_position: number
+): [AnnotatedText, AnnotatedText] {
 	const { content } = text_value;
 
 	// Split the text using character-aware slicing
-	const left = { content: char_slice(content, 0, at_position), marks: [], annotations: [] };
-	const right = { content: char_slice(content, at_position), marks: [], annotations: [] };
+	const left: AnnotatedText = {
+		content: char_slice(content, 0, at_position),
+		marks: [],
+		annotations: []
+	};
+	const right: AnnotatedText = {
+		content: char_slice(content, at_position),
+		marks: [],
+		annotations: []
+	};
 
 	// Process marks and annotations with the same range logic
-	for (const key of ['marks', 'annotations']) {
+	for (const key of ['marks', 'annotations'] as const) {
 		for (const { start_offset, end_offset, node_id } of text_value[key] ?? []) {
 			if (end_offset <= at_position) {
 				// Range is entirely in the left part
@@ -229,17 +218,13 @@ export function split_text(text_value, at_position) {
  * by the length of the first text. Adjacent ranges referencing the same node
  * will be merged.
  *
- * @param {AnnotatedText} first_text - First annotated text object
- * @param {AnnotatedText} second_text - Second annotated text object
- * @returns {AnnotatedText} Combined annotated text object
- *
  * @example
  * join_text({content: "Hello wo", marks: [{start_offset: 6, end_offset: 8, node_id: "strong"}], annotations: []}, {content: "rld", marks: [{start_offset: 0, end_offset: 3, node_id: "strong"}], annotations: []})
  * // Returns: {content: "Hello world", marks: [{start_offset: 6, end_offset: 11, node_id: "strong"}], annotations: []}
  */
-export function join_text(first_text, second_text) {
+export function join_text(first_text: AnnotatedText, second_text: AnnotatedText): AnnotatedText {
 	// Join the text content
-	const joined = {
+	const joined: AnnotatedText = {
 		content: first_text.content + second_text.content,
 		marks: [],
 		annotations: []
@@ -247,7 +232,7 @@ export function join_text(first_text, second_text) {
 
 	const offset = get_char_length(first_text.content);
 
-	for (const key of ['marks', 'annotations']) {
+	for (const key of ['marks', 'annotations'] as const) {
 		// Start with all ranges from the first text (unchanged)
 		const joined_ranges = (first_text[key] ?? []).map((range) => ({ ...range }));
 
@@ -284,13 +269,10 @@ export function join_text(first_text, second_text) {
 /**
  * Convert snake_case string to PascalCase
  *
- * @param {string} str - The snake_case string to convert
- * @returns {string} The converted PascalCase string
- *
  * @example
  * snake_to_pascal('list_item') // Returns: 'ListItem'
  */
-export function snake_to_pascal(str) {
+export function snake_to_pascal(str: string): string {
 	return str
 		.split('_')
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -307,11 +289,8 @@ const PATH_INDEX_SEGMENT_RE = /^(0|[1-9]\d*)$/;
  * Path string segments include node ids and schema property names. Keeping
  * them restricted makes serialized paths reversible, valid as HTML ids, and
  * safe to use as CSS anchor-name suffixes.
- *
- * @param {string} segment
- * @returns {boolean}
  */
-export function is_path_string_segment_valid(segment) {
+export function is_path_string_segment_valid(segment: string): boolean {
 	return (
 		typeof segment === 'string' &&
 		PATH_STRING_SEGMENT_RE.test(segment) &&
@@ -321,12 +300,8 @@ export function is_path_string_segment_valid(segment) {
 
 /**
  * Assert that a string can be used as a Svedit path segment.
- *
- * @param {string} segment
- * @param {string} [label]
- * @returns {void}
  */
-export function assert_path_string_segment(segment, label = 'Path segment') {
+export function assert_path_string_segment(segment: string, label = 'Path segment'): void {
 	if (!is_path_string_segment_valid(segment)) {
 		throw new Error(
 			`${label} must start with a letter or underscore and contain only letters, numbers, underscores, or dashes. It must not contain "${PATH_SEPARATOR}".`
@@ -341,13 +316,10 @@ export function assert_path_string_segment(segment, label = 'Path segment') {
  * The result is reversible and safe to use as a data attribute value, HTML id,
  * or CSS anchor-name suffix.
  *
- * @param {Array<string | number>} path
- * @returns {string}
- *
  * @example
  * serialize_path(['page_1', 'body', 0, 'items']) // Returns: 'page_1__body__0__items'
  */
-export function serialize_path(path) {
+export function serialize_path(path: DocumentPath): string {
 	return path
 		.map((segment) => {
 			if (typeof segment === 'number') {
@@ -366,13 +338,10 @@ export function serialize_path(path) {
 /**
  * Deserialize a path string produced by serialize_path.
  *
- * @param {string} serialized_path
- * @returns {Array<string | number>}
- *
  * @example
  * deserialize_path('page_1__body__0__items') // Returns: ['page_1', 'body', 0, 'items']
  */
-export function deserialize_path(serialized_path) {
+export function deserialize_path(serialized_path: string): DocumentPath {
 	if (serialized_path === '') return [];
 
 	return serialized_path.split(PATH_SEPARATOR).map((segment) => {
@@ -394,12 +363,8 @@ export function deserialize_path(serialized_path) {
 
 /**
  * Compare two document paths segment-by-segment, preserving segment types.
- *
- * @param {Array<string | number>} a
- * @param {Array<string | number>} b
- * @returns {boolean}
  */
-export function paths_equal(a, b) {
+export function paths_equal(a: DocumentPath, b: DocumentPath): boolean {
 	if (a.length !== b.length) return false;
 	return a.every((segment, index) => segment === b[index]);
 }
@@ -410,15 +375,16 @@ export function paths_equal(a, b) {
  * reference bookkeeping) — traverse() deep-clones every visited node,
  * which is wasteful for id-only consumers.
  *
- * @param {string} node_id - The ID of the node to start traversing from
- * @param {object} schema - The document schema
- * @param {Record<string, any>} nodes - All document nodes
- * @returns {string[]} Node ids in depth-first order (entry point last)
+ * @returns Node ids in depth-first order (entry point last)
  */
-export function traverse_ids(node_id, schema, nodes) {
-	const ids = [];
-	const visited = {};
-	const visit = (node) => {
+export function traverse_ids(
+	node_id: string,
+	schema: DocumentSchema,
+	nodes: Record<string, DocumentNode>
+): string[] {
+	const ids: string[] = [];
+	const visited: Record<string, boolean> = {};
+	const visit = (node: DocumentNode | undefined) => {
 		if (!node || visited[node.id]) {
 			return;
 		}
@@ -449,10 +415,14 @@ export function traverse_ids(node_id, schema, nodes) {
 	return ids;
 }
 
-export function traverse(node_id, schema, nodes) {
-	const json = [];
-	const visited = {};
-	const visit = (node) => {
+export function traverse(
+	node_id: string,
+	schema: DocumentSchema,
+	nodes: Record<string, DocumentNode>
+): DocumentNode[] {
+	const json: DocumentNode[] = [];
+	const visited: Record<string, boolean> = {};
+	const visit = (node: DocumentNode | undefined) => {
 		if (!node || visited[node.id]) {
 			return;
 		}
@@ -492,10 +462,9 @@ export function traverse(node_id, schema, nodes) {
 /**
  * Extracts the normalized range from a text or node selection.
  * Returns start and end offsets in document order (start <= end), regardless of selection direction.
- * @param {Selection} [selection] - The selection to extract the range from
- * @returns {SelectionRange | null} The normalized selection range, or null if selection is null, undefined, or a property selection
+ * Returns null if selection is null, undefined, or a property selection.
  */
-export function get_selection_range(selection) {
+export function get_selection_range(selection?: Selection | null): SelectionRange | null {
 	if (selection && selection.type !== 'property') {
 		return {
 			start_offset: Math.min(selection.anchor_offset, selection.focus_offset),
@@ -506,7 +475,7 @@ export function get_selection_range(selection) {
 	}
 }
 
-export function is_selection_collapsed(selection) {
+export function is_selection_collapsed(selection?: Selection | null): boolean {
 	if (selection && selection.type !== 'property') {
 		return selection.anchor_offset === selection.focus_offset;
 	} else {
@@ -519,14 +488,13 @@ export function is_selection_collapsed(selection) {
  *
  * Works for both annotated text (character offsets) and annotated node arrays
  * (node offsets).
- *
- * @param {Array<import('./types.d.ts').Attachment>} ranges
- * @param {number} start
- * @param {number} end
- * @returns {{ranges: Array<import('./types.d.ts').Attachment>, removed_node_ids: string[]}}
  */
-export function adjust_ranges_for_deletion(ranges, start, end) {
-	const removed_node_ids = [];
+export function adjust_ranges_for_deletion(
+	ranges: Array<Attachment>,
+	start: number,
+	end: number
+): { ranges: Array<Attachment>; removed_node_ids: string[] } {
+	const removed_node_ids: string[] = [];
 	const deletion_length = end - start;
 
 	const next_ranges = ranges
@@ -554,7 +522,7 @@ export function adjust_ranges_for_deletion(ranges, start, end) {
 
 			return { start_offset, end_offset, node_id: range.node_id };
 		})
-		.filter(Boolean);
+		.filter((range): range is Attachment => range !== null);
 
 	return { ranges: next_ranges, removed_node_ids };
 }
@@ -564,13 +532,12 @@ export function adjust_ranges_for_deletion(ranges, start, end) {
  *
  * Insertion inside a range extends it. Insertion exactly at either edge
  * stays outside the range.
- *
- * @param {Array<import('./types.d.ts').Attachment>} ranges
- * @param {number} offset
- * @param {number} length
- * @returns {Array<import('./types.d.ts').Attachment>}
  */
-export function adjust_ranges_for_insertion(ranges, offset, length) {
+export function adjust_ranges_for_insertion(
+	ranges: Array<Attachment>,
+	offset: number,
+	length: number
+): Array<Attachment> {
 	if (length === 0) return ranges;
 
 	return ranges.map((range) => {
@@ -594,12 +561,8 @@ export function adjust_ranges_for_insertion(ranges, offset, length) {
 
 /**
  * Check whether ranges are non-empty and mutually exclusive.
- *
- * @param {Array<import('./types.d.ts').Attachment>} ranges
- * @param {number} [length]
- * @returns {boolean}
  */
-export function are_ranges_exclusive(ranges, length = Infinity) {
+export function are_ranges_exclusive(ranges: Array<Attachment>, length = Infinity): boolean {
 	const sorted = [...ranges].sort(
 		(a, b) => a.start_offset - b.start_offset || a.end_offset - b.end_offset
 	);
@@ -616,16 +579,26 @@ export function are_ranges_exclusive(ranges, length = Infinity) {
 }
 
 /**
- * Calculates abstract fragment ranges from a length and marks.
- *
- * @param {number} length - Length of the sequence (e.g. text length or array length)
- * @param {Array<import('./types.d.ts').Mark>} marks - Array of marks
- * @param {import('./types.d.ts').SelectionRange} [selection_highlight_range] - Optional selection highlight range
- * @returns {Array<{type: 'content' | 'mark' | 'selection_highlight', start_offset: number, end_offset: number, mark_index?: number, node_id?: string}>}
+ * A fragment range calculated from a sequence length, marks, and an optional
+ * selection highlight range.
  */
-export function calculate_fragment_ranges(length, marks, selection_highlight_range) {
-	/** @type {Array<{type: 'content' | 'mark' | 'selection_highlight', start_offset: number, end_offset: number, mark_index?: number, node_id?: string}>} */
-	const fragments = [];
+export type FragmentRange = {
+	type: 'content' | 'mark' | 'selection_highlight';
+	start_offset: number;
+	end_offset: number;
+	mark_index?: number;
+	node_id?: string;
+};
+
+/**
+ * Calculates abstract fragment ranges from a length and marks.
+ */
+export function calculate_fragment_ranges(
+	length: number,
+	marks: Array<Mark>,
+	selection_highlight_range?: SelectionRange | null
+): Array<FragmentRange> {
+	const fragments: Array<FragmentRange> = [];
 	let last_index = 0;
 
 	// Merge marks with selection highlight and sort by start offset
@@ -644,10 +617,8 @@ export function calculate_fragment_ranges(length, marks, selection_highlight_ran
 		}
 
 		if ('node_id' in range) {
-			const mark = /** @type {import('./types.d.ts').Mark} */ (range);
-			const mark_index =
-				/** @type {import('./types.d.ts').Mark & { mark_index?: number }} */ (mark).mark_index ??
-				marks.indexOf(mark);
+			const mark = range as Mark;
+			const mark_index = (mark as Mark & { mark_index?: number }).mark_index ?? marks.indexOf(mark);
 			fragments.push({
 				type: 'mark',
 				start_offset: mark.start_offset,

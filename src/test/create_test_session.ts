@@ -306,7 +306,11 @@ const session_config = {
 	}
 };
 
-export default function create_test_session() {
+/**
+ * Tests mutate session.schema at runtime (e.g. adding mark types), so the
+ * returned session is widened to an untyped schema.
+ */
+export default function create_test_session(): Session<any> {
 	const session = new Session(document_schema, doc, session_config);
 	return session;
 }

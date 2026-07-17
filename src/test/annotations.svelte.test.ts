@@ -25,17 +25,17 @@ function create_annotation_session() {
 	session.schema.link = { kind: 'mark', properties: { href: { type: 'string' } } };
 	session.schema.comment = { kind: 'annotation', properties: {} };
 	session.schema.note = { kind: 'annotation', properties: {} };
-	/** @type {any} */ (session.schema.story.properties.title).mark_types = [
+	(session.schema.story.properties.title as any).mark_types = [
 		'strong',
 		'emphasis',
 		'link'
 	];
-	/** @type {any} */ (session.schema.story.properties.title).annotation_types = [
+	(session.schema.story.properties.title as any).annotation_types = [
 		'comment',
 		'note'
 	];
-	/** @type {any} */ (session.schema.page.properties.body).mark_types = ['section'];
-	/** @type {any} */ (session.schema.page.properties.body).annotation_types = ['comment', 'note'];
+	(session.schema.page.properties.body as any).mark_types = ['section'];
+	(session.schema.page.properties.body as any).annotation_types = ['comment', 'note'];
 	session.config.node_components.section = Section;
 	return session;
 }
@@ -43,47 +43,47 @@ function create_annotation_session() {
 const title_path = ['story_1', 'title'];
 const body_path = ['page_1', 'body'];
 
-function range_type(session, range) {
+function range_type(session: any, range: any) {
 	return session.get(range.node_id)?.type;
 }
 
-function expect_exclusive(ranges) {
+function expect_exclusive(ranges: any[]) {
 	expect(are_ranges_exclusive(ranges)).toBe(true);
 }
 
-function text_selection(anchor_offset, focus_offset) {
+function text_selection(anchor_offset: number, focus_offset: number) {
 	return {
-		type: /** @type {const} */ ('text'),
+		type: 'text' as const,
 		path: title_path,
 		anchor_offset,
 		focus_offset
 	};
 }
 
-function node_selection(anchor_offset, focus_offset) {
+function node_selection(anchor_offset: number, focus_offset: number) {
 	return {
-		type: /** @type {const} */ ('node'),
+		type: 'node' as const,
 		path: body_path,
 		anchor_offset,
 		focus_offset
 	};
 }
 
-function create_mark(session, type, selection, properties = undefined) {
+function create_mark(session: any, type: string, selection: any, properties: any = undefined) {
 	session.selection = selection;
 	session.apply(session.tr.toggle_mark(type, properties));
 }
 
-function create_annotation(session, type, selection, properties = undefined) {
+function create_annotation(session: any, type: string, selection: any, properties: any = undefined) {
 	session.selection = selection;
 	session.apply(session.tr.toggle_annotation(type, properties));
 }
 
-function mark_command(session, type) {
+function mark_command(session: any, type: string) {
 	return new ToggleMarkCommand(type, { session, editable: true });
 }
 
-function annotation_command(session, type) {
+function annotation_command(session: any, type: string) {
 	return new ToggleAnnotationCommand(type, { session, editable: true });
 }
 
@@ -235,7 +235,7 @@ describe('mark toggle selection semantics', () => {
 		const { container } = render(SveditTest, { session });
 		await tick();
 
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		canvas.focus();
 		await tick();
 		canvas.blur();
@@ -384,7 +384,7 @@ describe('schema and config validation', () => {
 		const session = create_test_session();
 		const schema = structuredClone(session.schema);
 		schema.comment = { kind: 'annotation', properties: {} };
-		/** @type {any} */ (schema.story.properties.title).mark_types = ['comment'];
+		(schema.story.properties.title as any).mark_types = ['comment'];
 
 		expect(
 			() => new Session(schema, structuredClone(session.doc), session.config)
@@ -395,7 +395,7 @@ describe('schema and config validation', () => {
 		const session = create_test_session();
 		const schema = structuredClone(session.schema);
 		schema.strong = { kind: 'mark', properties: {} };
-		/** @type {any} */ (schema.story.properties.title).annotation_types = ['strong'];
+		(schema.story.properties.title as any).annotation_types = ['strong'];
 
 		expect(
 			() => new Session(schema, structuredClone(session.doc), session.config)
@@ -596,7 +596,7 @@ describe('shared text and node marks and annotations', () => {
 		'toggles $name marks with the same create/remove/create behavior',
 		({ selection, value_path, first_type, second_type }) => {
 			const session = create_annotation_session();
-			session.selection = /** @type {any} */ (selection);
+			session.selection = (selection as any);
 
 			session.apply(session.tr.toggle_mark(first_type));
 			let value = session.get(value_path);
@@ -694,10 +694,10 @@ describe('shared text and node marks and annotations', () => {
 		'uses the same range transfer semantics when deleting $name',
 		({ key, toggle, selection, range_selection, value_path, type, expected_end }) => {
 			const session = create_annotation_session();
-			session.selection = /** @type {any} */ (range_selection);
+			session.selection = (range_selection as any);
 			session.apply(session.tr[toggle](type));
 
-			session.selection = /** @type {any} */ (selection);
+			session.selection = (selection as any);
 			session.apply(session.tr.delete_selection());
 
 			const ranges = session.get(value_path)[key];
@@ -796,11 +796,11 @@ describe('shared text and node marks and annotations', () => {
 		}
 	])('removes fully deleted $name and their nodes', ({ key, toggle, selection, value_path, type }) => {
 		const session = create_annotation_session();
-		session.selection = /** @type {any} */ (selection);
+		session.selection = (selection as any);
 		session.apply(session.tr[toggle](type));
 		const range_node_id = session.get(value_path)[key][0].node_id;
 
-		session.selection = /** @type {any} */ (selection);
+		session.selection = (selection as any);
 		session.apply(session.tr.delete_selection());
 
 		expect(session.get(value_path)[key]).toEqual([]);
@@ -905,7 +905,7 @@ describe('shared text and node marks and annotations', () => {
 	it('transfers node-array marks through the actual cut and paste handlers', async () => {
 		const session = create_annotation_session();
 		const { container } = render(SveditTest, { session });
-		const canvas = /** @type {HTMLElement} */ (container.querySelector('.svedit-canvas'));
+		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
 		canvas.focus();
 
 		session.selection = node_selection(0, 1);
