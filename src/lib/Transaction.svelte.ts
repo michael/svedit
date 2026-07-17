@@ -39,10 +39,13 @@ import type {
 	DocumentPath,
 	Attachment,
 	Mark,
-	Annotation
+	Annotation,
+	DocumentOperation,
+	DynamicRecord,
+	DynamicValue,
+	Inspection,
+	SessionConfig
 } from './types.js';
-
-type Op = [string, ...any[]];
 
 /**
  * Check whether a selection-relative range fits within a container length.
@@ -79,9 +82,9 @@ export default class Transaction {
 	// selection is present. A null selection is cast here and would surface at
 	// runtime exactly as before the TypeScript conversion.
 	selection: Selection;
-	config: any;
-	ops: Op[];
-	inverse_ops: Op[];
+	config: SessionConfig;
+	ops: DocumentOperation[];
+	inverse_ops: DocumentOperation[];
 	selection_before: Selection | null;
 	created_node_ids: NodeId[];
 	modified_node_ids: NodeId[];
@@ -96,7 +99,12 @@ export default class Transaction {
 	 * @param selection - The current selection
 	 * @param config - The document config (including generate_id)
 	 */
-	constructor(schema: DocumentSchema, doc: Document, selection: Selection | null, config: any) {
+	constructor(
+		schema: DocumentSchema,
+		doc: Document,
+		selection: Selection | null,
+		config: SessionConfig
+	) {
 		this.schema = schema;
 		// The transaction works on a draft: one shallow copy of the nodes map
 		// up front, then ops mutate the draft in place (copying node objects
@@ -126,7 +134,7 @@ export default class Transaction {
 	 * @param path - The path to the value in the document, or a string node ID
 	 * @returns The value at the specified path
 	 */
-	get(path: DocumentPath | string): any {
+	get(path: DocumentPath | string): DynamicValue {
 		return doc_get(this.schema, this.doc, path);
 	}
 
@@ -147,7 +155,7 @@ export default class Transaction {
 	/**
 	 * Inspects a path to get metadata about the value at that location.
 	 */
-	inspect(path: DocumentPath): { kind: 'property' | 'node'; [key: string]: any } {
+	inspect(path: DocumentPath): Inspection {
 		return doc_inspect(this.schema, this.doc, path);
 	}
 
@@ -223,7 +231,7 @@ export default class Transaction {
 	/**
 	 * Applies an operation to the document (internal).
 	 */
-	private _apply_op(op: Op): void {
+	private _apply_op(op: DocumentOperation): void {
 		apply_op_to_draft(this.doc, op);
 	}
 
@@ -247,7 +255,7 @@ export default class Transaction {
 	 * tr.set(["page_1", "body", "0", "description"], {content: "Hello world", marks: [], annotations: []});
 	 * ```
 	 */
-	set(path: DocumentPath, value: any): this {
+	set(path: DocumentPath, value: DynamicValue): this {
 		const path_info = this.inspect(path);
 		if (path_info?.kind !== 'property') {
 			throw new Error(
@@ -282,7 +290,7 @@ export default class Transaction {
 			removed_node_ids = previous_node_ids.filter((id: NodeId) => !next_node_ids.has(id));
 		}
 
-		const op: Op = ['set', normalized_path, value];
+		const op: DocumentOperation = ['set', normalized_path, value];
 		this.ops.push(op);
 		this.inverse_ops.push(['set', normalized_path, previous_value]);
 		this._apply_op(op);
@@ -380,7 +388,7 @@ export default class Transaction {
 			throw new Error('Node with id ' + node_with_defaults.id + ' already exists');
 		}
 
-		const op: Op = ['create', node_with_defaults];
+		const op: DocumentOperation = ['create', node_with_defaults];
 		this.ops.push(op);
 		this.inverse_ops.push(['delete', node_with_defaults.id]);
 		this._apply_op(op);
@@ -416,7 +424,7 @@ export default class Transaction {
 		}
 		// Get nodes referenced by this node BEFORE deleting it.
 		const referenced_nodes = this.get_referenced_nodes(id);
-		const op: Op = ['delete', id];
+		const op: DocumentOperation = ['delete', id];
 		this.ops.push(op);
 		this.inverse_ops.push(['create', previous_value]);
 		this._apply_op(op);
@@ -467,7 +475,7 @@ export default class Transaction {
 	 * tr.toggle_mark('emphasis', {});
 	 * ```
 	 */
-	toggle_mark(mark_type: string, mark_properties?: Record<string, any>): this {
+	toggle_mark(mark_type: string, mark_properties?: DynamicRecord): this {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
 		if (!this.available_mark_types.includes(mark_type)) {
@@ -559,7 +567,7 @@ export default class Transaction {
 	 * tr.toggle_annotation('comment', { text: 'Please review' });
 	 * ```
 	 */
-	toggle_annotation(annotation_type: string, annotation_properties?: Record<string, any>): this {
+	toggle_annotation(annotation_type: string, annotation_properties?: DynamicRecord): this {
 		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
 		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
 		if (!this.available_annotation_types.includes(annotation_type)) {
@@ -753,7 +761,7 @@ export default class Transaction {
 		node_ids: NodeId[],
 		marks: Array<Mark> = [],
 		annotations: Array<Annotation> = [],
-		nodes: Record<NodeId, any> = {}
+		nodes: Record<NodeId, DocumentNode> = {}
 	): this {
 		if (this.selection.type !== 'node') return this;
 
@@ -851,7 +859,7 @@ export default class Transaction {
 		replaced_text: string,
 		marks: Array<Mark> = [],
 		annotations: Array<Annotation> = [],
-		nodes: Record<NodeId, any> = {}
+		nodes: Record<NodeId, DocumentNode> = {}
 	): this {
 		if (this.selection?.type !== 'text') return this;
 
@@ -1000,7 +1008,7 @@ export default class Transaction {
 		for (const node_id of Object.keys(nodes_to_delete)) {
 			const previous_value = this.get([node_id]);
 			if (previous_value) {
-				const op: Op = ['delete', node_id];
+				const op: DocumentOperation = ['delete', node_id];
 				this.ops.push(op);
 				this.inverse_ops.push(['create', previous_value]);
 				this._apply_op(op);

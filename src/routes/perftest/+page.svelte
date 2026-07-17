@@ -25,7 +25,7 @@
 	let editable = $state(true);
 	let mount_key = $state(0);
 	let editor_wrapper: HTMLElement | undefined;
-	let svedit_ref: Svedit | undefined;
+	let svedit_ref = $state<Svedit<typeof document_schema>>();
 	let culling = $state(true);
 
 	let live_fps = $state(0);

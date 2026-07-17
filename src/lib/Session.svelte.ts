@@ -28,16 +28,21 @@ import type {
 	DocumentNode,
 	Document,
 	AnyNode,
-	NodeOfType,
 	AnnotatedText,
-	AnnotatedNodeArray
+	AnnotatedNodeArray,
+	CommandRegistry,
+	DynamicValue,
+	Inspection,
+	SessionConfig,
+	SveditContext
 } from './types.js';
+import type { Keymap } from './KeyMapper.svelte.js';
 
 const BATCH_WINDOW_MS = 1000; // 1 second
 
 type HistoryEntry = {
-	ops: any[];
-	inverse_ops: any[];
+	ops: Transaction['ops'];
+	inverse_ops: Transaction['inverse_ops'];
 	selection_before: Selection | null;
 	selection_after: Selection | null;
 };
@@ -49,7 +54,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 	doc: Document = $state.raw() as Document;
 
-	config: any = $state.raw();
+	config: SessionConfig = $state.raw();
 
 	history: HistoryEntry[] = $state.raw([]);
 	history_index = $state.raw(-1);
@@ -57,8 +62,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 	// Commands and keymap - initialized by Svedit when ready
 	// NOTE: Assumes single Svedit instance per session
-	commands: Record<string, any> = $state.raw({});
-	keymap: Record<string, any> = $state.raw({});
+	commands: CommandRegistry = $state.raw({});
+	keymap: Keymap = $state.raw({});
 
 	// Reactive helpers for UI state
 	can_undo = $derived(this.history_index >= 0);
@@ -84,7 +89,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	constructor(
 		schema: S,
 		doc: Document,
-		config: any,
+		config: SessionConfig,
 		options: { selection?: Selection | null } = {}
 	) {
 		// Validate the schema first
@@ -198,7 +203,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 *
 	 * @param context - The svedit context with session, editable, canvas, etc.
 	 */
-	initialize_commands(context: any): void {
+	initialize_commands(context: SveditContext<S>): void {
 		if (this.config?.create_commands_and_keymap) {
 			const { commands, keymap } = this.config.create_commands_and_keymap(context);
 			this.commands = commands;
@@ -364,41 +369,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * // Get a text property
 	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', marks: [], annotations: []}
 	 */
-	get<T = any>(path: DocumentPath | string): T {
+	get<T = DynamicValue>(path: DocumentPath | string): T {
 		return doc_get(this.schema, this.doc, path);
-	}
-
-	/**
-	 * Gets a node at the specified path, typed via the document schema.
-	 *
-	 * Without expected_type, returns the discriminated union of all schema
-	 * node types — narrow with `node.type === '...'`. With expected_type,
-	 * asserts the node type at runtime and returns the exact node type.
-	 *
-	 * @example
-	 * const node = session.get_node(path);
-	 * if (node.type === 'story') node.title // typed
-	 *
-	 * @example
-	 * const story = session.get_node(path, 'story');
-	 * story.title // typed, runtime-checked
-	 *
-	 * @throws {Error} Throws if the path does not point to a node, or the node
-	 * is not of expected_type
-	 */
-	get_node(path: DocumentPath | NodeId): AnyNode<S>;
-	get_node<T extends keyof S & string>(path: DocumentPath | NodeId, expected_type: T): NodeOfType<S, T>;
-	get_node(path: DocumentPath | NodeId, expected_type?: string): any {
-		const node = doc_get(this.schema, this.doc, path);
-		if (!node || typeof node !== 'object' || typeof node.id !== 'string' || typeof node.type !== 'string') {
-			throw new Error(`Path ${JSON.stringify(path)} does not point to a node.`);
-		}
-		if (expected_type !== undefined && node.type !== expected_type) {
-			throw new Error(
-				`Expected node of type "${expected_type}" at path ${JSON.stringify(path)}, got "${node.type}" (id: ${node.id})`
-			);
-		}
-		return node;
 	}
 
 	/**
@@ -424,7 +396,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 *   properties: {...}
 	 * }
 	 */
-	inspect(path: DocumentPath): { kind: 'property' | 'node'; [key: string]: any } {
+	inspect(path: DocumentPath): Inspection {
 		return doc_inspect(this.schema, this.doc, path);
 	}
 

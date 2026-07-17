@@ -1,4 +1,5 @@
 import type Session from './Session.svelte.js';
+import type { VisibilityRegistryApi } from './node_visibility.svelte.js';
 
 // ===== SVELTE TYPE IMPORTS =====
 
@@ -17,6 +18,18 @@ import type { Snippet } from 'svelte';
  * dashes, and must not contain `__`.
  */
 export type NodeId = string;
+
+/**
+ * Values at schema-driven boundaries whose concrete type is supplied by the
+ * application schema rather than the base document model.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DynamicValue = any;
+
+export type DynamicRecord = Record<string, DynamicValue>;
+export type SessionConfig = DynamicRecord;
+export type CommandRegistry = DynamicRecord;
+export type DocumentOperation = [string, ...DynamicValue[]];
 
 /**
  * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document.
@@ -168,16 +181,6 @@ export type NodeMap<S extends DocumentSchema> = {
  * Assert that a node is of the given type. Narrows the static type and
  * checks at runtime — for call sites that know what they expect.
  */
-export function assert_node_type<S extends DocumentSchema, T extends keyof S & string>(
-	node: AnyNode<S>,
-	type: T
-): NodeOfType<S, T> {
-	if (node.type !== type) {
-		throw new Error(`Expected node of type "${type}", got "${String(node.type)}" (id: ${node.id})`);
-	}
-	return node as NodeOfType<S, T>;
-}
-
 /**
  * A property that stores text with optional marks and annotations and required allow_newlines setting.
  */
@@ -378,8 +381,10 @@ export type DocumentSchema = Record<string, NodeSchema>;
 export type DocumentNode = {
 	id: string;
 	type: string;
-	[key: string]: any;
+	[key: string]: DynamicValue;
 };
+
+export type Inspection = { kind: 'property' | 'node'; [key: string]: DynamicValue };
 
 /**
  * The document format - an object with document_id and nodes.
@@ -461,9 +466,9 @@ export type NodeProps = {
 /**
  * Props for the Svedit component
  */
-export type SveditProps = {
-	/** The session instance (any schema instantiation) */
-	session: Session<any>;
+export type SveditProps<S extends DocumentSchema = DocumentSchema> = {
+	/** The schema-typed session instance */
+	session: Session<S>;
 	/** Determines wether the document should be editable or read-only. */
 	editable?: boolean;
 	/** The path to the root element (e.g. ['page_1']) */
@@ -474,6 +479,19 @@ export type SveditProps = {
 	autocapitalize?: 'on' | 'off';
 	/** The `spellcheck` attribute on the canvas element */
 	spellcheck?: 'true' | 'false';
+};
+
+/**
+ * Context provided by the Svedit component to commands and descendant components.
+ */
+export type SveditContext<S extends DocumentSchema = DocumentSchema> = {
+	session: Session<S>;
+	editable: boolean;
+	is_composing: boolean;
+	canvas_el: HTMLElement | undefined;
+	canvas_focused: boolean;
+	focus_canvas: () => void;
+	visibility_registry?: VisibilityRegistryApi;
 };
 
 /**

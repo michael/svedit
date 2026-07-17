@@ -8,12 +8,10 @@
  * 1. `define_document_schema` preserves literal property types through inference
  * 2. `NodeOfType` maps schema property definitions to runtime value types
  * 3. `AnyNode` forms a discriminated union that narrows on `node.type`
- * 4. `assert_node_type` returns an exact node type
  */
 /* eslint-disable @typescript-eslint/no-unused-vars -- compile-time type assertions are intentionally unused */
 
 import { define_document_schema } from '../lib/doc_utils.js';
-import { assert_node_type } from '../lib/types.js';
 import type { AnnotatedText, AnnotatedNodeArray, NodeOfType, AnyNode, NodeMap } from '../lib/types.js';
 
 const test_schema = define_document_schema({
@@ -87,9 +85,3 @@ if (some_node.type === 'list') {
 	// @ts-expect-error - 'title' does not exist on list nodes
 	some_node.title;
 }
-
-// 4. assert_node_type returns the exact type
-declare function fake_get(path: (string | number)[]): AnyNode<TestSchema>;
-const node = assert_node_type(fake_get(['page_1', 'body', 3]), 'story');
-const description: AnnotatedText = node.description;
-void description;

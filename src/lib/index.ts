@@ -13,9 +13,6 @@ export { default as NodeSelectionMarkers } from './NodeSelectionMarkers.svelte';
 export { default as Session } from './Session.svelte.js';
 export { default as Transaction } from './Transaction.svelte.js';
 
-// Schema-typed node helpers
-export { assert_node_type } from './types.js';
-
 // Public types
 export type {
 	// Schema definition
@@ -29,6 +26,12 @@ export type {
 	NodeOfType,
 	AnyNode,
 	NodeMap,
+	DynamicValue,
+	DynamicRecord,
+	SessionConfig,
+	CommandRegistry,
+	DocumentOperation,
+	Inspection,
 	// Documents and nodes
 	Document,
 	DocumentNode,
@@ -48,6 +51,7 @@ export type {
 	SelectionRange,
 	// Component props and render contexts
 	SveditProps,
+	SveditContext,
 	TextPropertyProps,
 	CustomPropertyProps,
 	NodeArrayPropertyProps,

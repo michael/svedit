@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="S extends DocumentSchema">
 	import { flushSync, getContext, setContext } from 'svelte';
 	import {
 		get_char_length,
@@ -25,6 +25,7 @@
 	import './styles/svedit-animations.css';
 
 	import type {
+		DocumentSchema,
 		SveditProps,
 		Selection,
 		NodeSelection,
@@ -39,7 +40,7 @@
 		class: css_class,
 		autocapitalize = 'on',
 		spellcheck = 'true'
-	}: SveditProps = $props();
+	}: SveditProps<S> = $props();
 
 	let canvas_el;
 	let root_node = $derived(session.get(path));

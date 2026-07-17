@@ -31,7 +31,11 @@ import type {
 	DocumentNode,
 	TextProperty,
 	AnnotatedText,
-	ValidateDocumentSchema
+	ValidateDocumentSchema,
+	Inspection,
+	DynamicValue,
+	DocumentOperation,
+	SessionConfig
 } from './types.js';
 
 /**
@@ -79,7 +83,7 @@ export function get_default_node_type(
 	);
 }
 
-export function get_property_default(property_definition: PropertyDefinition): any {
+export function get_property_default(property_definition: PropertyDefinition): DynamicValue {
 	if ('default' in property_definition) return structuredClone(property_definition.default);
 
 	if (property_definition.type === 'string') return '';
@@ -195,7 +199,7 @@ export function validate_document_schema(document_schema: DocumentSchema): void 
  *
  * @throws {Error} Throws if a kind 'annotation' type has a registered component
  */
-export function validate_config_components(schema: DocumentSchema, config: any): void {
+export function validate_config_components(schema: DocumentSchema, config: SessionConfig): void {
 	for (const [node_type, node_schema] of Object.entries(schema)) {
 		if (node_schema.kind === 'annotation' && config?.node_components?.[node_type]) {
 			throw new Error(
@@ -208,7 +212,7 @@ export function validate_config_components(schema: DocumentSchema, config: any):
 /**
  * Validate a primitive value against its schema type.
  */
-function validate_primitive_value(type: PrimitiveType, value: any): boolean {
+function validate_primitive_value(type: PrimitiveType, value: DynamicValue): boolean {
 	switch (type) {
 		case 'string':
 			return typeof value === 'string';
@@ -460,7 +464,7 @@ export function validate_node(
 
 			const node_array_nodes = value.nodes;
 
-			if (!node_array_nodes.every((id: any) => typeof id === 'string' && is_id_valid(id))) {
+			if (!node_array_nodes.every((id: unknown) => typeof id === 'string' && is_id_valid(id))) {
 				throw new Error(
 					`Node ${node.id} has an invalid property: ${prop_name} must contain valid node ids.`
 				);
@@ -524,7 +528,7 @@ export function validate_document(doc: Document, schema: DocumentSchema): void {
  * @param path - Array path to the value, or a string node ID
  * @returns The value at the specified path
  */
-export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): any {
+export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): DynamicValue {
 	if (typeof path === 'string') {
 		path = [path];
 	}
@@ -532,7 +536,7 @@ export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | 
 		throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 	}
 
-	let val: any = doc.nodes[path[0]];
+	let val: DynamicValue = doc.nodes[path[0]];
 	let val_type = 'node';
 
 	for (let i = 1; i < path.length; i++) {
@@ -652,7 +656,7 @@ export function inspect(
 	schema: DocumentSchema,
 	doc: Document,
 	path: DocumentPath
-): { kind: 'property' | 'node'; [key: string]: any } {
+): Inspection {
 	const parent = path.length > 1 ? get(schema, doc, path.slice(0, -1)) : undefined;
 	if (parent?.type) {
 		const property_name = path.at(-1) as string;
@@ -702,7 +706,7 @@ export function create_document_draft(doc: Document): Document {
  * @param op - The operation to apply [type, ...args]
  * @returns The same draft, for convenience
  */
-export function apply_op_to_draft(draft: Document, op: [string, ...any[]]): Document {
+export function apply_op_to_draft(draft: Document, op: DocumentOperation): Document {
 	const [type, ...args] = op;
 	if (type === 'set') {
 		const [node_id, property] = args[0];
@@ -726,7 +730,7 @@ export function apply_op_to_draft(draft: Document, op: [string, ...any[]]): Docu
  * @param op - The operation to apply [type, ...args]
  * @returns The new document with the operation applied
  */
-export function apply_op(doc: Document, op: [string, ...any[]]): Document {
+export function apply_op(doc: Document, op: DocumentOperation): Document {
 	return apply_op_to_draft(create_document_draft(doc), op);
 }
 
@@ -987,8 +991,8 @@ export function get_referencing_node_ids(
 export function validate_selection(
 	selection: Selection | null | undefined,
 	session_or_transaction: {
-		get: (path: DocumentPath) => any;
-		inspect: (path: DocumentPath) => any;
+		get: (path: DocumentPath) => DynamicValue;
+		inspect: (path: DocumentPath) => Inspection;
 	}
 ): void {
 	if (!selection) return;
