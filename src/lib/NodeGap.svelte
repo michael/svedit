@@ -14,7 +14,7 @@
 	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
 	import { should_position_gap } from './node_visibility.svelte.js';
-	import type { DocumentPath } from './types.js';
+	import type { DocumentPath, SveditRenderContext } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -59,7 +59,7 @@
 	 * sure your custom component also handles read-only mode by rendering a
 	 * plain `.node-gap` placeholder without editable internals.
 	 */
-	const svedit = getContext<any>('svedit');
+	const svedit = getContext<SveditRenderContext>('svedit');
 	let {
 		array_path,
 		offset,

@@ -42,7 +42,6 @@ import type {
 	Annotation,
 	DocumentOperation,
 	DynamicRecord,
-	DynamicValue,
 	Inspection,
 	SessionConfig
 } from './types.js';
@@ -134,7 +133,8 @@ export default class Transaction {
 	 * @param path - The path to the value in the document, or a string node ID
 	 * @returns The value at the specified path
 	 */
-	get(path: DocumentPath | string): DynamicValue {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	get(path: DocumentPath | string): any {
 		return doc_get(this.schema, this.doc, path);
 	}
 
@@ -255,7 +255,8 @@ export default class Transaction {
 	 * tr.set(["page_1", "body", "0", "description"], {content: "Hello world", marks: [], annotations: []});
 	 * ```
 	 */
-	set(path: DocumentPath, value: DynamicValue): this {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	set(path: DocumentPath, value: any): this {
 		const path_info = this.inspect(path);
 		if (path_info?.kind !== 'property') {
 			throw new Error(

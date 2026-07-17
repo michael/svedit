@@ -30,8 +30,14 @@
 		Selection,
 		NodeSelection,
 		TextSelection,
-		PropertySelection
+		PropertySelection,
+		DocumentNode,
+		DocumentPath,
+		DynamicRecord,
+		NodeHtmlExporter
 	} from './types.js';
+	import type { KeyMapper } from './KeyMapper.svelte.js';
+	import type Session from './Session.svelte.js';
 
 	let {
 		session,
@@ -42,7 +48,7 @@
 		spellcheck = 'true'
 	}: SveditProps<S> = $props();
 
-	let canvas_el;
+	let canvas_el: HTMLElement | undefined;
 	let root_node = $derived(session.get(path));
 	let Overlays = $derived(session.config.system_components?.overlays);
 	let NodeSelectionMarkers = $derived(
@@ -52,7 +58,7 @@
 
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
-	let before_composition_selection = null;
+	let before_composition_selection: TextSelection | null = null;
 	// Set by onselectionchange before it commits a DOM-derived selection
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
@@ -114,26 +120,8 @@
 		}
 	}
 
-	// Test-only hook: expose the svedit context so test specs can read
-	// array_indices / edge_map for diagnostics. Gated on `import.meta.env.MODE`
-	// — Vite replaces the literal so the comparison is constant-false in
-	// production and the branch is dead-code-eliminated. Wrapped in an
-	// effect so unmount clears the reference and tests don't leak state
-	// across remounts.
-	if (import.meta.env?.MODE === 'test') {
-		$effect(() => {
-			const g = globalThis as any;
-			g.__svedit_ctx_for_test = context;
-			return () => {
-				if (g.__svedit_ctx_for_test === context) {
-					delete g.__svedit_ctx_for_test;
-				}
-			};
-		});
-	}
-
 	// Get KeyMapper from context (may be undefined if not provided)
-	const key_mapper = getContext<any>('key_mapper');
+	const key_mapper = getContext<KeyMapper>('key_mapper');
 
 	// Initialize commands and keymap on the session
 	$effect(() => {
@@ -143,7 +131,7 @@
 	/**
 	 * @param {InputEvent} event
 	 */
-	async function onbeforeinput(event) {
+	async function onbeforeinput(event: InputEvent) {
 		// console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
 		if (event.inputType === 'historyUndo' && is_composing) {
@@ -274,7 +262,7 @@
 	 * Handles composition end events for input methods like dead keys
 	 * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
 	 */
-	function oncompositionend(event) {
+	function oncompositionend(event: CompositionEvent) {
 		// console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (session.selection?.type === 'text') {
@@ -347,7 +335,7 @@
 	 * @param {string} fallback_html - HTML for cross-app compatibility
 	 * @returns {string} HTML with embedded svedit data
 	 */
-	function create_svedit_html_format(json_data, fallback_html) {
+	function create_svedit_html_format(json_data: unknown, fallback_html: string): string {
 		// Use encodeURIComponent to handle Unicode, then base64 encode
 		const json_string = JSON.stringify(json_data);
 		const encoded_data = btoa(encodeURIComponent(json_string));
@@ -364,7 +352,7 @@ ${fallback_html}`;
 	 * @param {string} html - HTML content from clipboard
 	 * @returns {Object|null} Parsed svedit data or null if not found
 	 */
-	function extract_svedit_data_from_html(html) {
+	function extract_svedit_data_from_html(html: string): DynamicRecord | null {
 		const svedit_regex = /data-svedit="([^"]+)"/;
 		const match = html.match(svedit_regex);
 
@@ -388,11 +376,15 @@ ${fallback_html}`;
 	 * @param {Object} node - Node object
 	 * @returns {string} HTML representation
 	 */
-	function default_node_html_exporter(node: any, session: any, html_exporters: any) {
+	function default_node_html_exporter(
+		node: DocumentNode,
+		session: Session<S>,
+		html_exporters: Record<string, NodeHtmlExporter<S>>
+	): string {
 		let html = '';
 		const node_schema = session.schema[node.type];
 
-		for (const [prop_name, prop_value] of Object.entries<any>(node)) {
+		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
 			// Check if this is a text property.
@@ -412,10 +404,10 @@ ${fallback_html}`;
 		return html;
 	}
 
-	function default_node_plain_text_exporter(node: any) {
+	function default_node_plain_text_exporter(node: DocumentNode): string {
 		let plain_text = '';
 
-		for (const [prop_name, prop_value] of Object.entries<any>(node)) {
+		for (const [prop_name, prop_value] of Object.entries(node)) {
 			if (prop_name === 'id' || prop_name === 'type') continue;
 
 			// Check if this is a text property value.
@@ -439,7 +431,7 @@ ${fallback_html}`;
 	 * @param {Object[]} nodes - Array of node objects
 	 * @returns {string} HTML representation
 	 */
-	function export_html(nodes) {
+	function export_html(nodes: DocumentNode[]): string {
 		let html = '';
 
 		for (const node of nodes) {
@@ -456,7 +448,7 @@ ${fallback_html}`;
 		return html;
 	}
 
-	function export_plain_text(nodes) {
+	function export_plain_text(nodes: DocumentNode[]): string {
 		let plain_text = '';
 
 		for (const node of nodes) {
@@ -469,7 +461,7 @@ ${fallback_html}`;
 	 * @param {ClipboardEvent} event
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
-	function oncopy(event, delete_selection = false) {
+	function oncopy(event: ClipboardEvent, delete_selection = false) {
 		// Only handle copy events if editable and focus is within the canvas
 		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
@@ -536,7 +528,7 @@ ${fallback_html}`;
 		}
 	}
 
-	function oncut(event) {
+	function oncut(event: ClipboardEvent) {
 		if (!editable) return;
 		oncopy(event, true);
 	}
@@ -552,11 +544,9 @@ ${fallback_html}`;
 		const preferred_property_name =
 			root_schema.properties.body?.type === 'node_array'
 				? 'body'
-				: Object.entries(root_schema.properties).find(
-						([, property_definition]: [string, any]) => {
-							return property_definition.type === 'node_array';
-						}
-					)?.[0];
+				: Object.entries(root_schema.properties).find(([, property_definition]) => {
+						return property_definition.type === 'node_array';
+					})?.[0];
 		if (!preferred_property_name) return null;
 
 		const node_array_path = [...path, preferred_property_name];
@@ -611,7 +601,7 @@ ${fallback_html}`;
 	 * @param {Selection} [selection] - Optional selection (node caret) where the payload should be pasted
 	 * @returns {boolean} True if the paste operation was successful, false otherwise
 	 */
-	function try_node_paste(pasted_json: any, selection?: Selection): boolean {
+	function try_node_paste(pasted_json: DynamicRecord | null, selection?: Selection): boolean {
 		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
@@ -651,10 +641,10 @@ ${fallback_html}`;
 							id: 'the_node',
 							type: default_text_node_type,
 							[target_text_property_name]: text_content || {
-							content: '',
-							marks: [],
-							annotations: []
-						}
+								content: '',
+								marks: [],
+								annotations: []
+							}
 						}
 					});
 					nodes_to_insert.push(new_node_id);
@@ -683,7 +673,7 @@ ${fallback_html}`;
 		return false;
 	}
 
-	async function onpaste(event) {
+	async function onpaste(event: ClipboardEvent) {
 		// Only handle paste events if editable and focus is within the canvas
 		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
@@ -936,13 +926,13 @@ ${fallback_html}`;
 	 * @param {HTMLElement} el
 	 * @returns {HTMLElement | null}
 	 */
-	function __resolve_node_from_gap(el) {
+	function __resolve_node_from_gap(el: Element): HTMLElement | null {
 		const gap = el.closest('[data-gap-array-path]') as HTMLElement | null;
 		if (!gap) return null;
 		const array_path = deserialize_path(gap.dataset.gapArrayPath);
 		const offset = parseInt(gap.dataset.gapOffset, 10);
 		const node_idx = offset > 0 ? offset - 1 : 0;
-		return canvas_el.querySelector(
+		return canvas_el.querySelector<HTMLElement>(
 			`[data-path="${serialize_path([...array_path, node_idx])}"][data-type="node"]`
 		) as HTMLElement | null;
 	}
@@ -1145,10 +1135,13 @@ ${fallback_html}`;
 	 * @returns {TextSelection | null} A TextSelection object if the DOM selection
 	 *   represents a valid text selection, null otherwise
 	 */
-	function __get_text_selection_from_dom(range: any = null): TextSelection | null {
-		let dom_selection;
-		let focus_node, anchor_node;
-		let focus_offset_in_node; // anchor_offset_in_node;
+	function __get_text_selection_from_dom(
+		range: Range | StaticRange | null = null
+	): TextSelection | null {
+		let dom_selection: globalThis.Selection | null = null;
+		let focus_node: Node | null;
+		let anchor_node: Node | null;
+		let focus_offset_in_node: number; // anchor_offset_in_node;
 
 		if (range) {
 			// When range is provided, use it directly
@@ -1167,20 +1160,24 @@ ${fallback_html}`;
 			range = dom_selection.getRangeAt(0);
 		}
 
-		function get_text_root(node) {
+		function get_text_root(node: Node | null): HTMLElement | null {
 			if (!node) return null;
 
-			if (node.nodeType === Node.ELEMENT_NODE) {
-				return (node.closest?.('[data-path][data-type="text"]') ?? null) as HTMLElement | null;
+			if (node instanceof Element) {
+				return node.closest<HTMLElement>('[data-path][data-type="text"]');
 			}
 
-			return (node.parentElement?.closest('[data-path][data-type="text"]') ??
-				null) as HTMLElement | null;
+			return node.parentElement?.closest<HTMLElement>('[data-path][data-type="text"]') ?? null;
 		}
 
-		let focus_root, anchor_root;
+		let focus_root: HTMLElement | null;
+		let anchor_root: HTMLElement | null;
 
-		if (focus_node === anchor_node && focus_node.dataset?.type === 'text') {
+		if (
+			focus_node === anchor_node &&
+			focus_node instanceof HTMLElement &&
+			focus_node.dataset.type === 'text'
+		) {
 			// EDGE CASE 1: Either text node is empty (only a <br> is present), or caret is after a <br> at the very end of the text node
 			focus_root = anchor_root = focus_node;
 		} else {
@@ -1241,7 +1238,7 @@ ${fallback_html}`;
 			}
 		}
 
-		function get_text_offset(container, offset) {
+		function get_text_offset(container: Node, offset: number): number {
 			const offset_range = window.document.createRange();
 			offset_range.setStart(focus_root, 0);
 			offset_range.setEnd(container, offset);
@@ -1268,7 +1265,7 @@ ${fallback_html}`;
 		};
 	}
 
-	function __get_node_element(node_array_path, node_offset) {
+	function __get_node_element(node_array_path: DocumentPath, node_offset: number): Element | null {
 		if (!canvas_el) return null;
 		return canvas_el.querySelector(
 			`[data-path="${serialize_path([...node_array_path, node_offset])}"][data-type="node"]`
@@ -1282,7 +1279,7 @@ ${fallback_html}`;
 	 * node clipped only by an inner scroll container still counts visible.
 	 * @param {Element | null | undefined} el
 	 */
-	function __intersects_viewport(el) {
+	function __intersects_viewport(el: Element | null | undefined): boolean {
 		if (!el) return false;
 		const r = el.getBoundingClientRect();
 		return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
@@ -1303,7 +1300,7 @@ ${fallback_html}`;
 		const dom_selection = window.getSelection();
 		const range = window.document.createRange();
 
-		const gap_selector = (offset) =>
+		const gap_selector = (offset: number) =>
 			`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${offset}"]`;
 
 		if (is_collapsed) {
@@ -1405,7 +1402,7 @@ ${fallback_html}`;
 	function __render_property_selection() {
 		const selection = session.selection;
 		// The element that holds the property
-		const el = canvas_el.querySelector(
+		const el = canvas_el.querySelector<HTMLElement>(
 			`[data-path="${serialize_path(selection.path)}"][data-type="property"]`
 		);
 
@@ -1426,9 +1423,9 @@ ${fallback_html}`;
 	}
 
 	function __render_text_selection() {
-		const selection = session.selection as any;
+		const selection = session.selection as TextSelection;
 		// The element that holds the annotated string
-		const el = canvas_el.querySelector(
+		const el = canvas_el.querySelector<HTMLElement>(
 			`[data-path="${serialize_path(selection.path)}"][data-type="text"]`
 		);
 		const empty_text = session.get(selection.path).content.length === 0;
@@ -1443,8 +1440,8 @@ ${fallback_html}`;
 		const end_offset = Math.max(selection.anchor_offset, selection.focus_offset);
 
 		// Helper function to process each node
-		function process_node(node) {
-			if (node.nodeType === Node.TEXT_NODE) {
+		function process_node(node: Node) {
+			if (node instanceof Text) {
 				const node_text = node.textContent;
 				const node_char_length = get_char_length(node_text);
 
@@ -1479,7 +1476,7 @@ ${fallback_html}`;
 					}
 				}
 				current_offset += node_char_length;
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
+			} else if (node instanceof HTMLElement) {
 				for (const child_node of node.childNodes) {
 					if (process_node(child_node)) return true; // Stop iteration if end found
 				}
@@ -1530,7 +1527,10 @@ ${fallback_html}`;
 	// Utils
 	// --------------------------
 
-	function __remove_native_composition_text(selection, inserted_text) {
+	function __remove_native_composition_text(
+		selection: TextSelection | null,
+		inserted_text: string
+	) {
 		if (!selection || selection.type !== 'text' || !inserted_text) return;
 
 		const text_el = canvas_el.querySelector(
@@ -1542,7 +1542,10 @@ ${fallback_html}`;
 		if ((text_el.textContent ?? '') === model_text) return;
 
 		let current_offset = 0;
-		function get_dom_text_position(root, target_offset) {
+		function get_dom_text_position(
+			root: Node,
+			target_offset: number
+		): { node: Node; offset: number } | null {
 			for (const node of root.childNodes) {
 				if (node.nodeType === Node.TEXT_NODE) {
 					const node_text = node.textContent ?? '';

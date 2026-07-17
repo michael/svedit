@@ -33,7 +33,6 @@ import type {
 	AnnotatedText,
 	ValidateDocumentSchema,
 	Inspection,
-	DynamicValue,
 	DocumentOperation,
 	SessionConfig
 } from './types.js';
@@ -83,7 +82,8 @@ export function get_default_node_type(
 	);
 }
 
-export function get_property_default(property_definition: PropertyDefinition): DynamicValue {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function get_property_default(property_definition: PropertyDefinition): any {
 	if ('default' in property_definition) return structuredClone(property_definition.default);
 
 	if (property_definition.type === 'string') return '';
@@ -212,7 +212,8 @@ export function validate_config_components(schema: DocumentSchema, config: Sessi
 /**
  * Validate a primitive value against its schema type.
  */
-function validate_primitive_value(type: PrimitiveType, value: DynamicValue): boolean {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function validate_primitive_value(type: PrimitiveType, value: any): boolean {
 	switch (type) {
 		case 'string':
 			return typeof value === 'string';
@@ -528,7 +529,8 @@ export function validate_document(doc: Document, schema: DocumentSchema): void {
  * @param path - Array path to the value, or a string node ID
  * @returns The value at the specified path
  */
-export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): DynamicValue {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): any {
 	if (typeof path === 'string') {
 		path = [path];
 	}
@@ -536,7 +538,8 @@ export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | 
 		throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 	}
 
-	let val: DynamicValue = doc.nodes[path[0]];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let val: any = doc.nodes[path[0]];
 	let val_type = 'node';
 
 	for (let i = 1; i < path.length; i++) {
@@ -652,11 +655,7 @@ export function kind(schema: DocumentSchema, node: DocumentNode): NodeKind {
 /**
  * Inspects a path to get metadata about the value at that location.
  */
-export function inspect(
-	schema: DocumentSchema,
-	doc: Document,
-	path: DocumentPath
-): Inspection {
+export function inspect(schema: DocumentSchema, doc: Document, path: DocumentPath): Inspection {
 	const parent = path.length > 1 ? get(schema, doc, path.slice(0, -1)) : undefined;
 	if (parent?.type) {
 		const property_name = path.at(-1) as string;
@@ -991,7 +990,8 @@ export function get_referencing_node_ids(
 export function validate_selection(
 	selection: Selection | null | undefined,
 	session_or_transaction: {
-		get: (path: DocumentPath) => DynamicValue;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		get: (path: DocumentPath) => any;
 		inspect: (path: DocumentPath) => Inspection;
 	}
 ): void {

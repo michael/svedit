@@ -10,16 +10,24 @@
 		NodeArrayFragment,
 		NodeId,
 		Attachment,
-		Mark
+		Mark,
+		NodeArrayRenderContext,
+		SveditRenderContext
 	} from './types.js';
 
-	const svedit = getContext<any>('svedit');
+	const svedit = getContext<SveditRenderContext>('svedit');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
 	let NodeGapMarkers = $derived(
 		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
 	);
 
-	let { path, tag = 'div', class: css_class, style = '', ...rest }: NodeArrayPropertyProps = $props();
+	let {
+		path,
+		tag = 'div',
+		class: css_class,
+		style = '',
+		...rest
+	}: NodeArrayPropertyProps = $props();
 
 	// Pre-joined once per path change; reused by data-path and by every
 	// NodeGap's should_position_gap call to avoid N+1 joins per render.
@@ -116,7 +124,7 @@
 			serialize_path(svedit.session.selection.path) === path_str
 	);
 
-	setContext('node_array_meta', {
+	setContext<NodeArrayRenderContext>('node_array_meta', {
 		get length() {
 			return node_ids.length;
 		},

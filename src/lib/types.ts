@@ -19,17 +19,12 @@ import type { Snippet } from 'svelte';
  */
 export type NodeId = string;
 
-/**
- * Values at schema-driven boundaries whose concrete type is supplied by the
- * application schema rather than the base document model.
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DynamicValue = any;
-
-export type DynamicRecord = Record<string, DynamicValue>;
+export type DynamicRecord = Record<string, any>;
 export type SessionConfig = DynamicRecord;
 export type CommandRegistry = DynamicRecord;
-export type DocumentOperation = [string, ...DynamicValue[]];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DocumentOperation = [string, ...any[]];
 
 /**
  * Array of IDs, property names (strings), or indexes (integers) that identify a node or property in the document.
@@ -381,10 +376,15 @@ export type DocumentSchema = Record<string, NodeSchema>;
 export type DocumentNode = {
 	id: string;
 	type: string;
-	[key: string]: DynamicValue;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[key: string]: any;
 };
 
-export type Inspection = { kind: 'property' | 'node'; [key: string]: DynamicValue };
+export type Inspection = {
+	kind: 'property' | 'node';
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[key: string]: any;
+};
 
 /**
  * The document format - an object with document_id and nodes.
@@ -396,6 +396,13 @@ export type Document = {
 		[key: string]: DocumentNode;
 	};
 };
+
+/** Converts a document node to HTML, with access to recursive exporters. */
+export type NodeHtmlExporter<S extends DocumentSchema = DocumentSchema> = (
+	node: DocumentNode,
+	session: Session<S>,
+	html_exporters: Record<string, NodeHtmlExporter<S>>
+) => string;
 
 /**
  * Props for the TextProperty component
@@ -494,6 +501,11 @@ export type SveditContext<S extends DocumentSchema = DocumentSchema> = {
 	visibility_registry?: VisibilityRegistryApi;
 };
 
+/** Internal descendant context after Svedit's visibility registry is installed. */
+export type SveditRenderContext<S extends DocumentSchema = DocumentSchema> = SveditContext<S> & {
+	visibility_registry: VisibilityRegistryApi;
+};
+
 /**
  * A range with an attached payload node, used for both marks and annotations.
  */
@@ -548,6 +560,13 @@ export type NodeArrayAttachmentContext = {
 	is_start: boolean;
 	is_middle: boolean;
 	is_end: boolean;
+};
+
+/** Internal context shared by a node array and its rendered child nodes. */
+export type NodeArrayRenderContext = {
+	length: number;
+	mark_for: (node_index: number) => NodeArrayAttachmentContext | null;
+	annotations_for: (node_index: number) => NodeArrayAttachmentContext[];
 };
 
 /**

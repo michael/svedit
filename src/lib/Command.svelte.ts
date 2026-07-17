@@ -102,7 +102,7 @@ export class RedoCommand extends Command {
  */
 export class SelectParentCommand extends Command {
 	is_enabled() {
-		return (
+		return Boolean(
 			this.context.editable &&
 			this.context.session.selection &&
 			this.context.session.selection.path.length > 3
@@ -134,8 +134,7 @@ export class ToggleMarkCommand extends Command {
 	is_active() {
 		const selected_marks = this.context.session.selected_marks;
 		return (
-			selected_marks.length > 0 &&
-			selected_marks.every(({ node }) => node?.type === this.node_type)
+			selected_marks.length > 0 && selected_marks.every(({ node }) => node?.type === this.node_type)
 		);
 	}
 
@@ -189,7 +188,9 @@ export class ToggleAnnotationCommand extends Command {
 	// Mirrors the filter in tr.toggle_annotation, so active/enabled match what
 	// execute() does.
 	relevant_annotations() {
-		return this.context.session.selected_annotations.filter(({ node }) => node?.type === this.node_type);
+		return this.context.session.selected_annotations.filter(
+			({ node }) => node?.type === this.node_type
+		);
 	}
 
 	is_active() {

@@ -26,7 +26,6 @@ export type {
 	NodeOfType,
 	AnyNode,
 	NodeMap,
-	DynamicValue,
 	DynamicRecord,
 	SessionConfig,
 	CommandRegistry,

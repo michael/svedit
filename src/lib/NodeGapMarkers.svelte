@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
 	import { PATH_SEPARATOR, serialize_path } from './utils.js';
-	import type { DocumentPath } from './types.js';
+	import type { DocumentPath, SveditRenderContext } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -31,7 +31,7 @@
 
 	let { path, count }: { path: DocumentPath; count: number } = $props();
 
-	const svedit = getContext<any>('svedit');
+	const svedit = getContext<SveditRenderContext>('svedit');
 	let path_str = $derived(serialize_path(path));
 	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
 

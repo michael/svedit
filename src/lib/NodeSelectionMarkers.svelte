@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
-	import type { DocumentPath } from './types.js';
+	import type { DocumentPath, SveditContext } from './types.js';
 
-	const svedit = getContext<any>('svedit');
+	const svedit = getContext<SveditContext>('svedit');
 	let selected_node_paths = $derived(get_selected_node_paths());
 
 	function get_selected_node_paths(): DocumentPath[] | undefined {

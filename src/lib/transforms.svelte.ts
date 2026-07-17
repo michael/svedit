@@ -104,7 +104,7 @@ export function join_text_node(tr: Transaction): boolean {
 	if (node_index > 0) {
 		const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
 		predecessor_node = tr.get(previous_text_path);
-		can_join = tr.kind(predecessor_node) === 'text';
+		can_join = predecessor_node !== null && tr.kind(predecessor_node) === 'text';
 	}
 
 	// Special behavior: if we can't join and current node is empty, delete it

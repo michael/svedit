@@ -18,6 +18,7 @@ import {
 	get_selected_annotations,
 	validate_selection
 } from './doc_utils.js';
+import type { SelectedAttachment } from './doc_utils.js';
 import type {
 	NodeId,
 	DocumentPath,
@@ -31,7 +32,6 @@ import type {
 	AnnotatedText,
 	AnnotatedNodeArray,
 	CommandRegistry,
-	DynamicValue,
 	Inspection,
 	SessionConfig,
 	SveditContext
@@ -54,7 +54,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 	doc: Document = $state.raw() as Document;
 
-	config: SessionConfig = $state.raw();
+	config: SessionConfig = $state.raw({});
 
 	history: HistoryEntry[] = $state.raw([]);
 	history_index = $state.raw(-1);
@@ -70,13 +70,15 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	can_redo = $derived(this.history_index < this.history.length - 1);
 
 	// Reactive variable for selected node
-	selected_node = $derived(this.get_selected_node());
+	selected_node: AnyNode<S> | null = $derived(this.get_selected_node());
 	available_mark_types = $derived(this.get_available_mark_types());
 	available_annotation_types = $derived(this.get_available_annotation_types());
 	selected_marks = $derived(get_selected_marks(this.schema, this.doc, this.selection));
-	active_mark = $derived(this.selected_marks.length === 1 ? this.selected_marks[0] : null);
+	active_mark: SelectedAttachment | null = $derived(
+		this.selected_marks.length === 1 ? this.selected_marks[0] : null
+	);
 	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
-	active_annotation = $derived(
+	active_annotation: SelectedAttachment | null = $derived(
 		this.selected_annotations.length === 1 ? this.selected_annotations[0] : null
 	);
 
@@ -350,8 +352,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * Gets a node instance or property value at the specified path.
 	 *
 	 * The result type defaults to `any` because a path can address a node or
-	 * any property value. Annotate the target to type the result, or use
-	 * get_node for schema-typed node access.
+	 * any property value. Annotate the target to type the result.
 	 *
 	 * @example
 	 * // Get a node by ID
@@ -369,7 +370,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * // Get a text property
 	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', marks: [], annotations: []}
 	 */
-	get<T = DynamicValue>(path: DocumentPath | string): T {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	get<T = any>(path: DocumentPath | string): T {
 		return doc_get(this.schema, this.doc, path);
 	}
 
@@ -522,7 +524,10 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 					add_subgraph(range.node_id);
 					return {
 						start_offset: Math.max(range.start_offset - selection_start, 0),
-						end_offset: Math.min(range.end_offset - selection_start, selection_end - selection_start),
+						end_offset: Math.min(
+							range.end_offset - selection_start,
+							selection_end - selection_start
+						),
 						node_id: range.node_id
 					};
 				})

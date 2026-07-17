@@ -11,6 +11,17 @@ import Session from '../lib/Session.svelte.js';
 import { app_config } from '../routes/demo_config.js';
 import { document_schema } from '../routes/demo_schema.js';
 import type { Document } from '../lib/types.js';
+import SveditContextProbe from './testing_components/SveditContextProbe.svelte';
+
+function create_test_config() {
+	return {
+		...app_config,
+		system_components: {
+			...app_config.system_components,
+			overlays: SveditContextProbe
+		}
+	};
+}
 
 /** Sleep one or more requestAnimationFrame ticks. */
 export function raf(times = 1) {
@@ -72,7 +83,7 @@ export function make_story_session(n_buttons: number) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...app_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
 /** Build a session with a single image_grid containing `n` items. */
@@ -104,7 +115,7 @@ export function make_image_grid_session(n_items: number) {
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'
 	};
-	return new Session(document_schema, { document_id: 'page_1', nodes }, { ...app_config });
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
 /** Find the (non-empty) buttons node-array inside the rendered tree. */

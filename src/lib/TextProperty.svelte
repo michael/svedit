@@ -9,11 +9,24 @@
 		calculate_fragment_ranges
 	} from './utils.js';
 
-	import type { TextPropertyProps, Mark, Fragment, SelectionRange } from './types.js';
+	import type {
+		TextPropertyProps,
+		Mark,
+		Fragment,
+		SelectionRange,
+		SveditContext
+	} from './types.js';
 
-	const svedit = getContext<any>('svedit');
+	const svedit = getContext<SveditContext>('svedit');
 
-	let { path, class: css_class, placeholder = '', tag = 'div', style = '', ...rest }: TextPropertyProps = $props();
+	let {
+		path,
+		class: css_class,
+		placeholder = '',
+		tag = 'div',
+		style = '',
+		...rest
+	}: TextPropertyProps = $props();
 
 	let path_str = $derived(serialize_path(path));
 
@@ -29,9 +42,12 @@
 	// re-runs for every text property on every document change).
 	let is_empty = $derived(plain_text.length === 0 && !(svedit.is_composing && is_focused));
 
-	let is_collapsed = $derived(
-		is_focused && svedit.session.selection?.anchor_offset == svedit.session.selection?.focus_offset
-	);
+	let is_collapsed = $derived.by(() => {
+		const selection = svedit.session.selection;
+		return (
+			is_focused && selection?.type === 'text' && selection.anchor_offset === selection.focus_offset
+		);
+	});
 
 	// Get selection highlight range if it does not touch marks.
 	// Only render selection highlight when canvas is NOT focused.
