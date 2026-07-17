@@ -267,7 +267,7 @@ describe('Session.svelte.js', () => {
 			const upgraded_doc = fill_document_defaults(doc, schema);
 
 			expect(upgraded_doc.nodes.text_1.layout).toBe(1);
-			expect((doc.nodes.text_1 as any).layout).toBeUndefined();
+			expect(doc.nodes.text_1).not.toHaveProperty('layout');
 			expect(() => new Session(schema, upgraded_doc, {})).not.toThrow();
 		});
 
