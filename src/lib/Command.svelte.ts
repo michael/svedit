@@ -320,7 +320,7 @@ export class SelectAllCommand extends Command {
 						session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_inside_node_array) {
-						const node_index = parseInt(String(node_path.at(-1)));
+						const node_index = node_path.at(-1) as number;
 						session.selection = {
 							type: 'node',
 							path: node_path.slice(0, -1),
@@ -358,7 +358,7 @@ export class SelectAllCommand extends Command {
 						session.inspect(parent_path.slice(0, -1))?.type === 'node_array';
 
 					if (is_parent_node_array) {
-						const parent_node_index = parseInt(String(parent_path.at(-1)));
+						const parent_node_index = parent_path.at(-1) as number;
 						session.selection = {
 							type: 'node',
 							path: parent_path.slice(0, -1),
@@ -378,7 +378,7 @@ export class SelectAllCommand extends Command {
 				const is_inside_node_array = session.inspect(node_path.slice(0, -1))?.type === 'node_array';
 
 				if (is_inside_node_array) {
-					const node_index = parseInt(String(node_path.at(-1)));
+					const node_index = node_path.at(-1) as number;
 					session.selection = {
 						type: 'node',
 						path: node_path.slice(0, -1),

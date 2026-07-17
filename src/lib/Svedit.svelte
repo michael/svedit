@@ -593,8 +593,7 @@ ${fallback_html}`;
 	 */
 	function get_node_insert_caret_after_text_selection(selection = session.selection) {
 		if (selection?.type !== 'text') return null;
-		const node_index = parseInt(String(selection.path.at(-2)), 10);
-		if (Number.isNaN(node_index)) return null;
+		const node_index = selection.path.at(-2) as number;
 
 		return {
 			type: 'node' as const,

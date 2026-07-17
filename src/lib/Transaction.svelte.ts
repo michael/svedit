@@ -655,7 +655,7 @@ export default class Transaction {
 				return this;
 			} else if (direction === 'forward' && end === length) {
 				// At end of text - try to join with next text node
-				const node_index = parseInt(String(this.selection.path.at(-2)), 10);
+				const node_index = this.selection.path.at(-2) as number;
 				const successor_node = this.get([...this.selection.path.slice(0, -2), node_index + 1]);
 				// Check if next node is a text node
 				if (successor_node && this.kind(successor_node) === 'text') {

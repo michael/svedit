@@ -11,7 +11,7 @@
 	let path_str = $derived(serialize_path(path));
 
 	const node_array_meta = getContext<any>('node_array_meta');
-	let child_index = $derived(node_array_meta ? parseInt(String(path.at(-1)), 10) : -1);
+	let child_index = $derived(node_array_meta ? (path.at(-1) as number) : -1);
 	let is_first = $derived(node_array_meta && child_index === 0);
 	let is_last = $derived(node_array_meta && child_index === node_array_meta.length - 1);
 

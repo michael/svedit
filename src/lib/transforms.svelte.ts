@@ -53,8 +53,8 @@ export function break_text_node(tr: Transaction): boolean {
 	const node_insert_position: Selection = {
 		type: 'node',
 		path: tr.selection.path.slice(0, -2),
-		anchor_offset: parseInt(String(tr.selection.path.at(-2)), 10) + 1,
-		focus_offset: parseInt(String(tr.selection.path.at(-2)), 10) + 1
+		anchor_offset: (tr.selection.path.at(-2) as number) + 1,
+		focus_offset: (tr.selection.path.at(-2) as number) + 1
 	};
 
 	// TODO: Only use default_node_type when caret is at the end of
@@ -86,7 +86,7 @@ export function join_text_node(tr: Transaction): boolean {
 	const is_inside_node_array = tr.inspect(selection.path.slice(0, -2))?.type === 'node_array';
 	if (!is_inside_node_array) return false; // Do nothing if we're not inside a node_array
 
-	const node_index = parseInt(String(tr.selection.path.at(-2)), 10);
+	const node_index = tr.selection.path.at(-2) as number;
 
 	// Determine if we can join with the previous node
 	let can_join = false;

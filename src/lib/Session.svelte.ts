@@ -470,7 +470,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			return null;
 		}
 
-		const node_offset = parseInt(String(selection.path.at(-2)), 10) + 1;
+		const node_offset = (selection.path.at(-2) as number) + 1;
 		return {
 			type: 'node',
 			path: selection.path.slice(0, -2),
@@ -590,7 +590,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			// in the path
 			if (this.selection.path.length > 3) {
 				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
+				const current_index = this.selection.path[this.selection.path.length - 2] as number;
 				this.selection = {
 					type: 'node',
 					path: parent_path,
@@ -604,7 +604,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			// For node selections, we go up one level
 			if (this.selection.path.length > 3) {
 				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = parseInt(String(this.selection.path[this.selection.path.length - 2]));
+				const current_index = this.selection.path[this.selection.path.length - 2] as number;
 
 				this.selection = {
 					type: 'node',

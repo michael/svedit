@@ -46,7 +46,7 @@ function get_ancestor_walk_paths(
  */
 function get_node_index_at(full_path: DocumentPath, ancestor_path: DocumentPath): number | null {
 	if (full_path.length <= ancestor_path.length) return null;
-	return parseInt(String(full_path[ancestor_path.length]));
+	return full_path[ancestor_path.length] as number;
 }
 
 /**
