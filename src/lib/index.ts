@@ -37,8 +37,8 @@ export type {
 	DocumentPath,
 	NodeId,
 	// Values
-	AnnotatedText,
-	AnnotatedNodeArray,
+	Text,
+	NodeArray,
 	Attachment,
 	Mark,
 	Annotation,

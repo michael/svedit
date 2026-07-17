@@ -12,7 +12,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- compile-time type assertions are intentionally unused */
 
 import { define_document_schema } from '../lib/doc_utils.js';
-import type { AnnotatedText, AnnotatedNodeArray, NodeOfType, AnyNode, NodeMap } from '../lib/types.js';
+import type { Text, NodeArray, NodeOfType, AnyNode, NodeMap } from '../lib/types.js';
 
 const test_schema = define_document_schema({
 	page: {
@@ -58,16 +58,15 @@ type Story = NodeOfType<TestSchema, 'story'>;
 type Nodes = NodeMap<TestSchema>;
 
 // Minimal type-assertion helpers (compile-time only)
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-	? true
-	: false;
+type Equal<A, B> =
+	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
 
 // 1. Property definitions map to the right value types
-type _title_is_text = Expect<Equal<Story['title'], AnnotatedText>>;
+type _title_is_text = Expect<Equal<Story['title'], Text>>;
 type _image_is_string = Expect<Equal<Story['image'], string>>;
 type _layout_is_number = Expect<Equal<Story['layout'], number>>;
-type _buttons_is_node_array = Expect<Equal<Story['buttons'], AnnotatedNodeArray>>;
+type _buttons_is_node_array = Expect<Equal<Story['buttons'], NodeArray>>;
 type _keywords_is_string_array = Expect<Equal<Nodes['page']['keywords'], string[]>>;
 
 // 2. Unknown properties are rejected (this is the autocomplete guarantee)
@@ -78,7 +77,7 @@ story.titel;
 // 3. AnyNode narrows on the `type` discriminant
 declare const some_node: AnyNode<TestSchema>;
 if (some_node.type === 'story') {
-	const title: AnnotatedText = some_node.title;
+	const title: Text = some_node.title;
 	void title;
 }
 if (some_node.type === 'list') {

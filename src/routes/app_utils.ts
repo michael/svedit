@@ -1,6 +1,6 @@
 import { get_property_default } from 'svedit';
 import type {
-	AnnotatedNodeArray,
+	NodeArray,
 	DocumentNode,
 	DocumentPath,
 	DocumentSchema,
@@ -114,7 +114,7 @@ function is_property_value_empty(
 
 	if (property_definition.type === 'node_array') {
 		if (!value || typeof value !== 'object') return false;
-		const node_array = value as AnnotatedNodeArray;
+		const node_array = value as NodeArray;
 		if (!Array.isArray(node_array.nodes)) return false;
 		if (node_array.marks?.length > 0 || node_array.annotations?.length > 0) return false;
 		return node_array.nodes.every((node_id: string) => {
