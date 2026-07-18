@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	import { serialize_path } from 'svedit';
 	import type { DocumentNode, DocumentPath } from 'svedit';
 	import { get_node_layouts, get_selection_node_ancestors } from '../app_utils.js';
@@ -159,9 +160,7 @@
 				{/if}
 			</span>
 			{#if variant_item.option_count > 1}
-				<svg class="chevron" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-					<path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.25" />
-				</svg>
+				<Icon name="chevron-down" />
 				<select
 					class="variant-select"
 					value={variant_item.current_value}
@@ -214,7 +213,8 @@
 		position: relative;
 		display: flex;
 		align-items: center;
-		padding: 0.45rem 0.75rem;
+		/* Balance spacing icons with text */
+		padding: 0.45rem 0.2rem 0.45rem 0.75rem;
 		border-radius: 9999px;
 	}
 
@@ -248,13 +248,6 @@
 		margin-left: 0.3rem;
 		font-family: monospace;
 		font-size: 0.6875rem;
-		opacity: 0.62;
-	}
-
-	.chevron {
-		width: 0.75rem;
-		height: 0.75rem;
-		margin-left: 0.45rem;
 		opacity: 0.62;
 	}
 
