@@ -287,7 +287,7 @@
 	{#if session.commands.select_parent && !session.commands.select_parent.disabled}
 		<span class="select-parent-group">
 			<button title="Select parent (Esc)" onmousedown={select_parent}>
-				<Icon name="arrow-right" style="transform: scaleX(-1)" />
+				<Icon name="escape" />
 			</button>
 			{@render divider()}
 		</span>
@@ -688,7 +688,7 @@
 
 		/* Hint that more tools are reachable by scrolling */
 		.bottom-toolbar .toolbar-scroller {
-			scrollbar-width: thin;
+			scrollbar-width: none;
 		}
 	}
 
