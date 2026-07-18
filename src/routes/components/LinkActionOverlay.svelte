@@ -25,7 +25,7 @@
 
 {#if active_link_path}
 	<div class="link-action-overlay" style="position-anchor: --{serialize_path(active_link_path)};">
-		<a href={active_link?.href} target="_blank" class="small"><Icon name="external-link" /></a>
+		<a href={active_link?.href} target="_blank" class="small"><Icon name="link" /></a>
 	</div>
 {/if}
 
