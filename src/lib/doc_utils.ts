@@ -893,6 +893,44 @@ export function apply_op(doc: Document, op: DocumentOperation): Document {
 }
 
 /**
+ * Applies a sequence of ops to a document and returns the new document.
+ *
+ * This is the replay primitive for host-side history features:
+ * materialize a document at any version from a snapshot plus the ops
+ * recorded after it (e.g. entries spilled from Session history, or a
+ * persisted op log).
+ *
+ * @param doc - The document to start from (not mutated)
+ * @param ops - Ops to apply, in order
+ * @returns The new document with all ops applied
+ */
+export function apply_ops(doc: Document, ops: DocumentOperation[]): Document {
+	const draft = create_document_draft(doc);
+	for (const op of ops) {
+		apply_op_to_draft(draft, op);
+	}
+	return draft;
+}
+
+/**
+ * Returns the id of the node an op addresses.
+ *
+ * Ops are node-scoped by construction: set/splice target
+ * [node_id, property], create carries the node, delete carries the id.
+ * This is what makes node-scoped history filtering possible (see
+ * Session.history_for).
+ *
+ * @returns The addressed node id, or null for unknown ops
+ */
+export function op_target_node_id(op: DocumentOperation): NodeId | null {
+	const [type] = op;
+	if (type === 'set' || type === 'splice') return op[1][0];
+	if (type === 'create') return op[1].id;
+	if (type === 'delete') return op[1];
+	return null;
+}
+
+/**
  * Counts how many times a node is referenced in the document.
  */
 export function count_references(schema: DocumentSchema, doc: Document, node_id: NodeId): number {
