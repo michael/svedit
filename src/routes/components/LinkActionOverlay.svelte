@@ -98,18 +98,15 @@
 {#if active_link_path && anchor_name}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="link-popover" style="position-anchor: --{anchor_name};" onkeydown={handle_keydown}>
-		<div class="url-field">
-			<input
-				type="url"
-				value={committed_href}
-				placeholder="Enter link URL"
-				aria-label="Link URL"
-				onchange={(event) => commit_href(event.currentTarget.value)}
-				use:focus_on_create
-			/>
-			<!-- Non-interactive hint that Enter confirms and closes -->
-			<Icon class="enter-hint" name="enter" />
-		</div>
+		<input
+			class="url-field"
+			type="url"
+			value={committed_href}
+			placeholder="Enter link URL"
+			aria-label="Link URL"
+			onchange={(event) => commit_href(event.currentTarget.value)}
+			use:focus_on_create
+		/>
 		<!-- Disabled while the field is empty — a valid href can be as short
 		     as "/" or "#id", so emptiness is the only check we can make. -->
 		<button title="Open in new tab" onmousedown={open_link} disabled={committed_href === ''}>
@@ -151,12 +148,6 @@
 	}
 
 	.url-field {
-		position: relative;
-		display: flex;
-		align-items: center;
-	}
-
-	.url-field input {
 		padding: var(--s-1) var(--s-2);
 		/* Reserve room for the enter hint so text can never run under it */
 		padding-right: calc(var(--s-2) + 20px);
@@ -174,14 +165,6 @@
 		&:focus {
 			outline: none;
 		}
-	}
-
-	/* Non-interactive: purely informs that Enter confirms and closes */
-	.link-popover :global(.enter-hint) {
-		position: absolute;
-		right: var(--s-2);
-		pointer-events: none;
-		--icon-color: oklch(from var(--app-primary-text) l c h / 0.3);
 	}
 
 	.link-popover button {
