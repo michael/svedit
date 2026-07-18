@@ -1,5 +1,5 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, traverse, traverse_ids } from './utils.js';
+import { char_slice, get_char_length, traverse, traverse_ids } from './utils.js';
 import {
 	get as doc_get,
 	property_type as doc_property_type,
@@ -41,6 +41,22 @@ import type { Keymap } from './KeyMapper.svelte.js';
 
 const BATCH_WINDOW_MS = 1000; // 1 second
 
+/**
+ * Transforms a character offset across a splice op.
+ *
+ * Offsets before the splice stay put; offsets after the deleted span shift
+ * by the length delta; offsets inside the deleted span collapse to its
+ * start.
+ */
+function transform_offset_for_splice(offset: number, op: DocumentOperation): number {
+	const start = op[2];
+	const delete_count = op[3];
+	const insert_length = get_char_length(op[4]);
+	if (offset <= start) return offset;
+	if (offset >= start + delete_count) return offset + insert_length - delete_count;
+	return start;
+}
+
 type HistoryEntry = {
 	ops: Transaction['ops'];
 	inverse_ops: Transaction['inverse_ops'];
@@ -52,10 +68,16 @@ type HistoryEntry = {
 export type ChangeEvent = {
 	/** The ops that were applied to the document, in application order */
 	ops: DocumentOperation[];
-	/** Ops that revert this change when applied in reverse order */
+	/**
+	 * Ops that revert this change when applied in reverse order (empty for
+	 * ingested changes — the external writer owns the inverses)
+	 */
 	inverse_ops: DocumentOperation[];
-	/** What kind of commit produced the change */
-	origin: 'transaction' | 'undo' | 'redo';
+	/**
+	 * What kind of commit produced the change: 'transaction', 'undo',
+	 * 'redo', or the origin passed to ingest() ('external' by default)
+	 */
+	origin: string;
 };
 
 /**
@@ -239,12 +261,36 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * @throws {Error} Throws if the transaction result is invalid
 	 */
 	validate_transaction_result(transaction: Transaction): void {
-		const doc = transaction.doc;
+		this._validate_affected(transaction.doc, {
+			created_node_ids: transaction.created_node_ids,
+			modified_node_ids: transaction.modified_node_ids,
+			deleted_node_ids: transaction.deleted_node_ids,
+			changed_node_types: transaction.changed_node_types
+		});
+	}
+
+	/**
+	 * Validates the nodes affected by a set of changes against a document
+	 * state. Shared by transaction validation and ingest().
+	 *
+	 * @throws {Error} Throws if an affected node is invalid
+	 */
+	private _validate_affected(
+		doc: Document,
+		{
+			created_node_ids,
+			modified_node_ids,
+			deleted_node_ids,
+			changed_node_types
+		}: {
+			created_node_ids: NodeId[];
+			modified_node_ids: NodeId[];
+			deleted_node_ids: NodeId[];
+			changed_node_types: boolean;
+		}
+	): void {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
-		const affected_node_ids: Set<NodeId> = new Set([
-			...transaction.created_node_ids,
-			...transaction.modified_node_ids
-		]);
+		const affected_node_ids: Set<NodeId> = new Set([...created_node_ids, ...modified_node_ids]);
 
 		// A full-document referrer scan is only needed when a reference held
 		// by an UNTOUCHED node can have become invalid:
@@ -252,16 +298,16 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		// - a 'type' change can violate a referrer's node/mark/annotation type
 		//   constraint
 		// References to created nodes can only live in nodes that were
-		// themselves created or modified in this transaction (the reference
+		// themselves created or modified in this change set (the reference
 		// did not exist before), and modifying a node's other properties
 		// cannot invalidate its referrers — so those cases are already
 		// covered by the affected set and need no scan.
-		if (transaction.deleted_node_ids.length > 0 || transaction.changed_node_types) {
+		if (deleted_node_ids.length > 0 || changed_node_types) {
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
 			const scan_targets = new Set([
-				...transaction.created_node_ids,
-				...transaction.modified_node_ids,
-				...transaction.deleted_node_ids
+				...created_node_ids,
+				...modified_node_ids,
+				...deleted_node_ids
 			]);
 			for (const node_id of get_referencing_node_ids(this.schema, doc, scan_targets)) {
 				affected_node_ids.add(node_id);
@@ -503,6 +549,163 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		// Redo ends any open typing batch, matching undo().
 		this.last_batch_started = undefined;
 		return this;
+	}
+
+	/**
+	 * Applies ops from an external writer (another tab, a sync layer, an
+	 * agent, a version restore) to the live session.
+	 *
+	 * The ops pass through the same commit funnel as local transactions:
+	 * the affected subgraph is validated on a draft BEFORE the document is
+	 * swapped (the session is untouched when validation throws), on_change
+	 * listeners are notified with the given origin, and the live selection
+	 * is rebased across the change (text offsets shift across foreign
+	 * splices; offsets are clamped after whole-value sets; the selection is
+	 * cleared when its node was deleted or it cannot be made valid).
+	 *
+	 * Foreign ops are deliberately kept out of the local undo history:
+	 * undo() reverts your own edits, never someone else's. Note that a
+	 * local undo whose text was meanwhile changed by a foreign splice may
+	 * apply at stale offsets — rebasing local inverses over foreign ops is
+	 * an open follow-up.
+	 *
+	 * ingest applies ops as given; conflict handling and repair policies
+	 * are the host's concern. Prefer batching related foreign ops into one
+	 * ingest call: batches containing deletes or type changes trigger a
+	 * full-document referrer scan per call.
+	 *
+	 * @param ops - Ops to apply, in order
+	 * @param options - Optional configuration (origin: reported to on_change listeners)
+	 * @throws {Error} If an op has an unknown type or the result fails validation
+	 */
+	ingest(ops: DocumentOperation[], { origin = 'external' }: { origin?: string } = {}): this {
+		if (ops.length === 0) return this;
+
+		// Derive the affected sets first, so unknown op types throw before
+		// anything is applied.
+		const created_node_ids: NodeId[] = [];
+		const modified_node_ids: NodeId[] = [];
+		const deleted_node_ids: NodeId[] = [];
+		let changed_node_types = false;
+		for (const op of ops) {
+			const [type] = op;
+			if (type === 'create') {
+				created_node_ids.push(op[1].id);
+			} else if (type === 'delete') {
+				deleted_node_ids.push(op[1]);
+			} else if (type === 'set') {
+				modified_node_ids.push(op[1][0]);
+				if (op[1][1] === 'type') changed_node_types = true;
+			} else if (type === 'splice') {
+				modified_node_ids.push(op[1][0]);
+			} else {
+				throw new Error(`Cannot ingest op of unknown type: ${JSON.stringify(op)}`);
+			}
+		}
+
+		const draft = create_document_draft(this.doc);
+		for (const op of ops) {
+			apply_op_to_draft(draft, op);
+		}
+
+		// Validate before committing — the current doc stays untouched when
+		// the result is invalid.
+		this._validate_affected(draft, {
+			created_node_ids,
+			modified_node_ids,
+			deleted_node_ids,
+			changed_node_types
+		});
+
+		const next_selection = this._rebase_selection(this.selection, ops, draft);
+
+		this._commit(draft, { ops, inverse_ops: [], origin });
+
+		// Close the history batch window: a local typing batch must never
+		// straddle a foreign change, or undoing it would replay inverse ops
+		// recorded against a state that no longer exists between them.
+		this.last_batch_started = undefined;
+
+		try {
+			this.selection = next_selection;
+		} catch {
+			// The rebased selection could not be made valid against the new
+			// state (e.g. its path now resolves differently) — clear it
+			// rather than leaving a broken selection behind.
+			this.selection = null;
+		}
+
+		return this;
+	}
+
+	/**
+	 * Rebases a selection across ingested ops.
+	 *
+	 * Text offsets are transformed across foreign splices on the selected
+	 * property and clamped into bounds after whole-value sets. Returns null
+	 * when the selection's owner node was deleted.
+	 *
+	 * Selections address nodes by path (array indices), not by id, so a
+	 * foreign reorder of a parent array can make the same path point at a
+	 * different node; the final validation in ingest() clears selections
+	 * that end up out of bounds. Id-stable path rebasing is a follow-up.
+	 */
+	private _rebase_selection(
+		selection: Selection | null,
+		ops: DocumentOperation[],
+		next_doc: Document
+	): Selection | null {
+		if (!selection) return null;
+
+		let owner_id: NodeId | undefined;
+		let property: string;
+		try {
+			const owner = doc_get(this.schema, this.doc, selection.path.slice(0, -1));
+			owner_id = owner?.id;
+			property = String(selection.path.at(-1));
+		} catch {
+			return null;
+		}
+		if (!owner_id) return null;
+
+		// A deleted owner is simply absent from next_doc. When a batch
+		// deletes and recreates the same id, the recreated node keeps the
+		// selection (offsets clamp below).
+		const owner_after = next_doc.nodes[owner_id];
+		if (!owner_after) return null;
+
+		if (selection.type !== 'text' && selection.type !== 'node') {
+			// Property selections carry no offsets; owner survival is all
+			// that matters.
+			return selection;
+		}
+
+		let anchor_offset = selection.anchor_offset;
+		let focus_offset = selection.focus_offset;
+
+		for (const op of ops) {
+			if (
+				op[0] === 'splice' &&
+				selection.type === 'text' &&
+				op[1][0] === owner_id &&
+				op[1][1] === property
+			) {
+				anchor_offset = transform_offset_for_splice(anchor_offset, op);
+				focus_offset = transform_offset_for_splice(focus_offset, op);
+			}
+		}
+
+		// Clamp into the new bounds (also covers whole-value sets, whose
+		// offsets cannot be mapped meaningfully).
+		const value = owner_after[property];
+		const max_offset =
+			selection.type === 'text'
+				? get_char_length(value?.content ?? '')
+				: (value?.nodes?.length ?? 0);
+		anchor_offset = Math.max(0, Math.min(anchor_offset, max_offset));
+		focus_offset = Math.max(0, Math.min(focus_offset, max_offset));
+
+		return { ...selection, anchor_offset, focus_offset };
 	}
 
 	/**
