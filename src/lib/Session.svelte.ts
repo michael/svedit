@@ -256,7 +256,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 	/**
 	 * Applies a transaction to the document.
-	 * Auto-batches history entries with debounced behavior (max one entry per 2 seconds) when batch is true.
+	 * Auto-batches history entries with debounced behavior (max one entry per second) when batch is true.
 	 *
 	 * @param transaction - The transaction to apply
 	 * @param options - Optional configuration (batch: whether to allow batching with previous transaction)
@@ -283,7 +283,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			now - this.last_batch_started < BATCH_WINDOW_MS;
 
 		if (should_batch) {
-			// Append to existing history entry (within 2s of batch start)
+			// Append to existing history entry (within the batch window)
 			const last_entry = this.history[this.history_index];
 			last_entry.ops.push(...transaction.ops);
 			last_entry.inverse_ops.push(...transaction.inverse_ops);
@@ -291,7 +291,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			// Trigger update
 			this.history = [...this.history];
 		} else {
-			// Create new history entry (more than 2s since batch started, or first edit, or batch not requested)
+			// Create new history entry (batch window elapsed, first edit, or batch not requested)
 			this.history = [
 				...this.history,
 				{
@@ -330,6 +330,9 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		this.doc = doc;
 		this.selection = change.selection_before;
 		this.history_index = this.history_index - 1;
+		// History navigation ends any open typing batch, so the next batched
+		// apply starts a fresh entry instead of appending to a stale one.
+		this.last_batch_started = undefined;
 		return this;
 	}
 
@@ -345,6 +348,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		});
 		this.doc = doc;
 		this.selection = change.selection_after;
+		// Redo ends any open typing batch, matching undo().
+		this.last_batch_started = undefined;
 		return this;
 	}
 
