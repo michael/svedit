@@ -178,7 +178,13 @@
 	// Anchor for the floating toolbar. Every selectable element exposes
 	// anchor-name: --{serialized_path}, so the toolbar attaches to the element
 	// owning the current selection with pure CSS anchor positioning.
-	let floating_anchor = $derived.by((): { name: string; placement: 'above' | 'below' } | null => {
+	// last_node_anchor (multi-node only) is the last selected node's path,
+	// exposed as --last-selected-node-anchor for a position-try fallback.
+	let floating_anchor = $derived.by((): {
+		name: string;
+		placement: 'above' | 'below';
+		last_node_anchor?: string;
+	} | null => {
 		if (!editable) return null;
 		const sel = session.selection;
 		if (!sel) return null;
@@ -201,8 +207,16 @@
 			const start = Math.min(sel.anchor_offset, sel.focus_offset);
 			const end = Math.max(sel.anchor_offset, sel.focus_offset);
 			if (start !== end) {
-				// Anchor to the first selected node
-				return { name: serialize_path([...sel.path, start]), placement: 'above' };
+				// Anchor to the first selected node. When multiple nodes are
+				// selected, last_node_anchor lets CSS fall back to below the
+				// last one when above the first overflows.
+				return {
+					name: serialize_path([...sel.path, start]),
+					placement: 'above',
+					...(end - start > 1
+						? { last_node_anchor: serialize_path([...sel.path, end - 1]) }
+						: {})
+				};
 			}
 			// Node caret: the floating toolbar only offers insertion there, so
 			// skip it entirely when nothing can be inserted at this gap.
@@ -491,7 +505,10 @@
 		<div
 			class="editor-toolbar floating-toolbar"
 			class:anchor-below={floating_anchor.placement === 'below'}
-			style="position-anchor: --{floating_anchor.name};"
+			class:has-last-node-anchor={Boolean(floating_anchor.last_node_anchor)}
+			style="position-anchor: --{floating_anchor.name};{floating_anchor.last_node_anchor
+				? ` --last-selected-node-anchor: --${floating_anchor.last_node_anchor};`
+				: ''}"
 			onkeydown={handle_toolbar_keydown}
 		>
 			<div class="toolbar-scroller">
@@ -654,15 +671,39 @@
 		right: var(--s-4);
 	}
 
+	@position-try --stay-in-viewport {
+		position-area: none;
+		position-anchor: none;
+		top: calc(var(--top-toolbar-safe-area, 0px) + var(--s-2));
+		right: auto;
+		bottom: auto;
+		left: auto;
+	}
+
+	/* Multi-node selection: when above the first node overflows, sit below
+	   the last selected node instead (--last-selected-node-anchor). */
+	@position-try --below-last-node {
+		position-anchor: var(--last-selected-node-anchor);
+		bottom: auto;
+		top: anchor(bottom);
+		margin-bottom: 0;
+		margin-top: var(--s-2);
+	}
+
 	.floating-toolbar {
 		position: fixed;
 		bottom: anchor(top);
 		justify-self: anchor-center;
 		margin-bottom: var(--s-2);
-		position-try-fallbacks: flip-block;
-		position-visibility: anchors-visible;
+		position-visibility: always;
+		position-try-fallbacks: --stay-in-viewport, flip-block;
 		z-index: 60;
 	}
+
+	.floating-toolbar.has-last-node-anchor {
+		position-try-fallbacks: --below-last-node, --stay-in-viewport, flip-block;
+	}
+
 
 	.floating-toolbar.anchor-below {
 		bottom: auto;
