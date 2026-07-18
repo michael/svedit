@@ -1,0 +1,19 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" id="icon">
+<rect x="2.5" y="4.5" width="19" height="12" rx="2" stroke="currentColor"/>
+<circle cx="5.5" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="8.10156" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="10.6992" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="13.3008" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="15.8984" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="18.5" cy="7.5" r="0.75" fill="currentColor"/>
+<circle cx="5.5" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="8.10156" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="10.6992" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="13.3008" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="15.8984" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="18.5" cy="10.5" r="0.75" fill="currentColor"/>
+<circle cx="5.5" cy="13.5" r="0.75" fill="currentColor"/>
+<rect x="7.5" y="12.7998" width="9" height="1.4" rx="0.7" fill="currentColor"/>
+<circle cx="18.5" cy="13.5" r="0.75" fill="currentColor"/>
+<path d="M15 18.5L12 21.5L9 18.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
