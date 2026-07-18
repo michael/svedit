@@ -105,50 +105,43 @@
 		session.selection?.type === 'property' && session.selection.path.at(-1) === 'image'
 	);
 
-	// Link mark touched by the current text selection (single mark only)
+	// Link mark touched by the current text selection. Link marks are edited
+	// in the anchored link popover (LinkActionOverlay) which replaces the
+	// floating toolbar in that state — same pill, same placement, so the
+	// link toggle reads as a morph from toolbar to popover.
 	let active_link_mark = $derived(
 		session.active_mark?.node.type === 'link' ? session.active_mark : null
 	);
 
 	// Show the link URL input when a node carrying an href is selected
-	// (e.g. a button) or when the text selection touches a link mark —
-	// both follow the same editing pattern as the image URL.
-	let show_link_input = $derived(
-		typeof (session.selected_node as any)?.href === 'string' || active_link_mark !== null
-	);
+	// (e.g. a button); link marks are handled by the link popover instead.
+	let show_link_input = $derived(typeof (session.selected_node as any)?.href === 'string');
 
 	// Get current image URL value
 	let current_image_url = $derived(show_image_input ? session.get(session.selection.path) : '');
 
 	// Get current link URL value
 	let current_link_url = $derived(
-		active_link_mark
-			? ((active_link_mark.node as any).href ?? '')
-			: show_link_input
-				? ((session.selected_node as any)?.href ?? '')
-				: ''
+		show_link_input ? ((session.selected_node as any)?.href ?? '') : ''
 	);
 
-	// Focus the link URL input as soon as it appears for a link that was just
-	// created empty, so the URL can be typed right away (this replaces the
-	// old blocking window.prompt flow). The href comes in as a parameter
-	// instead of reading input.value, which is not applied yet when the
-	// action runs on mount; preventScroll stops the browser from scrolling
-	// the page towards the focused input.
-	function focus_empty_link_input(input: HTMLInputElement, href: string) {
-		if (href === '') input.focus({ preventScroll: true });
-	}
-
+	// NOTE: The URL input is deliberately NOT auto-focused when it appears
+	// (e.g. after creating a link or a button): stealing focus from the
+	// canvas causes a focus race — clicking back into text re-renders the
+	// canvas from its unfocused state, which grabs focus again and the
+	// URL editor won't close. Users focus the input explicitly instead.
+	// Unchanged values are skipped: the change event fires on blur and also
+	// right after an Enter commit, and each edit session should produce
+	// exactly one set (single history entry), never a duplicate.
 	function update_url(value: string) {
 		const tr = session.tr;
-		if (active_link_mark) {
-			// We are updating the href of the link mark under the selection
-			tr.set([active_link_mark.node.id, 'href'], value);
-		} else if (session.selection.path.at(-1) === 'content') {
+		if (session.selection.path.at(-1) === 'content') {
 			// We are updating the href property of a button
+			if (value === ((session.selected_node as any)?.href ?? '')) return;
 			tr.set([...session.selection.path.slice(0, -1), 'href'], value);
 		} else {
 			// Otherwise it's the image property
+			if (value === session.get(session.selection.path)) return;
 			tr.set(session.selection.path, value);
 		}
 		session.apply(tr);
@@ -168,8 +161,13 @@
 			// Cancel and return focus to canvas without applying changes. A
 			// link that was just created empty is removed again, so Escape
 			// cancels the whole link creation.
-			if (is_url_input && active_link_mark && (active_link_mark.node as any).href === '') {
-				session.apply(session.tr.toggle_mark('link'));
+			if (is_url_input) {
+				// Reset the field to the committed value before focus moves
+				// back to the canvas, so the change event fired on blur
+				// doesn't commit the discarded text.
+				const input = event.target as HTMLInputElement;
+				input.value =
+					input.getAttribute('aria-label') === 'Image URL' ? current_image_url : current_link_url;
 			}
 			event.preventDefault();
 			event.stopPropagation();
@@ -189,6 +187,9 @@
 			// No toolbar at a collapsed text caret: it would hover over the
 			// line above while the user is typing.
 			if (sel.anchor_offset === sel.focus_offset) return null;
+			// When the selection touches a link mark, the link popover owns
+			// this spot (same pill, same anchor) — the toolbar yields.
+			if (active_link_mark) return null;
 			return { name: serialize_path(sel.path), placement: 'above' };
 		}
 
@@ -452,6 +453,7 @@
 					value={current_image_url}
 					placeholder="Enter image URL"
 					aria-label="Image URL"
+					onchange={(event) => update_url(event.currentTarget.value)}
 				/>
 			</label>
 		</div>
@@ -464,7 +466,7 @@
 					value={current_link_url}
 					placeholder="Enter link URL"
 					aria-label="Link URL"
-					use:focus_empty_link_input={current_link_url}
+					onchange={(event) => update_url(event.currentTarget.value)}
 				/>
 			</label>
 		</div>
@@ -892,17 +894,12 @@
 			color: var(--app-primary-text);
 			font: inherit;
 			font-size: 14px;
-			/* Just wide enough for the placeholder; browsers with
-			   field-sizing grow the input with its value up to the shared
-			   toolbar cap instead of claiming the full width upfront. */
+			/* Fixed width on purpose: field-sizing measures the placeholder
+			   while empty and the content afterwards, so the bar would
+			   visibly shrink on the first typed character. Long URLs scroll
+			   within the field. */
 			width: 9rem;
 			max-width: var(--toolbar-item-max-width);
-
-			@supports (field-sizing: content) {
-				field-sizing: content;
-				width: auto;
-				min-width: 9rem;
-			}
 
 			&:focus {
 				outline: none;

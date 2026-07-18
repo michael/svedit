@@ -83,7 +83,7 @@ i,
 .heading3 {
 	font-size: calc(var(--base-size) * var(--scale-ratio));
 	font-weight: 700;
-	font-variation-settings: "wght" 700;
+	font-variation-settings: 'wght' 700;
 	line-height: 1.4;
 	text-wrap: balance;
 }
