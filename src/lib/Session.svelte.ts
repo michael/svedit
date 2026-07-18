@@ -58,6 +58,80 @@ export type ChangeEvent = {
 	origin: 'transaction' | 'undo' | 'redo';
 };
 
+/**
+ * Checks whether two ops are consecutive lossless text-insertion splices
+ * into the same property, i.e. the next insertion starts exactly where the
+ * previous one ended. Lossy inverses (a 6th element carries prior ranges)
+ * are never coalesced, so exact undo is preserved.
+ */
+function can_coalesce_insertion_splices(
+	prev_op: DocumentOperation | undefined,
+	prev_inverse: DocumentOperation | undefined,
+	next_op: DocumentOperation,
+	next_inverse: DocumentOperation
+): boolean {
+	return (
+		Array.isArray(prev_op) &&
+		Array.isArray(next_op) &&
+		prev_op[0] === 'splice' &&
+		next_op[0] === 'splice' &&
+		// Pure insertions only
+		prev_op[3] === 0 &&
+		next_op[3] === 0 &&
+		// Lossless inverses only
+		prev_inverse?.[0] === 'splice' &&
+		prev_inverse.length === 5 &&
+		next_inverse[0] === 'splice' &&
+		next_inverse.length === 5 &&
+		// Same text property
+		prev_op[1][0] === next_op[1][0] &&
+		prev_op[1][1] === next_op[1][1] &&
+		// Contiguous: the next insertion starts where the previous one ended
+		// (a lossless insertion inverse's delete_count is the inserted text's
+		// character length).
+		next_op[2] === prev_op[2] + prev_inverse[3]
+	);
+}
+
+/**
+ * Appends a transaction's ops to a history entry, coalescing the most
+ * common batching pattern — consecutive text-insertion splices — into a
+ * single splice op. A typing batch then stores one small op instead of one
+ * per keystroke.
+ */
+function append_ops_coalescing(
+	entry: HistoryEntry,
+	ops: DocumentOperation[],
+	inverse_ops: DocumentOperation[]
+): void {
+	const last_index = entry.ops.length - 1;
+	if (
+		ops.length === 1 &&
+		can_coalesce_insertion_splices(
+			entry.ops[last_index],
+			entry.inverse_ops[last_index],
+			ops[0],
+			inverse_ops[0]
+		)
+	) {
+		const prev_op = entry.ops[last_index];
+		const prev_inverse = entry.inverse_ops[last_index];
+		entry.ops[last_index] = ['splice', prev_op[1], prev_op[2], 0, prev_op[4] + ops[0][4]];
+		entry.inverse_ops[last_index] = [
+			'splice',
+			prev_op[1],
+			prev_op[2],
+			// Both inverses are lossless insertion splices (checked above),
+			// so their delete_counts are the two character lengths.
+			prev_inverse[3] + inverse_ops[0][3],
+			''
+		];
+	} else {
+		entry.ops.push(...ops);
+		entry.inverse_ops.push(...inverse_ops);
+	}
+}
+
 export default class Session<S extends DocumentSchema = DocumentSchema> {
 	#selection: Selection | null = $state.raw(null);
 
@@ -353,10 +427,10 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			now - this.last_batch_started < BATCH_WINDOW_MS;
 
 		if (should_batch) {
-			// Append to existing history entry (within the batch window)
+			// Append to existing history entry (within the batch window),
+			// coalescing consecutive typing splices into one op.
 			const last_entry = this.history[this.history_index];
-			last_entry.ops.push(...transaction.ops);
-			last_entry.inverse_ops.push(...transaction.inverse_ops);
+			append_ops_coalescing(last_entry, transaction.ops, transaction.inverse_ops);
 			last_entry.selection_after = this.selection;
 			// Trigger update
 			this.history = [...this.history];
