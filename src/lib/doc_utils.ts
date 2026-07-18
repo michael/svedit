@@ -10,6 +10,9 @@ import {
 	is_path_string_segment_valid,
 	get_selection_range,
 	get_char_length,
+	char_slice,
+	adjust_ranges_for_deletion,
+	adjust_ranges_for_insertion,
 	serialize_path,
 	are_ranges_exclusive
 } from './utils.js';
@@ -750,6 +753,71 @@ export function inspect(schema: DocumentSchema, doc: Document, path: DocumentPat
 }
 
 /**
+ * Splices an annotated text value: deletes [start, start + delete_count),
+ * inserts text at start, and adjusts mark/annotation ranges accordingly.
+ *
+ * This is the single source of truth for how a text splice affects ranges;
+ * both forward ops and their inverses go through it (see the 'splice' case
+ * in apply_op_to_draft). Offsets are in characters (grapheme clusters, as
+ * segmented by Intl.Segmenter — the same unit as all svedit text offsets,
+ * see get_char_length in utils.js).
+ *
+ * When prior_ranges is given (lossy inverse ops carry the exact ranges to
+ * restore), range adjustment is skipped and the given ranges are used
+ * verbatim.
+ *
+ * The input value is never mutated.
+ *
+ * @param value - The current {content, marks, annotations} value
+ * @param start - Character offset to splice at
+ * @param delete_count - Number of characters to delete
+ * @param text - Text to insert at start ('' for pure deletion)
+ * @param prior_ranges - Exact ranges to restore instead of adjusting
+ * @returns The next value, plus the ids of mark/annotation nodes whose range collapsed away
+ */
+export function splice_annotated_text(
+	value: Text,
+	start: number,
+	delete_count: number,
+	text: string,
+	prior_ranges?: { marks: Array<Mark>; annotations: Array<Annotation> }
+): { value: Text; removed_node_ids: NodeId[] } {
+	const content =
+		char_slice(value.content, 0, start) + text + char_slice(value.content, start + delete_count);
+
+	if (prior_ranges) {
+		return {
+			value: {
+				content,
+				marks: structuredClone(prior_ranges.marks),
+				annotations: structuredClone(prior_ranges.annotations)
+			},
+			removed_node_ids: []
+		};
+	}
+
+	let marks = value.marks;
+	let annotations = value.annotations;
+	const removed_node_ids: NodeId[] = [];
+
+	if (delete_count > 0) {
+		const marks_result = adjust_ranges_for_deletion(marks, start, start + delete_count);
+		const annotations_result = adjust_ranges_for_deletion(annotations, start, start + delete_count);
+		marks = marks_result.ranges;
+		annotations = annotations_result.ranges;
+		removed_node_ids.push(...marks_result.removed_node_ids, ...annotations_result.removed_node_ids);
+	}
+
+	const insert_length = get_char_length(text);
+	if (insert_length > 0) {
+		marks = adjust_ranges_for_insertion(marks, start, insert_length);
+		annotations = adjust_ranges_for_insertion(annotations, start, insert_length);
+	}
+
+	return { value: { content, marks, annotations }, removed_node_ids };
+}
+
+/**
  * Creates a mutable draft of a document: a new document object with a new
  * nodes map, sharing the (immutable) node objects with the original.
  *
@@ -786,6 +854,23 @@ export function apply_op_to_draft(draft: Document, op: DocumentOperation): Docum
 		draft.nodes[node_id] = {
 			...draft.nodes[node_id],
 			[property]: structuredClone(args[1])
+		};
+	} else if (type === 'splice') {
+		// args: [[node_id, property], start, delete_count, text, prior_ranges?]
+		const [node_id, property] = args[0];
+		const node = draft.nodes[node_id];
+		// Guard with a clear error: op streams may come from outside a
+		// Transaction (replay, ingest), where nothing has validated the
+		// target yet.
+		if (typeof node?.[property]?.content !== 'string') {
+			throw new Error(
+				`Cannot splice ${JSON.stringify([node_id, property])}: not an annotated text value`
+			);
+		}
+		const { value } = splice_annotated_text(node[property], args[1], args[2], args[3], args[4]);
+		draft.nodes[node_id] = {
+			...node,
+			[property]: value
 		};
 	} else if (type === 'create') {
 		draft.nodes[args[0].id] = structuredClone(args[0]);

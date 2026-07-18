@@ -17,6 +17,7 @@ import {
 	inspect as doc_inspect,
 	create_document_draft,
 	apply_op_to_draft,
+	splice_annotated_text,
 	build_reference_counts,
 	visit_node_references,
 	validate_node,
@@ -40,6 +41,7 @@ import type {
 	Attachment,
 	Mark,
 	Annotation,
+	Text,
 	DocumentOperation,
 	DynamicRecord,
 	Inspection,
@@ -57,6 +59,23 @@ function is_range_within_bounds(range: Attachment, length: number): boolean {
 		range.start_offset < range.end_offset &&
 		range.end_offset <= length
 	);
+}
+
+/**
+ * Compares two range arrays (marks or annotations) for exact equality.
+ */
+function ranges_equal(a: Array<Attachment>, b: Array<Attachment>): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (
+			a[i].start_offset !== b[i].start_offset ||
+			a[i].end_offset !== b[i].end_offset ||
+			a[i].node_id !== b[i].node_id
+		) {
+			return false;
+		}
+	}
+	return true;
 }
 
 /**
@@ -305,6 +324,124 @@ export default class Transaction {
 		// or from a node created earlier in the same transaction (the
 		// wrap-in-group pattern: create a wrapper that points at the children,
 		// then set the parent array to drop them).
+		if (removed_node_ids.length > 0) {
+			this._cascade_delete_unreferenced_nodes(removed_node_ids);
+		}
+
+		return this;
+	}
+
+	/**
+	 * Splices a text property: deletes delete_count characters at start,
+	 * then inserts text at start. Mark and annotation ranges are adjusted
+	 * deterministically as part of applying the op (see splice_annotated_text
+	 * in doc_utils.ts), and mark/annotation nodes whose range collapsed away
+	 * are garbage-collected ref-count-aware, like set() does.
+	 *
+	 * Offsets are in characters (grapheme clusters, as segmented by
+	 * Intl.Segmenter — the same unit as all svedit text offsets, see
+	 * get_char_length in utils.ts).
+	 *
+	 * The recorded op is small — [start, delete_count, text] instead of a
+	 * copy of the whole property value — which keeps long editing sessions
+	 * flat in memory and makes the op stream meaningful (diffs, previews,
+	 * persistence). The inverse is a plain splice when re-splicing the
+	 * deleted text restores the prior ranges exactly; deletions that removed
+	 * or truncated ranges are lossy, so their inverse carries the prior
+	 * ranges verbatim.
+	 *
+	 * @param path - Path to a text property
+	 * @param start - Character offset to splice at
+	 * @param delete_count - Number of characters to delete
+	 * @param text - Text to insert at start ('' for pure deletion)
+	 * @returns This transaction instance for method chaining
+	 * @throws {Error} If the path is not a text property or the range is out of bounds
+	 *
+	 * @example
+	 * ```js
+	 * tr.splice(['paragraph_1', 'content'], 5, 0, 'Hello'); // insert
+	 * tr.splice(['paragraph_1', 'content'], 5, 5, '');      // delete
+	 * tr.splice(['paragraph_1', 'content'], 5, 5, 'Hello'); // replace
+	 * ```
+	 */
+	splice(path: DocumentPath, start: number, delete_count: number, text: string): this {
+		const path_info = this.inspect(path);
+		if (path_info?.kind !== 'property' || path_info.type !== 'text') {
+			throw new Error(
+				`Transaction.splice requires a path that points to a text property, got ${JSON.stringify(path)}`
+			);
+		}
+
+		const node = this.get(path.slice(0, -1));
+		const property_key_str = String(path.at(-1));
+		const normalized_path = [node.id, property_key_str];
+
+		const content_length = get_char_length(node[property_key_str].content);
+		if (
+			!Number.isInteger(start) ||
+			!Number.isInteger(delete_count) ||
+			start < 0 ||
+			delete_count < 0 ||
+			start + delete_count > content_length
+		) {
+			throw new Error(
+				`Splice range [${start}, ${start + delete_count}) is out of bounds for content of length ${content_length}`
+			);
+		}
+
+		const op: DocumentOperation = ['splice', normalized_path, start, delete_count, text];
+
+		// Pure insertions (every keystroke) take a fast path: insertion
+		// adjustment never removes or truncates ranges, so the inverse is a
+		// plain splice by construction and no value copies or round-trip
+		// checks are needed.
+		if (delete_count === 0) {
+			this.ops.push(op);
+			this.inverse_ops.push(['splice', normalized_path, start, get_char_length(text), '']);
+			this._apply_op(op);
+			this._track_node_id(this.modified_node_ids, node.id);
+			return this;
+		}
+
+		const previous_value: Text = structuredClone($state.snapshot(node[property_key_str]));
+		const deleted_text = char_slice(previous_value.content, start, start + delete_count);
+		const insert_length = get_char_length(text);
+
+		const { value: next_value, removed_node_ids } = splice_annotated_text(
+			previous_value,
+			start,
+			delete_count,
+			text
+		);
+
+		// The inverse can be a plain splice only when re-splicing the deleted
+		// text back restores the prior ranges exactly (round-trip check).
+		const { value: round_trip } = splice_annotated_text(
+			next_value,
+			start,
+			insert_length,
+			deleted_text
+		);
+		const lossless =
+			ranges_equal(round_trip.marks, previous_value.marks) &&
+			ranges_equal(round_trip.annotations, previous_value.annotations);
+
+		const inverse_op: DocumentOperation = lossless
+			? ['splice', normalized_path, start, insert_length, deleted_text]
+			: [
+					'splice',
+					normalized_path,
+					start,
+					insert_length,
+					deleted_text,
+					{ marks: previous_value.marks, annotations: previous_value.annotations }
+				];
+
+		this.ops.push(op);
+		this.inverse_ops.push(inverse_op);
+		this._apply_op(op);
+		this._track_node_id(this.modified_node_ids, node.id);
+
 		if (removed_node_ids.length > 0) {
 			this._cascade_delete_unreferenced_nodes(removed_node_ids);
 		}
@@ -713,26 +850,9 @@ export default class Transaction {
 			};
 		} else if (this.selection.type === 'text') {
 			const path = this.selection.path;
-			const text = structuredClone($state.snapshot(this.get(path)));
-
-			// Update the text content using character-based operations
-			const original_text = text.content;
-			text.content =
-				char_slice(original_text, 0, start) +
-				char_slice(original_text, end, get_char_length(original_text));
-
-			const marks_result = adjust_ranges_for_deletion(text.marks, start, end);
-			const annotations_result = adjust_ranges_for_deletion(text.annotations, start, end);
-			text.marks = marks_result.ranges;
-			text.annotations = annotations_result.ranges;
-
-			this.set(path, text);
-
-			// Delete removed mark/annotation nodes only if no other references remain.
-			this._cascade_delete_unreferenced_nodes([
-				...marks_result.removed_node_ids,
-				...annotations_result.removed_node_ids
-			]);
+			// Content change, range adjustment and cleanup of removed
+			// mark/annotation nodes all happen in splice().
+			this.splice(path, start, end - start, '');
 
 			// Update the selection to the new caret position
 			this.selection = {
@@ -870,37 +990,32 @@ export default class Transaction {
 			this.delete_selection();
 		}
 
-		const text_value = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const range = get_selection_range(this.selection)!;
-
-		// Transform the plain text string using character-based operations
-		const current_text = text_value.content;
-		text_value.content =
-			char_slice(current_text, 0, range.start_offset) +
-			replaced_text +
-			char_slice(current_text, range.end_offset);
-
-		// Calculate the change in length
 		const delta = get_char_length(replaced_text);
 
-		text_value.marks = adjust_ranges_for_insertion(text_value.marks, range.start_offset, delta);
-		text_value.annotations = adjust_ranges_for_insertion(
-			text_value.annotations,
-			range.start_offset,
-			delta
-		);
-		this.set(this.selection.path, text_value); // this will update the current state and create a history entry
+		// One splice op carries the content change and the deterministic
+		// mark/annotation range adjustment (see splice()).
+		this.splice(this.selection.path, range.start_offset, 0, replaced_text);
 
 		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
 		const new_selection: Selection = {
 			type: 'text',
 			path: this.selection.path,
-			anchor_offset: range.start_offset + get_char_length(replaced_text),
-			focus_offset: range.start_offset + get_char_length(replaced_text)
+			anchor_offset: range.start_offset + delta,
+			focus_offset: range.start_offset + delta
 		};
 		this.selection = new_selection;
 
+		// Plain typing has no marks/annotations to restore — skip the value
+		// copies below on the per-keystroke path.
+		if (marks.length === 0 && annotations.length === 0) {
+			return this;
+		}
+
 		const text_property_definition = this.inspect(this.selection.path);
+		// Restored marks/annotations below are applied on top of the
+		// post-splice value as a separate set op.
+		const text_value: Text = structuredClone($state.snapshot(this.get(this.selection.path)));
 		const next_text = structuredClone(text_value);
 		let text_changed = false;
 
