@@ -59,7 +59,7 @@ export type {
 } from './types.js';
 export type { SelectedAttachment } from './doc_utils.js';
 export type { Keymap } from './KeyMapper.svelte.js';
-export type { ChangeEvent } from './Session.svelte.js';
+export type { ChangeEvent, HistoryEntry } from './Session.svelte.js';
 
 // Document utilities
 export {
@@ -72,7 +72,9 @@ export {
 	validate_document_schema,
 	validate_document,
 	validate_node,
-	get_referencing_node_ids
+	get_referencing_node_ids,
+	apply_ops,
+	op_target_node_id
 } from './doc_utils.js';
 
 // Command system

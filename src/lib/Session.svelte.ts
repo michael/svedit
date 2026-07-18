@@ -5,8 +5,8 @@ import {
 	property_type as doc_property_type,
 	kind as doc_kind,
 	inspect as doc_inspect,
-	create_document_draft,
-	apply_op_to_draft,
+	apply_ops,
+	op_target_node_id,
 	count_references as doc_count_references,
 	validate_document_schema,
 	validate_document,
@@ -57,7 +57,7 @@ function transform_offset_for_splice(offset: number, op: DocumentOperation): num
 	return start;
 }
 
-type HistoryEntry = {
+export type HistoryEntry = {
 	ops: Transaction['ops'];
 	inverse_ops: Transaction['inverse_ops'];
 	selection_before: Selection | null;
@@ -176,6 +176,11 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	// state: notification happens explicitly in _commit().
 	#change_listeners: Array<(change: ChangeEvent) => void> = [];
 
+	// History spill configuration (see constructor options). Plain fields —
+	// may be reconfigured at runtime.
+	history_limit = Infinity;
+	on_history_spill: ((entries: HistoryEntry[]) => void) | null = null;
+
 	// Reactive helpers for UI state
 	can_undo = $derived(this.history_index >= 0);
 	can_redo = $derived(this.history_index < this.history.length - 1);
@@ -203,7 +208,21 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		schema: S,
 		doc: Document,
 		config: SessionConfig,
-		options: { selection?: Selection | null } = {}
+		options: {
+			selection?: Selection | null;
+			/**
+			 * Maximum number of history entries kept in memory (default
+			 * Infinity). When exceeded, the oldest entries are handed to
+			 * on_history_spill and dropped; undo depth is bounded accordingly.
+			 */
+			history_limit?: number;
+			/**
+			 * Called with the oldest history entries when history_limit trims
+			 * them. Entries are plain JSON; persist them to replay later (see
+			 * apply_ops in doc_utils.ts).
+			 */
+			on_history_spill?: (entries: HistoryEntry[]) => void;
+		} = {}
 	) {
 		// Validate the schema first
 		validate_document_schema(schema);
@@ -216,6 +235,9 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 
 		// Set selection after doc is initialized so validation can work properly
 		this.selection = options.selection ?? null;
+
+		this.history_limit = options.history_limit ?? Infinity;
+		this.on_history_spill = options.on_history_spill ?? null;
 	}
 
 	/**
@@ -498,6 +520,24 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			} else {
 				this.last_batch_started = undefined;
 			}
+
+			// Spill the oldest entries when the in-memory history exceeds its
+			// limit. Spilled entries are plain JSON — hosts persist them and
+			// can materialize any version by replay (apply_ops in doc_utils.ts).
+			if (this.history.length > this.history_limit) {
+				const spill_count = this.history.length - this.history_limit;
+				const spilled = this.history.slice(0, spill_count);
+				this.history = this.history.slice(spill_count);
+				this.history_index = this.history_index - spill_count;
+				if (this.on_history_spill) {
+					// A throwing host callback must not abort apply().
+					try {
+						this.on_history_spill(spilled);
+					} catch (error) {
+						console.error('on_history_spill callback failed', error);
+					}
+				}
+			}
 		}
 
 		return this;
@@ -508,13 +548,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			return;
 		}
 		const change = this.history[this.history_index];
-		// One draft for the whole change set — ops mutate the draft with
-		// node-level copy-on-write instead of copying the nodes map per op.
-		const doc = create_document_draft(this.doc);
 		const undo_ops = change.inverse_ops.slice().reverse();
-		undo_ops.forEach((op) => {
-			apply_op_to_draft(doc, op);
-		});
+		const doc = apply_ops(this.doc, undo_ops);
 		// Reversing the original ops yields the inverse of this undo commit:
 		// applying them in reverse order (= original order) redoes the change.
 		this._commit(doc, {
@@ -536,10 +571,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		}
 		this.history_index = this.history_index + 1;
 		const change = this.history[this.history_index];
-		const doc = create_document_draft(this.doc);
-		change.ops.forEach((op) => {
-			apply_op_to_draft(doc, op);
-		});
+		const doc = apply_ops(this.doc, change.ops);
 		this._commit(doc, {
 			ops: change.ops,
 			inverse_ops: change.inverse_ops,
@@ -549,6 +581,35 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		// Redo ends any open typing batch, matching undo().
 		this.last_batch_started = undefined;
 		return this;
+	}
+
+	/**
+	 * Returns the history entries whose ops touch any of the given nodes,
+	 * with their indices in session.history.
+	 *
+	 * Ops are node-scoped, so history can be filtered per node: time travel
+	 * through one node's versions, or scoped undo ("undo my last change to
+	 * THIS node") built on top by the host. Pass a node id plus its owned
+	 * subgraph ids (see get_referenced_nodes) to scope to a node including
+	 * its mark and annotation nodes.
+	 *
+	 * Returned entries are live references into session.history: a later
+	 * batched apply may still append ops to the newest entry.
+	 *
+	 * @param node_ids - One node id or a list of ids
+	 * @returns Matching entries, oldest first
+	 */
+	history_for(node_ids: NodeId | NodeId[]): Array<{ entry: HistoryEntry; index: number }> {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local lookup set.
+		const ids = new Set(Array.isArray(node_ids) ? node_ids : [node_ids]);
+		const result: Array<{ entry: HistoryEntry; index: number }> = [];
+		for (let index = 0; index < this.history.length; index++) {
+			const entry = this.history[index];
+			if (entry.ops.some((op) => ids.has(op_target_node_id(op) as NodeId))) {
+				result.push({ entry, index });
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -589,24 +650,23 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		let changed_node_types = false;
 		for (const op of ops) {
 			const [type] = op;
-			if (type === 'create') {
-				created_node_ids.push(op[1].id);
-			} else if (type === 'delete') {
-				deleted_node_ids.push(op[1]);
-			} else if (type === 'set') {
-				modified_node_ids.push(op[1][0]);
-				if (op[1][1] === 'type') changed_node_types = true;
-			} else if (type === 'splice') {
-				modified_node_ids.push(op[1][0]);
-			} else {
+			// op_target_node_id owns the op-shape knowledge; only the
+			// create/delete/modify classification lives here.
+			const target_node_id = op_target_node_id(op);
+			if (target_node_id === null) {
 				throw new Error(`Cannot ingest op of unknown type: ${JSON.stringify(op)}`);
+			}
+			if (type === 'create') {
+				created_node_ids.push(target_node_id);
+			} else if (type === 'delete') {
+				deleted_node_ids.push(target_node_id);
+			} else {
+				modified_node_ids.push(target_node_id);
+				if (type === 'set' && op[1][1] === 'type') changed_node_types = true;
 			}
 		}
 
-		const draft = create_document_draft(this.doc);
-		for (const op of ops) {
-			apply_op_to_draft(draft, op);
-		}
+		const draft = apply_ops(this.doc, ops);
 
 		// Validate before committing — the current doc stays untouched when
 		// the result is invalid.
