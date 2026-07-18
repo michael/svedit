@@ -209,11 +209,10 @@ export class ToggleLinkCommand extends Command {
 			// Delete link
 			session.apply(session.tr.toggle_mark('link'));
 		} else {
-			// Create link
-			const href = window.prompt('Enter the URL', 'https://example.com');
-			if (href) {
-				session.apply(session.tr.toggle_mark('link', { href }));
-			}
+			// Create the link with an empty href: the toolbar's URL input picks
+			// it up and receives focus, so the URL is typed inline instead of
+			// through a blocking native prompt.
+			session.apply(session.tr.toggle_mark('link', { href: '' }));
 		}
 	}
 }
