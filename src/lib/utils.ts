@@ -15,10 +15,19 @@ const SEGMENTER = new Intl.Segmenter('en', { granularity: 'grapheme' });
  * Detect if the virtual keyboard is likely visible.
  *
  * This is a heuristic based on the visual viewport becoming smaller than the
- * layout viewport.
+ * layout viewport. A tolerance is required because clientHeight is a rounded
+ * integer while visualViewport.height is fractional (e.g. on Firefox with
+ * HiDPI scaling), so a strict comparison can misfire on desktop. A real
+ * virtual keyboard shrinks the viewport by far more than the tolerance.
  */
+const VIRTUAL_KEYBOARD_MIN_HEIGHT = 50;
+
 export function is_virtual_keyboard_active(): boolean {
 	if (typeof window === 'undefined' || typeof document === 'undefined') {
+		return false;
+	}
+
+	if (!is_mobile_browser()) {
 		return false;
 	}
 
@@ -27,7 +36,7 @@ export function is_virtual_keyboard_active(): boolean {
 		return false;
 	}
 
-	return visual_viewport.height < document.documentElement.clientHeight;
+	return visual_viewport.height < document.documentElement.clientHeight - VIRTUAL_KEYBOARD_MIN_HEIGHT;
 }
 
 /**
