@@ -106,37 +106,6 @@ i,
 	height: 24px;
 }
 
-button {
-	border-radius: 9999px;
-	font-size: calc(var(--base-size) / var(--scale-ratio));
-	background-color: var(--app-canvas-fill);
-	font-weight: 400;
-	padding-inline: var(--s-3);
-	min-height: 44px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: background-color 0.1s ease-in-out;
-	&:focus,
-	&:focus-visible {
-		outline: none;
-	}
-	&:focus-visible,
-	&:active {
-		background-color: oklch(0 0 0 / 0.1);
-	}
-	&:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-	&:not(:disabled):hover {
-		background-color: oklch(from var(--app-canvas-fill) calc(l - 0.05) c h);
-	}
-	&.small {
-		min-height: 36px;
-	}
-}
-
 .flex-column,
 .flex-row {
 	display: flex;
