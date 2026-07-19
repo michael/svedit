@@ -23,8 +23,16 @@
 	}
 </script>
 
+<!-- Prefer the selection-bound anchor when available (selection anchors
+     enabled and canvas blurred): the button appears at the selection end
+     instead of the link end, which can be lines away for wrapped links. -->
 {#if active_link_path}
-	<div class="link-action-overlay" style="position-anchor: --{serialize_path(active_link_path)};">
+	<div
+		class="link-action-overlay"
+		style="position-anchor: {svedit.text_selection_anchors && !svedit.canvas_focused
+			? '--text-selection-end'
+			: `--${serialize_path(active_link_path)}`};"
+	>
 		<a href={active_link?.href} target="_blank" class="small"><Icon name="external-link" /></a>
 	</div>
 {/if}

@@ -45,7 +45,8 @@
 		path,
 		class: css_class,
 		autocapitalize = 'on',
-		spellcheck = 'true'
+		spellcheck = 'true',
+		text_selection_anchors = false
 	}: SveditProps<S> = $props();
 
 	let canvas_el: HTMLElement | undefined;
@@ -88,6 +89,9 @@
 		},
 		get canvas_focused() {
 			return canvas_focused;
+		},
+		get text_selection_anchors() {
+			return text_selection_anchors;
 		},
 		focus_canvas
 	};
@@ -1622,7 +1626,7 @@ ${fallback_html}`;
 <svelte:document {onselectionchange} {oncut} {oncopy} {onpaste} />
 
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
-<div class="svedit" class:editable>
+<div class="svedit" class:editable class:text-selection-anchors={text_selection_anchors}>
 	<!-- Overlays must be before canvas so they initialize first. -->
 	{#if editable}<NodeSelectionMarkers />{/if}
 	{#if Overlays}<Overlays />{/if}

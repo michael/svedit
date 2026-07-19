@@ -79,7 +79,13 @@
 
 <div class="demo-wrapper" bind:this={app_el}>
 	<Toolbar {session} {focus_canvas} bind:editable />
-	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.doc.document_id]} />
+	<Svedit
+		{session}
+		bind:editable
+		bind:this={svedit_ref}
+		path={[session.doc.document_id]}
+		text_selection_anchors
+	/>
 
 	{#if editable}
 		<div class="debug-panel-wrapper">

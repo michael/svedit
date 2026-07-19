@@ -16,6 +16,7 @@
 		SelectionRange,
 		SveditContext
 	} from './types.js';
+	import type { FragmentRange } from './utils.js';
 
 	const svedit = getContext<SveditContext>('svedit');
 
@@ -64,11 +65,27 @@
 		return get_selection_range(sel);
 	});
 
+	// Selection-bound anchor markers (#299): zero-size spans carrying
+	// anchor-name --text-selection-start/end at the selection boundaries.
+	// Same not-canvas-focused gate as the selection highlight above (no DOM
+	// mutations while a native selection gesture is active), but unlike the
+	// highlight they render for any text selection — collapsed, or touching
+	// marks — since point markers don't wrap content.
+	let selection_anchor_range = $derived.by(() => {
+		if (!svedit.text_selection_anchors) return null;
+		if (svedit.canvas_focused) return null;
+		if (!is_focused) return null;
+		const sel = svedit.session.selection;
+		if (!sel || sel.type !== 'text') return null;
+		return get_selection_range(sel);
+	});
+
 	let fragments = $derived(
 		get_fragments(
 			svedit.session.get(path).content,
 			svedit.session.get(path).marks,
-			selection_highlight_range
+			selection_highlight_range,
+			selection_anchor_range
 		)
 	);
 
@@ -79,13 +96,14 @@
 	function get_fragments(
 		text: string,
 		marks: Array<Mark>,
-		selection_highlight_range?: SelectionRange | null
+		selection_highlight_range?: SelectionRange | null,
+		selection_anchor_range?: SelectionRange | null
 	): Array<Fragment> {
 		// Fast path: no marks and no selection highlight means the whole text
 		// is a single content fragment. This runs for EVERY text property on
 		// EVERY document change, so skipping the two full Intl.Segmenter passes
 		// (get_char_length + char_slice over the whole text) matters at scale.
-		if (marks.length === 0 && !selection_highlight_range) {
+		if (marks.length === 0 && !selection_highlight_range && !selection_anchor_range) {
 			return text.length > 0 ? [text] : [];
 		}
 
@@ -96,7 +114,22 @@
 		);
 		const fragments: Array<Fragment> = [];
 
-		for (const range of ranges) {
+		// Selection anchor markers are zero-size points between characters.
+		// A boundary inside a mark splits that mark into two fragments (same
+		// mark_index), so the marker can sit between them as a sibling.
+		const anchor_points: Array<{ offset: number; kind: 'start' | 'end' }> = selection_anchor_range
+			? [
+					{ offset: selection_anchor_range.start_offset, kind: 'start' },
+					{ offset: selection_anchor_range.end_offset, kind: 'end' }
+				]
+			: [];
+
+		function push_anchor() {
+			const point = anchor_points.shift()!;
+			fragments.push({ type: 'selection_anchor', kind: point.kind });
+		}
+
+		function push_range(range: FragmentRange) {
 			const content = char_slice(text, range.start_offset, range.end_offset);
 
 			if (range.type === 'mark') {
@@ -117,6 +150,23 @@
 			} else {
 				fragments.push(content);
 			}
+		}
+
+		for (let range of ranges) {
+			while (anchor_points.length > 0 && anchor_points[0].offset <= range.start_offset) {
+				push_anchor();
+			}
+			while (anchor_points.length > 0 && anchor_points[0].offset < range.end_offset) {
+				if (anchor_points[0].offset > range.start_offset) {
+					push_range({ ...range, end_offset: anchor_points[0].offset });
+					range = { ...range, start_offset: anchor_points[0].offset };
+				}
+				push_anchor();
+			}
+			push_range(range);
+		}
+		while (anchor_points.length > 0) {
+			push_anchor();
 		}
 
 		return fragments;
@@ -140,7 +190,11 @@
 	{...rest}
 >
 	{#each fragments as fragment, index (index)}
-		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
+		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_anchor'}<span
+				class="text-selection-anchor"
+				data-selection-anchor={fragment.kind}
+				style="anchor-name: --text-selection-{fragment.kind};"
+			></span>{:else if fragment.type === 'selection_highlight'}<span
 				class="selection-highlight"
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
 			>{:else if fragment.type === 'mark'}
@@ -203,6 +257,16 @@
 	/* Disable text-transform when editable and focused so users see original text */
 	:global(.svedit.editable) .text.focused {
 		text-transform: none !important;
+	}
+
+	/* With text selection anchors enabled, neutralize font shaping across the
+	   focused property: ligatures and kerning pairs don't re-form across
+	   element boundaries in every engine/font, so a zero-size marker could
+	   otherwise subtly change rendering mid-word (#299). Same philosophy as
+	   disabling text-transform above: editing view favors stability. */
+	:global(.svedit.editable.text-selection-anchors) .text.focused {
+		font-variant-ligatures: none;
+		font-kerning: none;
 	}
 
 	/* Dim the selection highlight when canvas loses native focus */

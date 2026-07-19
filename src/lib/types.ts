@@ -304,7 +304,10 @@ export type NodeArrayProperty = {
  * Union type for all possible property definitions.
  */
 export type PropertyDefinition =
-	PrimitiveProperty | TextProperty | NodeProperty | NodeArrayProperty;
+	| PrimitiveProperty
+	| TextProperty
+	| NodeProperty
+	| NodeArrayProperty;
 
 /**
  * Node kind values for different types of content nodes
@@ -494,6 +497,14 @@ export type SveditProps<S extends DocumentSchema = DocumentSchema> = {
 	autocapitalize?: 'on' | 'off';
 	/** The `spellcheck` attribute on the canvas element */
 	spellcheck?: 'true' | 'false';
+	/**
+	 * Experimental: render zero-size markers carrying the CSS anchor names
+	 * --text-selection-start and --text-selection-end at the bounds of the
+	 * current text selection, so overlays can position themselves against
+	 * the selection declaratively (#299). Markers only exist while the
+	 * canvas is not focused.
+	 */
+	text_selection_anchors?: boolean;
 };
 
 /**
@@ -505,6 +516,7 @@ export type SveditContext<S extends DocumentSchema = DocumentSchema> = {
 	is_composing: boolean;
 	canvas_el: HTMLElement | undefined;
 	canvas_focused: boolean;
+	text_selection_anchors: boolean;
 	focus_canvas: () => void;
 	visibility_registry?: VisibilityRegistryApi;
 };
@@ -586,6 +598,14 @@ export type SelectionHighlightFragment = {
 };
 
 /**
+ * Represents a zero-size selection boundary anchor marker (#299)
+ */
+export type SelectionAnchorFragment = {
+	type: 'selection_anchor';
+	kind: 'start' | 'end';
+};
+
+/**
  * Represents a mark fragment in text content
  */
 export type MarkFragment = {
@@ -601,7 +621,7 @@ export type MarkFragment = {
 /**
  * Represents a fragment of text content
  */
-export type Fragment = string | MarkFragment | SelectionHighlightFragment;
+export type Fragment = string | MarkFragment | SelectionHighlightFragment | SelectionAnchorFragment;
 
 /**
  * Represents a node array fragment for plain nodes
