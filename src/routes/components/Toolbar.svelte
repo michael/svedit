@@ -76,15 +76,6 @@
 		session.commands.select_parent?.execute();
 	}
 
-	function dismiss_keyboard(event: Event) {
-		// preventDefault on mousedown keeps focus on the canvas so the blur
-		// below reliably targets it and closes the virtual keyboard.
-		event.preventDefault();
-		if (document.activeElement instanceof HTMLElement) {
-			document.activeElement.blur();
-		}
-	}
-
 	// While a pointer drags a selection the floating toolbar stays hidden,
 	// otherwise it flickers along the growing selection. It appears
 	// instantly on pointer up.
@@ -180,64 +171,64 @@
 	// owning the current selection with pure CSS anchor positioning.
 	// last_node_anchor (multi-node only) is the last selected node's path,
 	// exposed as --last-selected-node-anchor for a position-try fallback.
-	let floating_anchor = $derived.by((): {
-		name: string;
-		placement: 'above' | 'below';
-		last_node_anchor?: string;
-	} | null => {
-		if (!editable) return null;
-		const sel = session.selection;
-		if (!sel) return null;
+	let floating_anchor = $derived.by(
+		(): {
+			name: string;
+			placement: 'above' | 'below';
+			last_node_anchor?: string;
+		} | null => {
+			if (!editable) return null;
+			const sel = session.selection;
+			if (!sel) return null;
 
-		if (sel.type === 'text') {
-			// No toolbar at a collapsed text caret: it would hover over the
-			// line above while the user is typing.
-			if (sel.anchor_offset === sel.focus_offset) return null;
-			// When the selection touches a link mark, the link popover owns
-			// this spot (same pill, same anchor) — the toolbar yields.
-			if (active_link_mark) return null;
-			return { name: serialize_path(sel.path), placement: 'above' };
-		}
-
-		if (sel.type === 'property') {
-			return { name: serialize_path(sel.path), placement: 'above' };
-		}
-
-		if (sel.type === 'node') {
-			const start = Math.min(sel.anchor_offset, sel.focus_offset);
-			const end = Math.max(sel.anchor_offset, sel.focus_offset);
-			if (start !== end) {
-				// Anchor to the first selected node. When multiple nodes are
-				// selected, last_node_anchor lets CSS fall back to below the
-				// last one when above the first overflows.
-				return {
-					name: serialize_path([...sel.path, start]),
-					placement: 'above',
-					...(end - start > 1
-						? { last_node_anchor: serialize_path([...sel.path, end - 1]) }
-						: {})
-				};
+			if (sel.type === 'text') {
+				// No toolbar at a collapsed text caret: it would hover over the
+				// line above while the user is typing.
+				if (sel.anchor_offset === sel.focus_offset) return null;
+				// When the selection touches a link mark, the link popover owns
+				// this spot (same pill, same anchor) — the toolbar yields.
+				if (active_link_mark) return null;
+				return { name: serialize_path(sel.path), placement: 'above' };
 			}
-			// Node caret: the floating toolbar only offers insertion there, so
-			// skip it entirely when nothing can be inserted at this gap.
-			if (!can_insert_default) return null;
-			// Anchor to the node after the caret so the toolbar sits at the
-			// gap. At the end of the array anchor to the node before the
-			// caret and place the toolbar below it instead.
-			const node_array = session.get(sel.path) as { nodes: unknown[] };
-			const node_count = node_array.nodes.length;
-			if (start < node_count) {
-				return { name: serialize_path([...sel.path, start]), placement: 'above' };
-			}
-			if (node_count > 0) {
-				return { name: serialize_path([...sel.path, node_count - 1]), placement: 'below' };
-			}
-			// Empty node arrays render a placeholder carrying the anchor for index 0
-			return { name: serialize_path([...sel.path, 0]), placement: 'above' };
-		}
 
-		return null;
-	});
+			if (sel.type === 'property') {
+				return { name: serialize_path(sel.path), placement: 'above' };
+			}
+
+			if (sel.type === 'node') {
+				const start = Math.min(sel.anchor_offset, sel.focus_offset);
+				const end = Math.max(sel.anchor_offset, sel.focus_offset);
+				if (start !== end) {
+					// Anchor to the first selected node. When multiple nodes are
+					// selected, last_node_anchor lets CSS fall back to below the
+					// last one when above the first overflows.
+					return {
+						name: serialize_path([...sel.path, start]),
+						placement: 'above',
+						...(end - start > 1 ? { last_node_anchor: serialize_path([...sel.path, end - 1]) } : {})
+					};
+				}
+				// Node caret: the floating toolbar only offers insertion there, so
+				// skip it entirely when nothing can be inserted at this gap.
+				if (!can_insert_default) return null;
+				// Anchor to the node after the caret so the toolbar sits at the
+				// gap. At the end of the array anchor to the node before the
+				// caret and place the toolbar below it instead.
+				const node_array = session.get(sel.path) as { nodes: unknown[] };
+				const node_count = node_array.nodes.length;
+				if (start < node_count) {
+					return { name: serialize_path([...sel.path, start]), placement: 'above' };
+				}
+				if (node_count > 0) {
+					return { name: serialize_path([...sel.path, node_count - 1]), placement: 'below' };
+				}
+				// Empty node arrays render a placeholder carrying the anchor for index 0
+				return { name: serialize_path([...sel.path, 0]), placement: 'above' };
+			}
+
+			return null;
+		}
+	);
 
 	// Distance the visual viewport bottom sits above the layout viewport
 	// bottom. Chromium and Firefox resize the layout viewport when the
@@ -592,30 +583,28 @@
 				{/if}
 			</div>
 			{@render history_buttons()}
-			{@render divider()}
 			{#if can_delete}
 				<!-- Destructive action last, behind undo/redo: harder to hit by
 				     accident while scrolling the bar, and undo sits right next to
 				     it when it does happen. -->
 				<div class="contextual-tools">
-					{@render delete_button()}
 					{@render divider()}
+					{@render delete_button()}
 				</div>
 			{/if}
 		{/if}
-		<button class="toggle-editable" onclick={toggle_editable}>
-			{editable ? 'Save' : 'Edit'}
-		</button>
-		{#if editable && selection_type === 'text'}
-			<!-- Only for text selections: node selections already dismiss the
-			     virtual keyboard on their own. -->
-			<div class="keyboard-tools">
+		<!-- Save pinned to the right edge of the scroller so it never needs
+		     scrolling. The custom hide-keyboard tool was removed: the native
+		     iOS checkmark in the form assistant bar dismisses the keyboard,
+		     and that bar cannot be suppressed from web content anyway. -->
+		<div class="save-group">
+			{#if editable}
 				{@render divider()}
-				<button class="dismiss-keyboard" title="Hide keyboard" onmousedown={dismiss_keyboard}>
-					<Icon name="hide-keyboard" />
-				</button>
-			</div>
-		{/if}
+			{/if}
+			<button class="toggle-editable" onclick={toggle_editable}>
+				{editable ? 'Save' : 'Edit'}
+			</button>
+		</div>
 	</div>
 </div>
 
@@ -704,7 +693,6 @@
 		position-try-fallbacks: --below-last-node, --stay-in-viewport, flip-block;
 	}
 
-
 	.floating-toolbar.anchor-below {
 		bottom: auto;
 		top: anchor(bottom);
@@ -745,31 +733,22 @@
 		}
 	}
 
-	/* The keyboard dismiss button only exists on touch devices and only
-	   while the canvas has focus, i.e. while the virtual keyboard is up.
-	   Pinned to the right edge of the scrollable bar; the negative margin
-	   plus padding extends the opaque background over the toolbar padding
-	   so scrolling tools cannot shine through at the edge. */
-	.keyboard-tools {
-		display: none;
+	/* Save pinned to the right edge of the scrollable bar so it stays
+	   reachable without scrolling. Mirrors the select-parent group: gap at
+	   rest via outer margin, divider flush with the opaque background while
+	   pinned so no white strip reads as a second line. */
+	.editor-toolbar .save-group {
+		position: sticky;
+		right: 0;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		flex: none;
+		background: var(--app-canvas-fill);
+		margin-inline-start: 4px;
 	}
 
-	@media (hover: none), (pointer: coarse) {
-		:global(body:has([contenteditable='true']:focus)) .keyboard-tools {
-			display: flex;
-			align-items: center;
-			flex: none;
-			position: sticky;
-			right: 0;
-			z-index: 1;
-			background: var(--app-canvas-fill);
-			/* Mirrors the select-parent group: gap at rest via outer margin,
-			   divider stays flush with the opaque background while pinned. */
-			margin-inline-start: 4px;
-		}
-	}
-
-	.editor-toolbar .keyboard-tools .divider {
+	.editor-toolbar .save-group .divider {
 		margin-inline-start: 0;
 	}
 
