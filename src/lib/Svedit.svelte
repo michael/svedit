@@ -1281,8 +1281,24 @@ ${fallback_html}`;
 	 */
 	function __intersects_viewport(el: Element | null | undefined): boolean {
 		if (!el) return false;
-		const r = el.getBoundingClientRect();
+		return __rect_intersects_viewport(el.getBoundingClientRect());
+	}
+
+	/** True when any part of the rect overlaps the window viewport. */
+	function __rect_intersects_viewport(r: DOMRect): boolean {
 		return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+	}
+
+	/**
+	 * Minimal window-scroll delta that brings the span [start, end] into the
+	 * viewport axis [0, viewport_size] with a bit of breathing room. 0 when
+	 * no scroll is needed.
+	 */
+	function __scroll_delta(start: number, end: number, viewport_size: number): number {
+		const margin = 32;
+		if (start < margin) return start - margin;
+		if (end > viewport_size - margin) return end - (viewport_size - margin);
+		return 0;
 	}
 
 	function __render_node_selection() {
@@ -1512,11 +1528,52 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the rendered selection into view. Capture the target now:
-			// the browser selection is live and may be cleared before this
-			// deferred callback runs, e.g. when app UI focuses an external input.
+			// Scroll the cursor into view, but only when no part of the rendered
+			// selection is on screen — an unconditional scroll would yank the
+			// viewport on every re-render (e.g. annotation toggles). Capture the
+			// nodes now: the browser selection is live and may be cleared before
+			// this deferred callback runs, e.g. when app UI focuses an external
+			// input.
 			const selected_element = focus_node.parentElement;
 			setTimeout(() => {
+				try {
+					if (anchor_node.isConnected && focus_node.isConnected) {
+						const range = window.document.createRange();
+						if (is_backward) {
+							range.setStart(focus_node, focus_node_offset);
+							range.setEnd(anchor_node, anchor_node_offset);
+						} else {
+							range.setStart(anchor_node, anchor_node_offset);
+							range.setEnd(focus_node, focus_node_offset);
+						}
+						if (__rect_intersects_viewport(range.getBoundingClientRect())) return;
+
+						// Off-screen: reveal the cursor rect itself. The fallback
+						// below scrolls the focus node's parent — for unannotated
+						// text that is the whole text property, where 'nearest' on
+						// an element taller than the viewport merely aligns its
+						// closest edge, possibly far from the cursor (e.g. undo of
+						// an edit near the start of a long text). scrollIntoView
+						// first so inner scroll containers reveal the element, then
+						// correct the window scroll by the cursor's remaining
+						// offset.
+						range.collapse(is_backward); // cursor sits at the focus end
+						const rect = range.getBoundingClientRect();
+						// A zero rect means the range collapsed at an element offset
+						// (empty text) — no cursor geometry, use the fallback.
+						if (rect.height > 0) {
+							selected_element?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+							const moved = range.getBoundingClientRect();
+							const dx = __scroll_delta(moved.left, moved.right, window.innerWidth);
+							const dy = __scroll_delta(moved.top, moved.bottom, window.innerHeight);
+							if (dx || dy) window.scrollBy(dx, dy);
+							return;
+						}
+					}
+				} catch {
+					// Offsets can go stale if the DOM changed since capture —
+					// fall through to the coarse scroll below.
+				}
 				if (selected_element?.isConnected) {
 					selected_element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 				}
