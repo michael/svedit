@@ -78,8 +78,11 @@
 </svelte:head>
 
 <div class="demo-wrapper" bind:this={app_el}>
-	<Toolbar {session} {focus_canvas} bind:editable />
 	<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.doc.document_id]} />
+	<!-- The toolbar must render after Svedit: its floating variant is CSS-anchored
+	     to elements inside the canvas, and anchors must precede the positioned
+	     element in DOM order to be resolvable. -->
+	<Toolbar {session} {focus_canvas} bind:editable />
 
 	{#if editable}
 		<div class="debug-panel-wrapper">

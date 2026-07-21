@@ -13,7 +13,7 @@
 		user-select: none;
 		object-fit: contain;
 		object-position: center;
-		width: var(--icon-size, 20px);
-		height: var(--icon-size, 20px);
+		width: var(--icon-size, 24px);
+		height: var(--icon-size, 24px);
 	}
 </style>

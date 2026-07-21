@@ -37,10 +37,23 @@
 <style>
 	.selected-node-overlay,
 	.selected-property-overlay {
+		/* Selection frame: a single 1px outline, offset -0.5px so the
+		   hairline centers on the node's edge and neighboring frames merge
+		   into one shared line. Alternatives tried and rejected:
+		   - Plain 1px border: adjacent selected nodes stack their borders
+		     into a 2px seam between them, which looks ugly.
+		   - Thick translucent frame (8px border) plus an inner hairline
+		     outline: multiple nested lines take more cognitive effort to
+		     parse than a single line.
+		   - Inset box-shadow rings (1px stroke + 8px translucent): same
+		     layered-frame look, same objection.
+		   Performance note: outlines don't participate in layout, so
+		   selection changes can't trigger reflows. */
 		position: absolute;
 		background: var(--svedit-editing-fill);
-		border: 1px solid var(--svedit-editing-stroke);
-		border-radius: 2px;
+		outline: 1px solid var(--svedit-editing-stroke);
+		outline-offset: -0.5px;
+		border-radius: 1px;
 		top: anchor(top);
 		left: anchor(left);
 		bottom: anchor(bottom);

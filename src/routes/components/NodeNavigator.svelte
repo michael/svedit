@@ -1,11 +1,8 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	import { serialize_path } from 'svedit';
 	import type { DocumentNode, DocumentPath } from 'svedit';
-	import {
-		get_node_layouts,
-		get_selection_node_ancestors,
-		is_node_subtree_empty
-	} from '../app_utils.js';
+	import { get_node_layouts, get_selection_node_ancestors } from '../app_utils.js';
 	import type { AppSession } from '../demo_session.js';
 
 	type VariantOption = { layout: string | null; value: string };
@@ -35,14 +32,12 @@
 		const items = ancestors.map((ancestor) => build_item(ancestor));
 		return items.filter((item) => item.option_count > 1).at(-1) ?? items.at(-1) ?? null;
 	});
-	let should_pulse_variant = $derived.by(() => {
-		if (!variant_item?.is_type_target || type_state?.node !== variant_item.node) return false;
-		const node_types = session.inspect(type_state.node_array_path)?.node_types ?? [];
-		return (
-			type_state.available_types.length === node_types.length - 1 &&
-			is_node_subtree_empty(session, type_state.node)
-		);
-	});
+
+	// The pulsing discovery hint that used to run on empty switchable nodes
+	// was removed: a looping animation demands attention permanently instead
+	// of hinting once, which reads as an error state and distracts from
+	// writing. Discovery is better served by static affordances (chevron,
+	// hover state).
 
 	function get_state_path_key(state: SwitchableState) {
 		if (!state) return null;
@@ -150,11 +145,7 @@
 </script>
 
 {#if variant_item}
-	<div
-		class="node-navigator"
-		class:variant-pulse={should_pulse_variant}
-		aria-label="Current node variant"
-	>
+	<div class="node-navigator" aria-label="Current node variant">
 		<div
 			class="variant-label"
 			class:switchable={variant_item.option_count > 1}
@@ -169,9 +160,7 @@
 				{/if}
 			</span>
 			{#if variant_item.option_count > 1}
-				<svg class="chevron" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-					<path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.25" />
-				</svg>
+				<Icon name="chevron-down" />
 				<select
 					class="variant-select"
 					value={variant_item.current_value}
@@ -182,13 +171,23 @@
 					onkeydown={handle_variant_keydown}
 				>
 					{#each variant_item.groups as group (group.node_type)}
-						<optgroup label={humanize_node_id(group.node_type, true)}>
+						<!-- A group heading over a single option is pure repetition,
+						     so only multi-option groups get an optgroup label. -->
+						{#if group.options.length > 1}
+							<optgroup label={humanize_node_id(group.node_type, true)}>
+								{#each group.options as option (option.value)}
+									<option value={option.value}>
+										{get_variant_label(group.node_type, option.layout)}
+									</option>
+								{/each}
+							</optgroup>
+						{:else}
 							{#each group.options as option (option.value)}
 								<option value={option.value}>
 									{get_variant_label(group.node_type, option.layout)}
 								</option>
 							{/each}
-						</optgroup>
+						{/if}
 					{/each}
 				</select>
 			{/if}
@@ -197,15 +196,14 @@
 {/if}
 
 <style>
+	/* Flat inside the unified toolbar pill: no own border, background or
+	   shadow — the hover state on the label provides the affordance. */
 	.node-navigator {
 		position: relative;
 		display: flex;
 		align-items: center;
 		min-height: 36px;
-		border: 1px solid var(--app-stroke);
 		border-radius: 9999px;
-		background: color-mix(in oklch, var(--app-canvas-fill) 95%, transparent);
-		box-shadow: 0 1px 2px color-mix(in oklch, var(--app-primary-text) 10%, transparent);
 		font-size: 0.75rem;
 		line-height: 1.25rem;
 		white-space: nowrap;
@@ -215,16 +213,31 @@
 		position: relative;
 		display: flex;
 		align-items: center;
-		padding: 0.45rem 0.75rem;
+		/* Balance spacing icons with text */
+		padding: 0.45rem 0.2rem 0.45rem 0.75rem;
 		border-radius: 9999px;
+	}
+
+	/* Long variant labels must not push the other tools out of the toolbar;
+	   the cap is shared with the toolbar's other wide elements. */
+	.variant-label > span[aria-hidden='true'] {
+		display: block;
+		max-width: var(--toolbar-item-max-width, 200px);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.variant-label.switchable {
 		cursor: pointer;
 	}
 
-	.variant-label.switchable:hover {
-		background: color-mix(in oklch, var(--app-primary-text) 5%, transparent);
+	/* Hover only on hovering devices, so touch taps don't leave the
+	   emulated hover state stuck on the label. */
+	@media (hover: hover) {
+		.variant-label.switchable:hover {
+			background: oklch(from var(--app-primary-text) l c h / 0.05);
+		}
 	}
 
 	.current-type {
@@ -235,13 +248,6 @@
 		margin-left: 0.3rem;
 		font-family: monospace;
 		font-size: 0.6875rem;
-		opacity: 0.62;
-	}
-
-	.chevron {
-		width: 0.75rem;
-		height: 0.75rem;
-		margin-left: 0.45rem;
 		opacity: 0.62;
 	}
 
@@ -257,36 +263,5 @@
 		background: transparent;
 		opacity: 0;
 		cursor: pointer;
-	}
-
-	.variant-pulse::after {
-		position: absolute;
-		inset: -2px;
-		border: 2px solid var(--svedit-editing-stroke);
-		border-radius: 9999px;
-		content: '';
-		filter: blur(1px);
-		opacity: 0.62;
-		pointer-events: none;
-		animation: variant-pulse 2.4s ease-out infinite;
-	}
-
-	@keyframes variant-pulse {
-		0% {
-			inset: -2px;
-			opacity: 0.58;
-		}
-		70%,
-		100% {
-			inset: -7px;
-			opacity: 0;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.variant-pulse::after {
-			animation: none;
-			opacity: 0.5;
-		}
 	}
 </style>

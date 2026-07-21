@@ -30,6 +30,8 @@
 		position: absolute;
 		left: 0;
 		top: 1em;
+		width: 2.25em;
+		text-align: right;
 		font-size: 1em;
 		content: counter(listcounter, var(--list-style));
 		color: var(--app-primary-fill);

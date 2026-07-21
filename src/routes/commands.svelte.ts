@@ -8,6 +8,7 @@ import {
 	get_node_layouts,
 	is_node_subtree_empty
 } from './app_utils.js';
+import { request_link_autofocus } from './link_autofocus.js';
 import type { AppSession } from './demo_session.js';
 
 export type AppCommandContext = CommandContext & { session: AppSession };
@@ -187,6 +188,7 @@ export class ToggleLinkCommand extends Command {
 
 	is_enabled() {
 		const { session, editable } = this.context;
+		if (!session.available_mark_types.includes('link')) return false;
 		const selected_marks = session.selected_marks;
 		const selection_touches_marks = selected_marks.length > 0;
 		const can_remove_link = selected_marks.length === 1 && selected_marks[0].node.type === 'link';
@@ -209,11 +211,11 @@ export class ToggleLinkCommand extends Command {
 			// Delete link
 			session.apply(session.tr.toggle_mark('link'));
 		} else {
-			// Create link
-			const href = window.prompt('Enter the URL', 'https://example.com');
-			if (href) {
-				session.apply(session.tr.toggle_mark('link', { href }));
-			}
+			// Create the link with an empty href: the link popover picks it up
+			// and focuses its URL input (one-shot signal), so the URL is typed
+			// inline instead of through a blocking native prompt.
+			request_link_autofocus();
+			session.apply(session.tr.toggle_mark('link', { href: '' }));
 		}
 	}
 }
