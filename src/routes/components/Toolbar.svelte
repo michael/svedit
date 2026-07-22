@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { serialize_path } from 'svedit';
 	import Icon from './Icon.svelte';
 	import NodeNavigator from './NodeNavigator.svelte';
@@ -230,55 +229,25 @@
 		}
 	);
 
-	// Distance the visual viewport bottom sits above the layout viewport
-	// bottom. Chromium and Firefox resize the layout viewport when the
-	// virtual keyboard opens (interactive-widget=resizes-content), so this
-	// stays 0 there. iOS Safari only shrinks and pans the visual viewport,
-	// so the bottom toolbar must be translated up by this inset to stay
-	// visible above the keyboard, also while scrolling.
-	let keyboard_inset = $state(0);
+	// The shell's scroller reserves space for the toolbar through
+	// --toolbar-height in its scroll-padding. Measured, not hardcoded: the
+	// toolbar's height changes with its contextual tools (and may grow to
+	// multiple rows).
+	let bottom_toolbar_el: HTMLElement | undefined = $state();
 
 	$effect(() => {
-		const visual_viewport = window.visualViewport;
-		if (!visual_viewport) return;
-
-		let current = untrack(() => keyboard_inset);
-		let target = current;
-		let raf = 0;
-
-		function measure() {
-			target = Math.max(
-				0,
-				Math.round(window.innerHeight - visual_viewport!.height - visual_viewport!.offsetTop)
-			);
-			if (!raf) raf = requestAnimationFrame(follow);
-		}
-
-		// Exponential follower: large distances (keyboard opening) are covered
-		// within a few frames while the small stale-position corrections that
-		// Safari reports during touch pans get smoothed instead of rendering
-		// as jitter. Speed adapts to the remaining distance by construction.
-		function follow() {
-			raf = 0;
-			const delta = target - current;
-			if (Math.abs(delta) <= 1) {
-				current = target;
-			} else {
-				current += delta * 0.35;
-				raf = requestAnimationFrame(follow);
-			}
-			keyboard_inset = current;
-		}
-
-		measure();
-		visual_viewport.addEventListener('resize', measure);
-		visual_viewport.addEventListener('scroll', measure);
+		if (!bottom_toolbar_el) return;
+		const el = bottom_toolbar_el;
+		const resize_observer = new ResizeObserver(() => {
+			document.documentElement.style.setProperty('--toolbar-height', `${el.offsetHeight}px`);
+		});
+		resize_observer.observe(el);
 		return () => {
-			cancelAnimationFrame(raf);
-			visual_viewport.removeEventListener('resize', measure);
-			visual_viewport.removeEventListener('scroll', measure);
+			resize_observer.disconnect();
+			document.documentElement.style.removeProperty('--toolbar-height');
 		};
 	});
+
 </script>
 
 {#snippet divider()}
@@ -541,7 +510,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="editor-toolbar bottom-toolbar"
-	style:--keyboard-inset="{keyboard_inset}px"
+	bind:this={bottom_toolbar_el}
 	onkeydown={handle_toolbar_keydown}
 >
 	<div class="toolbar-scroller">
@@ -652,12 +621,29 @@
 	}
 
 	.bottom-toolbar {
-		position: fixed;
-		/* The safe-area inset already provides clearance above the home
+		/* Read mode: floating Edit pill over the normally-scrolling page.
+		   The safe-area inset already provides clearance above the home
 		   indicator, so take the larger of the two offsets instead of
 		   stacking them. */
+		position: fixed;
 		bottom: max(var(--s-4), env(safe-area-inset-bottom, 0px));
 		right: var(--s-4);
+	}
+
+	:global(:root.app-shell-mode) .bottom-toolbar {
+		/* Edit mode: a layer in the app shell's single-cell grid, pinned
+		   above the software keyboard via --keyboard-inset (0 while it is
+		   closed) — no JS tracking. Content behind it stays visible and
+		   scrollable; the scroller's scroll-padding (fed by the measured
+		   --toolbar-height) keeps revealed carets clear of it. */
+		position: static;
+		grid-area: 1 / 1;
+		align-self: end;
+		justify-self: end;
+		margin: var(--s-2) var(--s-4);
+		margin-bottom: calc(
+			var(--keyboard-inset, 0px) + max(var(--s-4), env(safe-area-inset-bottom, 0px))
+		);
 	}
 
 	@position-try --stay-in-viewport {
@@ -701,20 +687,14 @@
 	}
 
 	/* The floating toolbar targets precise mouse interactions. On touch
-	   devices all tools live in the single bottom toolbar instead, so the
-	   virtual keyboard handling only has one element to care about. */
+	   devices all tools live in the single bottom toolbar instead. */
 	@media (hover: none), (pointer: coarse) {
 		.floating-toolbar {
 			display: none;
 		}
 
-		.bottom-toolbar {
-			right: auto;
-			left: 50%;
-			/* No transition here: the keyboard inset updates on every visual
-			   viewport scroll event and easing towards each new value makes
-			   the toolbar visibly lag behind the finger. */
-			transform: translateX(-50%) translateY(calc(-1 * var(--keyboard-inset, 0px)));
+		:global(:root.app-shell-mode) .bottom-toolbar {
+			justify-self: center;
 		}
 
 		/* Hint that more tools are reachable by scrolling */

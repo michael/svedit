@@ -59,6 +59,24 @@ html {
 }
 
 /*
+App-shell mode (set by the editor page while editing; read mode keeps
+normal document scrolling so browser chrome can minimize): the document
+itself never scrolls — the page is a viewport-sized grid shell where a
+full-height nested scroller holds the canvas (content stays visible
+behind the keyboard) and the toolbar layers above it, pinned over the
+keyboard via --keyboard-inset. With nothing to scroll at the document
+level, cursor visibility is owned entirely by Svedit's reveal, which
+handles the keyboard via the visual viewport and honors the scroller's
+scroll-padding (the measured toolbar height).
+*/
+:root.app-shell-mode,
+.app-shell-mode body {
+	height: 100%;
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+/*
 Improve default font consistency.
 -------------------------------
 1. Remove margin in all browsers.
