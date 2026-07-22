@@ -1,7 +1,7 @@
 /**
  * Compile-time tests for the schema-derived node types in lib/types.ts.
  *
- * This file contains no runnable tests — it is verified by `npm run check`.
+ * This file contains no runnable tests — it is verified by `pnpm check`.
  * If any assertion here breaks, svelte-check fails the build.
  *
  * Validates that:
