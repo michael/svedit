@@ -8,6 +8,54 @@ import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
+	it('does not scroll when the user selects text after a non-text selection', async () => {
+		const session = create_test_session();
+		const tr = session.tr;
+		tr.set(['story_1', 'title'], { content: '', marks: [], annotations: [] });
+		session.apply(tr);
+
+		const { container } = render(SveditTest, { session });
+		await tick();
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
+		session.selection = {
+			type: 'property',
+			path: ['page_1', 'body', 0, 'image']
+		};
+		canvas.focus();
+		await tick();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const text_el = container.querySelector<HTMLElement>(
+			'[data-path="page_1__body__0__title"][data-type="text"]'
+		);
+		expect(text_el).not.toBeNull();
+		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+		try {
+			// Simulate the browser placing a caret after a tap. Empty text is
+			// significant: it must be reconstructed rather than taking the
+			// normal DOM-selection-match shortcut.
+			const range = document.createRange();
+			range.setStart(text_el, 1);
+			range.collapse(true);
+			window.getSelection()?.removeAllRanges();
+			window.getSelection()?.addRange(range);
+			document.dispatchEvent(new Event('selectionchange'));
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(session.selection).toMatchObject({
+				type: 'text',
+				path: ['page_1', 'body', 0, 'title'],
+				anchor_offset: 0,
+				focus_offset: 0
+			});
+			expect(scroll_into_view).not.toHaveBeenCalled();
+		} finally {
+			scroll_into_view.mockRestore();
+		}
+	});
+
 	it('restores an unchanged property selection without scrolling', async () => {
 		const session = create_test_session();
 		const { container } = render(SveditTest, { session });

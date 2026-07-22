@@ -1623,7 +1623,7 @@ ${fallback_html}`;
 		if (!canvas_focused) return;
 		const selection_snapshot = JSON.stringify(session.selection);
 		const should_scroll_selection_into_view =
-			selection_snapshot !== last_rendered_selection_snapshot;
+			!dom_driven && selection_snapshot !== last_rendered_selection_snapshot;
 		render_selection(dom_driven, should_scroll_selection_into_view);
 		last_rendered_selection_snapshot = selection_snapshot;
 	});
