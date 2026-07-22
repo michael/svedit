@@ -3,11 +3,6 @@ import type { Document } from 'svedit';
 export const demo_doc: Document = {
 	document_id: 'page_1',
 	nodes: {
-		zXfRSCtGrGWaBCpaWdBvdZG: {
-			id: 'zXfRSCtGrGWaBCpaWdBvdZG',
-			type: 'link',
-			href: 'https://editable.website'
-		},
 		hero_1: {
 			id: 'hero_1',
 			type: 'hero',
@@ -17,36 +12,11 @@ export const demo_doc: Document = {
 				annotations: []
 			},
 			description: {
-				content: 'A tiny library for building editable websites in Svelte.',
-				marks: [
-					{
-						start_offset: 28,
-						end_offset: 36,
-						node_id: 'zXfRSCtGrGWaBCpaWdBvdZG'
-					}
-				],
+				content: 'Editing for Svelte',
+				marks: [],
 				annotations: []
 			},
 			image: ''
-		},
-		heading_1: {
-			id: 'heading_1',
-			type: 'heading_1',
-			content: {
-				content: 'Text and structured content in symbiosis',
-				marks: [],
-				annotations: []
-			}
-		},
-		paragraph_1: {
-			id: 'paragraph_1',
-			type: 'paragraph',
-			content: {
-				content:
-					"Unlike most rich text editors, Svedit isn't restricted to a linear character-based model for addressing content and caret positions. For that reason we can combine text-ish content like a paragraph or heading with structured, form-like content.",
-				marks: [],
-				annotations: []
-			}
 		},
 		JRZfuWeXnWKnWHaNtjupSsX: {
 			id: 'JRZfuWeXnWKnWHaNtjupSsX',
@@ -64,7 +34,7 @@ export const demo_doc: Document = {
 			layout: 'image-left',
 			image: '/images/editable.svg',
 			title: {
-				content: 'Visual in‑place editing',
+				content: 'Structured, full-canvas content editing',
 				marks: [],
 				annotations: []
 			},
@@ -91,17 +61,17 @@ export const demo_doc: Document = {
 			layout: 'image-right',
 			image: '/images/lightweight.svg',
 			title: {
-				content: 'Minimal viable editor',
+				content: 'Tiny footprint',
 				marks: [],
 				annotations: []
 			},
 			description: {
 				content:
-					"The reference implementation uses only about 2000 lines of code. That means you'll be able to serve editable web pages, removing the need for a separate Content Management System.",
+					"The reference implementation uses only few thousand lines of code. That means you'll be able to serve editable websites, removing the need for a separate Content Management System.",
 				marks: [
 					{
-						start_offset: 100,
-						end_offset: 118,
+						start_offset: 102,
+						end_offset: 119,
 						node_id: 'link_1'
 					}
 				],
@@ -118,7 +88,7 @@ export const demo_doc: Document = {
 			type: 'image_grid_item',
 			image: '/images/svelte-framework.svg',
 			title: {
-				content: 'Svelte-native editing',
+				content: 'Svelte-native',
 				marks: [],
 				annotations: []
 			},
@@ -305,7 +275,7 @@ export const demo_doc: Document = {
 			},
 			description: {
 				content:
-					'Integrate with your Svelte application. Use it as a template and copy and paste Svedit.svelte to build your custom rich content editor.',
+					'Integrate with your Svelte application. Use it as a library or copy and paste Svedit.svelte to build your custom rich content editor.',
 				marks: [
 					{
 						start_offset: 20,
@@ -313,8 +283,8 @@ export const demo_doc: Document = {
 						node_id: 'link_2'
 					},
 					{
-						start_offset: 80,
-						end_offset: 93,
+						start_offset: 78,
+						end_offset: 91,
 						node_id: 'emphasis_1'
 					}
 				],
@@ -393,7 +363,7 @@ export const demo_doc: Document = {
 			type: 'list_item',
 			content: {
 				content:
-					"Mobile support is still experimental. As of 0.3.0 Svedit works on latest iOS and Android, but the UX isn't optimized yet.",
+					'Mobile support is still experimental. As of 0.3.0 Svedit works on latest iOS and Android. 0.13.0 introduces a new mobile-optimized user experience.',
 				marks: [],
 				annotations: []
 			}
@@ -471,8 +441,6 @@ export const demo_doc: Document = {
 			body: {
 				nodes: [
 					'hero_1',
-					'heading_1',
-					'paragraph_1',
 					'story_1',
 					'story_2',
 					'image_grid_1',
