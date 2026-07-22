@@ -11,15 +11,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Development:**
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm preview` - Preview production build
 
 **Testing:**
 
-- `npm run test:unit` - Run unit tests with Vitest
-- `npm run test:e2e` - Run end-to-end tests with Playwright
-- `npm run test` - Run both unit and e2e tests
+- `pnpm test:unit` - Run unit tests with Vitest
+- `pnpm test:e2e` - Run end-to-end tests with Playwright
+- `pnpm test` - Run both unit and e2e tests
 
 **Testing Guidelines:**
 
@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - The user prefers to run all tests manually
 - Focus on implementing code changes and let the user handle testing
 - DO NOT start the dev server or drive the app in a browser (preview tools, screenshots, etc.) to verify changes — in-browser verification is done manually by the user
-- Static checks are fine: `npm run build` and `npm run check` may be used to verify that changes compile
+- Static checks are fine: `pnpm build` and `pnpm check` may be used to verify that changes compile
 
 **Implementation Guidelines:**
 

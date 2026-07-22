@@ -16,13 +16,13 @@ The fastest way to get started is to clone the `hello-svedit` template and turn 
 ```bash
 git clone https://github.com/michael/hello-svedit
 cd hello-svedit
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/demo_schema.ts), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
 
-You can also install Svedit into an existing SvelteKit project with `npm install svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
+You can also install Svedit into an existing SvelteKit project with `pnpm add svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
 
 ## Principles
 
@@ -1452,10 +1452,10 @@ The source code is compact and readable — less than 3000 LOC across a handful 
 
 ## Developing Svedit
 
-Once you've cloned the Svedit repository and installed dependencies with `npm install`, start a development server:
+Once you've cloned the Svedit repository and installed dependencies with `pnpm install`, start a development server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ## Building
@@ -1463,10 +1463,10 @@ npm run dev
 To create a production version of your app:
 
 ```bash
-npm run build
+pnpm build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `pnpm preview`.
 
 ## Contributing
 
