@@ -270,7 +270,9 @@
 		);
 		// The predicted band is clamped to the container's own box, so a
 		// scroller that doesn't fill the viewport can never be slammed to
-		// its limit by out-of-band math.
+		// its limit by out-of-band math. The padding subtracts from the
+		// clamped (visible) edges — same rule and same deliberate
+		// conservatism as __get_reveal_bounds.
 		const band_top = Math.max(container_rect.top, 0) + pad_top;
 		const band_bottom =
 			Math.min(container_rect.bottom, window.innerHeight - predicted_inset) - pad_bottom;
@@ -1580,25 +1582,32 @@ ${fallback_html}`;
 		const vv = window.visualViewport;
 		const port_w = container?.clientWidth ?? window.innerWidth;
 		const port_h = container?.clientHeight ?? window.innerHeight;
+		const pad_l = __resolve_scroll_padding(scroller_style.scrollPaddingLeft, port_w);
+		const pad_r = __resolve_scroll_padding(scroller_style.scrollPaddingRight, port_w);
+		const pad_t = __resolve_scroll_padding(scroller_style.scrollPaddingTop, port_h);
+		const pad_b = __resolve_scroll_padding(scroller_style.scrollPaddingBottom, port_h);
+		// The padding subtracts from the VISIBLE edges (box ∩ window ∩
+		// visual viewport). Floating UI like the toolbar is pinned to the
+		// visible bottom (it rides the keyboard inset), so that anchor is
+		// the correct one for it. When a scroller overdraws the viewport
+		// for chrome-zone painting, its box-anchored overdraw share makes
+		// the band slightly conservative — deliberate: one simple rule
+		// that errs toward extra visibility, never toward hiding.
 		return {
-			min_x:
-				Math.max(rect?.left ?? 0, 0, vv?.offsetLeft ?? 0) +
-				__resolve_scroll_padding(scroller_style.scrollPaddingLeft, port_w),
+			min_x: Math.max(rect?.left ?? 0, 0, vv?.offsetLeft ?? 0) + pad_l,
 			max_x:
 				Math.min(
 					rect?.right ?? Infinity,
 					window.innerWidth,
 					vv ? vv.offsetLeft + vv.width : Infinity
-				) - __resolve_scroll_padding(scroller_style.scrollPaddingRight, port_w),
-			min_y:
-				Math.max(rect?.top ?? 0, 0, vv?.offsetTop ?? 0) +
-				__resolve_scroll_padding(scroller_style.scrollPaddingTop, port_h),
+				) - pad_r,
+			min_y: Math.max(rect?.top ?? 0, 0, vv?.offsetTop ?? 0) + pad_t,
 			max_y:
 				Math.min(
 					rect?.bottom ?? Infinity,
 					window.innerHeight,
 					vv ? vv.offsetTop + vv.height : Infinity
-				) - __resolve_scroll_padding(scroller_style.scrollPaddingBottom, port_h)
+				) - pad_b
 		};
 	}
 

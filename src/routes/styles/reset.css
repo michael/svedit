@@ -80,19 +80,18 @@ visibly "cropped" once the class landed.
 	overscroll-behavior: none;
 }
 
-/* Safari only paints behind its floating chrome (status bar, address
-   bar) where page content overflows the layout viewport — the locked
-   shell has no such overflow, which is why those zones showed up as
-   white strips. Paint them with a fixed backdrop instead:
-   position: fixed escapes the html/body overflow clip and never
-   contributes to document scrollability. */
-:root:has(.app-shell[data-editing='true']) body::before {
-	content: '';
-	position: fixed;
-	inset: -200px 0;
-	z-index: -1;
-	background: var(--app-canvas-fill, #fff);
-	pointer-events: none;
+/* The zones behind Safari's floating chrome (status bar, address bar)
+   are painted by Safari itself from the page background — device-
+   verified that NOTHING else reaches them for a locked document: not
+   viewport-fit=cover (does not extend the in-browser layout viewport),
+   not fixed-position boxes overdrawing the viewport (Safari composites
+   only root-document overflow behind its chrome, which is why read
+   mode shows content there and an unscrollable shell cannot). The one
+   in-browser lever is this tint; true content behind the bars while
+   editing needs standalone/PWA display, where no browser chrome exists
+   at all. */
+:root:has(.app-shell[data-editing='true']) body {
+	background: var(--app-chrome-zone-fill, var(--app-canvas-fill, #fff));
 }
 
 /* Height chain from body to the shell (the sveltekit wrapper between them
