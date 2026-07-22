@@ -59,6 +59,12 @@
 	let is_composing = $state(false);
 	let canvas_focused = $state(false);
 	let before_composition_selection: TextSelection | null = null;
+	// Selection restoration and selection revealing are separate concerns.
+	// DOM changes (for example, toggling an annotation) can require rebuilding
+	// the native selection even when the logical selection did not move. Keep
+	// the last selection rendered while focused so those rebuilds do not also
+	// move the viewport.
+	let last_rendered_selection_snapshot: string | null = null;
 	// Set by onselectionchange before it commits a DOM-derived selection
 	// to the model. render_selection consumes-and-clears it to skip
 	// rerender on DOM-driven changes (the DOM is already in place).
@@ -849,7 +855,7 @@ ${fallback_html}`;
 		}
 	}
 
-	function render_selection(dom_driven = false) {
+	function render_selection(dom_driven = false, should_scroll_selection_into_view = true) {
 		const selection = session.selection as Selection;
 
 		if (!selection) {
@@ -879,11 +885,11 @@ ${fallback_html}`;
 		}
 
 		if (selection?.type === 'text') {
-			__render_text_selection();
+			__render_text_selection(should_scroll_selection_into_view);
 		} else if (selection?.type === 'node') {
-			__render_node_selection();
+			__render_node_selection(should_scroll_selection_into_view);
 		} else if (selection?.type === 'property') {
-			__render_property_selection();
+			__render_property_selection(should_scroll_selection_into_view);
 		} else {
 			console.warn('unsupported selection', $state.snapshot(selection));
 		}
@@ -1285,7 +1291,7 @@ ${fallback_html}`;
 		return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
 	}
 
-	function __render_node_selection() {
+	function __render_node_selection(should_scroll_selection_into_view = true) {
 		const selection = session.selection as NodeSelection;
 		const node_array_path = selection.path;
 		const node_array_path_str = serialize_path(node_array_path);
@@ -1336,6 +1342,7 @@ ${fallback_html}`;
 				dom_selection.addRange(range);
 			}
 		}
+		if (!should_scroll_selection_into_view) return;
 
 		// Scroll the cursor into view, but only when it is genuinely
 		// off-screen. This runs on every node-selection re-render — a
@@ -1399,7 +1406,7 @@ ${fallback_html}`;
 		}, 0);
 	}
 
-	function __render_property_selection() {
+	function __render_property_selection(should_scroll_selection_into_view = true) {
 		const selection = session.selection;
 		// The element that holds the property
 		const el = canvas_el.querySelector<HTMLElement>(
@@ -1416,13 +1423,14 @@ ${fallback_html}`;
 		dom_selection.removeAllRanges();
 		dom_selection.addRange(range);
 
-		// Scroll the selection into view
-		setTimeout(() => {
-			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-		}, 0);
+		if (should_scroll_selection_into_view) {
+			setTimeout(() => {
+				el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			}, 0);
+		}
 	}
 
-	function __render_text_selection() {
+	function __render_text_selection(should_scroll_selection_into_view = true) {
 		const selection = session.selection as TextSelection;
 		// The element that holds the annotated string
 		const el = canvas_el.querySelector<HTMLElement>(
@@ -1512,15 +1520,17 @@ ${fallback_html}`;
 				focus_node_offset
 			);
 
-			// Scroll the rendered selection into view. Capture the target now:
-			// the browser selection is live and may be cleared before this
-			// deferred callback runs, e.g. when app UI focuses an external input.
-			const selected_element = focus_node.parentElement;
-			setTimeout(() => {
-				if (selected_element?.isConnected) {
-					selected_element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				}
-			}, 0);
+			if (should_scroll_selection_into_view) {
+				// Scroll the rendered selection into view. Capture the target now:
+				// the browser selection is live and may be cleared before this
+				// deferred callback runs, e.g. when app UI focuses an external input.
+				const selected_element = focus_node.parentElement;
+				setTimeout(() => {
+					if (selected_element?.isConnected) {
+						selected_element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+					}
+				}, 0);
+			}
 		}
 	}
 
@@ -1611,7 +1621,11 @@ ${fallback_html}`;
 		const dom_driven = selection_source_is_dom;
 		selection_source_is_dom = false;
 		if (!canvas_focused) return;
-		render_selection(dom_driven);
+		const selection_snapshot = JSON.stringify(session.selection);
+		const should_scroll_selection_into_view =
+			selection_snapshot !== last_rendered_selection_snapshot;
+		render_selection(dom_driven, should_scroll_selection_into_view);
+		last_rendered_selection_snapshot = selection_snapshot;
 	});
 </script>
 

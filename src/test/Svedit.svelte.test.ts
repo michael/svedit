@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
@@ -8,6 +8,36 @@ import { join_text_node } from '../lib/transforms.svelte.js';
 import nanoid from '../routes/nanoid.js';
 
 describe('Svedit.svelte', () => {
+	it('restores an unchanged property selection without scrolling', async () => {
+		const session = create_test_session();
+		const { container } = render(SveditTest, { session });
+		await tick();
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
+		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+		try {
+			canvas.focus();
+			session.selection = {
+				type: 'property',
+				path: ['page_1', 'body', 0, 'image']
+			};
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			scroll_into_view.mockClear();
+
+			// Applying a transaction creates a fresh selection reference, even
+			// when the logical selection is unchanged.
+			session.apply(session.tr);
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(window.getSelection()?.rangeCount).toBe(1);
+			expect(scroll_into_view).not.toHaveBeenCalled();
+		} finally {
+			scroll_into_view.mockRestore();
+		}
+	});
+
 	it('does not throw when focus leaves the canvas before deferred text-selection scroll runs', async () => {
 		const session = create_test_session();
 		const errors = [];
