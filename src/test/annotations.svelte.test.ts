@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import create_test_session from './create_test_session.js';
@@ -48,6 +48,15 @@ function text_selection(anchor_offset: number, focus_offset: number) {
 	return {
 		type: 'text' as const,
 		path: title_path,
+		anchor_offset,
+		focus_offset
+	};
+}
+
+function rendered_title_selection(anchor_offset: number, focus_offset: number) {
+	return {
+		type: 'text' as const,
+		path: ['page_1', 'body', 0, 'title'],
 		anchor_offset,
 		focus_offset
 	};
@@ -244,6 +253,56 @@ describe('mark toggle selection semantics', () => {
 });
 
 describe('annotation toggle selection semantics', () => {
+	it('restores an unchanged text selection without scrolling after an annotation toggle', async () => {
+		const session = create_annotation_session();
+		const { container } = render(SveditTest, { session });
+		await tick();
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
+		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+		try {
+			canvas.focus();
+			session.selection = rendered_title_selection(0, 5);
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			scroll_into_view.mockClear();
+
+			session.apply(session.tr.toggle_annotation('comment'));
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(window.getSelection()?.toString()).toBe('First');
+			expect(scroll_into_view).not.toHaveBeenCalled();
+		} finally {
+			scroll_into_view.mockRestore();
+		}
+	});
+
+	it('still scrolls when the logical text selection moves', async () => {
+		const session = create_annotation_session();
+		const { container } = render(SveditTest, { session });
+		await tick();
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
+		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+		try {
+			canvas.focus();
+			session.selection = rendered_title_selection(0, 5);
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			scroll_into_view.mockClear();
+
+			session.selection = rendered_title_selection(6, 11);
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(window.getSelection()?.toString()).toBe('story');
+			expect(scroll_into_view).toHaveBeenCalledOnce();
+		} finally {
+			scroll_into_view.mockRestore();
+		}
+	});
+
 	it('creates and removes same-type annotations without stacking', () => {
 		const session = create_annotation_session();
 		create_annotation(session, 'comment', text_selection(0, 5));
