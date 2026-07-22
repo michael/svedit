@@ -59,6 +59,51 @@ html {
 }
 
 /*
+App-shell mode (edit mode; read mode keeps normal document scrolling so
+browser chrome can minimize): the document itself never scrolls — the
+page is a viewport-sized grid shell where a full-height nested scroller
+holds the canvas (content stays visible behind the keyboard) and the
+toolbar layers above it, pinned over the keyboard via the
+Svedit-published --svedit-keyboard-inset. With nothing to scroll at the
+document level, cursor visibility is owned entirely by Svedit's reveal.
+
+The mode is carried by server-rendered markup (data-editing on the
+shell) and consumed via :has(), so it applies at FIRST PAINT. A
+JS-toggled class only arrives after hydration, which caused seconds of
+read-mode flashing on load: toolbar bottom-right, full-bleed page that
+visibly "cropped" once the class landed.
+*/
+:root:has(.app-shell[data-editing='true']),
+:root:has(.app-shell[data-editing='true']) body {
+	height: 100%;
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+/* The zones behind Safari's floating chrome (status bar, address bar)
+   are painted by Safari itself from the page background — device-
+   verified that NOTHING else reaches them for a locked document: not
+   viewport-fit=cover (does not extend the in-browser layout viewport),
+   not fixed-position boxes overdrawing the viewport (Safari composites
+   only root-document overflow behind its chrome, which is why read
+   mode shows content there and an unscrollable shell cannot). The one
+   in-browser lever is this tint; true content behind the bars while
+   editing needs standalone/PWA display, where no browser chrome exists
+   at all. */
+:root:has(.app-shell[data-editing='true']) body {
+	background: var(--app-chrome-zone-fill, var(--app-canvas-fill, #fff));
+}
+
+/* Height chain from body to the shell (the sveltekit wrapper between them
+   is display:contents and transparent to it). Percentages instead of
+   100dvh: Safari 26 has documented dvh mis-sizing bugs on viewport-sized
+   layouts (bottom gaps), while the percentage chain always matches the
+   layout viewport that Safari itself computed. */
+:root:has(.app-shell[data-editing='true']) .layout-container {
+	height: 100%;
+}
+
+/*
 Improve default font consistency.
 -------------------------------
 1. Remove margin in all browsers.

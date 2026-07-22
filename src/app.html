@@ -3,19 +3,28 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-		<!-- interactive-widget=resizes-content makes Chromium and Firefox on Android
-		     resize the layout viewport when the virtual keyboard opens, so the
-		     fixed bottom toolbar stays above the keyboard without JS. iOS Safari
-		     ignores it and is handled via visualViewport in Toolbar.svelte.
-		     No viewport-fit=cover: it makes env(safe-area-inset-bottom) span
-		     Safari's floating tab bar, pushing the bottom toolbar too far up.
+		<!-- No interactive-widget=resizes-content: iOS 26 no longer ignores it
+		     and engages it inconsistently (layout viewport resizing mid-gesture
+		     on refocus taps, breaking the app-shell geometry and blurring the
+		     canvas). Without the token iOS stays in its stable overlay mode
+		     (visual viewport shrinks, layout viewport untouched), which the
+		     app shell + Svedit's keyboard handling are built for. Android
+		     Chrome's default is resizes-content anyway, so Android behavior
+		     is unchanged.
+		     No viewport-fit=cover: device-verified on iOS 26 that it does NOT
+		     extend the in-browser layout viewport, so it buys nothing here
+		     while making env(safe-area-inset-bottom) span Safari's floating
+		     tab bar and push the bottom toolbar up. Also device-verified:
+		     Safari composites only root-document overflow behind its chrome
+		     — fixed boxes beyond the layout viewport do not paint there, so
+		     a locked app shell can only tint those zones (see reset.css).
 		     maximum-scale=1 suppresses iOS Safari's auto-zoom when focusing
 		     inputs with a font size below 16px; since iOS 10 Safari ignores it
 		     for user pinch gestures, so zooming stays possible there. Trade-off:
 		     Android honors it and blocks pinch zoom. -->
 		<meta
 			name="viewport"
-			content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content"
+			content="width=device-width, initial-scale=1, maximum-scale=1"
 		/>
 		%sveltekit.head%
 	</head>
