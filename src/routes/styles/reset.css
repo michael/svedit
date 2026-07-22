@@ -59,21 +59,49 @@ html {
 }
 
 /*
-App-shell mode (set by the editor page while editing; read mode keeps
-normal document scrolling so browser chrome can minimize): the document
-itself never scrolls — the page is a viewport-sized grid shell where a
-full-height nested scroller holds the canvas (content stays visible
-behind the keyboard) and the toolbar layers above it, pinned over the
-keyboard via --keyboard-inset. With nothing to scroll at the document
-level, cursor visibility is owned entirely by Svedit's reveal, which
-handles the keyboard via the visual viewport and honors the scroller's
-scroll-padding (the measured toolbar height).
+App-shell mode (edit mode; read mode keeps normal document scrolling so
+browser chrome can minimize): the document itself never scrolls — the
+page is a viewport-sized grid shell where a full-height nested scroller
+holds the canvas (content stays visible behind the keyboard) and the
+toolbar layers above it, pinned over the keyboard via the
+Svedit-published --svedit-keyboard-inset. With nothing to scroll at the
+document level, cursor visibility is owned entirely by Svedit's reveal.
+
+The mode is carried by server-rendered markup (data-editing on the
+shell) and consumed via :has(), so it applies at FIRST PAINT. A
+JS-toggled class only arrives after hydration, which caused seconds of
+read-mode flashing on load: toolbar bottom-right, full-bleed page that
+visibly "cropped" once the class landed.
 */
-:root.app-shell-mode,
-.app-shell-mode body {
+:root:has(.app-shell[data-editing='true']),
+:root:has(.app-shell[data-editing='true']) body {
 	height: 100%;
 	overflow: hidden;
 	overscroll-behavior: none;
+}
+
+/* Safari only paints behind its floating chrome (status bar, address
+   bar) where page content overflows the layout viewport — the locked
+   shell has no such overflow, which is why those zones showed up as
+   white strips. Paint them with a fixed backdrop instead:
+   position: fixed escapes the html/body overflow clip and never
+   contributes to document scrollability. */
+:root:has(.app-shell[data-editing='true']) body::before {
+	content: '';
+	position: fixed;
+	inset: -200px 0;
+	z-index: -1;
+	background: var(--app-canvas-fill, #fff);
+	pointer-events: none;
+}
+
+/* Height chain from body to the shell (the sveltekit wrapper between them
+   is display:contents and transparent to it). Percentages instead of
+   100dvh: Safari 26 has documented dvh mis-sizing bugs on viewport-sized
+   layouts (bottom gaps), while the percentage chain always matches the
+   layout viewport that Safari itself computed. */
+:root:has(.app-shell[data-editing='true']) .layout-container {
+	height: 100%;
 }
 
 /*

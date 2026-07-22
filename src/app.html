@@ -11,8 +11,12 @@
 		     app shell + Svedit's keyboard handling are built for. Android
 		     Chrome's default is resizes-content anyway, so Android behavior
 		     is unchanged.
-		     No viewport-fit=cover: it makes env(safe-area-inset-bottom) span
-		     Safari's floating tab bar, pushing the bottom toolbar too far up.
+		     No viewport-fit=cover: device-verified on iOS 26 that it does NOT
+		     extend the in-browser layout viewport (pages only ever paint
+		     behind Safari's floating chrome via overflowing content — which
+		     the app shell provides with a fixed backdrop, see reset.css), so
+		     cover buys nothing here while making env(safe-area-inset-bottom)
+		     span Safari's floating tab bar and push the bottom toolbar up.
 		     maximum-scale=1 suppresses iOS Safari's auto-zoom when focusing
 		     inputs with a font size below 16px; since iOS 10 Safari ignores it
 		     for user pinch gestures, so zooming stays possible there. Trade-off:

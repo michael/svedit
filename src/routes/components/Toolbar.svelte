@@ -630,20 +630,30 @@
 		right: var(--s-4);
 	}
 
-	:global(:root.app-shell-mode) .bottom-toolbar {
+	:global(.app-shell[data-editing='true']) .bottom-toolbar {
 		/* Edit mode: a layer in the app shell's single-cell grid, pinned
-		   above the software keyboard via --keyboard-inset (0 while it is
-		   closed) — no JS tracking. Content behind it stays visible and
-		   scrollable; the scroller's scroll-padding (fed by the measured
-		   --toolbar-height) keeps revealed carets clear of it. */
+		   above the software keyboard via the Svedit-published
+		   --svedit-keyboard-inset — pure CSS on this side, no JS tracking.
+		   Content behind it stays visible and scrollable; the scroller's
+		   scroll-padding (fed by the measured --toolbar-height) keeps
+		   revealed carets clear of it. */
 		position: static;
 		grid-area: 1 / 1;
 		align-self: end;
 		justify-self: end;
 		margin: var(--s-2) var(--s-4);
 		margin-bottom: calc(
-			var(--keyboard-inset, 0px) + max(var(--s-4), env(safe-area-inset-bottom, 0px))
+			var(--svedit-keyboard-inset, 0px) + max(var(--s-4), env(safe-area-inset-bottom, 0px))
 		);
+		/* Glide with the keyboard: the OS reports keyboard geometry late
+		   (often one event at animation end), so without a transition the
+		   toolbar hangs mid-screen after the keyboard is gone, then
+		   teleports. Svedit updates the inset predictively on focus/blur;
+		   this transition covers the remainder. Curve and duration
+		   approximate the iOS keyboard spring (fast start, long gentle
+		   tail) — a plain ease-out accelerates past the keyboard and the
+		   reappearing address bar and lands with a visible thud. */
+		transition: margin-bottom 0.45s cubic-bezier(0.32, 0.72, 0, 1);
 	}
 
 	@position-try --stay-in-viewport {
@@ -693,7 +703,7 @@
 			display: none;
 		}
 
-		:global(:root.app-shell-mode) .bottom-toolbar {
+		:global(.app-shell[data-editing='true']) .bottom-toolbar {
 			justify-self: center;
 		}
 

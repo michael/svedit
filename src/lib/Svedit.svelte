@@ -146,29 +146,73 @@
 	let inner_height_at_focus = 0;
 	let layout_resize_latch_timeout: ReturnType<typeof setTimeout> | undefined;
 
+	// Published keyboard geometry: the single visualViewport listener below
+	// maintains --svedit-keyboard-inset on the root element, so app UI
+	// (e.g. a bottom toolbar) can pin itself above the software keyboard
+	// with pure CSS — margin-bottom: var(--svedit-keyboard-inset, 0px) —
+	// instead of running listeners of its own. Because the OS reports
+	// keyboard geometry late (often one event at animation end), the value
+	// is also updated PREDICTIVELY on canvas focus/blur; a CSS transition
+	// on the consumer glides over the remaining error.
+	function __publish_keyboard_inset(value: number) {
+		window.document.documentElement.style.setProperty(
+			'--svedit-keyboard-inset',
+			`${Math.max(0, Math.round(value))}px`
+		);
+	}
+
 	$effect(() => {
 		const vv = window.visualViewport;
 		if (!vv) return;
 		const measure = () => {
 			const inset = Math.round(window.innerHeight - vv.height - vv.offsetTop);
-			if (inset > 150) observed_keyboard_inset = inset;
+			// Only learn at 1:1 zoom — pinch zoom also shrinks the visual
+			// viewport and would teach a bogus keyboard size.
+			if (vv.scale === 1 && inset > 150) observed_keyboard_inset = inset;
+			// Real measurement corrects the predictive focus/blur values.
+			// Layout-resizing platforms need no offset: their keyboard
+			// already shrinks the layout the toolbar lives in.
+			if (vv.scale === 1) __publish_keyboard_inset(layout_viewport_resizes ? 0 : inset);
 			const inner_height_shrunk =
 				canvas_focused && window.innerHeight < inner_height_at_focus - 150;
 			if (inner_height_shrunk && !layout_resize_latch_timeout && !layout_viewport_resizes) {
 				layout_resize_latch_timeout = setTimeout(() => {
 					layout_resize_latch_timeout = undefined;
-					if (canvas_focused && window.innerHeight < inner_height_at_focus - 150) {
+					// Genuine resizes-content has a signature: the layout
+					// viewport shrank AND no overlay inset remains. A lasting
+					// shrink WITH a large inset (rotation, split screen) is
+					// not the keyboard resizing the layout viewport.
+					const inset_after = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+					if (
+						canvas_focused &&
+						window.innerHeight < inner_height_at_focus - 150 &&
+						inset_after < 150
+					) {
 						layout_viewport_resizes = true;
 					}
 				}, 1000);
 			}
 		};
+		// Rotation invalidates the learned keyboard size and the latch
+		// baseline — start learning from scratch.
+		const reset_learning = () => {
+			layout_viewport_resizes = false;
+			observed_keyboard_inset = 0;
+			inner_height_at_focus = window.innerHeight;
+		};
 		measure();
 		vv.addEventListener('resize', measure);
+		// The inset formula includes offsetTop, which visual-viewport pans
+		// (pinch zoom) change without a resize.
+		vv.addEventListener('scroll', measure);
+		window.addEventListener('orientationchange', reset_learning);
 		return () => {
 			vv.removeEventListener('resize', measure);
+			vv.removeEventListener('scroll', measure);
+			window.removeEventListener('orientationchange', reset_learning);
 			clearTimeout(layout_resize_latch_timeout);
 			layout_resize_latch_timeout = undefined;
+			window.document.documentElement.style.removeProperty('--svedit-keyboard-inset');
 		};
 	});
 
@@ -196,10 +240,17 @@
 		// With the keyboard already up, taps land on visible text, and
 		// caret drags must never be fought — only act before it exists.
 		if (inset_now > 150) return;
+		// App-shell layouts only: a scrollable DOCUMENT means the OS owns
+		// the caret reveal (embedded contexts, plain pages) — acting there
+		// would double-scroll against it. Same for the absence of a nested
+		// vertical scroller.
+		const doc_el = window.document.scrollingElement ?? window.document.documentElement;
+		if (doc_el.scrollHeight - doc_el.clientHeight > 1) return;
 		const container = __get_scroll_container(canvas_el ?? null);
-		// Without a nested scroller the document scrolls and the OS owns
-		// the reveal — stay out of its way.
 		if (!container) return;
+		// Inside iframes the visual viewport never reflects the keyboard —
+		// without a learned size, any prediction would be fiction.
+		if (window !== window.top && !observed_keyboard_inset) return;
 		const dom_selection = window.getSelection();
 		if (!dom_selection?.rangeCount || !dom_selection.focusNode) return;
 		const caret_rect = __get_caret_rect(dom_selection.focusNode, dom_selection.focusOffset);
@@ -208,33 +259,54 @@
 		// assume half the screen.
 		const predicted_inset = observed_keyboard_inset || Math.round(window.innerHeight * 0.5);
 		const scroller_style = getComputedStyle(container);
-		const pad_bottom = parseFloat(scroller_style.scrollPaddingBottom) || 0;
-		const pad_top = parseFloat(scroller_style.scrollPaddingTop) || 0;
-		const band_bottom = window.innerHeight - predicted_inset - pad_bottom;
+		const container_rect = container.getBoundingClientRect();
+		const pad_top = __resolve_scroll_padding(
+			scroller_style.scrollPaddingTop,
+			container.clientHeight
+		);
+		const pad_bottom = __resolve_scroll_padding(
+			scroller_style.scrollPaddingBottom,
+			container.clientHeight
+		);
+		// The predicted band is clamped to the container's own box, so a
+		// scroller that doesn't fill the viewport can never be slammed to
+		// its limit by out-of-band math.
+		const band_top = Math.max(container_rect.top, 0) + pad_top;
+		const band_bottom =
+			Math.min(container_rect.bottom, window.innerHeight - predicted_inset) - pad_bottom;
+		if (band_bottom - band_top < 2 * caret_rect.height) return;
 		// Half a line of headroom so the caret line clears the band fully.
-		const caret_bottom = caret_rect.bottom + 8;
-		if (caret_bottom <= band_bottom) return;
+		if (caret_rect.bottom + 8 <= band_bottom) return;
 		// Land in the CENTER of the predicted visible band, not at its
 		// edge: iOS nudges the scroller back by up to ~300px during its
 		// transient keyboard reflows, and an edge-parked caret slides
 		// straight under the toolbar. Center placement absorbs the nudge.
-		const target_y = (pad_top + band_bottom) / 2;
+		const target_y = (band_top + band_bottom) / 2;
 		container.scrollTop += Math.round(caret_rect.top + caret_rect.height / 2 - target_y);
 		// iOS may stomp the scroller right after: its own reveal runs
 		// against transient viewport geometry (panned visual viewport,
 		// briefly shrunken innerHeight) that snaps back a moment later,
 		// leaving the caret behind the keyboard. Our position is computed
 		// against the settled geometry, so hold it through the
-		// presentation window — re-assert immediately on any foreign
-		// scroll, then stand down.
+		// presentation window — re-assert on any foreign scroll, but yield
+		// immediately to real user input.
 		const target_scroll_top = container.scrollTop;
 		const guard = () => {
 			if (Math.abs(container.scrollTop - target_scroll_top) > 1) {
 				container.scrollTop = target_scroll_top;
 			}
 		};
+		const stop_guard = () => {
+			container.removeEventListener('scroll', guard);
+			container.removeEventListener('touchstart', stop_guard);
+			container.removeEventListener('wheel', stop_guard);
+			container.removeEventListener('pointerdown', stop_guard);
+		};
 		container.addEventListener('scroll', guard);
-		setTimeout(() => container.removeEventListener('scroll', guard), 800);
+		container.addEventListener('touchstart', stop_guard, { passive: true, once: true });
+		container.addEventListener('wheel', stop_guard, { passive: true, once: true });
+		container.addEventListener('pointerdown', stop_guard, { once: true });
+		setTimeout(stop_guard, 800);
 	}
 
 	/**
@@ -436,7 +508,20 @@
 			selection_source_is_dom = true;
 			session.selection = selection;
 			if (selection.type === 'text' && selection.anchor_offset === selection.focus_offset) {
+				// The keyboard is coming (or staying): publish the learned
+				// inset predictively — the OS reports geometry only late in
+				// its animation — so CSS consumers glide in sync. Then keep
+				// the caret visible.
+				if (!layout_viewport_resizes && observed_keyboard_inset) {
+					__publish_keyboard_inset(observed_keyboard_inset);
+				}
 				__preempt_keyboard_occlusion();
+			} else if (selection.type !== 'text') {
+				// Non-text selections mean no keyboard (inputmode none) —
+				// retract any predicted inset so the toolbar never hovers
+				// over a keyboard that isn't coming, and glides down when a
+				// node tap closes an open one without blurring the canvas.
+				__publish_keyboard_inset(0);
 			}
 		}
 	}
@@ -1013,7 +1098,7 @@ ${fallback_html}`;
 	}
 
 	// Handle blur - pop document's keymap from stack.
-	function handle_canvas_blur() {
+	function handle_canvas_blur(event: FocusEvent) {
 		// Use flushSync so the selection highlight span (with its CSS anchor)
 		// is in the DOM immediately, before any popover/dialog tries to
 		// position itself.
@@ -1021,6 +1106,14 @@ ${fallback_html}`;
 			canvas_focused = false;
 		});
 		key_mapper?.pop_scope();
+		// Predictive inset: unless focus moved to another text input (the
+		// keyboard stays up, e.g. a toolbar URL field), the keyboard is
+		// closing — drop the inset immediately so CSS consumers glide down
+		// with it instead of hanging mid-screen until the OS reports.
+		const next = event.relatedTarget as HTMLElement | null;
+		if (!next?.closest('input, textarea, select, [contenteditable="true"]')) {
+			__publish_keyboard_inset(0);
+		}
 	}
 
 	function focus_canvas() {
@@ -1444,22 +1537,31 @@ ${fallback_html}`;
 	}
 
 	/**
-	 * Nearest ancestor that actually scrolls. Null when the window (the
-	 * document itself) is the scroller.
+	 * Nearest ancestor that actually scrolls vertically. Null when the
+	 * window (the document itself) is the scroller. Horizontal-only
+	 * scrollers (carousels, table wrappers) are skipped — vertical cursor
+	 * corrections applied to them would silently do nothing.
 	 */
 	function __get_scroll_container(el: Element | null): HTMLElement | null {
 		let current = el?.parentElement ?? null;
 		while (current && current !== window.document.body) {
 			const style = getComputedStyle(current);
-			if (
-				/(auto|scroll)/.test(style.overflowY + style.overflowX) &&
-				(current.scrollHeight > current.clientHeight || current.scrollWidth > current.clientWidth)
-			) {
+			if (/(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight) {
 				return current;
 			}
 			current = current.parentElement;
 		}
 		return null;
+	}
+
+	/**
+	 * Computed scroll-padding value → px. 'auto' resolves to 0 and
+	 * percentages resolve against the scrollport size, so host-declared
+	 * percentage padding cannot skew the band math.
+	 */
+	function __resolve_scroll_padding(value: string, scrollport_size: number): number {
+		if (value.endsWith('%')) return ((parseFloat(value) || 0) / 100) * scrollport_size;
+		return parseFloat(value) || 0;
 	}
 
 	/**
@@ -1476,25 +1578,27 @@ ${fallback_html}`;
 		);
 		const rect = container?.getBoundingClientRect();
 		const vv = window.visualViewport;
+		const port_w = container?.clientWidth ?? window.innerWidth;
+		const port_h = container?.clientHeight ?? window.innerHeight;
 		return {
 			min_x:
 				Math.max(rect?.left ?? 0, 0, vv?.offsetLeft ?? 0) +
-				(parseFloat(scroller_style.scrollPaddingLeft) || 0),
+				__resolve_scroll_padding(scroller_style.scrollPaddingLeft, port_w),
 			max_x:
 				Math.min(
 					rect?.right ?? Infinity,
 					window.innerWidth,
 					vv ? vv.offsetLeft + vv.width : Infinity
-				) - (parseFloat(scroller_style.scrollPaddingRight) || 0),
+				) - __resolve_scroll_padding(scroller_style.scrollPaddingRight, port_w),
 			min_y:
 				Math.max(rect?.top ?? 0, 0, vv?.offsetTop ?? 0) +
-				(parseFloat(scroller_style.scrollPaddingTop) || 0),
+				__resolve_scroll_padding(scroller_style.scrollPaddingTop, port_h),
 			max_y:
 				Math.min(
 					rect?.bottom ?? Infinity,
 					window.innerHeight,
 					vv ? vv.offsetTop + vv.height : Infinity
-				) - (parseFloat(scroller_style.scrollPaddingBottom) || 0)
+				) - __resolve_scroll_padding(scroller_style.scrollPaddingBottom, port_h)
 		};
 	}
 
@@ -1786,6 +1890,24 @@ ${fallback_html}`;
 									if (container) {
 										container.scrollLeft += dx;
 										container.scrollTop += dy;
+										// A limit-clamped container can strand the cursor —
+										// hand any residual to the window.
+										const settled = __get_caret_rect(focus_node, focus_node_offset);
+										if (settled) {
+											const rx = __scroll_delta(
+												settled.left,
+												settled.right,
+												bounds.min_x,
+												bounds.max_x
+											);
+											const ry = __scroll_delta(
+												settled.top,
+												settled.bottom,
+												bounds.min_y,
+												bounds.max_y
+											);
+											if (rx || ry) window.scrollBy(rx, ry);
+										}
 									} else {
 										window.scrollBy(dx, dy);
 									}
@@ -1961,6 +2083,10 @@ ${fallback_html}`;
 		   layouts they would only move via main-thread anchor re-snapshots
 		   — one frame behind the scroll, visibly lagging. */
 		position: relative;
+		/* Scope marker/overlay z-indices to the editor so they can never
+		   paint over host page chrome (sticky headers, dropdowns) when
+		   Svedit is embedded in a larger page. */
+		isolation: isolate;
 	}
 
 	.svedit-canvas {

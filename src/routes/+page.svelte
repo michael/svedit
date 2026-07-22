@@ -74,49 +74,43 @@
 
 	let scroller_el: HTMLElement | undefined = $state();
 
-	// App-shell geometry, engaged only while editing. In read mode the
-	// document scrolls normally, so mobile browser chrome (address bar)
-	// can minimize and visitors get regular web-page behavior. While
-	// editing, the document never scrolls (see .app-shell-mode in
-	// reset.css): the canvas scrolls in a nested full-height container so
-	// content stays visible behind the software keyboard, and the toolbar
-	// layer rides above the keyboard via --keyboard-inset. iOS overlays
-	// the keyboard without resizing the layout viewport, so the inset must
-	// be measured from the visual viewport; browsers honoring
-	// interactive-widget=resizes-content resize the layout viewport and
-	// keep it at 0.
+	// App-shell mode, engaged only while editing. In read mode the document
+	// scrolls normally, so mobile browser chrome (address bar) can minimize
+	// and visitors get regular web-page behavior. While editing, the
+	// document never scrolls: the canvas scrolls in a nested full-height
+	// container so content stays visible behind the software keyboard.
+	//
+	// The mode itself is pure markup + CSS: data-editing on the shell div
+	// (server-rendered, so it applies at first paint with no hydration
+	// flash) consumed by :has() selectors in reset.css and the rules
+	// below. Keyboard geometry lives in Svedit, which publishes
+	// --svedit-keyboard-inset for pure-CSS consumers (the toolbar). The
+	// JS below only hands the scroll position across the mode flip and
+	// pins the window while the document is locked.
+	let mode_scroll = 0;
+
+	// Runs BEFORE the DOM flips modes: capture the outgoing mode's scroll
+	// position while it still exists (the flip collapses the document,
+	// respectively dissolves the shell scroller).
+	$effect.pre(() => {
+		mode_scroll = editable ? window.scrollY : (scroller_el?.scrollTop ?? 0);
+	});
+
+	// Runs AFTER the DOM flipped: hand the captured position to the new
+	// scroller. While editing, also pin the window — iOS nudges it when
+	// focusing near the keyboard, even though the locked document has
+	// nothing to scroll.
 	$effect(() => {
-		if (!editable) return;
-		// Engage the shell without losing the reading position: capture the
-		// document scroll before the class flip collapses the document to
-		// viewport height, then hand it to the inner scroller.
-		const read_scroll = window.scrollY;
-		document.documentElement.classList.add('app-shell-mode');
-		if (scroller_el) scroller_el.scrollTop = read_scroll;
-		const vv = window.visualViewport;
-		const update = () => {
-			if (vv) {
-				const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-				document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
-			}
-			// iOS still nudges the window when focusing near the keyboard,
-			// even though the document has nothing to scroll — pin it back.
-			if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
-		};
-		update();
-		vv?.addEventListener('resize', update);
-		vv?.addEventListener('scroll', update);
-		window.addEventListener('scroll', update);
-		return () => {
-			vv?.removeEventListener('resize', update);
-			vv?.removeEventListener('scroll', update);
-			window.removeEventListener('scroll', update);
-			// Hand the scroll position back to the document on exit.
-			const shell_scroll = scroller_el?.scrollTop ?? 0;
-			document.documentElement.classList.remove('app-shell-mode');
-			document.documentElement.style.removeProperty('--keyboard-inset');
-			window.scrollTo(0, shell_scroll);
-		};
+		if (editable) {
+			if (scroller_el) scroller_el.scrollTop = mode_scroll;
+			const pin = () => {
+				if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+			};
+			pin();
+			window.addEventListener('scroll', pin);
+			return () => window.removeEventListener('scroll', pin);
+		}
+		window.scrollTo(0, mode_scroll);
 	});
 </script>
 
@@ -124,7 +118,7 @@
 	<title>Svedit - A tiny library for building editable websites in Svelte</title>
 </svelte:head>
 
-<div class="app-shell" bind:this={app_el}>
+<div class="app-shell" data-editing={editable} bind:this={app_el}>
 	<div class="app-scroller" bind:this={scroller_el}>
 		<Svedit {session} bind:editable bind:this={svedit_ref} path={[session.doc.document_id]} />
 
@@ -142,9 +136,10 @@
 	<!-- The toolbar must render after Svedit: its floating variant is CSS-anchored
 	     to elements inside the canvas, and anchors must precede the positioned
 	     element in DOM order to be resolvable. The bottom toolbar is a layer in
-	     the shell's single-cell grid, pinned above the keyboard via
-	     --keyboard-inset; the scroller's scroll-padding (fed by the measured
-	     --toolbar-height) keeps revealed carets clear of it. -->
+	     the shell's single-cell grid, pinned above the keyboard via the
+	     Svedit-published --svedit-keyboard-inset; the scroller's scroll-padding
+	     (fed by the measured --toolbar-height) keeps revealed carets clear of
+	     it. -->
 	<Toolbar {session} {focus_canvas} bind:editable />
 </div>
 
@@ -153,25 +148,29 @@
 <style>
 	/* Read mode: .app-shell and .app-scroller are plain wrappers, the
 	   document scrolls, browser chrome minimizes as usual. The rules below
-	   only engage while editing (.app-shell-mode on the root). */
-	:global(:root.app-shell-mode) .app-shell {
-		height: 100dvh;
+	   only engage while editing (data-editing, server-rendered so they
+	   apply at first paint — see reset.css). */
+	.app-shell[data-editing='true'] {
+		/* 100% through the body height chain, not 100dvh — see reset.css */
+		height: 100%;
 		/* Single-cell grid: scroller and toolbar occupy the same cell as
 		   layers — the scroller runs the full height so content stays
 		   visible behind the (translucent) keyboard, the toolbar pins
-		   itself above the keyboard via --keyboard-inset. */
+		   itself above the keyboard via --svedit-keyboard-inset. */
 		display: grid;
 		grid-template-rows: 1fr;
 		grid-template-columns: 1fr;
 	}
 
-	:global(:root.app-shell-mode) .app-scroller {
+	.app-shell[data-editing='true'] .app-scroller {
 		grid-area: 1 / 1;
 		min-height: 0;
 		overflow-y: auto;
 		/* Keep inner overscroll from chaining into the unscrollable body */
 		overscroll-behavior: contain;
-		scroll-padding-top: var(--s-4);
+		/* With viewport-fit=cover the shell renders behind the status bar /
+		   Dynamic Island — keep revealed carets below it. */
+		scroll-padding-top: calc(var(--s-4) + env(safe-area-inset-top, 0px));
 		/* The band covered by the floating toolbar, whatever height it
 		   currently has (it measures itself into --toolbar-height).
 		   Svedit's cursor reveal honors this and handles the keyboard
