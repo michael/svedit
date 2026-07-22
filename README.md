@@ -1,6 +1,6 @@
 # Svedit
 
-Svedit (think Svelte Edit) is a tiny Svelte library for structured, full-canvas content editing. Model content in JSON, render it with custom components, and let site owners **edit directly in the layout** — no CMS needed.
+Svedit is Editing for Svelte. It offers structured, full-canvas content editing. Model content in JSON, render it with custom components, and **edit it directly in the layout**.
 
 - Try the [Svedit demo](https://svedit.dev) — watch the debug output at the bottom of the page
 - Try [Editable](https://editable.website) — build Svelte websites you can edit on the page

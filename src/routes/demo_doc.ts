@@ -40,7 +40,7 @@ export const demo_doc: Document = {
 			},
 			description: {
 				content:
-					'Model your content in JSON, render it with Svelte components, and edit content directly in the layout. You only have to follow a couple of rules to make this work.',
+					'Model your content in JSON, render it with Svelte components, and edit it directly in the layout. You only have to follow a couple of rules to make this work.',
 				marks: [],
 				annotations: []
 			},
