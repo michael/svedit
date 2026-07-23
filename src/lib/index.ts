@@ -59,6 +59,7 @@ export type {
 } from './types.js';
 export type { SelectedAttachment } from './doc_utils.js';
 export type { Keymap } from './KeyMapper.svelte.js';
+export type { ChangeEvent } from './Session.svelte.js';
 
 // Document utilities
 export {
