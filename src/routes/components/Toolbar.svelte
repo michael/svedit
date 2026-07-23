@@ -597,7 +597,7 @@
 		     scrolling. The custom hide-keyboard tool was removed: the native
 		     iOS checkmark in the form assistant bar dismisses the keyboard,
 		     and that bar cannot be suppressed from web content anyway. -->
-		<div class="save-group">
+		<div class="save-group" class:has-leading-tools={editable}>
 			{#if editable}
 				{@render divider()}
 			{/if}
@@ -745,6 +745,9 @@
 		align-items: center;
 		flex: none;
 		background: var(--app-canvas-fill);
+	}
+
+	.editor-toolbar .save-group.has-leading-tools {
 		margin-inline-start: 4px;
 	}
 
@@ -802,8 +805,8 @@
 	}
 
 	.editor-toolbar button:not(.toggle-editable):focus-visible {
-		outline: 1px solid var(--svedit-editing-stroke);
-		outline-offset: 1px;
+		outline: none;
+		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
 	}
 
 	.editor-toolbar button:not(.toggle-editable):disabled {
@@ -879,8 +882,8 @@
 	}
 
 	.toggle-editable:focus-visible {
-		outline: 1px solid var(--svedit-editing-stroke);
-		outline-offset: 1px;
+		outline: none;
+		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
 	}
 
 	.editor-toolbar .toolbar-icon {
