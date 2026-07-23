@@ -1,6 +1,7 @@
 {
 	"name": "svedit",
 	"version": "0.13.0",
+	"homepage": "https://svedit.dev",
 	"packageManager": "pnpm@11.15.1",
 	"license": "MIT",
 	"scripts": {
