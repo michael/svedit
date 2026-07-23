@@ -156,7 +156,7 @@
 		class:first={gap.is_first}
 		class:last={gap.is_last}
 		class:pair={gap.has_pair}
-		style={`${gap.vars};anchor-name:--gm-${gap.key}`}
+		style={`${gap.vars};--gap-marker-anchor:--gm-${gap.key}`}
 		data-gap-array-path={path_str}
 		data-gap-offset={gap.offset}
 		contenteditable="false"
@@ -246,6 +246,22 @@
 		z-index: var(--node-caret-marker-z-index, 2);
 		padding: var(--node-caret-marker-padding, 2px);
 		margin: 0 !important; /* prevent unwanted margin from parent elements */
+		anchor-name: var(--gap-marker-anchor);
+	}
+
+	/* Give the one active caret a stable, orientation-specific anchor name.
+	   Consumers can position UI after the caret without reading `--row` in
+	   JavaScript. The path-specific marker anchor remains available too. */
+	@container style(--row: 1) {
+		.gap-marker.active {
+			anchor-name: var(--gap-marker-anchor), --active-row-node-gap;
+		}
+	}
+
+	@container style(--row: 0) {
+		.gap-marker.active {
+			anchor-name: var(--gap-marker-anchor), --active-column-node-gap;
+		}
 	}
 
 	/*

@@ -496,6 +496,7 @@
 		<div
 			class="editor-toolbar floating-toolbar"
 			class:anchor-below={floating_anchor.placement === 'below'}
+			class:node-caret-toolbar={is_node_caret}
 			class:has-last-node-anchor={Boolean(floating_anchor.last_node_anchor)}
 			style="position-anchor: --{floating_anchor.name};{floating_anchor.last_node_anchor
 				? ` --last-selected-node-anchor: --${floating_anchor.last_node_anchor};`
@@ -698,6 +699,31 @@
 		top: anchor(bottom);
 		margin-bottom: 0;
 		margin-top: var(--s-2);
+	}
+
+	/* The active gap marker exposes an orientation-specific anchor name.
+	   Anchor fallbacks reduce the missing orientation to zero, allowing one
+	   formula to place the insert tool after either a row or column caret. */
+	.floating-toolbar.node-caret-toolbar {
+		--_toolbar-size: 46px;
+		--_toolbar-gap: var(--s-2);
+		top: calc(
+			anchor(--active-row-node-gap top, 0px) +
+				(anchor-size(--active-row-node-gap height, var(--_toolbar-size)) - var(--_toolbar-size)) /
+				2 + anchor(--active-column-node-gap bottom, calc(-1 * var(--_toolbar-gap))) +
+				var(--_toolbar-gap)
+		);
+		right: auto;
+		bottom: auto;
+		left: calc(
+			anchor(--active-row-node-gap right, calc(-1 * var(--_toolbar-gap))) + var(--_toolbar-gap) +
+				anchor(--active-column-node-gap left, 0px) +
+				(anchor-size(--active-column-node-gap width, var(--_toolbar-size)) - var(--_toolbar-size)) /
+				2
+		);
+		margin: 0;
+		justify-self: auto;
+		position-try-fallbacks: flip-inline, flip-block, --stay-in-viewport;
 	}
 
 	/* The floating toolbar targets precise mouse interactions. On touch
