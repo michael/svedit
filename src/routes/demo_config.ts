@@ -17,6 +17,7 @@ import { document_schema } from './demo_schema.js';
 import nanoid from './nanoid.js';
 
 import Overlays from './components/Overlays.svelte';
+import GapInsertTool from './components/GapInsertTool.svelte';
 import Page from './components/Page.svelte';
 import Story from './components/Story.svelte';
 import Button from './components/Button.svelte';
@@ -47,9 +48,11 @@ export const app_config = {
 	// Custom ID generator function
 	generate_id: nanoid,
 	// Provide overrides for system components (node_gap, node_gap_markers,
-	// node_selection_markers) or user-land overlays (link previews, etc.)
+	// node_selection_markers), user-land overlays (link previews, etc.) or
+	// gap-scoped tools (node_gap_tools, rendered inside the active gap marker)
 	system_components: {
-		overlays: Overlays
+		overlays: Overlays,
+		node_gap_tools: GapInsertTool
 	},
 	// Registry of components for each node type
 	node_components: {

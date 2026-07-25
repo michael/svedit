@@ -481,6 +481,7 @@ const session_config = {
 - **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
   - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
   - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
+  - `node_gap_tools` — A component rendered inside the active node gap marker, next to the caret. Use it for gap-scoped tools like an insert button: it inherits the `--row` orientation variable from the node array, and it appears and disappears together with the caret. Receives `{ path, offset, is_first, is_last }` (see the `NodeGapToolsProps` type). The marker has `pointer-events: none`, so interactive tools must set `pointer-events: auto`. See [`src/routes/components/GapInsertTool.svelte`](src/routes/components/GapInsertTool.svelte) for an example.
 - **`inserters`** - Functions that create blank nodes of each type and set up the selection
 - **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
 - **`handle_image_paste`** - Optional handler for image paste events

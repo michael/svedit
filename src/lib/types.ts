@@ -459,6 +459,24 @@ export type NodeArrayPropertyProps = {
 };
 
 /**
+ * Props passed to the consumer's `system_components.node_gap_tools`
+ * component. It renders inside the active node gap marker (the one carrying
+ * the caret), so it inherits the `--row` orientation variable and
+ * appears/disappears together with the caret. The marker has
+ * pointer-events: none — interactive tools must set pointer-events: auto.
+ */
+export type NodeGapToolsProps = {
+	/** The full path to the node_array the gap belongs to */
+	path: DocumentPath;
+	/** The insertion offset of the gap (0..count) */
+	offset: number;
+	/** True for the gap before the first node */
+	is_first: boolean;
+	/** True for the gap after the last node */
+	is_last: boolean;
+};
+
+/**
  * Props for the Node component
  */
 export type NodeProps = {

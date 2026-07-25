@@ -174,7 +174,6 @@
 	let floating_anchor = $derived.by(
 		(): {
 			name: string;
-			placement: 'above' | 'below';
 			last_node_anchor?: string;
 		} | null => {
 			if (!editable) return null;
@@ -188,11 +187,11 @@
 				// When the selection touches a link mark, the link popover owns
 				// this spot (same pill, same anchor) — the toolbar yields.
 				if (active_link_mark) return null;
-				return { name: serialize_path(sel.path), placement: 'above' };
+				return { name: serialize_path(sel.path) };
 			}
 
 			if (sel.type === 'property') {
-				return { name: serialize_path(sel.path), placement: 'above' };
+				return { name: serialize_path(sel.path) };
 			}
 
 			if (sel.type === 'node') {
@@ -204,26 +203,14 @@
 					// last one when above the first overflows.
 					return {
 						name: serialize_path([...sel.path, start]),
-						placement: 'above',
 						...(end - start > 1 ? { last_node_anchor: serialize_path([...sel.path, end - 1]) } : {})
 					};
 				}
-				// Node caret: the floating toolbar only offers insertion there, so
-				// skip it entirely when nothing can be inserted at this gap.
-				if (!can_insert_default) return null;
-				// Anchor to the node after the caret so the toolbar sits at the
-				// gap. At the end of the array anchor to the node before the
-				// caret and place the toolbar below it instead.
-				const node_array = session.get(sel.path) as { nodes: unknown[] };
-				const node_count = node_array.nodes.length;
-				if (start < node_count) {
-					return { name: serialize_path([...sel.path, start]), placement: 'above' };
-				}
-				if (node_count > 0) {
-					return { name: serialize_path([...sel.path, node_count - 1]), placement: 'below' };
-				}
-				// Empty node arrays render a placeholder carrying the anchor for index 0
-				return { name: serialize_path([...sel.path, 0]), placement: 'above' };
+				// Node caret: insertion is offered by the in-gap tool
+				// (system_components.node_gap_tools → GapInsertTool), which
+				// renders inside the active gap marker — not by the floating
+				// toolbar.
+				return null;
 			}
 
 			return null;
@@ -484,18 +471,14 @@
 	onpointercancel={handle_window_pointerup}
 />
 
-<!-- The drag gate only matters while a pointer drag is building a range;
-     a node gap click sets a caret on pointer down and must show its insert
-     tool instantly, without waiting for pointer up. -->
-{#if floating_anchor && (!is_dragging || is_node_caret)}
+{#if floating_anchor && !is_dragging}
 	<!-- Re-mount the toolbar whenever the anchor changes: swapping
 	     position-anchor on a persistent fixed element can leave it at the
 	     stale position of the previous anchor. -->
-	{#key `${floating_anchor.name}:${floating_anchor.placement}`}
+	{#key floating_anchor.name}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="editor-toolbar floating-toolbar"
-			class:anchor-below={floating_anchor.placement === 'below'}
 			class:has-last-node-anchor={Boolean(floating_anchor.last_node_anchor)}
 			style="position-anchor: --{floating_anchor.name};{floating_anchor.last_node_anchor
 				? ` --last-selected-node-anchor: --${floating_anchor.last_node_anchor};`
@@ -504,8 +487,8 @@
 		>
 			<div class="toolbar-scroller">
 				<!-- Only the tools that belong to the current selection context: text
-				     selections get text tools, node gaps just the insert button, node
-				     and property selections the node tools. -->
+				     selections get text tools, node and property selections the node
+				     tools. Node carets are handled by GapInsertTool instead. -->
 				{#if selection_type === 'text'}
 					{@render select_parent_button()}
 					{@render mark_buttons()}
@@ -513,8 +496,6 @@
 					{#if show_link_input}
 						{@render contextual_inputs()}
 					{/if}
-				{:else if is_node_caret}
-					{@render insert_button()}
 				{:else if selection_type === 'node'}
 					{@render select_parent_button()}
 					{@render node_mark_buttons()}
@@ -691,13 +672,6 @@
 
 	.floating-toolbar.has-last-node-anchor {
 		position-try-fallbacks: --below-last-node, --stay-in-viewport, flip-block;
-	}
-
-	.floating-toolbar.anchor-below {
-		bottom: auto;
-		top: anchor(bottom);
-		margin-bottom: 0;
-		margin-top: var(--s-2);
 	}
 
 	/* The floating toolbar targets precise mouse interactions. On touch
