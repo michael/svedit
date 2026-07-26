@@ -54,6 +54,7 @@ export type {
 	TextPropertyProps,
 	CustomPropertyProps,
 	NodeArrayPropertyProps,
+	NodeGapToolsProps,
 	NodeProps,
 	NodeArrayAttachmentContext
 } from './types.js';

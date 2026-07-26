@@ -27,11 +27,20 @@
 	 * Reads visibility state directly from the registry. SvelteSet's per-key
 	 * tracking on `.has()` and iteration means this component only
 	 * re-evaluates when THIS array's visible-index set changes.
+	 *
+	 * The active marker (the one carrying the caret) additionally renders the
+	 * consumer's `system_components.node_gap_tools` component when configured
+	 * — an extension point for gap-scoped tools (e.g. an insert button).
+	 * Rendering inside the marker means the tool inherits --row for
+	 * orientation-aware styling and shows/hides together with the caret.
+	 * The marker has pointer-events: none — interactive tools must set
+	 * pointer-events: auto themselves.
 	 */
 
 	let { path, count }: { path: DocumentPath; count: number } = $props();
 
 	const svedit = getContext<SveditRenderContext>('svedit');
+	let NodeGapTools = $derived(svedit.session.config.system_components?.node_gap_tools);
 	let path_str = $derived(serialize_path(path));
 	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
 
@@ -163,6 +172,9 @@
 	>
 		{#if gap.key === caret_gap_key}
 			<NodeCaret />
+			{#if NodeGapTools}
+				<NodeGapTools {path} offset={gap.offset} is_first={gap.is_first} is_last={gap.is_last} />
+			{/if}
 		{/if}
 	</div>
 {/each}
