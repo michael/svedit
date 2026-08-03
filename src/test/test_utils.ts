@@ -118,9 +118,8 @@ export function make_image_grid_session(n_items: number) {
 }
 
 /**
- * Build a session whose root body holds `n` paragraphs, each tall enough
- * that scrolling to the document tail pushes the head paragraphs out of
- * the visibility registry's overscan zone (anchor culling takes effect).
+ * Build a session with `n` root paragraphs, tall enough that scrolling
+ * to the tail pushes the head out of the overscan zone (anchor culling).
  */
 export function make_tall_body_session(n_paragraphs: number) {
 	const body_ids: string[] = [];

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
-	import { split_node_path_str } from './node_visibility.svelte.js';
+	import { create_anchor_gate } from './node_visibility.svelte.js';
 	import type {
 		NodeArrayAttachmentContext,
 		NodeArrayRenderContext,
@@ -16,27 +16,7 @@
 	let node = $derived(svedit.session.get(path));
 	let path_str = $derived(serialize_path(path));
 
-	// Anchor culling. `anchor-name` registers a CSS anchor, and the
-	// browser's anchor bookkeeping runs on every layout pass and every
-	// native selection update, scaling with the number of registered
-	// anchors — at 2000 nodes it is the larger part of the cost of
-	// setting the caret after a keystroke. Same design as NodeGap's
-	// `.positioned`: while editable, only nodes near the viewport
-	// (overscan IO) register their anchor; scrolling moves the window
-	// and anchors follow. View mode keeps every anchor, so app overlays
-	// that anchor to arbitrary off-screen blocks (e.g. comment layers)
-	// see no change. Two-derived split as in NodeGap: get_array_indices
-	// lazily creates the set and Svelte doesn't track deps on state
-	// created inside the reading derived — acquire here, read in
-	// `anchored`.
-	let array_split = $derived(split_node_path_str(path_str));
-	let near_indices = $derived(
-		array_split ? svedit.visibility_registry.get_array_indices(array_split.array_path) : null
-	);
-	let anchored = $derived(
-		!svedit.editable || !array_split || !near_indices || near_indices.has(array_split.index)
-	);
-	let anchor_style = $derived(anchored ? `anchor-name: --${path_str};` : '');
+	const anchor = create_anchor_gate(svedit, () => path_str, 'node');
 
 	const node_array_meta = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
 	let child_index = $derived(node_array_meta ? (path.at(-1) as number) : -1);
@@ -78,7 +58,7 @@
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"
-	style="{anchor_style}{style}"
+	style="{anchor.style}{style}"
 	{...rest}
 	{@attach svedit.visibility_registry.track_node(path_str)}
 >

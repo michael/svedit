@@ -94,19 +94,12 @@
 		sorted.sort((a, b) => a - b);
 		if (sorted.length === 0) return result;
 
-		// Row-gap narrowing (--_f/--_s) samples the spacing between ONE
-		// adjacent pair of items; spacing is uniform per array, so any
-		// adjacent pair measures the same gap. The pair must come from the
-		// near set: anchor culling (see Node.svelte) only registers
-		// anchors for near-viewport nodes, so referencing items 0/1
-		// unconditionally dangles once the array's head scrolls out of the
-		// overscan — and one dangling anchor() invalidates the whole inset
-		// declaration (IACVT), collapsing every marker of the array to a
-		// zero-width sliver at the containing block's left edge. Mid
-		// markers always have a near pair (they only render between two
-		// near nodes); when no adjacent pair is near, only edge markers
-		// can render and the `.pair` class gate skips their narrowing
-		// rules entirely.
+		// Row-gap narrowing (--_f/--_s) samples the spacing of one adjacent
+		// pair — spacing is uniform per array. Must be a NEAR pair: culled
+		// nodes have no anchor (see create_anchor_gate), and one dangling
+		// anchor() invalidates the whole inset declaration, collapsing the
+		// marker to a zero-width sliver. Without a near pair only edge
+		// markers render, and their `.pair` gate skips the narrowing rules.
 		let pair: [number, number] | null = null;
 		for (let i = 0; i < sorted.length - 1; i++) {
 			if (sorted[i + 1] === sorted[i] + 1) {

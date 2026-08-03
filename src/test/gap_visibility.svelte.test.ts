@@ -456,15 +456,10 @@ describe('NodeGap visibility & placement', () => {
 	});
 
 	describe('anchor culling at the document tail', () => {
-		// Regression: gap markers referenced the anchors of array items 0
-		// and 1 unconditionally (row-gap narrowing via --_f/--_s). Anchor
-		// culling only registers anchors for near-viewport nodes, so once
-		// the array's head scrolled out of the overscan zone those
-		// references dangled — and a dangling anchor() invalidates the
-		// whole inset declaration (IACVT), collapsing every marker of the
-		// array (and the node caret inside the active one) to a zero-width
-		// sliver at the containing block's left edge. The fix samples the
-		// pair from the near set instead.
+		// Regression: markers sampled --_f/--_s from items 0/1. With the
+		// head culled those anchors dangle, and one dangling anchor()
+		// invalidates the whole inset declaration — every marker (and the
+		// node caret) collapsed to a zero-width sliver at the left edge.
 		it('renders full-width markers and node caret at the tail while the head anchors are culled', async () => {
 			const session = make_tall_body_session(60);
 			const { container } = render(SveditTest, { session });

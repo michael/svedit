@@ -20,13 +20,7 @@
 		return paths;
 	}
 
-	// Off-viewport nodes don't register an `anchor-name` while editable
-	// (anchor culling, see Node.svelte), so an overlay for a far-away
-	// selected node would have nothing to anchor to and fall back to a
-	// stray box. Render markers only for nodes that are near the
-	// viewport — exactly the ones whose anchors exist. Scrolling moves
-	// the near-set and the markers follow. Two-derived split: acquire
-	// the set here, read `has()` in the each-guard below.
+	// Only render overlays for near nodes
 	let selection_near_indices = $derived.by(() => {
 		const selection = svedit.session.selection;
 		if (selection?.type !== 'node') return null;
