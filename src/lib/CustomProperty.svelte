@@ -1,10 +1,44 @@
 <script lang="ts">
-	import { serialize_path } from './utils.js';
-	import type { CustomPropertyProps } from './types.js';
+	import { getContext } from 'svelte';
+	import { paths_equal, serialize_path } from './utils.js';
+	import { split_property_path_str } from './node_visibility.svelte.js';
+	import type { CustomPropertyProps, SveditRenderContext } from './types.js';
 
-	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
+	const svedit = getContext<SveditRenderContext>('svedit');
+
+	let {
+		path,
+		tag = 'div',
+		class: css_class,
+		children,
+		style,
+		...rest
+	}: CustomPropertyProps = $props();
 	let path_str = $derived(serialize_path(path));
 
+	// Anchor culling, same design as NodeGap's `.positioned` and Node's
+	// `anchored` (see the comment there): while editable, only custom
+	// properties whose owning node is near the viewport register their
+	// `anchor-name`. A property targeted by the current property
+	// selection always keeps its anchor, since the selection overlay
+	// (NodeSelectionMarkers) anchors to it. View mode is unchanged.
+	// Two-derived split: acquire the set here, read in `anchored`.
+	let is_selected = $derived(
+		svedit.session.selection?.type === 'property' &&
+			paths_equal(path, svedit.session.selection.path)
+	);
+	let owner_split = $derived(split_property_path_str(path_str));
+	let near_indices = $derived(
+		owner_split ? svedit.visibility_registry?.get_array_indices(owner_split.array_path) : null
+	);
+	let anchored = $derived(
+		!svedit.editable ||
+			is_selected ||
+			!owner_split ||
+			!near_indices ||
+			near_indices.has(owner_split.index)
+	);
+	let anchor_style = $derived(anchored ? `anchor-name: --${path_str};` : '');
 </script>
 
 <svelte:element
@@ -12,7 +46,7 @@
 	class={css_class}
 	data-type="property"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	style="{anchor_style}{style ? ` ${style}` : ''}"
 	{...rest}
 >
 	<div class="property-selectable">

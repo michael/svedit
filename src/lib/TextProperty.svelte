@@ -8,6 +8,7 @@
 		get_selection_range,
 		calculate_fragment_ranges
 	} from './utils.js';
+	import { split_property_path_str } from './node_visibility.svelte.js';
 
 	import type {
 		TextPropertyProps,
@@ -35,6 +36,27 @@
 			svedit.session.selection?.type === 'text' && paths_equal(path, svedit.session.selection.path)
 		);
 	});
+
+	// Anchor culling, same design as NodeGap's `.positioned` and Node's
+	// `anchored` (see the comment there): while editable, only text
+	// properties whose owning node is near the viewport register their
+	// `anchor-name`. The focused property always keeps its anchor — the
+	// selection can sit in a block the reader has scrolled away from,
+	// and overlays (toolbars, link popovers) anchor to it. View mode is
+	// unchanged. Two-derived split: acquire the set here, read in
+	// `anchored`.
+	let owner_split = $derived(split_property_path_str(path_str));
+	let near_indices = $derived(
+		owner_split ? svedit.visibility_registry?.get_array_indices(owner_split.array_path) : null
+	);
+	let anchored = $derived(
+		!svedit.editable ||
+			is_focused ||
+			!owner_split ||
+			!near_indices ||
+			near_indices.has(owner_split.index)
+	);
+	let anchor_style = $derived(anchored ? `anchor-name: --${path_str};` : '');
 
 	let plain_text = $derived(svedit.session.get(path).content);
 	// A string has zero grapheme clusters iff it has zero code units, so a
@@ -132,7 +154,7 @@
 	this={tag}
 	data-type="text"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style}"
+	style="{anchor_style}{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}

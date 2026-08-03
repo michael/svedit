@@ -477,11 +477,7 @@ class VisibilityRegistry {
 	}
 
 	#split_path(path: string): { array_path: string; index: number } | null {
-		const sep = path.lastIndexOf(PATH_SEPARATOR);
-		if (sep < 0) return null;
-		const index = parseInt(path.slice(sep + PATH_SEPARATOR.length), 10);
-		if (Number.isNaN(index)) return null;
-		return { array_path: path.slice(0, sep), index };
+		return split_node_path_str(path);
 	}
 
 	/**
@@ -624,6 +620,36 @@ export type VisibilityRegistryApi = {
  *
  * @param near - near child indices of the array
  */
+/**
+ * Splits a serialized node path into its containing array path and the
+ * node's index in that array. Returns null when the last segment is not
+ * a number — i.e. for root-level paths like `page_1`, which have no
+ * containing array and therefore no visibility record.
+ */
+export function split_node_path_str(
+	path_str: string
+): { array_path: string; index: number } | null {
+	const sep = path_str.lastIndexOf(PATH_SEPARATOR);
+	if (sep < 0) return null;
+	const index = parseInt(path_str.slice(sep + PATH_SEPARATOR.length), 10);
+	if (Number.isNaN(index)) return null;
+	return { array_path: path_str.slice(0, sep), index };
+}
+
+/**
+ * Same as split_node_path_str, but for a PROPERTY path (`[...node_path,
+ * property_name]`): strips the property segment first, then splits the
+ * owning node's path. Used to look up the visibility record of the node
+ * a text or custom property lives in.
+ */
+export function split_property_path_str(
+	path_str: string
+): { array_path: string; index: number } | null {
+	const sep = path_str.lastIndexOf(PATH_SEPARATOR);
+	if (sep < 0) return null;
+	return split_node_path_str(path_str.slice(0, sep));
+}
+
 export function should_position_gap(
 	near: SvelteSet<number>,
 	edge_state: { first: boolean; last: boolean } | undefined,
