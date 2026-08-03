@@ -19,6 +19,7 @@ import {
 	settle_grid,
 	make_story_session,
 	make_image_grid_session,
+	make_tall_body_session,
 	find_buttons_array,
 	find_image_grid_array,
 	find_last_gap,
@@ -197,7 +198,9 @@ describe('NodeGap visibility & placement', () => {
 			// sync_gap_class broke.
 			const last_gap = find_last_gap(array_el);
 			expect(last_gap).not.toBeNull();
-			const items = Array.from(array_el.querySelectorAll<HTMLElement>(':scope > [data-type="node"]'));
+			const items = Array.from(
+				array_el.querySelectorAll<HTMLElement>(':scope > [data-type="node"]')
+			);
 			const last_item = items[items.length - 1];
 			const li_rect = last_item.getBoundingClientRect();
 			const arr_rect = array_el.getBoundingClientRect();
@@ -332,7 +335,7 @@ describe('NodeGap visibility & placement', () => {
 			}
 
 			// Delete the button at offset 1 (mid).
-			const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+			const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 			canvas.focus();
 			session.selection = {
 				type: 'node',
@@ -449,6 +452,71 @@ describe('NodeGap visibility & placement', () => {
 			array_el.style.maxWidth = '';
 			await settle();
 			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+		});
+	});
+
+	describe('anchor culling at the document tail', () => {
+		// Regression: markers sampled --_f/--_s from items 0/1. With the
+		// head culled those anchors dangle, and one dangling anchor()
+		// invalidates the whole inset declaration — every marker (and the
+		// node caret) collapsed to a zero-width sliver at the left edge.
+		it('renders full-width markers and node caret at the tail while the head anchors are culled', async () => {
+			const session = make_tall_body_session(60);
+			const { container } = render(SveditTest, { session });
+			await settle();
+
+			const body_el = container.querySelector<HTMLElement>(
+				'[data-type="node_array"][data-path="page_1__body"]'
+			);
+			expect(body_el).not.toBeNull();
+			const nodes = body_el!.querySelectorAll<HTMLElement>(':scope > [data-type="node"]');
+			expect(nodes.length).toBe(60);
+
+			// Scroll the tail into view so the head leaves the overscan zone.
+			nodes[nodes.length - 1].scrollIntoView({ block: 'center' });
+			await settle_grid();
+
+			// Guard against a vacuous pass: culling must have taken effect —
+			// the head node's near entry AND its anchor must be gone.
+			const ctx = (globalThis as any).__svedit_ctx_for_test;
+			const near = ctx.visibility_registry.get_array_indices('page_1__body');
+			expect(near.has(0)).toBe(false);
+			expect(getComputedStyle(nodes[0]).getPropertyValue('anchor-name')).toBe('none');
+
+			// Every rendered marker for the body array must have a real box.
+			const markers = container.querySelectorAll<HTMLElement>(
+				'.gap-marker[data-gap-array-path="page_1__body"]'
+			);
+			expect(markers.length).toBeGreaterThan(0);
+			for (const marker of markers) {
+				const rect = marker.getBoundingClientRect();
+				expect(rect.width, `marker at offset ${marker.dataset.gapOffset}`).toBeGreaterThan(100);
+			}
+
+			// The --_f/--_s pair vars must reference near indices, never the
+			// culled head.
+			for (const marker of markers) {
+				const style = marker.getAttribute('style') ?? '';
+				const f = style.match(/--_f:--page_1__body__(\d+)/);
+				if (f) {
+					expect(near.has(parseInt(f[1], 10)), `--_f references culled index ${f[1]}`).toBe(true);
+				}
+			}
+
+			// Node caret at a tail gap: the active marker (which hosts the
+			// caret) must have a real box too.
+			const tail_offset = nodes.length - 1;
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body'],
+				anchor_offset: tail_offset,
+				focus_offset: tail_offset
+			};
+			await settle();
+			const active_marker = container.querySelector<HTMLElement>('.gap-marker.active');
+			expect(active_marker).not.toBeNull();
+			const active_rect = active_marker!.getBoundingClientRect();
+			expect(active_rect.width).toBeGreaterThan(100);
 		});
 	});
 

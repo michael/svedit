@@ -19,6 +19,13 @@
 		}
 		return paths;
 	}
+
+	// Only render overlays for near nodes
+	let selection_near_indices = $derived.by(() => {
+		const selection = svedit.session.selection;
+		if (selection?.type !== 'node') return null;
+		return svedit.visibility_registry?.get_array_indices(serialize_path(selection.path)) ?? null;
+	});
 </script>
 
 {#if svedit.session.selection?.type === 'property'}
@@ -30,7 +37,9 @@
 
 {#if selected_node_paths}
 	{#each selected_node_paths as path (serialize_path(path))}
-		<div class="selected-node-overlay" style="position-anchor: --{serialize_path(path)};"></div>
+		{#if !selection_near_indices || selection_near_indices.has(path.at(-1) as number)}
+			<div class="selected-node-overlay" style="position-anchor: --{serialize_path(path)};"></div>
+		{/if}
 	{/each}
 {/if}
 

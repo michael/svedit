@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
+	import { create_anchor_gate } from './node_visibility.svelte.js';
 	import type {
 		NodeArrayAttachmentContext,
 		NodeArrayRenderContext,
@@ -14,6 +15,8 @@
 
 	let node = $derived(svedit.session.get(path));
 	let path_str = $derived(serialize_path(path));
+
+	const anchor = create_anchor_gate(svedit, () => path_str, 'node');
 
 	const node_array_meta = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
 	let child_index = $derived(node_array_meta ? (path.at(-1) as number) : -1);
@@ -55,7 +58,7 @@
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"
-	style="anchor-name: --{path_str};{style}"
+	style="{anchor.style}{style}"
 	{...rest}
 	{@attach svedit.visibility_registry.track_node(path_str)}
 >

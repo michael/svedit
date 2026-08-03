@@ -1,10 +1,32 @@
 <script lang="ts">
-	import { serialize_path } from './utils.js';
-	import type { CustomPropertyProps } from './types.js';
+	import { getContext } from 'svelte';
+	import { paths_equal, serialize_path } from './utils.js';
+	import { create_anchor_gate } from './node_visibility.svelte.js';
+	import type { CustomPropertyProps, SveditRenderContext } from './types.js';
 
-	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
+	const svedit = getContext<SveditRenderContext>('svedit');
+
+	let {
+		path,
+		tag = 'div',
+		class: css_class,
+		children,
+		style,
+		...rest
+	}: CustomPropertyProps = $props();
 	let path_str = $derived(serialize_path(path));
 
+	let is_selected = $derived(
+		svedit.session.selection?.type === 'property' &&
+			paths_equal(path, svedit.session.selection.path)
+	);
+	// The selected property keeps its anchor: the selection overlay targets it.
+	const anchor = create_anchor_gate(
+		svedit,
+		() => path_str,
+		'property',
+		() => is_selected
+	);
 </script>
 
 <svelte:element
@@ -12,7 +34,7 @@
 	class={css_class}
 	data-type="property"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	style="{anchor.style}{style ? ` ${style}` : ''}"
 	{...rest}
 >
 	<div class="property-selectable">

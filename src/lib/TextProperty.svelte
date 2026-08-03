@@ -8,6 +8,7 @@
 		get_selection_range,
 		calculate_fragment_ranges
 	} from './utils.js';
+	import { create_anchor_gate } from './node_visibility.svelte.js';
 
 	import type {
 		TextPropertyProps,
@@ -35,6 +36,14 @@
 			svedit.session.selection?.type === 'text' && paths_equal(path, svedit.session.selection.path)
 		);
 	});
+
+	// The focused property keeps its anchor: toolbars and popovers target it even when scrolled off-screen.
+	const anchor = create_anchor_gate(
+		svedit,
+		() => path_str,
+		'property',
+		() => is_focused
+	);
 
 	let plain_text = $derived(svedit.session.get(path).content);
 	// A string has zero grapheme clusters iff it has zero code units, so a
@@ -132,7 +141,7 @@
 	this={tag}
 	data-type="text"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style}"
+	style="{anchor.style}{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}

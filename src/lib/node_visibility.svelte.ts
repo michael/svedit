@@ -477,11 +477,7 @@ class VisibilityRegistry {
 	}
 
 	#split_path(path: string): { array_path: string; index: number } | null {
-		const sep = path.lastIndexOf(PATH_SEPARATOR);
-		if (sep < 0) return null;
-		const index = parseInt(path.slice(sep + PATH_SEPARATOR.length), 10);
-		if (Number.isNaN(index)) return null;
-		return { array_path: path.slice(0, sep), index };
+		return split_node_path_str(path);
 	}
 
 	/**
@@ -609,6 +605,54 @@ export type VisibilityRegistryApi = {
 	track_node(path: string): (el: HTMLElement) => () => void;
 	track_array(path: string): (el: Element) => () => void;
 };
+
+/** Containing array path + index of a node path; null for root-level paths. */
+function split_node_path_str(path_str: string): { array_path: string; index: number } | null {
+	const sep = path_str.lastIndexOf(PATH_SEPARATOR);
+	if (sep < 0) return null;
+	const index = parseInt(path_str.slice(sep + PATH_SEPARATOR.length), 10);
+	if (Number.isNaN(index)) return null;
+	return { array_path: path_str.slice(0, sep), index };
+}
+
+/**
+ * Gate for `anchor-name` registration. Anchor bookkeeping runs on every
+ * layout pass and native selection update and scales with the number of
+ * registered anchors, so while editable only paths whose owning node is
+ * in the overscan set keep theirs — same principle as NodeGap's
+ * `.positioned`. `keep` pins an anchor on regardless (the focused or
+ * selected path, which overlays target even off-screen). View mode
+ * registers every anchor: read-mode overlays may target any block.
+ */
+export function create_anchor_gate(
+	svedit: { editable: boolean; visibility_registry?: VisibilityRegistryApi },
+	path_str: () => string,
+	kind: 'node' | 'property',
+	keep?: () => boolean
+) {
+	const split = $derived.by(() => {
+		let s = path_str();
+		if (kind === 'property') {
+			// Strip the property segment; the owning node carries visibility.
+			const sep = s.lastIndexOf(PATH_SEPARATOR);
+			if (sep < 0) return null;
+			s = s.slice(0, sep);
+		}
+		return split_node_path_str(s);
+	});
+	// Acquired outside the reading derived (see should_position_gap).
+	const near = $derived(
+		split ? svedit.visibility_registry?.get_array_indices(split.array_path) : null
+	);
+	const anchored = $derived(
+		!svedit.editable || keep?.() === true || !split || !near || near.has(split.index)
+	);
+	return {
+		get style() {
+			return anchored ? `anchor-name: --${path_str()};` : '';
+		}
+	};
+}
 
 /**
  * Pure visibility check for a gap's `.positioned` class. NodeGap calls
