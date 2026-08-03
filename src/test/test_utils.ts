@@ -117,6 +117,38 @@ export function make_image_grid_session(n_items: number) {
 	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
+/**
+ * Build a session whose root body holds `n` paragraphs, each tall enough
+ * that scrolling to the document tail pushes the head paragraphs out of
+ * the visibility registry's overscan zone (anchor culling takes effect).
+ */
+export function make_tall_body_session(n_paragraphs: number) {
+	const body_ids: string[] = [];
+	const nodes: Document['nodes'] = {};
+	const filler =
+		'A paragraph tall enough to give the document real height, so that scrolling to the end moves the first nodes well past the overscan margin and their anchors are culled. '.repeat(
+			3
+		);
+	for (let i = 0; i < n_paragraphs; i++) {
+		const id = `para_${i}`;
+		nodes[id] = {
+			id,
+			type: 'paragraph',
+			content: { content: `¶${i} ${filler}`, marks: [], annotations: [] }
+		};
+		body_ids.push(id);
+	}
+	nodes.page_1 = {
+		id: 'page_1',
+		type: 'page',
+		body: { nodes: body_ids, marks: [], annotations: [] },
+		keywords: [],
+		daily_visitors: [],
+		created_at: '2025-05-30T10:39:59.987Z'
+	};
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
+}
+
 /** Find the (non-empty) buttons node-array inside the rendered tree. */
 export function find_buttons_array(container: HTMLElement) {
 	return container.querySelector<HTMLElement>(
