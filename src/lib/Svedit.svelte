@@ -1683,7 +1683,7 @@ ${fallback_html}`;
 
 <style>
 	.svedit-canvas {
-		caret-color: var(--svedit-caret-color);
+		caret-color: var(--editing);
 		caret-shape: bar;
 		/* Default to vertical/ column flow with: --row: 0; (the most common case)
 		Prevents silent failures when developers forget to set the row property in their top level node component.
@@ -1699,7 +1699,7 @@ ${fallback_html}`;
 	   the :where(), but the wrapper zeroes its specificity contribution.
 	   Final specificity is just (0,0,1), trivially beatable. */
 	:where(.svedit-canvas) :global(::selection) {
-		background: var(--svedit-editing-fill);
+		background: var(--editing-muted);
 	}
 
 	@media not (pointer: coarse) {

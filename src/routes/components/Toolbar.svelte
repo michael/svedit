@@ -780,7 +780,7 @@
 
 	.editor-toolbar button:not(.toggle-editable):focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
+		box-shadow: inset 0 0 0 1px var(--editing);
 	}
 
 	.editor-toolbar button:not(.toggle-editable):disabled {
@@ -792,9 +792,9 @@
 	/* Same translucent brand fill the text selection uses, so the active
 	   state and the icon color always derive from one variable. */
 	.editor-toolbar button:not(.toggle-editable).active {
-		color: var(--svedit-editing-stroke);
-		background: var(--svedit-editing-fill);
-		--icon-color: var(--svedit-editing-stroke);
+		color: var(--editing);
+		background: var(--editing-muted);
+		--icon-color: var(--editing);
 	}
 
 	/* Select-parent pinned to the left edge of the scroller, mirroring the
@@ -831,7 +831,7 @@
 		border: none;
 		border-radius: 9999px;
 		background: transparent;
-		color: var(--svedit-editing-stroke);
+		color: var(--editing);
 		font-size: 0.875rem;
 		font-weight: 600;
 		line-height: 1;
@@ -846,18 +846,18 @@
 
 	@media (hover: hover) {
 		.toggle-editable:hover {
-			background: oklch(from var(--svedit-editing-stroke) l c h / 0.08);
+			background: oklch(from var(--editing) l c h / 0.08);
 		}
 	}
 
 	.toggle-editable:active {
-		background: oklch(from var(--svedit-editing-stroke) l c h / 0.12);
+		background: oklch(from var(--editing) l c h / 0.12);
 		transform: translateY(1px) scale(0.97);
 	}
 
 	.toggle-editable:focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
+		box-shadow: inset 0 0 0 1px var(--editing);
 	}
 
 	.editor-toolbar .toolbar-icon {

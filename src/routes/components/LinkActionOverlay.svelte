@@ -212,7 +212,7 @@
 	}
 
 	.link-popover button:focus-visible {
-		outline: 1px solid var(--svedit-editing-stroke);
+		outline: 1px solid var(--editing);
 		outline-offset: 1px;
 	}
 </style>

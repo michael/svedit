@@ -1,9 +1,7 @@
 @layer svedit-defaults {
 	:root {
-		--svedit-brand: oklch(60% 0.22 283);
-		--svedit-editing-stroke: var(--svedit-brand);
-		--svedit-editing-fill: oklch(from var(--svedit-brand) l c h / 0.1);
-		--svedit-canvas-stroke: color-mix(in oklch, currentColor 25%, transparent);
-		--svedit-caret-color: var(--svedit-brand);
+		--editing: oklch(60% 0.22 283);
+		--editing-muted: oklch(from var(--editing) l c h / 0.1);
+		--editing-foreground: oklch(100% 0 0);
 	}
 }

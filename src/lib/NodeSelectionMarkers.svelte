@@ -50,8 +50,8 @@
 		   Performance note: outlines don't participate in layout, so
 		   selection changes can't trigger reflows. */
 		position: absolute;
-		background: var(--svedit-editing-fill);
-		outline: 1px solid var(--svedit-editing-stroke);
+		background: var(--editing-muted);
+		outline: 1px solid var(--editing);
 		outline-offset: -0.5px;
 		border-radius: 1px;
 		top: anchor(top);

@@ -121,7 +121,7 @@
 
 	.gap-insert-tool:focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
+		box-shadow: inset 0 0 0 1px var(--editing);
 	}
 
 	/* Touch devices use the insert button in the bottom toolbar instead,
