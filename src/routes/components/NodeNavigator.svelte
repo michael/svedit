@@ -236,7 +236,7 @@
 	   emulated hover state stuck on the label. */
 	@media (hover: hover) {
 		.variant-label.switchable:hover {
-			background: oklch(from var(--app-primary-text) l c h / 0.05);
+			background: oklch(from var(--foreground) l c h / 0.05);
 		}
 	}
 

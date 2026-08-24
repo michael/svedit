@@ -1175,7 +1175,7 @@ For styling, you usually don't need the props at all: `<Node>` adds range classe
 
 ```css
 .anno-marker {
-	background: color-mix(in oklch, var(--app-primary-fill) 13%, transparent);
+	background: color-mix(in oklch, var(--accent) 13%, transparent);
 }
 ```
 

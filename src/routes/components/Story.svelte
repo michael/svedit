@@ -112,10 +112,10 @@
 	/* Placeholder styling */
 	.story img.placeholder {
 		opacity: 0.7;
-		border: 2px dashed var(--app-stroke);
+		border: 2px dashed var(--border);
 		border-radius: var(--s-2);
 		padding: var(--s-4);
-		background: var(--app-canvas-fill);
+		background: var(--background);
 	}
 
 	.story :global(.heading2) {

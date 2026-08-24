@@ -30,7 +30,7 @@
 		--_cp: var(--node-caret-row-inline-position, 50%);
 		content: '';
 		position: absolute;
-		background: var(--node-caret-bg, var(--svedit-editing-stroke));
+		background: var(--node-caret-bg, var(--editing));
 		/* Increase the visibility of the caret by contrasting it with a box shadow that's the inverted brightness of the current text color. */
 		/* Component developers must set their background color and text color on the node itself, not a child element, for this to work. */
 		box-shadow: var(--node-caret-shadow, 0 0 0 0.5px oklch(from currentColor calc(1 - l) c h));

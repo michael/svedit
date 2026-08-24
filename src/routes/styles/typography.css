@@ -36,7 +36,7 @@ body {
 	font-variation-settings: 'wght' 400;
 	font-size: var(--base-size);
 	line-height: 1.5;
-	color: var(--app-primary-text);
+	color: var(--foreground);
 }
 
 strong,
@@ -125,7 +125,7 @@ i,
 
 a {
 	text-decoration: underline;
-	text-decoration-color: var(--app-primary-fill);
-	color: var(--app-primary-fill);
+	text-decoration-color: var(--accent);
+	color: var(--accent);
 	text-underline-offset: 0.3em;
 }

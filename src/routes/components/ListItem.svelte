@@ -34,7 +34,7 @@
 		text-align: right;
 		font-size: 1em;
 		content: counter(listcounter, var(--list-style));
-		color: var(--app-primary-fill);
+		color: var(--accent);
 	}
 
 	/* CSS Counter initiation */

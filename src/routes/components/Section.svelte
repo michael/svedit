@@ -24,14 +24,14 @@
 <style>
 	.section {
 		display: block;
-		background: color-mix(in oklch, var(--app-primary-text) 4.5%, var(--app-canvas-fill));
+		background: color-mix(in oklch, var(--foreground) 4.5%, var(--background));
 		box-shadow:
-			inset 0 1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent),
-			inset 0 -1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent);
+			inset 0 1px 0 color-mix(in oklch, var(--foreground) 16%, transparent),
+			inset 0 -1px 0 color-mix(in oklch, var(--foreground) 16%, transparent);
 	}
 
 	/* Stacked sections share one hairline instead of doubling it */
 	:global(.section + .section) {
-		box-shadow: inset 0 -1px 0 color-mix(in oklch, var(--app-primary-text) 16%, transparent);
+		box-shadow: inset 0 -1px 0 color-mix(in oklch, var(--foreground) 16%, transparent);
 	}
 </style>

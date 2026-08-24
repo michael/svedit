@@ -1,6 +1,6 @@
 :root {
-  --app-primary-fill: oklch(65.51% 0.2334 34.36);
-  --app-canvas-fill: oklch(100% 0 0);
-  --app-primary-text: oklch(32.11% 0 0);
-  --app-stroke: oklch(0 0 0 / 0.2);
+  --accent: oklch(65.51% 0.2334 34.36);
+  --background: oklch(100% 0 0);
+  --foreground: oklch(32.11% 0 0);
+  --border: oklch(0 0 0 / 0.2);
 }

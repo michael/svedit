@@ -76,10 +76,10 @@
 		width: 44px;
 		height: 44px;
 		padding: 0;
-		border: 1px solid oklch(from var(--app-primary-text) l c h / 0.12);
+		border: 1px solid oklch(from var(--foreground) l c h / 0.12);
 		border-radius: 50%;
-		background: var(--app-canvas-fill);
-		color: var(--app-primary-text);
+		background: var(--background);
+		color: var(--foreground);
 		box-shadow:
 			0 1px 2px oklch(0% 0 0 / 0.12),
 			0 4px 16px oklch(0% 0 0 / 0.08);
@@ -111,7 +111,7 @@
 
 	@media (hover: hover) {
 		.gap-insert-tool:hover {
-			background: oklch(from var(--app-canvas-fill) calc(l - 0.03) c h);
+			background: oklch(from var(--background) calc(l - 0.03) c h);
 		}
 	}
 
@@ -121,7 +121,7 @@
 
 	.gap-insert-tool:focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 1px var(--svedit-editing-stroke);
+		box-shadow: inset 0 0 0 1px var(--editing);
 	}
 
 	/* Touch devices use the insert button in the bottom toolbar instead,

@@ -123,21 +123,21 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5em;
-		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 86%, var(--app-primary-text));
+		border: 1px solid color-mix(in oklch, var(--background) 86%, var(--foreground));
 		border-radius: 9999px;
-		background: var(--app-canvas-fill);
+		background: var(--background);
 		padding: 0.5em 0.85em;
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		font-size: 0.95rem;
 		font-weight: 650;
 		line-height: 1;
 		text-decoration: none;
-		box-shadow: 0 1px 2px color-mix(in oklch, var(--app-primary-text) 10%, transparent);
+		box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
 	}
 
 	.github-repo-link:hover {
-		border-color: color-mix(in oklch, var(--app-canvas-fill) 72%, var(--app-primary-text));
-		background: color-mix(in oklch, var(--app-canvas-fill) 96%, var(--app-primary-text));
+		border-color: color-mix(in oklch, var(--background) 72%, var(--foreground));
+		background: color-mix(in oklch, var(--background) 96%, var(--foreground));
 	}
 
 	.github-repo-link img {
@@ -148,7 +148,7 @@
 	.github-star-count {
 		margin-inline-start: 0.1em;
 		border-inline-start: 1px solid
-			color-mix(in oklch, var(--app-canvas-fill) 82%, var(--app-primary-text));
+			color-mix(in oklch, var(--background) 82%, var(--foreground));
 		padding-inline-start: 0.6em;
 		font-variant-numeric: tabular-nums;
 		opacity: 0.75;
@@ -187,7 +187,7 @@
 		width: 3.5rem;
 		height: 0.22rem;
 		margin-bottom: var(--s-5);
-		background: var(--app-primary-fill);
+		background: var(--accent);
 		border-radius: 9999px;
 	}
 
@@ -197,32 +197,32 @@
 		font-variation-settings: 'wght' 700;
 		line-height: 1.2;
 		margin-bottom: var(--s-6);
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		letter-spacing: -0.03em;
 	}
 
 	:global(.hero .hero-subtitle) {
 		font-size: 1.7rem;
 		line-height: 1.6;
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		opacity: 0.95;
 		max-width: 600px;
 		margin: 0 auto;
 	}
 
 	:global(.hero.has-image .hero-title) {
-		color: var(--app-primary-text);
+		color: var(--foreground);
 	}
 
 	:global(.hero.has-image .hero-subtitle) {
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		opacity: 0.95;
 	}
 
 	:global(.hero a) {
-		color: var(--app-primary-fill);
+		color: var(--accent);
 		text-decoration-line: underline;
-		text-decoration-color: var(--app-primary-fill);
+		text-decoration-color: var(--accent);
 		text-underline-offset: 0.15em;
 	}
 

@@ -186,9 +186,9 @@
 		display: inline-block;
 		/* we use box-shadow to draw the caret shape, matching the native caret */
 		box-shadow:
-			0 -0.4cap 0 0.65px var(--svedit-caret-color, AccentColor),
-			0 0 0 0.65px var(--svedit-caret-color, AccentColor),
-			0 0.4cap 0 0.65px var(--svedit-caret-color, AccentColor);
+			0 -0.4cap 0 0.65px var(--editing, AccentColor),
+			0 0 0 0.65px var(--editing, AccentColor),
+			0 0.4cap 0 0.65px var(--editing, AccentColor);
 		animation: var(
 			--node-caret-animation,
 			node-caret-blink var(--node-caret-blink-duration, 1.1s) ease-in-out infinite
@@ -207,12 +207,12 @@
 
 	/* Dim the selection highlight when canvas loses native focus */
 	:global(.svedit-canvas:not(:focus-within)) .selection-highlight {
-		background: oklch(from var(--svedit-editing-fill) l 0 h / alpha);
+		background: oklch(from var(--editing-muted) l 0 h / alpha);
 	}
 
 	/* Make a collapsed caret visible */
 	:global(.svedit-canvas:not(:focus-within)) .selection-highlight:empty {
 		background: none;
-		outline: 0.5px solid oklch(from var(--svedit-editing-stroke) l 0 h / alpha);
+		outline: 0.5px solid oklch(from var(--editing) l 0 h / alpha);
 	}
 </style>
