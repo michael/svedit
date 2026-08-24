@@ -1,7 +1,12 @@
 @layer svedit-defaults {
 	:root {
+		/* Primary accent for active editing controls, carets, and selections. */
 		--editing: oklch(60% 0.22 283);
+		/* Low-opacity version of the editing accent for passive highlights. */
 		--editing-muted: oklch(from var(--editing) l c h / 0.1);
+		/* Low-emphasis strokes and outlines, such as inactive node gaps. */
+		--editing-stroke: color-mix(in oklch, currentColor 25%, transparent);
+		/* Foreground color for content displayed on the editing accent. */
 		--editing-foreground: oklch(100% 0 0);
 	}
 }
