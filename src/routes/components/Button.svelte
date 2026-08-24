@@ -25,14 +25,14 @@
 		display: block;
 		text-decoration: none;
 		border-radius: var(--s-2);
-		background: var(--app-primary-fill);
-		color: var(--app-canvas-fill);
+		background: var(--accent);
+		color: var(--background);
 		padding: var(--s-2) var(--s-4);
 	}
 
 	.button:hover {
-		background: var(--app-primary-fill);
-		color: var(--app-canvas-fill);
+		background: var(--accent);
+		color: var(--background);
 		opacity: 0.8;
 	}
 </style>

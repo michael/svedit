@@ -101,7 +101,7 @@
 <style>
 	.debug-panel-wrapper {
 		padding-block: var(--s-10);
-		/*background: color-mix(in oklch, var(--app-canvas-fill) 94%, var(--app-primary-text));*/
+		/*background: color-mix(in oklch, var(--background) 94%, var(--foreground));*/
 	}
 
 	.debug-panel-shell {
@@ -112,9 +112,9 @@
 		text-wrap: wrap;
 		height: 12lh;
 		overflow-y: auto;
-		color: var(--app-primary-text);
-		background: color-mix(in oklch, var(--app-canvas-fill) 98%, var(--app-primary-text));
-		border: 1px solid color-mix(in oklch, var(--app-canvas-fill) 86%, var(--app-primary-text));
+		color: var(--foreground);
+		background: color-mix(in oklch, var(--background) 98%, var(--foreground));
+		border: 1px solid color-mix(in oklch, var(--background) 86%, var(--foreground));
 		font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 12px;
 		padding: var(--s-4);

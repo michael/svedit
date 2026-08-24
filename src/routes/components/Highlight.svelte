@@ -15,7 +15,7 @@
 
 <style>
 	mark {
-		background: var(--app-primary-fill);
+		background: var(--accent);
 		color: white;
 	}
 </style>

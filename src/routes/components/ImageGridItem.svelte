@@ -50,7 +50,7 @@
 		opacity: 0.7;
 		border-radius: var(--s-2);
 		padding: var(--s-4);
-		background: var(--app-canvas-fill);
+		background: var(--background);
 	}
 
 	.image-grid-item :global(.image-wrapper) {

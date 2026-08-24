@@ -8,7 +8,7 @@
 
 <style lang="postcss">
 	svg {
-		color: var(--icon-color, var(--app-primary-text));
+		color: var(--icon-color, var(--foreground));
 		fill: currentColor;
 		user-select: none;
 		object-fit: contain;

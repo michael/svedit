@@ -13,7 +13,7 @@
 <style>
 	code {
 		border-radius: 0.25em;
-		background: color-mix(in oklch, var(--app-primary-text) 8%, transparent);
+		background: color-mix(in oklch, var(--foreground) 8%, transparent);
 		padding: 0.05em 0.3em;
 		font-family: inherit;
 	}

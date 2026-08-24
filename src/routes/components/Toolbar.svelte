@@ -604,9 +604,9 @@
 		align-items: center;
 		width: fit-content;
 		padding: 4px;
-		color: var(--app-primary-text);
-		background: var(--app-canvas-fill);
-		border: 1px solid oklch(from var(--app-primary-text) l c h / 0.12);
+		color: var(--foreground);
+		background: var(--background);
+		border: 1px solid oklch(from var(--foreground) l c h / 0.12);
 		border-radius: 9999px;
 		box-shadow:
 			0 1px 2px oklch(0% 0 0 / 0.12),
@@ -718,7 +718,7 @@
 		display: flex;
 		align-items: center;
 		flex: none;
-		background: var(--app-canvas-fill);
+		background: var(--background);
 	}
 
 	.editor-toolbar .save-group.has-leading-tools {
@@ -735,7 +735,7 @@
 		height: 20px;
 		/* Keep the non-interactive strip between hitboxes minimal */
 		margin-inline: 4px;
-		background: oklch(from var(--app-primary-text) l c h / 0.15);
+		background: oklch(from var(--foreground) l c h / 0.15);
 	}
 
 	.editor-toolbar button:not(.toggle-editable) {
@@ -753,7 +753,7 @@
 		border: none;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		text-wrap: nowrap;
 		cursor: pointer;
 		pointer-events: auto;
@@ -761,7 +761,7 @@
 			background 150ms,
 			transform 150ms;
 		outline: 1px solid transparent;
-		--icon-color: var(--app-primary-text);
+		--icon-color: var(--foreground);
 		position: relative;
 	}
 
@@ -769,12 +769,12 @@
 	   browsers keep the emulated hover state stuck on a button after a tap. */
 	@media (hover: hover) {
 		.editor-toolbar button:not(.toggle-editable):hover:not(:disabled) {
-			background: oklch(from var(--app-primary-text) l c h / 0.06);
+			background: oklch(from var(--foreground) l c h / 0.06);
 		}
 	}
 
 	.editor-toolbar button:not(.toggle-editable):active:not(:disabled) {
-		background: oklch(from var(--app-primary-text) l c h / 0.09);
+		background: oklch(from var(--foreground) l c h / 0.09);
 		transform: translateY(1px) scale(0.95);
 	}
 
@@ -786,7 +786,7 @@
 	.editor-toolbar button:not(.toggle-editable):disabled {
 		background: transparent;
 		cursor: not-allowed;
-		--icon-color: oklch(from var(--app-primary-text) l c h / 0.3);
+		--icon-color: oklch(from var(--foreground) l c h / 0.3);
 	}
 
 	/* Same translucent brand fill the text selection uses, so the active
@@ -808,7 +808,7 @@
 		display: flex;
 		align-items: center;
 		flex: none;
-		background: var(--app-canvas-fill);
+		background: var(--background);
 		/* Breathing room towards the neighboring tool lives outside the
 		   group as margin: it keeps the divider flush with the opaque
 		   background while pinned, so no white strip reads as a second line. */
@@ -863,7 +863,7 @@
 	.editor-toolbar .toolbar-icon {
 		width: var(--icon-size, 24px);
 		height: var(--icon-size, 24px);
-		color: var(--icon-color, var(--app-primary-text));
+		color: var(--icon-color, var(--foreground));
 	}
 
 	.editor-toolbar .contextual-input {
@@ -888,7 +888,7 @@
 			padding: var(--s-1) var(--s-2);
 			border: none;
 			background: transparent;
-			color: var(--app-primary-text);
+			color: var(--foreground);
 			font: inherit;
 			font-size: 14px;
 			/* Fixed width on purpose: field-sizing measures the placeholder

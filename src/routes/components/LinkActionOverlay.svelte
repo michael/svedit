@@ -137,9 +137,9 @@
 		width: fit-content;
 		max-width: calc(100vw - 2 * var(--s-4));
 		padding: 4px;
-		color: var(--app-primary-text);
-		background: var(--app-canvas-fill);
-		border: 1px solid oklch(from var(--app-primary-text) l c h / 0.12);
+		color: var(--foreground);
+		background: var(--background);
+		border: 1px solid oklch(from var(--foreground) l c h / 0.12);
 		border-radius: 9999px;
 		box-shadow:
 			0 1px 2px oklch(0% 0 0 / 0.12),
@@ -153,7 +153,7 @@
 		padding-right: calc(var(--s-2) + 20px);
 		border: none;
 		background: transparent;
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		font: inherit;
 		font-size: 14px;
 		/* Fixed width on purpose: field-sizing measures the placeholder while
@@ -185,30 +185,30 @@
 		border: none;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--app-primary-text);
+		color: var(--foreground);
 		cursor: pointer;
 		transition:
 			background 150ms,
 			transform 150ms;
 		outline: 1px solid transparent;
-		--icon-color: var(--app-primary-text);
+		--icon-color: var(--foreground);
 	}
 
 	@media (hover: hover) {
 		.link-popover button:hover:not(:disabled) {
-			background: oklch(from var(--app-primary-text) l c h / 0.06);
+			background: oklch(from var(--foreground) l c h / 0.06);
 		}
 	}
 
 	.link-popover button:active:not(:disabled) {
-		background: oklch(from var(--app-primary-text) l c h / 0.09);
+		background: oklch(from var(--foreground) l c h / 0.09);
 		transform: translateY(1px) scale(0.95);
 	}
 
 	.link-popover button:disabled {
 		background: transparent;
 		cursor: not-allowed;
-		--icon-color: oklch(from var(--app-primary-text) l c h / 0.3);
+		--icon-color: oklch(from var(--foreground) l c h / 0.3);
 	}
 
 	.link-popover button:focus-visible {

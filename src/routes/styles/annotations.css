@@ -17,11 +17,11 @@
 	--marker-end: 0;
 	--_R: var(--row, 0); /* 1 in row flow */
 	--_C: calc(1 - var(--row, 0)); /* 1 in column flow */
-	background-color: color-mix(in oklch, var(--app-primary-fill) 13%, transparent);
+	background-color: color-mix(in oklch, var(--accent) 13%, transparent);
 	/* A rail outline traces the swipe: along the run's sides on every covered
 	   node, capped at the run's first and last node. Borders (not shadows)
 	   so the rail follows the rounded caps. */
-	border: 0 solid color-mix(in oklch, var(--app-primary-fill) 40%, transparent);
+	border: 0 solid color-mix(in oklch, var(--accent) 40%, transparent);
 	border-left-width: calc(var(--marker-rail) * max(var(--_C), var(--_R) * var(--marker-start)));
 	border-right-width: calc(var(--marker-rail) * max(var(--_C), var(--_R) * var(--marker-end)));
 	border-top-width: calc(var(--marker-rail) * max(var(--_R), var(--_C) * var(--marker-start)));
