@@ -24,13 +24,18 @@
 {#if svedit.session.selection?.type === 'property'}
 	<div
 		class="selected-property-overlay"
+		class:unfocused={!svedit.canvas_focused}
 		style="position-anchor: --{serialize_path(svedit.session.selection.path)};"
 	></div>
 {/if}
 
 {#if selected_node_paths}
 	{#each selected_node_paths as path (serialize_path(path))}
-		<div class="selected-node-overlay" style="position-anchor: --{serialize_path(path)};"></div>
+		<div
+			class="selected-node-overlay"
+			class:unfocused={!svedit.canvas_focused}
+			style="position-anchor: --{serialize_path(path)};"
+		></div>
 	{/each}
 {/if}
 
@@ -60,5 +65,11 @@
 		right: anchor(right);
 		pointer-events: none;
 		z-index: 12;
+	}
+
+	.selected-node-overlay.unfocused,
+	.selected-property-overlay.unfocused {
+		background: oklch(from var(--editing-muted) l 0 h / alpha);
+		outline-color: oklch(from var(--editing) l 0 h);
 	}
 </style>
