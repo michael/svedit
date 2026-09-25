@@ -626,6 +626,8 @@ ${fallback_html}`;
 			session.schema
 		);
 
+		// Decide for the whole clipboard graph before creating any nodes or replacing the selection.
+		const preserve_ids = Object.values(nodes).every((node: DocumentNode) => !tr.doc.nodes[node.id]);
 		const nodes_to_insert = [];
 		let rejected = false;
 		for (const node_id of main_nodes) {
@@ -659,13 +661,13 @@ ${fallback_html}`;
 					break;
 				}
 			} else {
-				const new_node_id = tr.build(node_id, nodes);
+				const new_node_id = tr.build(node_id, nodes, { preserve_ids });
 				nodes_to_insert.push(new_node_id);
 			}
 		}
 
 		if (!rejected) {
-			tr.insert_nodes(nodes_to_insert, marks, annotations, nodes);
+			tr.insert_nodes(nodes_to_insert, marks, annotations, nodes, { preserve_ids });
 			session.apply(tr);
 			return true;
 		}
