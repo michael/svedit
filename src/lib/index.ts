@@ -42,6 +42,7 @@ export type {
 	Attachment,
 	Mark,
 	Annotation,
+	InlineFragment,
 	// Selections
 	Selection,
 	TextSelection,

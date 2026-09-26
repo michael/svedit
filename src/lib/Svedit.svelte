@@ -6,7 +6,9 @@
 		deserialize_path,
 		paths_equal,
 		serialize_path,
-		is_selection_collapsed
+		is_selection_collapsed,
+		get_dom_model_text,
+		strip_inline_node_placeholders
 	} from './utils.js';
 	import {
 		normalize_line_endings,
@@ -395,7 +397,7 @@ ${fallback_html}`;
 			const property_definition = node_schema.properties[prop_name];
 			// Check if this is a text property.
 			if (property_definition.type === 'text') {
-				const text_content = prop_value.content;
+				const text_content = strip_inline_node_placeholders(prop_value.content);
 				if (text_content.trim()) {
 					html += `<p>${text_content}</p>`;
 				}
@@ -422,7 +424,7 @@ ${fallback_html}`;
 				prop_value !== null &&
 				typeof prop_value.content === 'string'
 			) {
-				const text_content = prop_value.content;
+				const text_content = strip_inline_node_placeholders(prop_value.content);
 				if (text_content.trim()) {
 					plain_text += `${text_content.trim()}\n\n`;
 				}
@@ -480,7 +482,7 @@ ${fallback_html}`;
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
 			text = session.get_selected_text();
-			const fallback_html = `<span>${text.content}</span>`;
+			const fallback_html = `<span>${strip_inline_node_placeholders(text.content)}</span>`;
 
 			// console.log('Text copy:', {
 			// 	text,
@@ -897,6 +899,40 @@ ${fallback_html}`;
 		}
 	}
 
+	/**
+	 * Selects an inline node when it is clicked.
+	 *
+	 * A collapsed caret is never inside a one-character range, so without this
+	 * an inline node could not be reported by `session.selected_marks` and app
+	 * UI (popovers, action overlays) would have nothing to anchor to. Chrome
+	 * already selects a contenteditable="false" element on click; Firefox and
+	 * Safari do not agree, so Svedit does it explicitly.
+	 */
+	function onpointerdown(event: PointerEvent) {
+		if (!editable) return;
+		const target = event.target instanceof Element ? event.target : null;
+		const inline_el = target?.closest<HTMLElement>('[data-type="inline-node"]');
+		if (!inline_el) return;
+
+		const text_el = inline_el.closest<HTMLElement>('[data-path][data-type="text"]');
+		if (!text_el?.dataset.path) return;
+
+		const path = deserialize_path(text_el.dataset.path);
+		if (!path) return;
+
+		const start_offset = Number(inline_el.dataset.offset);
+		if (!Number.isInteger(start_offset)) return;
+
+		event.preventDefault();
+		session.selection = {
+			type: 'text',
+			path,
+			anchor_offset: start_offset,
+			focus_offset: start_offset + 1
+		};
+		focus_canvas();
+	}
+
 	// Handle focus - push session's keymap onto stack
 	function handle_canvas_focus() {
 		// Use flushSync so highlight spans are removed from the DOM
@@ -1204,6 +1240,12 @@ ${fallback_html}`;
 
 		if (!path) return null;
 
+		// Empty for every text property without inline nodes, in which case all
+		// the correction below is skipped and mapping behaves exactly as before.
+		const inline_els = Array.from(
+			focus_root.querySelectorAll<HTMLElement>('[data-type="inline-node"]')
+		);
+
 		// EDGE CASE 1B: Caret after trailing <br> at end of text
 		//
 		// TextProperty renders a trailing <br> for non-empty or non-focused text.
@@ -1212,7 +1254,6 @@ ${fallback_html}`;
 		// We detect this and return the current DOM text length instead.
 		// During compositionend, the browser has already inserted the composed
 		// character into the DOM, while the Svedit model still has the old text.
-		const dom_text_length = get_char_length(focus_root.textContent ?? '');
 		const child_nodes = focus_root.childNodes;
 
 		if (
@@ -1237,6 +1278,9 @@ ${fallback_html}`;
 				child_nodes[last_element_index].nodeName === 'BR' &&
 				focus_offset_in_node >= last_element_index
 			) {
+				// Measured through get_text_offset so inline nodes count as one
+				// character rather than as the text their components rendered.
+				const dom_text_length = get_text_offset(focus_root, focus_root.childNodes.length);
 				return {
 					type: 'text',
 					path,
@@ -1246,11 +1290,43 @@ ${fallback_html}`;
 			}
 		}
 
+		/**
+		 * Snaps a boundary point that landed inside an atomic inline node to its
+		 * nearest edge. Browsers can place a boundary inside a
+		 * contenteditable="false" subtree, but the model has no positions in
+		 * there: the whole node is a single character.
+		 */
+		function snap_to_inline_edge(container: Node, offset: number): [Node, number] {
+			if (inline_els.length === 0) return [container, offset];
+			const element = container instanceof Element ? container : container.parentElement;
+			const inline_el = element?.closest<HTMLElement>('[data-type="inline-node"]');
+			if (!inline_el || !focus_root.contains(inline_el)) return [container, offset];
+			const parent = inline_el.parentNode;
+			if (!parent) return [container, offset];
+			const index = Array.prototype.indexOf.call(parent.childNodes, inline_el);
+			return offset === 0 ? [parent, index] : [parent, index + 1];
+		}
+
 		function get_text_offset(container: Node, offset: number): number {
+			const [snapped_container, snapped_offset] = snap_to_inline_edge(container, offset);
 			const offset_range = window.document.createRange();
 			offset_range.setStart(focus_root, 0);
-			offset_range.setEnd(container, offset);
-			return get_char_length(offset_range.toString());
+			offset_range.setEnd(snapped_container, snapped_offset);
+			let length = get_char_length(offset_range.toString());
+
+			// An inline node renders arbitrary content but occupies exactly one
+			// character in the model. For each one lying wholly within the
+			// measured span, swap its rendered length for that single character.
+			for (const el of inline_els) {
+				const probe = window.document.createRange();
+				probe.setStart(focus_root, 0);
+				probe.setEndAfter(el);
+				if (offset_range.compareBoundaryPoints(Range.END_TO_END, probe) >= 0) {
+					length += 1 - get_char_length(el.textContent ?? '');
+				}
+			}
+
+			return length;
 		}
 
 		const start_offset = get_text_offset(range.startContainer, range.startOffset);
@@ -1487,6 +1563,42 @@ ${fallback_html}`;
 				}
 				current_offset += node_char_length;
 			} else if (node instanceof HTMLElement) {
+				if (node.dataset.type === 'inline-node') {
+					// An inline node is exactly one model character. The caret can
+					// only sit before or after it, so positions resolve against
+					// its parent rather than anywhere inside it.
+					const parent = node.parentNode as HTMLElement | null;
+					if (!parent) return false;
+					const index = Array.prototype.indexOf.call(parent.childNodes, node);
+					const resolve = (target_offset: number) =>
+						target_offset <= current_offset ? index : index + 1;
+
+					if (is_backward) {
+						if (!focus_node && current_offset + 1 >= start_offset) {
+							focus_node = parent;
+							focus_node_offset = resolve(start_offset);
+						}
+						if (!anchor_node && current_offset + 1 >= end_offset) {
+							anchor_node = parent;
+							anchor_node_offset = resolve(end_offset);
+							return true; // Stop iteration
+						}
+					} else {
+						if (!anchor_node && current_offset + 1 >= start_offset) {
+							anchor_node = parent;
+							anchor_node_offset = resolve(start_offset);
+						}
+						if (!focus_node && current_offset + 1 >= end_offset) {
+							focus_node = parent;
+							focus_node_offset = resolve(end_offset);
+							return true; // Stop iteration
+						}
+					}
+
+					current_offset += 1;
+					return false;
+				}
+
 				for (const child_node of node.childNodes) {
 					if (process_node(child_node)) return true; // Stop iteration if end found
 				}
@@ -1551,7 +1663,12 @@ ${fallback_html}`;
 		if (!text_el) return;
 
 		const model_text = session.get(selection.path).content;
-		if ((text_el.textContent ?? '') === model_text) return;
+		// Read the DOM the way the model expresses it: an inline node stands for
+		// one placeholder character, not the text its component rendered. Using
+		// raw textContent here would never match once an inline node is present,
+		// so this early return would stop firing and the cleanup below would
+		// delete genuine text from the DOM.
+		if (get_dom_model_text(text_el) === model_text) return;
 
 		let current_offset = 0;
 		function get_dom_text_position(
@@ -1570,6 +1687,12 @@ ${fallback_html}`;
 					}
 					current_offset += node_length;
 				} else if (node.nodeType === Node.ELEMENT_NODE) {
+					if (node instanceof HTMLElement && node.dataset.type === 'inline-node') {
+						// An inline node holds no composable text and occupies exactly
+						// one model character, so step over it without descending.
+						current_offset += 1;
+						continue;
+					}
 					const position = get_dom_text_position(node, target_offset);
 					if (position) return position;
 				}
@@ -1650,7 +1773,9 @@ ${fallback_html}`;
 		selection-change flow updates session.selection on tap, which flips
 		this attribute before iOS decides whether to show the keyboard — no
 		imperative state tracking, drag detection, or click/pointerdown
-		handlers are required for keyboard suppression.
+		handlers are required for keyboard suppression. (The pointerdown
+		handler below is unrelated: it selects an inline node on click,
+		because a collapsed caret is never inside a one-character range.)
 	-->
 	<div
 		class="svedit-canvas {css_class}"
@@ -1660,6 +1785,7 @@ ${fallback_html}`;
 		class:property-selection={session.selection?.type === 'property'}
 		bind:this={canvas_el}
 		{onbeforeinput}
+		{onpointerdown}
 		{oncompositionstart}
 		{oncompositionend}
 		onfocus={handle_canvas_focus}

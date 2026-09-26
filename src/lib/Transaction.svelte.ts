@@ -7,7 +7,9 @@ import {
 	is_selection_collapsed,
 	adjust_ranges_for_deletion,
 	adjust_ranges_for_insertion,
-	are_ranges_exclusive
+	are_ranges_exclusive,
+	strip_orphaned_inline_placeholders,
+	INLINE_NODE_PLACEHOLDER
 } from './utils.js';
 import { join_text_node } from './transforms.svelte.js';
 import {
@@ -23,6 +25,7 @@ import {
 	is_id_valid,
 	fill_node_defaults,
 	can_switch_mark_type,
+	has_mark_containing_range,
 	get_selected_marks,
 	get_selected_annotations,
 	get_selected_range_types,
@@ -43,7 +46,8 @@ import type {
 	DocumentOperation,
 	DynamicRecord,
 	Inspection,
-	SessionConfig
+	SessionConfig,
+	TextSelection
 } from './types.js';
 
 /**
@@ -204,6 +208,18 @@ export default class Transaction {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.annotation_types || [];
+	}
+
+	/**
+	 * Gets the inline node types available for the current text selection.
+	 *
+	 * Inline nodes are only supported in text properties, so a node selection
+	 * never offers any.
+	 */
+	get available_inline_types(): string[] {
+		if (this.selection?.type !== 'text') return [];
+		const property_definition = this.inspect(this.selection.path);
+		return property_definition.inline_types || [];
 	}
 
 	/**
@@ -623,6 +639,73 @@ export default class Transaction {
 	}
 
 	/**
+	 * Inserts an inline node at the current text selection.
+	 *
+	 * An inline node occupies exactly one placeholder character in the content
+	 * string, with its payload node attached as a one-character mark. That
+	 * placeholder is what makes it atomic: `adjust_ranges_for_insertion` keeps
+	 * insertions at either edge outside the range, so text can never be typed
+	 * into it, and deleting the character disposes of the payload node through
+	 * the normal reference-counted path.
+	 *
+	 * @param inline_type - The node type to insert (e.g. 'mention', 'ticker')
+	 * @param properties - Additional data for the payload node
+	 * @returns This transaction instance for method chaining
+	 *
+	 * @example
+	 * ```js
+	 * tr.insert_inline_node('mention', { user_id: 'johannes' });
+	 * ```
+	 */
+	insert_inline_node(inline_type: string, properties?: DynamicRecord): this {
+		if (this.selection?.type !== 'text') return this;
+		if (!this.available_inline_types.includes(inline_type)) {
+			console.warn(`Inline node type ${inline_type} is not allowed here.`);
+			return this;
+		}
+
+		// Refuse BEFORE mutating anything. A mark that strictly contains the
+		// selection still contains the caret once the selection is deleted, so
+		// its range would overlap the inline node's own attachment — and marks
+		// must stay mutually exclusive. Checking after delete_selection would
+		// commit the deletion and then insert nothing, destroying the text.
+		// A mark merely covered by the selection is consumed by that deletion
+		// and does not block the insert.
+		const path = this.selection.path;
+		const selection_range = get_selection_range(this.selection)!;
+		if (has_mark_containing_range(this.get(path).marks, selection_range)) {
+			console.warn(
+				'Cannot insert an inline node inside an existing mark. Place the caret outside the mark instead.'
+			);
+			return this;
+		}
+
+		if (!is_selection_collapsed(this.selection)) {
+			this.delete_selection();
+		}
+
+		const start_offset = (this.selection as TextSelection).anchor_offset;
+
+		this.insert_text(INLINE_NODE_PLACEHOLDER);
+
+		const inline_node = {
+			id: this.generate_id(),
+			type: inline_type,
+			...properties
+		};
+		this.create(inline_node);
+
+		const text_value = structuredClone($state.snapshot(this.get(path)));
+		text_value.marks = [
+			...text_value.marks,
+			{ start_offset, end_offset: start_offset + 1, node_id: inline_node.id }
+		];
+		this.set(path, text_value);
+
+		return this;
+	}
+
+	/**
 	 * Deletes the currently selected text, node, or property.
 	 *
 	 * Behavior depends on selection type:
@@ -907,7 +990,12 @@ export default class Transaction {
 		this.selection = new_selection;
 
 		const text_property_definition = this.inspect(this.selection.path);
-		const next_text = structuredClone(text_value);
+		// Inline node attachments travel in `marks` too, so both lists are allowed.
+		const allowed_mark_types = [
+			...(text_property_definition.mark_types ?? []),
+			...(text_property_definition.inline_types ?? [])
+		];
+		let next_text = structuredClone(text_value);
 		let text_changed = false;
 
 		// Now we apply marks if there are any, but only if there's no active mark
@@ -916,7 +1004,7 @@ export default class Transaction {
 			const restored_marks = marks
 				.map((mark) => {
 					const original_mark_node = nodes[mark.node_id];
-					if (text_property_definition.mark_types?.includes(original_mark_node?.type)) {
+					if (allowed_mark_types.includes(original_mark_node?.type)) {
 						const new_mark_node_id = this.build(mark.node_id, nodes);
 						return {
 							start_offset: range.start_offset + mark.start_offset,
@@ -959,6 +1047,34 @@ export default class Transaction {
 				next_text.annotations = text_value.annotations.concat(restored_annotations);
 				text_changed = true;
 			}
+		}
+
+		// An inline node's placeholder is meaningless without its attachment: it
+		// renders as an invisible object-replacement character. If a pasted
+		// inline node could not be restored above — the property does not allow
+		// its type, or its attachment would overlap an existing mark — drop the
+		// placeholder with it rather than leaving it stranded in the content.
+		// Only a payload that carried attachments can orphan a placeholder. A
+		// bare insertion attaches its mark after this call returns (see
+		// insert_inline_node), so its placeholder must be left alone.
+		const stripped =
+			marks.length > 0
+				? strip_orphaned_inline_placeholders(
+						next_text,
+						range.start_offset,
+						range.start_offset + delta
+					)
+				: { text: next_text, removed_count: 0 };
+		if (stripped.removed_count > 0) {
+			next_text = stripped.text;
+			text_changed = true;
+			const caret = range.start_offset + delta - stripped.removed_count;
+			this.selection = {
+				type: 'text',
+				path: this.selection.path,
+				anchor_offset: caret,
+				focus_offset: caret
+			};
 		}
 
 		if (text_changed) {

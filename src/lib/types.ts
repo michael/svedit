@@ -182,12 +182,20 @@ export type NodeMap<S extends DocumentSchema> = {
  * checks at runtime — for call sites that know what they expect.
  */
 /**
- * A property that stores text with optional marks and annotations and required allow_newlines setting.
+ * A property that stores text with optional marks, annotations and inline
+ * nodes, and a required allow_newlines setting.
  */
 export type TextProperty = {
 	type: 'text';
 	mark_types?: string[];
 	annotation_types?: string[];
+	/**
+	 * Node types of kind 'inline' that may be embedded in this text.
+	 * Their attachments are stored in `marks` (so they inherit exclusivity,
+	 * range adjustment and garbage collection), but they are declared
+	 * separately so `toggle_mark` can never reach them.
+	 */
+	inline_types?: string[];
 	allow_newlines: boolean;
 };
 
@@ -309,7 +317,7 @@ export type PropertyDefinition =
 /**
  * Node kind values for different types of content nodes
  */
-export type NodeKind = 'document' | 'block' | 'text' | 'mark' | 'annotation';
+export type NodeKind = 'document' | 'block' | 'text' | 'mark' | 'annotation' | 'inline';
 
 /**
  * Schema for text nodes - must have a content property of type text.
@@ -361,7 +369,7 @@ export type ValidateDocumentSchema<Schema extends Record<string, NodeSchema>> = 
  * Schema for non-text nodes
  */
 export type NonTextNodeSchema = {
-	kind: 'document' | 'block' | 'mark' | 'annotation';
+	kind: 'document' | 'block' | 'mark' | 'annotation' | 'inline';
 	properties: Record<string, PropertyDefinition>;
 };
 
@@ -617,9 +625,26 @@ export type MarkFragment = {
 };
 
 /**
+ * Represents an inline node in text content.
+ *
+ * Carries no `content`: the placeholder character the inline node occupies in
+ * the model is deliberately dropped at render time, which is what frees the
+ * component to render content of any length.
+ */
+export type InlineFragment = {
+	type: 'inline';
+	/** The payload node holding the inline node's data */
+	node: DocumentNode;
+	/** Index of the attachment in the marks array */
+	mark_index: number;
+	/** Character offset of the inline node in the content string */
+	start_offset: number;
+};
+
+/**
  * Represents a fragment of text content
  */
-export type Fragment = string | MarkFragment | SelectionHighlightFragment;
+export type Fragment = string | MarkFragment | InlineFragment | SelectionHighlightFragment;
 
 /**
  * Represents a node array fragment for plain nodes

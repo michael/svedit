@@ -1,5 +1,11 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, traverse, traverse_ids } from './utils.js';
+import {
+	char_slice,
+	traverse,
+	traverse_ids,
+	get_selection_range,
+	strip_inline_node_placeholders
+} from './utils.js';
 import {
 	get as doc_get,
 	property_type as doc_property_type,
@@ -15,6 +21,7 @@ import {
 	is_id_valid,
 	get_referencing_node_ids,
 	get_selected_marks,
+	has_mark_containing_range,
 	get_selected_annotations,
 	validate_selection
 } from './doc_utils.js';
@@ -73,6 +80,8 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	selected_node: AnyNode<S> | null = $derived(this.get_selected_node());
 	available_mark_types = $derived(this.get_available_mark_types());
 	available_annotation_types = $derived(this.get_available_annotation_types());
+	available_inline_types = $derived(this.get_available_inline_types());
+	can_insert_inline_node = $derived(this.get_can_insert_inline_node());
 	selected_marks = $derived(get_selected_marks(this.schema, this.doc, this.selection));
 	active_mark: SelectedAttachment | null = $derived(
 		this.selected_marks.length === 1 ? this.selected_marks[0] : null
@@ -223,6 +232,26 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
 		const property_definition = this.inspect(this.selection.path);
 		return property_definition.annotation_types || [];
+	}
+
+	get_available_inline_types(): string[] {
+		if (this.selection?.type !== 'text') return [];
+		const property_definition = this.inspect(this.selection.path);
+		return property_definition.inline_types || [];
+	}
+
+	/**
+	 * True when the current selection can take an inline node.
+	 *
+	 * Mirrors the rule `Transaction.insert_inline_node` applies, so app UI
+	 * never offers an insert the transaction would refuse, and never hides
+	 * one it would accept.
+	 */
+	get_can_insert_inline_node(): boolean {
+		if (this.selection?.type !== 'text') return false;
+		const range = get_selection_range(this.selection);
+		if (!range) return false;
+		return !has_mark_containing_range(this.get(this.selection.path).marks, range);
 	}
 
 	// Helper function to get the currently selected node
@@ -551,7 +580,9 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
 		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
 		const text: Text = this.get(this.selection.path);
-		return char_slice(text.content, start, end);
+		// Inline node placeholders are model-only: a bare U+FFFC pasted into
+		// another application renders as a replacement box.
+		return strip_inline_node_placeholders(char_slice(text.content, start, end));
 	}
 
 	get_selected_nodes(): NodeId[] | null {

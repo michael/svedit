@@ -3,6 +3,7 @@ import type { NodeMap } from 'svedit';
 
 const ALL_MARKS = ['strong', 'emphasis', 'code', 'highlight', 'link'];
 const TITLE_MARKS = ['emphasis', 'highlight'];
+const ALL_INLINE_NODES = ['mention'];
 
 export const document_schema = define_document_schema({
 	page: {
@@ -33,32 +34,57 @@ export const document_schema = define_document_schema({
 		kind: 'block',
 		properties: {
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
-			description: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true },
+			description: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			},
 			image: { type: 'string' }
 		}
 	},
 	paragraph: {
 		kind: 'text',
 		properties: {
-			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
+			content: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			}
 		}
 	},
 	heading_1: {
 		kind: 'text',
 		properties: {
-			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
+			content: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			}
 		}
 	},
 	heading_2: {
 		kind: 'text',
 		properties: {
-			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
+			content: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			}
 		}
 	},
 	heading_3: {
 		kind: 'text',
 		properties: {
-			content: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true }
+			content: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			}
 		}
 	},
 	button: {
@@ -77,7 +103,12 @@ export const document_schema = define_document_schema({
 				default: 'image-left'
 			},
 			title: { type: 'text', mark_types: TITLE_MARKS, allow_newlines: false },
-			description: { type: 'text', mark_types: ALL_MARKS, allow_newlines: true },
+			description: {
+				type: 'text',
+				mark_types: ALL_MARKS,
+				inline_types: ALL_INLINE_NODES,
+				allow_newlines: true
+			},
 			buttons: {
 				type: 'node_array',
 				node_types: ['button'],
@@ -131,6 +162,7 @@ export const document_schema = define_document_schema({
 	code: { kind: 'mark', properties: {} },
 	highlight: { kind: 'mark', properties: {} },
 	section: { kind: 'mark', properties: {} },
+	mention: { kind: 'inline', properties: { user_id: { type: 'string' } } },
 	marker: { kind: 'annotation', properties: {} }
 });
 

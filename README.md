@@ -396,6 +396,102 @@ For `node_array` properties, offsets address node positions in the `nodes` array
 
 The ranges are half-open: `start_offset` is included, `end_offset` is excluded. Marks must not overlap; annotations may overlap (including same-type annotations created through lower-level APIs).
 
+### Inline nodes
+
+An inline node is arbitrary, uneditable content embedded in a text flow: a mention chip, a live stock ticker, a reference to another resource. Reach for one when what is displayed must stay in sync with something outside the document, so it must not be baked into the text — a mention whose display name can change, or a value that is fetched rather than typed.
+
+An inline node occupies exactly one character in the content string, the `INLINE_NODE_PLACEHOLDER` (`U+FFFC OBJECT REPLACEMENT CHARACTER`), with its data held by a payload node attached to that character:
+
+```js
+{
+	id: 'paragraph_1',
+	type: 'paragraph',
+	content: {
+		content: 'Ask \uFFFC if you get stuck.',
+		marks: [{ start_offset: 4, end_offset: 5, node_id: 'mention_1' }],
+		annotations: []
+	}
+}
+```
+
+The attachment lives in `marks`, so it inherits everything marks already do: exclusivity validation, offset adjustment as the text around it changes, and reference-counted disposal of the payload node. That single character is also what makes an inline node atomic. Insertion at either edge of a range stays outside it, so text can never be typed into an inline node, and deleting the character removes the attachment and the payload node together.
+
+The placeholder is never rendered. That is what frees your component to display content of any length, and Svedit's selection mapping compensates so the inline node always counts as one character.
+
+#### Schema
+
+Inline node types are declared in their own `inline_types` list, even though the attachment is stored in `marks`. That separation is what keeps `toggle_mark` from ever reaching them:
+
+```js
+const document_schema = define_document_schema({
+	paragraph: {
+		kind: 'text',
+		properties: {
+			content: {
+				type: 'text',
+				mark_types: ['strong', 'emphasis', 'link'],
+				inline_types: ['mention'],
+				allow_newlines: true
+			}
+		}
+	},
+	mention: { kind: 'inline', properties: { user_id: { type: 'string' } } }
+});
+```
+
+Inline nodes are supported in `text` properties only; `inline_types` on a `node_array` property is a schema error.
+
+#### The component
+
+Svedit renders the atomic wrapper, your component renders what goes inside it:
+
+```svelte
+<script>
+	import { get_svedit_context } from './svedit_context.js';
+	import { mention_directory } from './mention_directory.js';
+
+	const svedit = get_svedit_context();
+	let { path, selected } = $props();
+	let node = $derived(svedit.session.get(path));
+</script>
+
+<span class="mention" class:selected>@{mention_directory[node.user_id]?.name}</span>
+```
+
+The wrapper carries `contenteditable="false"`, `data-type="inline-node"` and an `anchor-name` derived from the component's path. A few consequences to keep in mind:
+
+- **Your component must not set its own `anchor-name`.** Svedit already sets one on the wrapper from the same path.
+- **`selected` matters.** The wrapper sets `user-select: none`, so the browser never paints a native selection over your content. Svedit passes `selected` so you can render that state yourself.
+- **Internals are not interactive.** Descendants of the wrapper have `pointer-events: none`, so a click always resolves to the inline node itself. Render interactive UI outside the canvas and anchor it (see below).
+- **A node type of kind `inline` must have a registered component.** Unlike a mark, it has no text to fall back to, so a missing component would silently hide document data.
+
+#### Inserting and deleting
+
+```js
+session.apply(session.tr.insert_inline_node('mention', { user_id: 'johannes' }));
+```
+
+There is no matching delete call, and none is needed: deleting the inline node's character removes the attachment and disposes of the payload node through the normal path. Backspace just after an inline node removes the whole thing.
+
+#### Anchoring your own UI
+
+Clicking an inline node selects its single character, so `session.active_mark` resolves to it and you can render a popover anchored to the wrapper. This is the same pattern links use — see `MentionActionOverlay.svelte` in the demo:
+
+```js
+const active_mark = svedit.session.active_mark;
+if (active_mark?.node.type === 'mention') {
+	const path = [...selection.path, 'marks', active_mark.index, 'node_id'];
+	// anchor to `--${serialize_path(path)}`
+}
+```
+
+#### Limitations
+
+- **A mark cannot span an inline node.** Marks are mutually exclusive, so a `strong` run cannot contain a mention. `insert_inline_node` refuses when the caret sits inside a mark rather than producing an invalid document.
+- **External copy loses the inline node's text.** The placeholder is stripped from plain text and fallback HTML, since a bare `U+FFFC` renders as a replacement box in other applications. Copy and paste within Svedit round-trips the inline node in full.
+- **Inline node internals are not interactive**, by design.
+- **Inline nodes work in `text` properties only.**
+
 ### Document schema changes
 
 Svedit validates documents against the current schema when you create a `Session`. If you change the schema, you are responsible for migrating existing documents before loading them.

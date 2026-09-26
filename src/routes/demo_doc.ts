@@ -50,6 +50,11 @@ export const demo_doc: Document = {
 				annotations: []
 			}
 		},
+		mention_1: {
+			id: 'mention_1',
+			type: 'mention',
+			user_id: 'michael'
+		},
 		link_1: {
 			id: 'link_1',
 			type: 'link',
@@ -220,6 +225,28 @@ export const demo_doc: Document = {
 		WmymYMNaMsxFXFCaJrtyGZh: {
 			id: 'WmymYMNaMsxFXFCaJrtyGZh',
 			type: 'code'
+		},
+		story_inline_nodes: {
+			id: 'story_inline_nodes',
+			type: 'story',
+			layout: 'image-right',
+			image: '/images/annotations.svg',
+			title: {
+				content: 'Inline nodes',
+				marks: [],
+				annotations: []
+			},
+			description: {
+				content:
+					'An inline node is a reference embedded in the text. It occupies a single character and stores only a pointer, so what you see is resolved when it renders rather than baked into the document. That makes it a good fit for mentions like \uFFFC, or for anything that has to stay in sync with its source, such as a live price or a status.',
+				marks: [{ start_offset: 234, end_offset: 235, node_id: 'mention_1' }],
+				annotations: []
+			},
+			buttons: {
+				nodes: [],
+				marks: [],
+				annotations: []
+			}
 		},
 		story_4: {
 			id: 'story_4',
@@ -445,6 +472,7 @@ export const demo_doc: Document = {
 					'story_2',
 					'image_grid_1',
 					'story_3',
+					'story_inline_nodes',
 					'story_4',
 					'story_5',
 					'story_6',

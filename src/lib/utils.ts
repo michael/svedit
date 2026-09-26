@@ -169,6 +169,110 @@ export function char_to_utf16_offset(str: string, char_offset: number): number {
 }
 
 /**
+ * The single character an inline node occupies in a text property's content
+ * string. U+FFFC OBJECT REPLACEMENT CHARACTER is the codepoint Unicode
+ * defines for "an object is embedded here", so it can never be confused with
+ * text the user typed.
+ */
+export const INLINE_NODE_PLACEHOLDER = '\uFFFC';
+
+/**
+ * Removes inline node placeholders from a plain text string. Used when
+ * exporting to other applications, where a bare U+FFFC renders as a
+ * replacement box.
+ */
+export function strip_inline_node_placeholders(text: string): string {
+	return text.replaceAll(INLINE_NODE_PLACEHOLDER, '');
+}
+
+/**
+ * Reads an element's text the way the model expresses it: an inline node
+ * contributes its single placeholder character rather than whatever text its
+ * component rendered.
+ *
+ * Comparing raw `textContent` against the model would never match for text
+ * containing an inline node, which would defeat any "is the DOM already in
+ * sync?" check built on it.
+ */
+export function get_dom_model_text(root: Node): string {
+	let text = '';
+	for (const node of root.childNodes) {
+		if (node.nodeType === Node.TEXT_NODE) {
+			text += node.textContent ?? '';
+		} else if (node instanceof HTMLElement) {
+			text +=
+				node.dataset.type === 'inline-node' ? INLINE_NODE_PLACEHOLDER : get_dom_model_text(node);
+		}
+	}
+	return text;
+}
+
+/**
+ * Drops inline node placeholders in [region_start, region_end) that carry no
+ * one-character mark, remapping marks and annotations onto the shortened
+ * content.
+ *
+ * A placeholder without its attachment is meaningless: it renders as an
+ * invisible object-replacement character the user cannot identify or easily
+ * remove. This happens when a pasted inline node cannot be restored — the
+ * target property does not allow its type, or its attachment would overlap
+ * an existing mark.
+ */
+export function strip_orphaned_inline_placeholders(
+	text_value: Text,
+	region_start: number,
+	region_end: number
+): { text: Text; removed_count: number } {
+	if (!text_value.content.includes(INLINE_NODE_PLACEHOLDER)) {
+		return { text: text_value, removed_count: 0 };
+	}
+
+	const characters = [...SEGMENTER.segment(text_value.content)].map((segment) => segment.segment);
+	const has_attachment = (offset: number) =>
+		text_value.marks.some((mark) => mark.start_offset === offset && mark.end_offset === offset + 1);
+
+	// shift[offset] is where `offset` lands once the orphans are gone
+	const shift = new Array<number>(characters.length + 1);
+	const kept: string[] = [];
+	let removed = 0;
+
+	for (let offset = 0; offset < characters.length; offset++) {
+		shift[offset] = offset - removed;
+		const is_orphan =
+			offset >= region_start &&
+			offset < region_end &&
+			characters[offset] === INLINE_NODE_PLACEHOLDER &&
+			!has_attachment(offset);
+		if (is_orphan) {
+			removed++;
+			continue;
+		}
+		kept.push(characters[offset]);
+	}
+	shift[characters.length] = characters.length - removed;
+
+	if (removed === 0) return { text: text_value, removed_count: 0 };
+
+	const remap = (ranges: Array<Attachment>) =>
+		ranges
+			.map((range) => ({
+				...range,
+				start_offset: shift[range.start_offset],
+				end_offset: shift[range.end_offset]
+			}))
+			.filter((range) => range.start_offset < range.end_offset);
+
+	return {
+		text: {
+			content: kept.join(''),
+			marks: remap(text_value.marks),
+			annotations: remap(text_value.annotations)
+		},
+		removed_count: removed
+	};
+}
+
+/**
  * Splits a text value at the specified character position.
  *
  * Marks and annotations that span the split point will be divided

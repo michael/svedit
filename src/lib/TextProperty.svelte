@@ -13,6 +13,7 @@
 		TextPropertyProps,
 		Mark,
 		Fragment,
+		InlineFragment,
 		SelectionRange,
 		SveditContext
 	} from './types.js';
@@ -103,12 +104,24 @@
 				const node = svedit.session.get(range.node_id);
 				if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
 
-				fragments.push({
-					type: 'mark',
-					node,
-					content,
-					mark_index: range.mark_index!
-				});
+				// Inline nodes are stored as one-character marks but render as
+				// atomic content, not as marked-up text, so they get their own
+				// fragment type and their placeholder character is dropped.
+				if (svedit.session.kind(node) === 'inline') {
+					fragments.push({
+						type: 'inline',
+						node,
+						mark_index: range.mark_index!,
+						start_offset: range.start_offset
+					});
+				} else {
+					fragments.push({
+						type: 'mark',
+						node,
+						content,
+						mark_index: range.mark_index!
+					});
+				}
 			} else if (range.type === 'selection_highlight') {
 				fragments.push({
 					type: 'selection_highlight',
@@ -120,6 +133,24 @@
 		}
 
 		return fragments;
+	}
+
+	/**
+	 * True when the current selection covers the inline node's single
+	 * character.
+	 *
+	 * Inline node wrappers set `user-select: none`, so the browser never
+	 * paints a native selection over them — the component has to be told.
+	 */
+	function is_inline_selected(fragment: InlineFragment): boolean {
+		const selection = svedit.session.selection;
+		if (!selection || selection.type !== 'text') return false;
+		if (!paths_equal(path, selection.path)) return false;
+		const range = get_selection_range(selection);
+		if (!range) return false;
+		return (
+			range.start_offset <= fragment.start_offset && range.end_offset >= fragment.start_offset + 1
+		);
 	}
 </script>
 
@@ -151,12 +182,41 @@
 					content={fragment.content}
 				/>
 			{:else}<span class="mark-{fragment.node.type}">{fragment.content}</span>{/if}
+		{:else if fragment.type === 'inline'}
+			{@const InlineComponent = svedit.session.config.node_components[fragment.node.type]}
+			{@const inline_path = [...path, 'marks', fragment.mark_index, 'node_id']}
+			{@const inline_selected = is_inline_selected(fragment)}<span
+				data-type="inline-node"
+				data-node-id={fragment.node.id}
+				data-offset={fragment.start_offset}
+				contenteditable="false"
+				class="svedit-inline-node"
+				class:selected={inline_selected}
+				style="anchor-name: --{serialize_path(inline_path)}"
+				><InlineComponent path={inline_path} selected={inline_selected} /></span
+			>
 		{/if}
 	{/each}<!--
   -->{#if !is_focused || !is_empty}<br />{/if}
 </svelte:element>
 
 <style>
+	/* An inline node is atomic: one model character, arbitrary rendered content.
+	   user-select: none stops the browser painting a partial native selection
+	   across it — TextProperty passes a `selected` prop to the component
+	   instead. pointer-events on descendants is off so a click always resolves
+	   to the wrapper, which is what Svedit's pointerdown handler looks for.
+	   Both are in :where() so applications can override them. */
+	:where(.svedit-inline-node) {
+		display: inline-block;
+		white-space: nowrap;
+		user-select: none;
+	}
+
+	:where(.svedit-inline-node) :global(*) {
+		pointer-events: none;
+	}
+
 	/* Editable text base layout; :where() allows easy override without specificity conflicts. */
 	:where(.text) {
 		white-space: pre-wrap;

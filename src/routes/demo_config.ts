@@ -36,6 +36,7 @@ import Code from './components/Code.svelte';
 import Highlight from './components/Highlight.svelte';
 import Link from './components/Link.svelte';
 import Section from './components/Section.svelte';
+import Mention from './components/Mention.svelte';
 
 type NodeType = keyof typeof document_schema;
 type AnnotationNodeType = {
@@ -73,7 +74,8 @@ export const app_config = {
 		code: Code,
 		highlight: Highlight,
 		link: Link,
-		section: Section
+		section: Section,
+		mention: Mention
 		// NOTE: `marker` must not have a component: it is an annotation, so it
 		// is data-only and may overlap marks (e.g. a section) and other
 		// annotations. Covered node wrappers get `anno-marker` classes
