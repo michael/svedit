@@ -138,6 +138,7 @@
 	 * @param {InputEvent} event
 	 */
 	async function onbeforeinput(event: InputEvent) {
+		if (!editable) return;
 		// console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
 		if (event.inputType === 'historyUndo' && is_composing) {
@@ -245,6 +246,7 @@
 	 * This occurs when user starts typing a composed character (e.g., backtick for accents)
 	 */
 	function oncompositionstart(/*event*/) {
+		if (!editable) return;
 		// console.log('DEBUG: oncompositionstart', event.data);
 		if (session.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
@@ -269,6 +271,7 @@
 	 * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
 	 */
 	function oncompositionend(event: CompositionEvent) {
+		if (!editable) return;
 		// console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (session.selection?.type === 'text') {
@@ -315,16 +318,22 @@
 
 	// Map DOM selection to internal model
 	function onselectionchange() {
-		if (!editable) return;
-		if (!canvas_focused) return;
+		if (editable && !canvas_focused) return;
 		if (is_composing) return;
 		const dom_selection = window.getSelection();
-		if (!dom_selection.rangeCount) return;
+		if (!dom_selection?.rangeCount) {
+			if (!editable) session.selection = null;
+			return;
+		}
 
 		// Only handle selection changes if selection is within the canvas
 		const range = dom_selection.getRangeAt(0);
-		if (!canvas_el?.contains(range.commonAncestorContainer)) return;
+		if (!canvas_el?.contains(range.commonAncestorContainer)) {
+			if (!editable) session.selection = null;
+			return;
+		}
 		let selection = __get_selection_from_dom();
+		if (!selection && !editable) session.selection = null;
 		if (selection) {
 			// Avoid assigning a new object reference when the selection is
 			// structurally identical — prevents a redundant $effect cycle
@@ -468,9 +477,18 @@ ${fallback_html}`;
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
 	function oncopy(event: ClipboardEvent, delete_selection = false) {
-		// Only handle copy events if editable and focus is within the canvas
-		if (!editable) return;
-		if (!canvas_el?.contains(document.activeElement)) return;
+		if (editable) {
+			if (!canvas_el?.contains(document.activeElement)) return;
+		} else {
+			// Read-only selections need not focus the canvas. Use the live DOM
+			// range so copy also works before selectionchange has been delivered.
+			const dom_selection = window.getSelection();
+			if (!dom_selection?.rangeCount) return;
+			if (!canvas_el?.contains(dom_selection.getRangeAt(0).commonAncestorContainer)) return;
+			const selection = __get_selection_from_dom();
+			if (!selection) return;
+			session.selection = selection;
+		}
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -529,7 +547,7 @@ ${fallback_html}`;
 			console.error('Failed to copy data: ', err);
 		}
 
-		if (delete_selection) {
+		if (delete_selection && editable) {
 			session.apply(session.tr.delete_selection());
 		}
 	}
@@ -1622,6 +1640,8 @@ ${fallback_html}`;
 		session.selection;
 		const dom_driven = selection_source_is_dom;
 		selection_source_is_dom = false;
+		// Viewer selections stay native: editor gap carets are not mounted.
+		if (!editable) return;
 		if (!canvas_focused) return;
 		const selection_snapshot = JSON.stringify(session.selection);
 		const should_scroll_selection_into_view =
@@ -1640,7 +1660,7 @@ ${fallback_html}`;
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit" class:editable>
 	<!-- Overlays must be before canvas so they initialize first. -->
-	{#if editable}<NodeSelectionMarkers />{/if}
+	<NodeSelectionMarkers />
 	{#if Overlays}<Overlays />{/if}
 	<!--
 		inputmode is derived from the model selection: when a custom property
@@ -1654,7 +1674,7 @@ ${fallback_html}`;
 	-->
 	<div
 		class="svedit-canvas {css_class}"
-		class:hide-selection={editable && session.selection?.type === 'node'}
+		class:hide-selection={session.selection?.type === 'node'}
 		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
