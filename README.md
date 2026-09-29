@@ -436,6 +436,67 @@ Defaults make it safe to add new defaultable properties, but they are not a repl
 
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
 
+### Importing pasted HTML
+
+Set `config.html_paste` to enable external HTML import. Without it, paste keeps its
+existing plain-text behavior. Native Svedit clipboard data and media paste keep
+their existing paths and bypass this importer.
+
+```ts
+import type { HtmlPasteConfig } from 'svedit';
+
+const html_paste = {
+	blocks: {
+		p: { type: 'paragraph', text_property: 'content' },
+		h1: { type: 'heading1', text_property: 'content' },
+		h2: { type: 'heading2', text_property: 'content' }
+	},
+	marks: {
+		bold: { type: 'strong' },
+		link: ({ href }) => ({ type: 'link', properties: { href } })
+	}
+} satisfies HtmlPasteConfig;
+
+const config = { /* other configuration */ html_paste };
+```
+
+Use your app's schema names (the demo uses `heading_1`, for example). Blocks accept
+`p` and `h1` through `h6`. Each mapping names a text node type and its text property.
+A block mapping can also be a synchronous factory returning the same descriptor,
+with extra node properties, or `null` to use the destination's default text node:
+
+```ts
+h1: ({ tag }) => ({
+	type: 'heading',
+	text_property: 'content',
+	properties: { level: Number(tag.slice(1)) }
+});
+```
+
+`<strong>` and `<b>` use the `bold` mapping. Link factories receive the decoded,
+trimmed `href`; they may return `null` to discard link formatting. The importer
+accepts HTTP(S), mailto, tel, and relative links, and drops unsafe schemes.
+Mappings describe data; they should not mutate the session. Svedit creates IDs
+and fills schema defaults through its normal insertion transaction.
+
+Import respects the destination's allowed node and mark types. Unmapped or
+disallowed headings fall back to its default text node; unsupported marks keep
+their text. Marks are exclusive in Svedit, so a supported link takes precedence
+over bold where they overlap. Existing active-mark insertion behavior still applies.
+
+At a node caret, HTML blocks become nodes. A single block pasted into text retains
+the destination node type. Multiple blocks pasted into a text node follow the
+existing multi-paragraph behavior: insert nodes after that node without splitting
+or replacing its text. In block fields such as titles and captions, blocks are
+joined with blank lines, or spaces when `allow_newlines` is false.
+
+The first version recognizes semantic tags, common block wrappers, entities and
+`<br>`. Unsupported containers retain their text but do not import list/table
+structure, images, or CSS formatting. Script/style content is ignored. Empty or
+unusable HTML, and mapping errors, fall back to the existing plain-text path.
+
+### Custom handlers
+
 Two optional hooks are especially useful when integrating custom media workflows:
 
 - `handle_media_paste(session, pasted_media)`  

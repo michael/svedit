@@ -85,3 +85,10 @@ export { KeyMapper, define_keymap } from './KeyMapper.svelte.js';
 // Transforms and utilities
 export * from './transforms.svelte.js';
 export * from './utils.js';
+
+export type {
+	HtmlPasteConfig,
+	HtmlBlockTag,
+	HtmlBlockMapping,
+	HtmlMarkMapping
+} from './html_paste.js';

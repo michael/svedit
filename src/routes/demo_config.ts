@@ -10,7 +10,7 @@ import {
 	SelectParentCommand,
 	define_keymap
 } from 'svedit';
-import type { DocumentNode } from 'svedit';
+import type { DocumentNode, HtmlPasteConfig } from 'svedit';
 import type { Component } from 'svelte';
 import { CycleLayoutCommand, CycleNodeTypeCommand, ToggleLinkCommand } from './commands.svelte.js';
 import { document_schema } from './demo_schema.js';
@@ -45,6 +45,18 @@ type RenderableNodeType = Exclude<NodeType, AnnotationNodeType>;
 
 // App-specific config object, always available via doc.config for introspection
 export const app_config = {
+	html_paste: {
+		blocks: {
+			p: { type: 'paragraph', text_property: 'content' },
+			h1: { type: 'heading_1', text_property: 'content' },
+			h2: { type: 'heading_2', text_property: 'content' },
+			h3: { type: 'heading_3', text_property: 'content' }
+		},
+		marks: {
+			bold: { type: 'strong' },
+			link: ({ href }) => ({ type: 'link', properties: { href } })
+		}
+	} satisfies HtmlPasteConfig,
 	// Custom ID generator function
 	generate_id: nanoid,
 	// Provide overrides for system components (node_gap, node_gap_markers,
