@@ -619,14 +619,13 @@ ${fallback_html}`;
 		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
-		let tr = session.tr;
-		if (selection) {
-			tr.set_selection(selection);
-		}
-		if (tr.selection?.type !== 'node') return false;
-
-		const property_definition = session.inspect(tr.selection.path);
+		const target_selection = selection || session.selection;
+		if (target_selection?.type !== 'node') return false;
+		const property_definition = session.inspect(target_selection.path);
 		if (property_definition?.type !== 'node_array') return false;
+
+		const tr = session.tr;
+		if (selection) tr.set_selection(selection);
 
 		const default_text_node_type = get_default_text_node(property_definition, session.schema);
 		const target_text_property_name = get_text_property_name(

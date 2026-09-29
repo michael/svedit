@@ -172,8 +172,8 @@ describe('HTML clipboard integration', () => {
 			marks: [{ node_id: 'copy_bold', start_offset: 1, end_offset: 4 }],
 			annotations: [{ node_id: 'copy_comment', start_offset: 0, end_offset: 5 }]
 		});
+		tr.set_selection({ ...title_selection, type: 'text', anchor_offset: 1, focus_offset: 4 });
 		session.apply(tr);
-		session.selection = { ...title_selection, type: 'text', anchor_offset: 1, focus_offset: 4 };
 		await tick();
 		const native = session.get_selected_text();
 		const clipboard: Record<string, string> = {};

@@ -444,18 +444,23 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * @returns The next node insert caret selection, or null if none is available
 	 */
 	get_next_node_insert_caret(selection: Selection | null = this.selection): Selection | null {
-		// There's no parent path to insert into
-		if (!selection || selection.path.length <= 2) {
-			return null;
-		}
+		if (!selection) return null;
 
-		const node_offset = (selection.path.at(-2) as number) + 1;
-		return {
-			type: 'node',
-			path: selection.path.slice(0, -2),
-			anchor_offset: node_offset,
-			focus_offset: node_offset
-		};
+		// Array indexes identify insertion positions. Single-node references can
+		// occur between arrays, so removing a fixed pair of segments is unsafe.
+		for (let index = selection.path.length - 1; index >= 1; index--) {
+			const node_index = selection.path[index];
+			if (typeof node_index !== 'number') continue;
+			const parent_path = selection.path.slice(0, index);
+			if (this.inspect(parent_path).type !== 'node_array') continue;
+			return {
+				type: 'node',
+				path: parent_path,
+				anchor_offset: node_index + 1,
+				focus_offset: node_index + 1
+			};
+		}
+		return null;
 	}
 
 	get_selected_text(): (Text & { nodes: Record<string, DocumentNode> }) | null {
