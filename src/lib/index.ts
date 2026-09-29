@@ -92,3 +92,7 @@ export type {
 	HtmlBlockMapping,
 	HtmlMarkMapping
 } from './html_paste.js';
+
+export { export_text_html } from './html_export.js';
+export type { MarkHtmlExporter } from './html_export.js';
+export { escape_html, safe_html_href } from './html_utils.js';

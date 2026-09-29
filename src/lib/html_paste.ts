@@ -1,3 +1,4 @@
+import { safe_html_href } from './html_utils.js';
 import type { DocumentNode, DocumentSchema, PropertyDefinition, Text } from './types.js';
 import { get_default_text_node, get_text_property_name } from './paste_utils.js';
 
@@ -23,14 +24,6 @@ export type HtmlPasteConfig = {
 type InlineStyle = { bold?: boolean; href?: string };
 type Run = InlineStyle & { text: string };
 export type HtmlPasteBlock = { tag: HtmlBlockTag; runs: Run[] };
-
-function safe_href(value: string): string | undefined {
-	const href = value.trim();
-	if (!href || [...href].some((char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127))
-		return;
-	const scheme = href.match(/^([a-z][a-z\d+.-]*):/i)?.[1].toLowerCase();
-	return !scheme || ['http', 'https', 'mailto', 'tel'].includes(scheme) ? href : undefined;
-}
 
 /** Parse a detached document; never insert clipboard HTML into the editor DOM. */
 export function parse_html_paste(html: string): HtmlPasteBlock[] {
@@ -76,7 +69,7 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 		}
 		const next_style = { ...style };
 		if (tag === 'b' || tag === 'strong') next_style.bold = true;
-		if (tag === 'a') next_style.href = safe_href(element.getAttribute('href') || '');
+		if (tag === 'a') next_style.href = safe_html_href(element.getAttribute('href') || '');
 		for (const child of element.childNodes) walk(child, next_style);
 		if (is_block) flush();
 	};

@@ -495,6 +495,40 @@ The first version recognizes semantic tags, common block wrappers, entities and
 structure, images, or CSS formatting. Script/style content is ignored. Empty or
 unusable HTML, and mapping errors, fall back to the existing plain-text path.
 
+### Exporting copied rich text
+
+Copy and cut include both the embedded `data-svedit` payload and readable HTML.
+Configure `mark_html_exporters` to map your schema's marks to HTML. Unknown marks
+keep their text; data-only annotations remain in the native payload.
+
+```ts
+import { export_text_html, escape_html, safe_html_href } from 'svedit';
+import type { MarkHtmlExporter } from 'svedit';
+
+const mark_html_exporters = {
+	strong: (_node, content) => `<strong>${content}</strong>`,
+	link: (node, content) => {
+		const href = safe_html_href(node.href || '');
+		return href ? `<a href="${escape_html(href)}">${content}</a>` : content;
+	}
+} satisfies Record<string, MarkHtmlExporter>;
+
+const config = {
+	mark_html_exporters,
+	html_exporters: {
+		paragraph: (node, session) => `<p>${export_text_html(node.content, session)}</p>`,
+		heading1: (node, session) => `<h1>${export_text_html(node.content, session)}</h1>`
+	}
+};
+```
+
+Text selections and the default node exporter use this automatically. Existing
+custom `html_exporters` should call `export_text_html` for their text properties,
+as above. The helper escapes text, preserves line breaks with `<br>`, and uses
+Svedit's grapheme offsets. Mark exporters receive already escaped inline HTML;
+only attribute values need escaping. Import and export mappings are separate
+because import factories cannot be reliably reversed.
+
 ### Custom handlers
 
 Two optional hooks are especially useful when integrating custom media workflows:

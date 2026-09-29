@@ -1,4 +1,7 @@
 import {
+	export_text_html,
+	escape_html,
+	safe_html_href,
 	SelectAllCommand,
 	InsertDefaultNodeCommand,
 	AddNewLineCommand,
@@ -138,15 +141,26 @@ export const app_config = {
 		}
 	},
 
+	mark_html_exporters: {
+		strong: (_node, content) => `<strong>${content}</strong>`,
+		emphasis: (_node, content) => `<em>${content}</em>`,
+		code: (_node, content) => `<code>${content}</code>`,
+		highlight: (_node, content) => `<mark>${content}</mark>`,
+		link: (node, content) => {
+			const href = safe_html_href(node.href || '');
+			return href ? `<a href="${escape_html(href)}">${content}</a>` : content;
+		}
+	} satisfies Record<string, import('svedit').MarkHtmlExporter>,
+
 	// HTML exporters for different node types
 	html_exporters: {
-		hero: (node) => {
+		hero: (node, doc) => {
 			let html = '';
 			if (node.title.content.trim()) {
-				html += `<h1>${node.title.content}</h1>\n`;
+				html += `<h1>${export_text_html(node.title, doc)}</h1>\n`;
 			}
 			if (node.description.content.trim()) {
-				html += `<p>${node.description.content}</p>\n`;
+				html += `<p>${export_text_html(node.description, doc)}</p>\n`;
 			}
 			return html;
 		},
@@ -163,50 +177,52 @@ export const app_config = {
 			const { button } = html_exporters;
 			let html = '';
 			if (node.image) {
-				html += `<img src="${node.image}" alt="${node.title.content}" style="max-width: 200px; height: auto;" />\n`;
+				html += `<img src="${escape_html(node.image)}" alt="${escape_html(node.title.content)}" style="max-width: 200px; height: auto;" />\n`;
 			}
-			html += `<h2>${node.title.content}</h2>\n`;
+			html += `<h2>${export_text_html(node.title, doc)}</h2>\n`;
 			if (node.description) {
-				html += `<p>${node.description.content}</p>\n`;
+				html += `<p>${export_text_html(node.description, doc)}</p>\n`;
 			}
 			for (const button_id of node.buttons.nodes) {
 				html += button(doc.get(button_id), doc, html_exporters);
 			}
 			return html;
 		},
-		paragraph: (node) => {
-			return `<p>${node.content.content}</p>\n`;
+		paragraph: (node, doc) => {
+			return `<p>${export_text_html(node.content, doc)}</p>\n`;
 		},
-		heading_1: (node) => {
-			return `<h1>${node.content.content}</h1>\n`;
+		heading_1: (node, doc) => {
+			return `<h1>${export_text_html(node.content, doc)}</h1>\n`;
 		},
-		heading_2: (node) => {
-			return `<h2>${node.content.content}</h2>\n`;
+		heading_2: (node, doc) => {
+			return `<h2>${export_text_html(node.content, doc)}</h2>\n`;
 		},
-		heading_3: (node) => {
-			return `<h3>${node.content.content}</h3>\n`;
+		heading_3: (node, doc) => {
+			return `<h3>${export_text_html(node.content, doc)}</h3>\n`;
 		},
-		button: (node) => {
-			return `<a href="${node.href}">${node.content.content}</a>\n`;
+		button: (node, doc) => {
+			const content = export_text_html(node.content, doc);
+			const href = safe_html_href(node.href || '');
+			return href ? `<a href="${escape_html(href)}">${content}</a>\n` : content;
 		},
-		image_grid_item: (node) => {
+		image_grid_item: (node, doc) => {
 			let html = '<div class="image-grid-item">\n';
 			if (node.image) {
-				html += `<img src="${node.image}" alt="${node.title.content}" style="max-width: 200px; height: auto;" />\n`;
+				html += `<img src="${escape_html(node.image)}" alt="${escape_html(node.title.content)}" style="max-width: 200px; height: auto;" />\n`;
 			}
 			if (node.title.content.trim()) {
-				html += `<h3>${node.title.content}</h3>\n`;
+				html += `<h3>${export_text_html(node.title, doc)}</h3>\n`;
 			}
 			if (node.description.content.trim()) {
-				html += `<p>${node.description.content}</p>\n`;
+				html += `<p>${export_text_html(node.description, doc)}</p>\n`;
 			}
 			return html + '</div>';
 		},
-		list_item: (node) => {
+		list_item: (node, doc) => {
 			const content =
-				typeof node.content === 'object' && node.content.content
-					? node.content.content
-					: node.content || '';
+				typeof node.content === 'object' && node.content
+					? export_text_html(node.content, doc)
+					: escape_html(String(node.content || ''));
 			return `<li>${content}</li>\n`;
 		}
 	},

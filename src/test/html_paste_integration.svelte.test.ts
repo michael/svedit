@@ -152,6 +152,47 @@ describe('HTML clipboard integration', () => {
 		expect(session.get(body.nodes[5]).content.content).toBe('Paragraph');
 	});
 
+	it('copies clipped rich text as HTML alongside unchanged native marks and annotations', async () => {
+		const session = await setup(title_selection);
+		session.schema = JSON.parse(JSON.stringify(session.schema));
+		session.schema.strong = { kind: 'mark', properties: {} };
+		session.schema.comment = { kind: 'annotation', properties: {} };
+		session.schema.story.properties.title.mark_types = ['strong'];
+		session.schema.story.properties.title.annotation_types = ['comment'];
+		session.config = {
+			...session.config,
+			mark_html_exporters: { strong: (_node, content) => `<strong>${content}</strong>` },
+			node_components: { ...session.config.node_components, strong: Strong }
+		};
+		const tr = session.tr;
+		tr.create({ id: 'copy_bold', type: 'strong' });
+		tr.create({ id: 'copy_comment', type: 'comment' });
+		tr.set(['story_1', 'title'], {
+			content: 'A👋🏽<&Z',
+			marks: [{ node_id: 'copy_bold', start_offset: 1, end_offset: 4 }],
+			annotations: [{ node_id: 'copy_comment', start_offset: 0, end_offset: 5 }]
+		});
+		session.apply(tr);
+		session.selection = { ...title_selection, type: 'text', anchor_offset: 1, focus_offset: 4 };
+		await tick();
+		const native = session.get_selected_text();
+		const clipboard: Record<string, string> = {};
+		const event = new ClipboardEvent('copy', { bubbles: true, cancelable: true });
+		Object.defineProperty(event, 'clipboardData', {
+			value: {
+				setData: (format: string, value: string) => {
+					clipboard[format] = value;
+				}
+			}
+		});
+		document.dispatchEvent(event);
+		expect(clipboard['text/plain']).toBe('👋🏽<&');
+		expect(clipboard['text/html']).toContain('<strong>👋🏽&lt;&amp;</strong>');
+		const encoded = clipboard['text/html'].match(/data-svedit="([^"]+)"/)![1];
+		expect(JSON.parse(decodeURIComponent(atob(encoded)))).toEqual(native);
+		expect(native!.annotations).toHaveLength(1);
+	});
+
 	it('retains plain-text behavior without configuration', async () => {
 		const session = await setup(title_selection);
 		session.config = { ...session.config, html_paste: undefined };

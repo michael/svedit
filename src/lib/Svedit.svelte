@@ -19,6 +19,8 @@
 		get_default_text_node,
 		create_plain_text_nodes_payload
 	} from './paste_utils.js';
+	import { export_text_html } from './html_export.js';
+	import { escape_html } from './html_utils.js';
 	import { parse_html_paste, map_html_text, map_html_blocks } from './html_paste.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
@@ -396,12 +398,12 @@ ${fallback_html}`;
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
 			// Check if this is a text property.
-			if (property_definition.type === 'text') {
+			if (property_definition?.type === 'text') {
 				const text_content = prop_value.content;
 				if (text_content.trim()) {
-					html += `<p>${text_content}</p>`;
+					html += `<p>${export_text_html(prop_value, session)}</p>`;
 				}
-			} else if (property_definition.type === 'node_array') {
+			} else if (property_definition?.type === 'node_array') {
 				for (const child_id of prop_value.nodes) {
 					const child = session.get(child_id);
 					const child_exporter = html_exporters[child.type] || default_node_html_exporter;
@@ -482,7 +484,7 @@ ${fallback_html}`;
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
 			text = session.get_selected_text();
-			const fallback_html = `<span>${text.content}</span>`;
+			const fallback_html = `<span>${export_text_html(text, session, text.nodes)}</span>`;
 
 			// console.log('Text copy:', {
 			// 	text,
@@ -519,8 +521,12 @@ ${fallback_html}`;
 				type: property_definition.type,
 				value
 			};
-			html = create_svedit_html_format(json_data, `<span>${value}</span>`);
-			plain_text = String(value);
+			const fallback_html =
+				property_definition.type === 'text'
+					? export_text_html(value, session)
+					: escape_html(String(value));
+			html = create_svedit_html_format(json_data, `<span>${fallback_html}</span>`);
+			plain_text = property_definition.type === 'text' ? value.content : String(value);
 		}
 
 		// Write to clipboard using event.clipboardData

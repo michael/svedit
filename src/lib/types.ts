@@ -23,6 +23,7 @@ export type NodeId = string;
 export type DynamicRecord = Record<string, any>;
 export type SessionConfig = DynamicRecord & {
 	html_paste?: import('./html_paste.js').HtmlPasteConfig;
+	mark_html_exporters?: Record<string, import('./html_export.js').MarkHtmlExporter>;
 	view_classes?: boolean;
 	visibility_culling?: boolean;
 };
