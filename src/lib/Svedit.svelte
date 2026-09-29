@@ -138,6 +138,7 @@
 	 * @param {InputEvent} event
 	 */
 	async function onbeforeinput(event: InputEvent) {
+		if (!editable) return;
 		// console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
 
 		if (event.inputType === 'historyUndo' && is_composing) {
@@ -245,6 +246,7 @@
 	 * This occurs when user starts typing a composed character (e.g., backtick for accents)
 	 */
 	function oncompositionstart(/*event*/) {
+		if (!editable) return;
 		// console.log('DEBUG: oncompositionstart', event.data);
 		if (session.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
@@ -269,6 +271,7 @@
 	 * This occurs when composition is complete (e.g., after typing 'a' following backtick to get 'à')
 	 */
 	function oncompositionend(event: CompositionEvent) {
+		if (!editable) return;
 		// console.log('DEBUG: oncompositionend, insert:', event.data, event);
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (session.selection?.type === 'text') {
@@ -315,16 +318,22 @@
 
 	// Map DOM selection to internal model
 	function onselectionchange() {
-		if (!editable) return;
-		if (!canvas_focused) return;
+		if (editable && !canvas_focused) return;
 		if (is_composing) return;
 		const dom_selection = window.getSelection();
-		if (!dom_selection.rangeCount) return;
+		if (!dom_selection?.rangeCount) {
+			if (!editable) session.selection = null;
+			return;
+		}
 
 		// Only handle selection changes if selection is within the canvas
 		const range = dom_selection.getRangeAt(0);
-		if (!canvas_el?.contains(range.commonAncestorContainer)) return;
+		if (!canvas_el?.contains(range.commonAncestorContainer)) {
+			if (!editable) session.selection = null;
+			return;
+		}
 		let selection = __get_selection_from_dom();
+		if (!selection && !editable) session.selection = null;
 		if (selection) {
 			// Avoid assigning a new object reference when the selection is
 			// structurally identical — prevents a redundant $effect cycle
@@ -468,9 +477,18 @@ ${fallback_html}`;
 	 * @param {boolean} delete_selection - used by oncut()
 	 */
 	function oncopy(event: ClipboardEvent, delete_selection = false) {
-		// Only handle copy events if editable and focus is within the canvas
-		if (!editable) return;
-		if (!canvas_el?.contains(document.activeElement)) return;
+		if (editable) {
+			if (!canvas_el?.contains(document.activeElement)) return;
+		} else {
+			// Read-only selections need not focus the canvas. Use the live DOM
+			// range so copy also works before selectionchange has been delivered.
+			const dom_selection = window.getSelection();
+			if (!dom_selection?.rangeCount) return;
+			if (!canvas_el?.contains(dom_selection.getRangeAt(0).commonAncestorContainer)) return;
+			const selection = __get_selection_from_dom();
+			if (!selection) return;
+			session.selection = selection;
+		}
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -529,7 +547,7 @@ ${fallback_html}`;
 			console.error('Failed to copy data: ', err);
 		}
 
-		if (delete_selection) {
+		if (delete_selection && editable) {
 			session.apply(session.tr.delete_selection());
 		}
 	}
@@ -1306,42 +1324,32 @@ ${fallback_html}`;
 		if (!node_array_el) return;
 
 		const dom_selection = window.getSelection();
-		const range = window.document.createRange();
-
-		const gap_selector = (offset: number) =>
-			`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${offset}"]`;
-
 		if (is_collapsed) {
-			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
+			const gap_el = node_array_el.querySelector(
+				`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${selection.anchor_offset}"]`
+			);
 			if (!gap_el) return;
-			// Target .svedit-selectable (has a box), not gap_el which is
-			// display:contents and would cause the browser to normalize
-			// the range into the parent, breaking read-back.
+			// Insertion carets need an editor gap. These are absent in viewer mode.
+			// Target .svedit-selectable (has a box), not the display:contents gap.
 			const selectable = gap_el.querySelector('.svedit-selectable');
 			if (!selectable) return;
+			const range = window.document.createRange();
 			range.setStart(selectable, 1);
 			range.setEnd(selectable, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
 		} else {
-			const anchor_gap = node_array_el.querySelector(gap_selector(selection.anchor_offset));
-			const focus_gap = node_array_el.querySelector(gap_selector(selection.focus_offset));
-			if (!anchor_gap || !focus_gap) return;
-			const anchor_sel = anchor_gap.querySelector('.svedit-selectable');
-			const focus_sel = focus_gap.querySelector('.svedit-selectable');
-			if (!anchor_sel || !focus_sel) return;
-
+			// Anchor inside the selected nodes in both modes, without depending
+			// on editor gaps. Keep direction so selection extension stays native.
+			const start = Math.min(selection.anchor_offset, selection.focus_offset);
+			const end = Math.max(selection.anchor_offset, selection.focus_offset);
+			const first = __get_node_element(node_array_path, start);
+			const last = __get_node_element(node_array_path, end - 1);
+			if (!first || !last) return;
 			if (is_backward) {
-				// setBaseAndExtent replaces the current selection, so no
-				// removeAllRanges is needed — every selection-API call forces a
-				// synchronous layout when the DOM is dirty, and this runs right
-				// after the per-change reconcile on every apply.
-				dom_selection.setBaseAndExtent(anchor_sel, 1, focus_sel, 1);
+				dom_selection.setBaseAndExtent(last, last.childNodes.length, first, 0);
 			} else {
-				range.setStart(anchor_sel, 1);
-				range.setEnd(focus_sel, 1);
-				dom_selection.removeAllRanges();
-				dom_selection.addRange(range);
+				dom_selection.setBaseAndExtent(first, 0, last, last.childNodes.length);
 			}
 		}
 		if (!should_scroll_selection_into_view) return;
@@ -1623,6 +1631,21 @@ ${fallback_html}`;
 		const dom_driven = selection_source_is_dom;
 		selection_source_is_dom = false;
 		if (!canvas_focused) return;
+		if (!editable && !session.selection) {
+			// Escape at the top level clears both model and native selection.
+			const dom_selection = window.getSelection();
+			if (
+				dom_selection?.rangeCount &&
+				canvas_el?.contains(dom_selection.getRangeAt(0).commonAncestorContainer)
+			) {
+				dom_selection.removeAllRanges();
+			}
+			last_rendered_selection_snapshot = null;
+			return;
+		}
+		// Leave native viewer gestures alone, but render explicit node-selection
+		// commands such as select-parent so subsequent copy uses the new range.
+		if (!editable && (dom_driven || session.selection?.type !== 'node')) return;
 		const selection_snapshot = JSON.stringify(session.selection);
 		const should_scroll_selection_into_view =
 			!dom_driven && selection_snapshot !== last_rendered_selection_snapshot;
@@ -1640,7 +1663,7 @@ ${fallback_html}`;
 <!-- TODO: move oncut/copy/paste handlers inside .svedit -->
 <div class="svedit" class:editable>
 	<!-- Overlays must be before canvas so they initialize first. -->
-	{#if editable}<NodeSelectionMarkers />{/if}
+	<NodeSelectionMarkers />
 	{#if Overlays}<Overlays />{/if}
 	<!--
 		inputmode is derived from the model selection: when a custom property
@@ -1654,7 +1677,7 @@ ${fallback_html}`;
 	-->
 	<div
 		class="svedit-canvas {css_class}"
-		class:hide-selection={editable && session.selection?.type === 'node'}
+		class:hide-selection={session.selection?.type === 'node'}
 		class:node-caret={session.selection?.type === 'node' &&
 			session.selection.anchor_offset === session.selection.focus_offset}
 		class:property-selection={session.selection?.type === 'property'}
