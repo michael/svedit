@@ -1324,42 +1324,32 @@ ${fallback_html}`;
 		if (!node_array_el) return;
 
 		const dom_selection = window.getSelection();
-		const range = window.document.createRange();
-
-		const gap_selector = (offset: number) =>
-			`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${offset}"]`;
-
 		if (is_collapsed) {
-			const gap_el = node_array_el.querySelector(gap_selector(selection.anchor_offset));
+			const gap_el = node_array_el.querySelector(
+				`[data-gap-array-path="${node_array_path_str}"][data-gap-offset="${selection.anchor_offset}"]`
+			);
 			if (!gap_el) return;
-			// Target .svedit-selectable (has a box), not gap_el which is
-			// display:contents and would cause the browser to normalize
-			// the range into the parent, breaking read-back.
+			// Insertion carets need an editor gap. These are absent in viewer mode.
+			// Target .svedit-selectable (has a box), not the display:contents gap.
 			const selectable = gap_el.querySelector('.svedit-selectable');
 			if (!selectable) return;
+			const range = window.document.createRange();
 			range.setStart(selectable, 1);
 			range.setEnd(selectable, 1);
 			dom_selection.removeAllRanges();
 			dom_selection.addRange(range);
 		} else {
-			const anchor_gap = node_array_el.querySelector(gap_selector(selection.anchor_offset));
-			const focus_gap = node_array_el.querySelector(gap_selector(selection.focus_offset));
-			if (!anchor_gap || !focus_gap) return;
-			const anchor_sel = anchor_gap.querySelector('.svedit-selectable');
-			const focus_sel = focus_gap.querySelector('.svedit-selectable');
-			if (!anchor_sel || !focus_sel) return;
-
+			// Anchor inside the selected nodes in both modes, without depending
+			// on editor gaps. Keep direction so selection extension stays native.
+			const start = Math.min(selection.anchor_offset, selection.focus_offset);
+			const end = Math.max(selection.anchor_offset, selection.focus_offset);
+			const first = __get_node_element(node_array_path, start);
+			const last = __get_node_element(node_array_path, end - 1);
+			if (!first || !last) return;
 			if (is_backward) {
-				// setBaseAndExtent replaces the current selection, so no
-				// removeAllRanges is needed — every selection-API call forces a
-				// synchronous layout when the DOM is dirty, and this runs right
-				// after the per-change reconcile on every apply.
-				dom_selection.setBaseAndExtent(anchor_sel, 1, focus_sel, 1);
+				dom_selection.setBaseAndExtent(last, last.childNodes.length, first, 0);
 			} else {
-				range.setStart(anchor_sel, 1);
-				range.setEnd(focus_sel, 1);
-				dom_selection.removeAllRanges();
-				dom_selection.addRange(range);
+				dom_selection.setBaseAndExtent(first, 0, last, last.childNodes.length);
 			}
 		}
 		if (!should_scroll_selection_into_view) return;
@@ -1640,9 +1630,22 @@ ${fallback_html}`;
 		session.selection;
 		const dom_driven = selection_source_is_dom;
 		selection_source_is_dom = false;
-		// Viewer selections stay native: editor gap carets are not mounted.
-		if (!editable) return;
 		if (!canvas_focused) return;
+		if (!editable && !session.selection) {
+			// Escape at the top level clears both model and native selection.
+			const dom_selection = window.getSelection();
+			if (
+				dom_selection?.rangeCount &&
+				canvas_el?.contains(dom_selection.getRangeAt(0).commonAncestorContainer)
+			) {
+				dom_selection.removeAllRanges();
+			}
+			last_rendered_selection_snapshot = null;
+			return;
+		}
+		// Leave native viewer gestures alone, but render explicit node-selection
+		// commands such as select-parent so subsequent copy uses the new range.
+		if (!editable && (dom_driven || session.selection?.type !== 'node')) return;
 		const selection_snapshot = JSON.stringify(session.selection);
 		const should_scroll_selection_into_view =
 			!dom_driven && selection_snapshot !== last_rendered_selection_snapshot;
