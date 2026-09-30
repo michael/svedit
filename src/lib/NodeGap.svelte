@@ -21,13 +21,16 @@
 	 * │ MUST RULES — do not violate when modifying this file            │
 	 * ├─────────────────────────────────────────────────────────────────┤
 	 * │ 1. Edge gaps (gap-before at offset 0 / gap-after.last) MUST      │
-	 * │    render OUTSIDE the node-array container — they extend into   │
-	 * │    the whitespace above/below (column) or left/right (row) of   │
-	 * │    the first/last node. They only clamp when the consumer       │
-	 * │    explicitly opts in via --node-caret-boundary(-x/-y).         │
-	 * │ 2. Gaps MUST NEVER overlap nodes. They render strictly in the   │
-	 * │    whitespace between nodes (mid gaps) or outside the node      │
-	 * │    array bounds (edge gaps). Never on top of a node.            │
+	 * │    extend OUTSIDE the node-array container — into the           │
+	 * │    whitespace above/below (column) or left/right (row) of the   │
+	 * │    first/last node. Column edge gaps are centered on the node's │
+	 * │    outer edge (± --_gm / 2), like touching mid gaps. They only  │
+	 * │    clamp when the consumer explicitly opts in via               │
+	 * │    --node-caret-boundary(-x/-y).                                │
+	 * │ 2. Gaps MUST NEVER cover nodes. They render in the whitespace   │
+	 * │    between nodes (mid gaps) or outside the node array bounds    │
+	 * │    (edge gaps). Centered gaps (touching mid gaps, column edges) │
+	 * │    may overlap a node by at most --_gm / 2.                     │
 	 * └─────────────────────────────────────────────────────────────────┘
 	 *
 	 * Invisible keyboard caret selectable and gap hit area.
@@ -330,8 +333,9 @@
 		min-width: max(calc(var(--_gm) * var(--_R)), calc(anchor-size(var(--_pa) width, 100%) * var(--_C))); */
 	}
 
-	/* After last node: col extends down, row extends right.
-	   top also clamps to boundary_bottom - eg so that min-height
+	/* After last node: col is centered on the last node's bottom edge
+	   (± --_gm / 2, like a touching mid gap), row extends right.
+	   top also clamps to boundary_bottom - gm so that min-height
 	   (which wins over bottom in overconstrained abs-pos) cannot
 	   push the element past the boundary.
 
@@ -353,11 +357,14 @@
 	   follows the node out past the container. */
 	:global(.node-gap.positioned.gap-after.last .svedit-selectable) {
 		top: min(
-			calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 9999999px),
+			calc(
+				min(calc(var(--_s-b) - var(--_gm) / 2), calc(var(--_b-bt) - var(--_gm))) + var(--_R) *
+					9999999px
+			),
 			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(max(var(--_b-b), var(--_s-b) - var(--_eg)) + var(--_R) * 9999999px),
+			calc(max(var(--_b-b), var(--_s-b) - var(--_gm) / 2) + var(--_R) * 9999999px),
 			calc(var(--_s-b) + var(--_C) * 9999999px)
 		);
 		left: min(
@@ -372,18 +379,19 @@
 					var(--_C) * 9999999px
 			)
 		);
-		min-height: calc(var(--_eg) * var(--_C));
+		min-height: calc(var(--_gm) * var(--_C));
 		min-width: calc(var(--_eg) * var(--_R));
 	}
 
-	/* Before first node: col extends up, row extends left */
+	/* Before first node: col is centered on the first node's top edge
+	   (± --_gm / 2, like a touching mid gap), row extends left */
 	:global(.node-gap.positioned.gap-before:not(.empty) .svedit-selectable) {
 		top: min(
-			calc(max(var(--_b-t), var(--_s-t) - var(--_eg)) + var(--_R) * 9999999px),
+			calc(max(var(--_b-t), var(--_s-t) - var(--_gm) / 2) + var(--_R) * 9999999px),
 			calc(var(--_s-t) + var(--_C) * 9999999px)
 		);
 		bottom: min(
-			calc(var(--_s-t) + var(--_R) * 9999999px),
+			calc(var(--_s-t) - var(--_gm) / 2 + var(--_R) * 9999999px),
 			calc(var(--_s-b) + var(--_C) * 9999999px)
 		);
 		left: min(
@@ -394,7 +402,7 @@
 			calc(var(--_s-r) + var(--_R) * 9999999px),
 			calc(var(--_s-l) + var(--_C) * 9999999px)
 		);
-		min-height: calc(var(--_eg) * var(--_C));
+		min-height: calc(var(--_gm) * var(--_C));
 		min-width: calc(var(--_eg) * var(--_R));
 	}
 

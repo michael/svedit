@@ -9,17 +9,17 @@
 	 * │ MUST RULES — do not violate when modifying this file            │
 	 * ├─────────────────────────────────────────────────────────────────┤
 	 * │ 1. Edge markers (gap-edge.first / gap-edge.last) MUST extend    │
-	 * │    OUTSIDE the node-array container — into the whitespace      │
-	 * │    above/below (column) or left/right (row) of the first/last  │
-	 * │    node. Column edge markers are centered on the node's outer  │
-	 * │    edge, so the line aligns with it like touching mid markers. │
-	 * │    They only clamp inward when the consumer explicitly opts in │
-	 * │    via --node-caret-boundary(-x/-y).                           │
-	 * │ 2. Markers MUST NEVER cover nodes. Mid markers stay in the     │
-	 * │    whitespace between nodes, edge markers outside the node     │
-	 * │    array bounds. Centered markers (touching mid gaps, column   │
-	 * │    edges) may overlap a node by at most --_gm / 2, which is    │
-	 * │    safe because markers have pointer-events: none.             │
+	 * │    OUTSIDE the node-array container — into the whitespace       │
+	 * │    above/below (column) or left/right (row) of the first/last   │
+	 * │    node. Column edge markers are centered on the node's outer   │
+	 * │    edge, so the line aligns with it like touching mid markers.  │
+	 * │    They only clamp inward when the consumer explicitly opts in  │
+	 * │    via --node-caret-boundary(-x/-y).                            │
+	 * │ 2. Markers MUST NEVER cover nodes. Mid markers stay in the      │
+	 * │    whitespace between nodes, edge markers outside the node      │
+	 * │    array bounds. Centered markers (touching mid gaps, column    │
+	 * │    edges) may overlap a node by at most --_gm / 2, which is     │
+	 * │    safe because markers have pointer-events: none.              │
 	 * └─────────────────────────────────────────────────────────────────┘
 	 *
 	 * Renders insertion gap markers for a single node_array.
