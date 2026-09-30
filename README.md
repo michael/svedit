@@ -1554,6 +1554,25 @@ Once you've cloned the Svedit repository and installed dependencies with `pnpm i
 pnpm dev
 ```
 
+### Running tests
+
+Run the browser tests in Vitest's interactive watch mode:
+
+```bash
+pnpm test:unit
+```
+
+For a single run, use `pnpm test`.
+
+The tests exercise real browser focus, selection, and keyboard behavior. Keep the
+browser runner tab and window focused and let each run finish uninterrupted.
+Do not switch tabs or applications, open DevTools, or click inside the runner
+while tests are running. Losing focus can cause selection and keyboard tests to
+fail even when the editor works correctly.
+
+If a run was interrupted, return focus to the runner and rerun the tests. Failures
+that persist during a focused, uninterrupted run should be investigated.
+
 ## Building
 
 To create a production version of your app:
