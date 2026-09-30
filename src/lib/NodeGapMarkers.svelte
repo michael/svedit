@@ -8,14 +8,18 @@
 	 * ┌─────────────────────────────────────────────────────────────────┐
 	 * │ MUST RULES — do not violate when modifying this file            │
 	 * ├─────────────────────────────────────────────────────────────────┤
-	 * │ 1. Edge markers (gap-edge.first / gap-edge.last) MUST render    │
-	 * │    OUTSIDE the node-array container — they extend into the     │
-	 * │    whitespace above/below (column) or left/right (row) of the  │
-	 * │    first/last node. They only clamp inward when the consumer   │
-	 * │    explicitly opts in via --node-caret-boundary(-x/-y).        │
-	 * │ 2. Markers MUST NEVER overlap nodes. They render strictly in   │
-	 * │    the whitespace between nodes (mid markers) or outside the   │
-	 * │    node array bounds (edge markers). Never on top of a node.  │
+	 * │ 1. Edge markers (gap-edge.first / gap-edge.last) MUST extend    │
+	 * │    OUTSIDE the node-array container — into the whitespace      │
+	 * │    above/below (column) or left/right (row) of the first/last  │
+	 * │    node. Column edge markers are centered on the node's outer  │
+	 * │    edge, so the line aligns with it like touching mid markers. │
+	 * │    They only clamp inward when the consumer explicitly opts in │
+	 * │    via --node-caret-boundary(-x/-y).                           │
+	 * │ 2. Markers MUST NEVER cover nodes. Mid markers stay in the     │
+	 * │    whitespace between nodes, edge markers outside the node     │
+	 * │    array bounds. Centered markers (touching mid gaps, column   │
+	 * │    edges) may overlap a node by at most --_gm / 2, which is    │
+	 * │    safe because markers have pointer-events: none.             │
 	 * └─────────────────────────────────────────────────────────────────┘
 	 *
 	 * Renders insertion gap markers for a single node_array.
@@ -440,17 +444,19 @@
 		min-width: var(--_gm);
 	}
 
-	/* Edge first: column = above first node, row = left of first node */
+	/* Edge first: column = centered on the first node's top edge,
+	   row = left of first node. The column box spans top - gm/2 to
+	   top + gm/2 so the line (drawn at 50%) sits exactly on the edge. */
 	.gap-edge.first {
 		--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
 		--_b-l: anchor(var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left, 0px);
 		top: min(
 			calc(anchor(var(--_a) top) + var(--_C) * 9999999px),
-			calc(max(var(--_b-t), calc(anchor(var(--_a) top) - var(--_gm))) + var(--_R) * 9999999px)
+			calc(max(var(--_b-t), calc(anchor(var(--_a) top) - var(--_gm) / 2)) + var(--_R) * 9999999px)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 9999999px),
-			calc(anchor(var(--_a) top) + var(--_R) * 9999999px)
+			calc(anchor(var(--_a) top) - var(--_gm) / 2 + var(--_R) * 9999999px)
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 9999999px),
@@ -462,7 +468,8 @@
 		);
 	}
 
-	/* Edge last: column = below last node, row = right of last node.
+	/* Edge last: column = centered on the last node's bottom edge,
+	   row = right of last node.
 	   top/left also clamp to boundary - gm so that min-height/min-width
 	   (which win over bottom/right in overconstrained abs-pos) cannot
 	   push the element past the boundary. */
@@ -475,14 +482,14 @@
 			calc(anchor(var(--_a) top) + var(--_C) * 9999999px),
 			calc(
 				min(
-					anchor(var(--_a) bottom),
+					calc(anchor(var(--_a) bottom) - var(--_gm) / 2),
 					calc(var(--_b-bt) - var(--_gm))
 				) + var(--_R) * 9999999px
 			)
 		);
 		bottom: min(
 			calc(anchor(var(--_a) bottom) + var(--_C) * 9999999px),
-			calc(max(var(--_b-b), calc(anchor(var(--_a) bottom) - var(--_gm))) + var(--_R) * 9999999px)
+			calc(max(var(--_b-b), calc(anchor(var(--_a) bottom) - var(--_gm) / 2)) + var(--_R) * 9999999px)
 		);
 		left: min(
 			calc(anchor(var(--_a) left) + var(--_R) * 9999999px),
