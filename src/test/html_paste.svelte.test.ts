@@ -82,6 +82,30 @@ describe('external HTML import', () => {
 		expect(text.content).toBe('Hello & world\nnext\n\nLast');
 	});
 
+	it('reads bold from inline font-weight in Google Docs clipboards', () => {
+		const { text, marks } = import_text(
+			'<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1234">' +
+				'<p dir="ltr"><span style="font-weight:400;">Plain </span><span style="font-weight:700;">bold</span></p>' +
+				'<br><p dir="ltr"><span style="font-weight:400;">Next</span></p></b>'
+		);
+		expect(text.content).toBe('Plain bold\n\nNext');
+		expect(marks.map((mark) => [mark.start_offset, mark.end_offset, mark.node.type])).toEqual([
+			[6, 10, 'strong']
+		]);
+	});
+
+	it('reads bold from Word clipboards and drops empty paragraphs', () => {
+		const { text, marks } = import_text(
+			'<p class="MsoNormal"><b><span>Bold</span></b> and <span style="font-weight:bold">styled</span></p>' +
+				'<p class="MsoNormal"><o:p>&nbsp;</o:p></p><p><br></p><p class="MsoNormal">Next</p>'
+		);
+		expect(text.content).toBe('Bold and styled\n\nNext');
+		expect(marks.map((mark) => [mark.start_offset, mark.end_offset])).toEqual([
+			[0, 4],
+			[9, 15]
+		]);
+	});
+
 	it('drops unsafe links while retaining their text and other supported formatting', () => {
 		for (const href of ['javascript:alert(1)', 'java&#10;script:alert(1)', 'data:text/html,bad']) {
 			const { text, marks } = import_text(`<a href="${href}"><b>keep</b></a>`);

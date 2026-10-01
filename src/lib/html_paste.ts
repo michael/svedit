@@ -37,7 +37,8 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 		while (current.runs.length && !current.runs.at(-1)!.text.replace(/ +$/, '')) current.runs.pop();
 		if (current.runs.length)
 			current.runs.at(-1)!.text = current.runs.at(-1)!.text.replace(/ +$/, '');
-		if (current.runs.length) blocks.push(current);
+		// Drop empty paragraphs such as <p><br></p> or Word's <p>&nbsp;</p>.
+		if (current.runs.some((run) => run.text.trim())) blocks.push(current);
 		current = { tag: 'p', runs: [] };
 	};
 	const walk = (node: Node, style: InlineStyle) => {
@@ -69,6 +70,12 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 		}
 		const next_style = { ...style };
 		if (tag === 'b' || tag === 'strong') next_style.bold = true;
+		// Inline font-weight wins over the tag: Google Docs wraps the whole clipboard in
+		// <b style="font-weight:normal">, and Docs and Word express bold as styled spans.
+		const font_weight = (element as HTMLElement).style?.fontWeight;
+		if (font_weight) {
+			next_style.bold = ['bold', 'bolder'].includes(font_weight) || Number(font_weight) >= 600;
+		}
 		if (tag === 'a') next_style.href = safe_html_href(element.getAttribute('href') || '');
 		for (const child of element.childNodes) walk(child, next_style);
 		if (is_block) flush();
