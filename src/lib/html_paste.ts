@@ -8,6 +8,13 @@ export type HtmlBlockMapping = {
 	text_property: string;
 	properties?: Record<string, unknown>;
 };
+export type HtmlListTag = 'ul' | 'ol';
+export type HtmlContainerMapping = {
+	type: string;
+	children_property: string;
+	properties?: Record<string, unknown>;
+};
+export type HtmlListMapping = HtmlContainerMapping & { item: HtmlBlockMapping };
 export type HtmlMarkMapping = { type: string; properties?: Record<string, unknown> };
 export type HtmlPasteConfig = {
 	blocks?: Partial<
@@ -16,6 +23,8 @@ export type HtmlPasteConfig = {
 			HtmlBlockMapping | ((context: { tag: HtmlBlockTag }) => HtmlBlockMapping | null)
 		>
 	>;
+	lists?: Partial<Record<HtmlListTag, HtmlListMapping>>;
+	wrapper?: HtmlContainerMapping;
 	marks?: {
 		bold?: HtmlMarkMapping;
 		link?: HtmlMarkMapping | ((context: { href: string }) => HtmlMarkMapping | null);
@@ -23,13 +32,17 @@ export type HtmlPasteConfig = {
 };
 type InlineStyle = { bold?: boolean; href?: string };
 type Run = InlineStyle & { text: string };
-export type HtmlPasteBlock = { tag: HtmlBlockTag; runs: Run[] };
+type HtmlTextBlock = { tag: HtmlBlockTag; runs: Run[] };
+type HtmlListBlock = { tag: HtmlListTag; items: HtmlTextBlock[][] };
+export type HtmlPasteBlock = HtmlTextBlock | HtmlListBlock;
 
 /** Parse a detached document; never insert clipboard HTML into the editor DOM. */
 export function parse_html_paste(html: string): HtmlPasteBlock[] {
 	const doc = new DOMParser().parseFromString(html, 'text/html');
 	const blocks: HtmlPasteBlock[] = [];
-	let current: HtmlPasteBlock = { tag: 'p', runs: [] };
+	let current: HtmlTextBlock = { tag: 'p', runs: [] };
+	let current_list: HtmlListBlock | null = null;
+	let current_item: HtmlTextBlock[] | null = null;
 	const flush = () => {
 		// HTML whitespace collapses across inline elements, but explicit breaks survive.
 		while (current.runs.length && !current.runs[0].text.replace(/^ +/, '')) current.runs.shift();
@@ -38,7 +51,7 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 		if (current.runs.length)
 			current.runs.at(-1)!.text = current.runs.at(-1)!.text.replace(/ +$/, '');
 		// Drop empty paragraphs such as <p><br></p> or Word's <p>&nbsp;</p>.
-		if (current.runs.some((run) => run.text.trim())) blocks.push(current);
+		if (current.runs.some((run) => run.text.trim())) (current_item || blocks).push(current);
 		current = { tag: 'p', runs: [] };
 	};
 	const walk = (node: Node, style: InlineStyle) => {
@@ -60,14 +73,6 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 			current.runs.push({ ...style, text: '\n' });
 			return;
 		}
-		const is_block =
-			/^(p|h[1-6]|div|section|article|header|footer|main|aside|blockquote|pre|ul|ol|li|table|tr|td|th)$/.test(
-				tag
-			);
-		if (is_block) {
-			flush();
-			current.tag = /^h[1-6]$/.test(tag) ? (tag as HtmlBlockTag) : 'p';
-		}
 		const next_style = { ...style };
 		if (tag === 'b' || tag === 'strong') next_style.bold = true;
 		// Inline font-weight wins over the tag: Google Docs wraps the whole clipboard in
@@ -77,6 +82,36 @@ export function parse_html_paste(html: string): HtmlPasteBlock[] {
 			next_style.bold = ['bold', 'bolder'].includes(font_weight) || Number(font_weight) >= 600;
 		}
 		if (tag === 'a') next_style.href = safe_html_href(element.getAttribute('href') || '');
+		if ((tag === 'ul' || tag === 'ol') && !current_list) {
+			flush();
+			const list: HtmlListBlock = { tag, items: [] };
+			current_list = list;
+			for (const child of element.childNodes) walk(child, next_style);
+			flush();
+			current_list = null;
+			list.items = list.items.filter((item) => item.length);
+			if (list.items.length) blocks.push(list);
+			return;
+		}
+		// Nested items join the outer list while retaining their own text blocks.
+		if (tag === 'li' && current_list) {
+			flush();
+			const parent_item = current_item;
+			current_item = [];
+			current_list.items.push(current_item);
+			for (const child of element.childNodes) walk(child, next_style);
+			flush();
+			current_item = parent_item;
+			return;
+		}
+		const is_block =
+			/^(p|h[1-6]|div|section|article|header|footer|main|aside|blockquote|pre|ul|ol|li|table|tr|td|th)$/.test(
+				tag
+			);
+		if (is_block) {
+			flush();
+			current.tag = /^h[1-6]$/.test(tag) ? (tag as HtmlBlockTag) : 'p';
+		}
 		for (const child of element.childNodes) walk(child, next_style);
 		if (is_block) flush();
 	};
@@ -100,7 +135,8 @@ export function map_html_text(
 		mapping && schema[mapping.type]?.kind === 'mark' && allowed.includes(mapping.type)
 			? mapping
 			: null;
-	for (const [index, block] of blocks.entries()) {
+	const text_blocks = blocks.flatMap((block) => ('items' in block ? block.items.flat() : [block]));
+	for (const [index, block] of text_blocks.entries()) {
 		if (index) {
 			result.content += property.type === 'text' && property.allow_newlines ? '\n\n' : ' ';
 			previous_key = '';
@@ -165,31 +201,79 @@ export function map_html_blocks(
 ) {
 	if (property.type !== 'node_array') return null;
 	const nodes: Record<string, DocumentNode> = {};
-	const main_nodes: string[] = [];
-	for (const block of blocks) {
-		const rule = config.blocks?.[block.tag];
-		let mapping = typeof rule === 'function' ? rule({ tag: block.tag }) : rule;
-		if (
-			!mapping ||
-			!property.node_types.includes(mapping.type) ||
-			schema[mapping.type]?.kind !== 'text' ||
-			schema[mapping.type]?.properties[mapping.text_property]?.type !== 'text'
-		) {
-			const type = get_default_text_node(property, schema);
-			const text_property = get_text_property_name(type, schema);
-			if (!type || !text_property || !property.node_types.includes(type)) return null;
-			mapping = { type, text_property };
+	let node_index = 0;
+	const add_node = (type: string, properties: Record<string, unknown>) => {
+		const id = `html_block_${node_index++}`;
+		nodes[id] = { ...properties, id, type };
+		return id;
+	};
+	const add_text = (blocks: HtmlTextBlock[], mapping: HtmlBlockMapping) =>
+		add_node(mapping.type, {
+			...mapping.properties,
+			[mapping.text_property]: map_html_text(
+				blocks,
+				config,
+				schema,
+				schema[mapping.type].properties[mapping.text_property],
+				nodes
+			)
+		});
+	const add_container = (mapping: HtmlContainerMapping, children: string[]) =>
+		add_node(mapping.type, {
+			...mapping.properties,
+			[mapping.children_property]: { nodes: children, marks: [], annotations: [] }
+		});
+	const map_blocks = (blocks: HtmlPasteBlock[], target: PropertyDefinition): string[] | null => {
+		if (target.type !== 'node_array') return null;
+		const ids: string[] = [];
+		for (const block of blocks) {
+			if ('items' in block) {
+				const mapping = config.lists?.[block.tag];
+				const children = mapping && schema[mapping.type]?.properties[mapping.children_property];
+				if (
+					mapping &&
+					target.node_types.includes(mapping.type) &&
+					children?.type === 'node_array' &&
+					children.node_types.includes(mapping.item.type) &&
+					schema[mapping.item.type]?.kind === 'text' &&
+					schema[mapping.item.type].properties[mapping.item.text_property]?.type === 'text'
+				) {
+					ids.push(
+						add_container(
+							mapping,
+							block.items.map((item) => add_text(item, mapping.item))
+						)
+					);
+				} else {
+					const items = map_blocks(block.items.flat(), target);
+					if (!items) return null;
+					ids.push(...items);
+				}
+				continue;
+			}
+			const rule = config.blocks?.[block.tag];
+			let mapping = typeof rule === 'function' ? rule({ tag: block.tag }) : rule;
+			if (
+				!mapping ||
+				!target.node_types.includes(mapping.type) ||
+				schema[mapping.type]?.kind !== 'text' ||
+				schema[mapping.type]?.properties[mapping.text_property]?.type !== 'text'
+			) {
+				const type = get_default_text_node(target, schema);
+				const text_property = get_text_property_name(type, schema);
+				if (!type || !text_property || !target.node_types.includes(type)) return null;
+				mapping = { type, text_property };
+			}
+			ids.push(add_text([block], mapping));
 		}
-		const text = map_html_text(
-			[block],
-			config,
-			schema,
-			schema[mapping.type].properties[mapping.text_property],
-			nodes
-		);
-		const id = `html_block_${main_nodes.length}`;
-		nodes[id] = { ...mapping.properties, id, type: mapping.type, [mapping.text_property]: text };
-		main_nodes.push(id);
+		return ids.length ? ids : null;
+	};
+	let main_nodes = map_blocks(blocks, property);
+	const wrapper = config.wrapper;
+	if (!main_nodes && wrapper && property.node_types.includes(wrapper.type)) {
+		const children = schema[wrapper.type]?.properties[wrapper.children_property];
+		const ids = children && map_blocks(blocks, children);
+		if (ids) main_nodes = [add_container(wrapper, ids)];
 	}
-	return main_nodes.length ? { nodes, main_nodes } : null;
+	return main_nodes ? { nodes, main_nodes } : null;
 }

@@ -445,7 +445,7 @@ their existing paths and bypass this importer.
 ```ts
 import type { HtmlPasteConfig } from 'svedit';
 
-const html_paste = {
+const html_paste: HtmlPasteConfig = {
 	blocks: {
 		p: { type: 'paragraph', text_property: 'content' },
 		h1: { type: 'heading1', text_property: 'content' },
@@ -455,7 +455,7 @@ const html_paste = {
 		bold: { type: 'strong' },
 		link: ({ href }) => ({ type: 'link', properties: { href } })
 	}
-} satisfies HtmlPasteConfig;
+};
 
 const config = { /* other configuration */ html_paste };
 ```
@@ -479,20 +479,57 @@ accepts HTTP(S), mailto, tel, and relative links, and drops unsafe schemes.
 Mappings describe data; they should not mutate the session. Svedit creates IDs
 and fills schema defaults through its normal insertion transaction.
 
+Map HTML lists separately because they contain an array of text nodes:
+
+```ts
+html_paste.lists = {
+	ul: {
+		type: 'list',
+		children_property: 'list_items',
+		item: { type: 'list_item', text_property: 'content' },
+		properties: { layout: 'square' }
+	},
+	ol: {
+		type: 'list',
+		children_property: 'list_items',
+		item: { type: 'list_item', text_property: 'content' },
+		properties: { layout: 'decimal' }
+	}
+};
+```
+
+All type and property names come from your schema. Nested HTML lists flatten into
+one list in item order, using the outer list's mapping. An item with multiple
+paragraphs becomes one text node. Unmapped or disallowed lists fall back to the
+destination's default text nodes; text fields receive flattened list text.
+
+If a destination requires a containing block, configure an optional wrapper:
+
+```ts
+html_paste.wrapper = { type: 'prose', children_property: 'body' };
+```
+
+The wrapper is used only when blocks cannot be mapped directly to the destination
+and the destination allows its type. Its `children_property` must be a node array;
+blocks are mapped against that property's allowed node types. Wrapper mappings
+also accept `properties` for schema-specific defaults.
+
 Import respects the destination's allowed node and mark types. Unmapped or
 disallowed headings fall back to its default text node; unsupported marks keep
 their text. Marks are exclusive in Svedit, so a supported link takes precedence
 over bold where they overlap. Existing active-mark insertion behavior still applies.
 
-At a node caret, HTML blocks become nodes. A single block pasted into text retains
-the destination node type. Multiple blocks pasted into a text node follow the
-existing multi-paragraph behavior: insert nodes after that node without splitting
+At a node caret, HTML blocks become nodes. A single text block pasted into text
+retains the destination node type. A configured list follows the node insertion
+path, even when it contains only one item. Multiple blocks pasted into a text node
+follow the existing multi-paragraph behavior: insert nodes after that node without splitting
 or replacing its text. In block fields such as titles and captions, blocks are
 joined with blank lines, or spaces when `allow_newlines` is false.
 
-The first version recognizes semantic tags, common block wrappers, entities and
-`<br>`. Unsupported containers retain their text but do not import list/table
-structure, images, or CSS formatting. Script/style content is ignored. Empty or
+The importer recognizes semantic tags, common block wrappers, entities and
+`<br>`. Unsupported containers retain their text but do not import table
+structure, images, or CSS formatting. Lists retain structure when a list mapping
+is configured. Script/style content is ignored. Empty or
 unusable HTML, and mapping errors, fall back to the existing plain-text path.
 
 ### Exporting copied rich text

@@ -702,7 +702,13 @@ ${fallback_html}`;
 		if (!blocks.length) return false;
 		if (selection.type === 'text') {
 			const owner = session.get(selection.path.slice(0, -1));
-			if (blocks.length > 1 && owner && session.kind(owner) === 'text') {
+			const insert_as_nodes =
+				blocks.length > 1 ||
+				blocks.some(
+					(block) =>
+						'items' in block && (config.lists?.[block.tag] || block.items.flat().length > 1)
+				);
+			if (insert_as_nodes && owner && session.kind(owner) === 'text') {
 				const caret = get_node_insert_caret_after_text_selection(selection);
 				if (caret) {
 					const payload = map_html_blocks(

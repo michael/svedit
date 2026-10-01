@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import Session from '../lib/Session.svelte.js';
 import { parse_html_paste, map_html_text, map_html_blocks } from '../lib/html_paste.js';
 import type { HtmlPasteConfig } from '../lib/html_paste.js';
 import type { DocumentNode, DocumentSchema, PropertyDefinition } from '../lib/types.js';
@@ -131,5 +132,144 @@ describe('external HTML import', () => {
 				node_types: []
 			})
 		).toBeNull();
+	});
+});
+
+const list_schema: DocumentSchema = {
+	...schema,
+	collection: {
+		kind: 'block',
+		properties: {
+			format: { type: 'string' },
+			entries: { type: 'node_array', node_types: ['entry'] }
+		}
+	},
+	entry: { kind: 'text', properties: { content: text_property, label: text_property } },
+	container: {
+		kind: 'block',
+		properties: {
+			children: { ...body, node_types: ['paragraph', 'heading', 'collection'] }
+		}
+	},
+	root: {
+		kind: 'document',
+		properties: { blocks: { type: 'node_array', node_types: ['container'] } }
+	}
+};
+const list_mapping = {
+	type: 'collection',
+	children_property: 'entries',
+	item: { type: 'entry', text_property: 'label' },
+	properties: { format: 'bullets' }
+};
+const list_config: HtmlPasteConfig = {
+	...config,
+	lists: {
+		ul: list_mapping,
+		ol: { ...list_mapping, properties: { format: 'numbers' } }
+	},
+	wrapper: { type: 'container', children_property: 'children' }
+};
+const list_body = list_schema.container.properties.children;
+
+describe('schema-defined HTML lists', () => {
+	it.each(['ul', 'ol'])('maps %s lists with arbitrary schema names and flattens nesting', (tag) => {
+		const html = `<p>Before</p><${tag}><li><b>Parent<ul><li>Child</li></ul></b></li><li><p>One</p><p>Two</p></li></${tag}><p>After</p>`;
+		const payload = map_html_blocks(parse_html_paste(html), list_config, list_schema, list_body)!;
+		const blocks = payload.main_nodes.map((id) => payload.nodes[id]);
+		expect(blocks.map((block) => block.type)).toEqual(['paragraph', 'collection', 'paragraph']);
+		const list = blocks[1];
+		expect(list.format).toBe(tag === 'ul' ? 'bullets' : 'numbers');
+		const items = list.entries.nodes.map((id: string) => payload.nodes[id]);
+		expect(items.map((item: DocumentNode) => item.label.content)).toEqual([
+			'Parent',
+			'Child',
+			'One\n\nTwo'
+		]);
+		expect(items.every((item: DocumentNode) => item.type === 'entry')).toBe(true);
+		for (const item of items.slice(0, 2)) {
+			expect(item.label.marks).toHaveLength(1);
+			expect(payload.nodes[item.label.marks[0].node_id].type).toBe('strong');
+		}
+	});
+
+	it('wraps only when needed and inserts the graph as one undoable transaction', () => {
+		const session = new Session(
+			list_schema,
+			{
+				document_id: 'root_1',
+				nodes: {
+					root_1: { id: 'root_1', type: 'root', blocks: { nodes: [], marks: [], annotations: [] } }
+				}
+			},
+			{}
+		);
+		session.selection = {
+			type: 'node',
+			path: ['root_1', 'blocks'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		const before = JSON.stringify(session.doc);
+		const payload = map_html_blocks(
+			parse_html_paste('<ol><li><b>Item</b></li></ol>'),
+			list_config,
+			list_schema,
+			list_schema.root.properties.blocks
+		)!;
+		expect(payload.nodes[payload.main_nodes[0]].type).toBe('container');
+		const tr = session.tr;
+		tr.insert_nodes(payload.main_nodes.map((id) => tr.build(id, payload.nodes)));
+		session.apply(tr);
+		const after = JSON.stringify(session.doc);
+		session.undo();
+		expect(JSON.stringify(session.doc)).toBe(before);
+		session.redo();
+		expect(JSON.stringify(session.doc)).toBe(after);
+		const direct = map_html_blocks(
+			parse_html_paste('<ul><li>Item</li></ul>'),
+			list_config,
+			list_schema,
+			list_body
+		)!;
+		expect(direct.nodes[direct.main_nodes[0]].type).toBe('collection');
+	});
+
+	it('flattens unmapped, disallowed, and invalid list mappings into default text nodes', () => {
+		const blocks = parse_html_paste('<ul><li>Parent<ol><li>Child</li></ol></li><li>Last</li></ul>');
+		for (const { mapping, target } of [
+			{ mapping: config, target: list_body },
+			{ mapping: list_config, target: body },
+			{
+				mapping: {
+					...list_config,
+					lists: { ul: { ...list_mapping, children_property: 'missing' } }
+				},
+				target: list_body
+			}
+		]) {
+			const payload = map_html_blocks(blocks, mapping, list_schema, target)!;
+			expect(payload.main_nodes.map((id) => payload.nodes[id].content.content)).toEqual([
+				'Parent',
+				'Child',
+				'Last'
+			]);
+		}
+	});
+
+	it('flattens lists in text fields and ignores lists inside executable containers', () => {
+		const nodes: Record<string, DocumentNode> = {};
+		const blocks = parse_html_paste(
+			'<ol><li><b>One</b></li><li>Two</li></ol><object><ul><li>Ignored</li></ul></object>'
+		);
+		const text = map_html_text(
+			blocks,
+			list_config,
+			list_schema,
+			{ type: 'text', allow_newlines: false, mark_types: [] },
+			nodes
+		);
+		expect(text).toEqual({ content: 'One Two', marks: [], annotations: [] });
+		expect(nodes).toEqual({});
 	});
 });

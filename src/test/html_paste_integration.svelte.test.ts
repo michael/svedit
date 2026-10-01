@@ -49,6 +49,56 @@ const title_selection: Selection = {
 };
 
 describe('HTML clipboard integration', () => {
+	it('retains multi-paragraph insertion for lists without mappings', async () => {
+		const session = await setup(node_selection);
+		await paste('<p>Existing</p>');
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 3, 'content'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		await tick();
+		await paste('<ul><li>First</li><li>Second</li></ul>');
+		const nodes = session
+			.get(['page_1', 'body'])
+			.nodes.slice(3)
+			.map((id) => session.get(id));
+		expect(nodes.map((node) => node.type)).toEqual(['paragraph', 'paragraph', 'paragraph']);
+		expect(nodes.map((node) => node.content.content)).toEqual(['Existing', 'First', 'Second']);
+	});
+
+	it('inserts a configured single-item list after a text node', async () => {
+		const session = await setup(node_selection);
+		session.config.html_paste = {
+			...config,
+			lists: {
+				ul: {
+					type: 'list',
+					children_property: 'list_items',
+					item: { type: 'list_item', text_property: 'content' },
+					properties: { layout: 'square' }
+				}
+			}
+		};
+		await paste('<p>Existing</p>');
+		session.selection = {
+			type: 'text',
+			path: ['page_1', 'body', 3, 'content'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		await tick();
+		await paste('<ul><li>Item</li></ul>');
+		const body = session.get(['page_1', 'body']);
+		const list = session.get(body.nodes[4]);
+		expect(list.type).toBe('list');
+		expect(session.get(list.list_items.nodes[0]).content.content).toBe('Item');
+		expect(session.get(body.nodes[3]).content.content).toBe('Existing');
+		session.undo();
+		expect(session.get(['page_1', 'body']).nodes).toHaveLength(4);
+	});
+
 	it.each(['html', 'native'])(
 		'converts %s paragraphs to list items with attachments and undo',
 		async (format) => {
@@ -111,6 +161,14 @@ describe('HTML clipboard integration', () => {
 					: '<p><b>Bold</b></p><p><a href="https://example.com">Link</a></p>';
 			const before = JSON.stringify(session.doc);
 			await paste(html);
+			const end = session.get(['list_1', 'list_items']).nodes.length;
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 2, 'list_items'],
+				anchor_offset: end,
+				focus_offset: end
+			};
+			await tick();
 			await paste(html);
 			const item_ids = session.get(['list_1', 'list_items']).nodes.slice(2);
 			expect(item_ids).toHaveLength(4);

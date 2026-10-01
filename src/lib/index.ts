@@ -90,7 +90,10 @@ export type {
 	HtmlPasteConfig,
 	HtmlBlockTag,
 	HtmlBlockMapping,
-	HtmlMarkMapping
+	HtmlMarkMapping,
+	HtmlListTag,
+	HtmlListMapping,
+	HtmlContainerMapping
 } from './html_paste.js';
 
 export { export_text_html } from './html_export.js';
