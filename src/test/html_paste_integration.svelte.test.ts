@@ -49,6 +49,99 @@ const title_selection: Selection = {
 };
 
 describe('HTML clipboard integration', () => {
+	it.each(['html', 'native'])(
+		'converts %s paragraphs to list items with attachments and undo',
+		async (format) => {
+			const session = await setup(
+				{
+					type: 'node',
+					path: ['page_1', 'body', 2, 'list_items'],
+					anchor_offset: 2,
+					focus_offset: 2
+				},
+				{
+					...config,
+					marks: {
+						bold: { type: 'strong' },
+						link: ({ href }) => ({ type: 'link', properties: { href } })
+					}
+				}
+			);
+			session.schema = JSON.parse(JSON.stringify(session.schema));
+			session.schema.strong = { kind: 'mark', properties: {} };
+			session.schema.link = { kind: 'mark', properties: { href: { type: 'string' } } };
+			session.schema.comment = { kind: 'annotation', properties: {} };
+			session.schema.list_item.properties.content.mark_types = ['strong', 'link'];
+			session.schema.list_item.properties.content.annotation_types = ['comment'];
+			session.config = {
+				...session.config,
+				node_components: { ...session.config.node_components, strong: Strong, link: Link }
+			};
+			const payload = {
+				main_nodes: ['copied_bold', 'copied_link'],
+				nodes: {
+					copied_bold: {
+						id: 'copied_bold',
+						type: 'paragraph',
+						content: {
+							content: 'Bold',
+							marks: [{ node_id: 'bold_mark', start_offset: 0, end_offset: 4 }],
+							annotations: [{ node_id: 'comment_1', start_offset: 0, end_offset: 4 }]
+						}
+					},
+					copied_link: {
+						id: 'copied_link',
+						type: 'paragraph',
+						content: {
+							content: 'Link',
+							marks: [{ node_id: 'link_mark', start_offset: 0, end_offset: 4 }],
+							annotations: []
+						}
+					},
+					bold_mark: { id: 'bold_mark', type: 'strong' },
+					link_mark: { id: 'link_mark', type: 'link', href: 'https://example.com' },
+					comment_1: { id: 'comment_1', type: 'comment' }
+				}
+			};
+			const clipboard_before = JSON.stringify(payload);
+			const encoded = btoa(encodeURIComponent(clipboard_before));
+			const html =
+				format === 'native'
+					? `<span data-svedit="${encoded}"></span>`
+					: '<p><b>Bold</b></p><p><a href="https://example.com">Link</a></p>';
+			const before = JSON.stringify(session.doc);
+			await paste(html);
+			await paste(html);
+			const item_ids = session.get(['list_1', 'list_items']).nodes.slice(2);
+			expect(item_ids).toHaveLength(4);
+			const mark_ids: string[] = [];
+			for (const [index, id] of item_ids.entries()) {
+				const item = session.get(id);
+				expect(item.type).toBe('list_item');
+				expect(item.content.content).toBe(index % 2 === 0 ? 'Bold' : 'Link');
+				expect(item.content.marks).toHaveLength(1);
+				const mark = item.content.marks[0];
+				expect([mark.start_offset, mark.end_offset]).toEqual([0, 4]);
+				expect(session.get(mark.node_id).type).toBe(index % 2 === 0 ? 'strong' : 'link');
+				if (index % 2 === 1) expect(session.get(mark.node_id).href).toBe('https://example.com');
+				mark_ids.push(mark.node_id);
+				if (format === 'native' && index % 2 === 0) {
+					expect(item.content.annotations).toHaveLength(1);
+					expect(session.get(item.content.annotations[0].node_id).type).toBe('comment');
+				}
+			}
+			expect(new Set(mark_ids).size).toBe(4);
+			expect(JSON.stringify(payload)).toBe(clipboard_before);
+			const after = JSON.stringify(session.doc);
+			session.undo();
+			session.undo();
+			expect(JSON.stringify(session.doc)).toBe(before);
+			session.redo();
+			session.redo();
+			expect(JSON.stringify(session.doc)).toBe(after);
+		}
+	);
+
 	it('inserts mapped blocks at a node caret as one undoable change', async () => {
 		const session = await setup(node_selection);
 		const before = JSON.stringify(session.doc);

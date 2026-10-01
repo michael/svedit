@@ -651,17 +651,23 @@ ${fallback_html}`;
 					default_text_node_type &&
 					target_text_property_name
 				) {
-					const new_node_id = tr.build('the_node', {
-						the_node: {
-							id: 'the_node',
-							type: default_text_node_type,
-							[target_text_property_name]: text_content || {
-								content: '',
-								marks: [],
-								annotations: []
+					// Keep the clipboard graph so converted text retains its marks and annotations.
+					const new_node_id = tr.build(
+						node_id,
+						{
+							...nodes,
+							[node_id]: {
+								id: node_id,
+								type: default_text_node_type,
+								[target_text_property_name]: text_content || {
+									content: '',
+									marks: [],
+									annotations: []
+								}
 							}
-						}
-					});
+						},
+						{ preserve_ids }
+					);
 					nodes_to_insert.push(new_node_id);
 				} else {
 					rejected = true;
