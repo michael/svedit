@@ -74,7 +74,7 @@
 </script>
 
 <svelte:head>
-	<title>Svedit - A tiny library for building editable websites in Svelte</title>
+	<title>Svedit - Editing for Svelte</title>
 </svelte:head>
 
 <div class="demo-wrapper" bind:this={app_el}>
