@@ -75,6 +75,8 @@ Each node has a `kind` that determines its behavior:
 - Pressing Enter splits the node into two nodes of the same type
 - Pressing Backspace at position 0 joins it with the previous node
 
+When `break_text_node` splits through a mark or annotation, the right-hand occurrence receives an independent attachment node with the same properties. Editing one link or annotation therefore does not change the other. Ranges moved wholly to one side retain their ids. Subtree copying and pasting through `Transaction.build` also detach repeated attachment references in the copied data. These operations do not rewrite attachment references in existing stored documents.
+
 If **any** of those assumptions don't hold, use `kind: 'block'`. Blocks can still have `text` properties with full editing support (typing, formatting, selection) — they just don't participate in split/join.
 
 > **Common mistake:** A quote node with `content` + `author` properties might seem like `kind: 'text'` because both fields are editable text. But splitting a quote into two half-quotes doesn't make sense, and `join_text_node` hard-codes `node.content` — so Backspace in the `author` field would join the wrong property with the previous block and drop the author text. The correct kind is `'block'`.
