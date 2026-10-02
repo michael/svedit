@@ -155,6 +155,7 @@
 		background: transparent;
 		color: var(--foreground);
 		font: inherit;
+		font-feature-settings: 'calt' 0;
 		font-size: 14px;
 		/* Fixed width on purpose: field-sizing measures the placeholder while
 		   empty and the content afterwards, so the pill would visibly shrink
