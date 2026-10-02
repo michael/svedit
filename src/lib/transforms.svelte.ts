@@ -55,6 +55,20 @@ export function break_text_node(tr: Transaction): boolean {
 	const content = tr.get(selection.path);
 	const [left_text, right_text] = split_text(content, split_at_position);
 
+	// Each attachment occurrence belongs to one range after the paragraph split.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Transaction-local ownership lookup.
+	const used_attachment_ids = new Set(
+		[...left_text.marks, ...left_text.annotations].map((range) => range.node_id)
+	);
+	for (const range of [...right_text.marks, ...right_text.annotations]) {
+		const original_id = range.node_id;
+		if (used_attachment_ids.has(original_id)) {
+			range.node_id = tr.build(original_id, tr.doc.nodes);
+		} else {
+			used_attachment_ids.add(original_id);
+		}
+	}
+
 	tr.set([node.id, 'content'], left_text);
 
 	const node_insert_position: Selection = {

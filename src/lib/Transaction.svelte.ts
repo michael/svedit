@@ -324,6 +324,8 @@ export default class Transaction {
 		const keep_ids = preserve_ids && depth_first_nodes.every((node) => !this.doc.nodes[node.id]);
 		// This maps original ids to newly generated ids
 		const id_map: Record<string, string> = {};
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Transaction-local ownership lookup.
+		const used_attachment_ids = new Set<NodeId>();
 
 		for (const node of depth_first_nodes) {
 			const new_id = keep_ids ? node.id : this.generate_id();
@@ -338,7 +340,12 @@ export default class Transaction {
 
 				const remap_ranges = (ranges: Attachment[] | undefined) =>
 					(ranges ?? []).map(({ start_offset, end_offset, node_id }) => {
-						return { start_offset, end_offset, node_id: id_map[node_id] || node_id };
+						// Clipboard subtrees may contain legacy shared attachments; detach each occurrence.
+						const next_id = used_attachment_ids.has(node_id)
+							? this.build(node_id, nodes)
+							: id_map[node_id] || node_id;
+						used_attachment_ids.add(node_id);
+						return { start_offset, end_offset, node_id: next_id };
 					});
 
 				if (prop_type === 'node_array' && value && typeof value === 'object') {
