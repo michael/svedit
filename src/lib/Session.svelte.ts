@@ -22,6 +22,7 @@ import type { SelectedAttachment } from './doc_utils.js';
 import type {
 	NodeId,
 	DocumentPath,
+	DocumentOperation,
 	Selection,
 	Attachment,
 	NodeKind,
@@ -47,6 +48,16 @@ type HistoryEntry = {
 	selection_after: Selection | null;
 };
 
+/** A committed document change, as delivered to on_change listeners. */
+export type ChangeEvent = {
+	/** The ops that were applied to the document, in application order */
+	ops: DocumentOperation[];
+	/** Ops that revert this change when applied in reverse order */
+	inverse_ops: DocumentOperation[];
+	/** What kind of commit produced the change */
+	origin: 'transaction' | 'undo' | 'redo';
+};
+
 export default class Session<S extends DocumentSchema = DocumentSchema> {
 	#selection: Selection | null = $state.raw(null);
 
@@ -64,6 +75,10 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	// NOTE: Assumes single Svedit instance per session
 	commands: CommandRegistry = $state.raw({});
 	keymap: Keymap = $state.raw({});
+
+	// Change listeners registered via on_change(). Deliberately not reactive
+	// state: notification happens explicitly in _commit().
+	#change_listeners: Array<(change: ChangeEvent) => void> = [];
 
 	// Reactive helpers for UI state
 	can_undo = $derived(this.history_index >= 0);
@@ -255,6 +270,63 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	}
 
 	/**
+	 * Subscribes to committed document changes.
+	 *
+	 * The listener fires after every commit that changed the document:
+	 * transactions, undo and redo all pass through the same funnel. It
+	 * receives the applied ops, their inverse and the origin of the change.
+	 * Ops-less commits (e.g. selection-only transactions) do not notify.
+	 *
+	 * Listeners fire synchronously right after the doc swap; history and
+	 * selection bookkeeping of the surrounding commit may not have run yet.
+	 * Exceptions thrown by a listener are caught and logged, so a faulty
+	 * observer cannot corrupt that bookkeeping.
+	 *
+	 * This is the integration point for hosts that persist, sync or observe
+	 * documents (autosave, op logs, devtools) without forking Session.
+	 *
+	 * @returns Unsubscribe function
+	 */
+	on_change(listener: (change: ChangeEvent) => void): () => void {
+		this.#change_listeners.push(listener);
+		return () => {
+			const index = this.#change_listeners.indexOf(listener);
+			if (index >= 0) this.#change_listeners.splice(index, 1);
+		};
+	}
+
+	/**
+	 * Commits a new document state and notifies change listeners.
+	 *
+	 * Every mutation of session.doc (apply, undo, redo) goes through this
+	 * single funnel, so observers see every change, including undo and redo.
+	 *
+	 * Only swaps the doc when something changed: the incoming doc is always
+	 * a fresh object, and assigning it for an ops-less commit (e.g. a
+	 * selection-only transaction) would needlessly invalidate every
+	 * doc-dependent derived in the component tree.
+	 */
+	private _commit(next_doc: Document, { ops, inverse_ops, origin }: ChangeEvent): void {
+		if (ops.length === 0) return;
+		this.doc = next_doc;
+		if (this.#change_listeners.length === 0) return;
+		// Shallow-copy the op arrays: history batching mutates them in place
+		// after the fact (a batched apply pushes follow-up ops into the same
+		// history entry), and listeners must see a stable record.
+		const change = { ops: [...ops], inverse_ops: [...inverse_ops], origin };
+		for (const listener of [...this.#change_listeners]) {
+			// A throwing listener must not abort the commit: history and
+			// selection bookkeeping run after notification, and skipping them
+			// would desync the recorded history from the already-swapped doc.
+			try {
+				listener(change);
+			} catch (error) {
+				console.error('on_change listener failed', error);
+			}
+		}
+	}
+
+	/**
 	 * Applies a transaction to the document.
 	 * Auto-batches history entries with debounced behavior (max one entry per second) when batch is true.
 	 *
@@ -263,13 +335,11 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 */
 	apply(transaction: Transaction, { batch = false }: { batch?: boolean } = {}): this {
 		this.validate_transaction_result(transaction);
-		// Only swap the doc when something changed. The transaction draft is
-		// always a fresh object, and assigning it for an ops-less transaction
-		// (e.g. selection-only) would needlessly invalidate every doc-dependent
-		// derived in the component tree.
-		if (transaction.ops.length > 0) {
-			this.doc = transaction.doc;
-		}
+		this._commit(transaction.doc, {
+			ops: transaction.ops,
+			inverse_ops: transaction.inverse_ops,
+			origin: 'transaction'
+		});
 		// Make sure selection gets a new reference (is rerendered)
 		this.selection = structuredClone(transaction.selection);
 		if (this.history_index < this.history.length - 1) {
@@ -321,13 +391,17 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		// One draft for the whole change set — ops mutate the draft with
 		// node-level copy-on-write instead of copying the nodes map per op.
 		const doc = create_document_draft(this.doc);
-		change.inverse_ops
-			.slice()
-			.reverse()
-			.forEach((op) => {
-				apply_op_to_draft(doc, op);
-			});
-		this.doc = doc;
+		const undo_ops = change.inverse_ops.slice().reverse();
+		undo_ops.forEach((op) => {
+			apply_op_to_draft(doc, op);
+		});
+		// Reversing the original ops yields the inverse of this undo commit:
+		// applying them in reverse order (= original order) redoes the change.
+		this._commit(doc, {
+			ops: undo_ops,
+			inverse_ops: change.ops.slice().reverse(),
+			origin: 'undo'
+		});
 		this.selection = change.selection_before;
 		this.history_index = this.history_index - 1;
 		// History navigation ends any open typing batch, so the next batched
@@ -346,7 +420,11 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		change.ops.forEach((op) => {
 			apply_op_to_draft(doc, op);
 		});
-		this.doc = doc;
+		this._commit(doc, {
+			ops: change.ops,
+			inverse_ops: change.inverse_ops,
+			origin: 'redo'
+		});
 		this.selection = change.selection_after;
 		// Redo ends any open typing batch, matching undo().
 		this.last_batch_started = undefined;
