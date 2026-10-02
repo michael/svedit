@@ -1,2 +1,5 @@
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@sveltejs/adapter-static@4.0.0'
+  - '@sveltejs/kit@3.0.0'

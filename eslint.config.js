@@ -6,7 +6,9 @@ import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
-import svelteConfig from './svelte.config.js';
+import { loadConfig } from '@sveltejs/load-config';
+
+const svelte_config = (await loadConfig('./', { traverse: false }))?.config;
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -26,7 +28,7 @@ export default [
 		files: ['**/*.svelte', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
-				svelteConfig,
+				svelteConfig: svelte_config,
 				// Parses <script lang="ts"> blocks
 				parser: typescriptParser
 			}

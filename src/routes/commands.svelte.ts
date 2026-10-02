@@ -1,6 +1,6 @@
-import Command from '$lib/Command.svelte.js';
-import type { CommandContext } from '$lib/Command.svelte.js';
-import { is_selection_collapsed } from '$lib/utils.js';
+import Command from '#lib/Command.svelte.js';
+import type { CommandContext } from '#lib/Command.svelte.js';
+import { is_selection_collapsed } from '#lib/utils.js';
 import type { Transaction, DocumentNode, DocumentPath } from 'svedit';
 import {
 	get_closest_switchable_layout,

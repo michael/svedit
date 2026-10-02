@@ -1,17 +1,19 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 import { preview } from '@vitest/browser-preview';
-import { sveltekit } from '@sveltejs/kit/vite';
+import vite_config from './vite.config.js';
 
-export default defineConfig({
-	plugins: [sveltekit()],
-	test: {
-		browser: {
-			provider: preview(),
-			enabled: true,
-			// at least one instance is required
-			instances: [{ browser: 'chromium' }]
-		},
-		clearMocks: true,
-		include: ['src/**/*.svelte.{test,spec}.{js,ts}']
-	},
-});
+export default mergeConfig(
+	vite_config,
+	defineConfig({
+		test: {
+			browser: {
+				provider: preview(),
+				enabled: true,
+				// at least one instance is required
+				instances: [{ browser: 'chromium' }]
+			},
+			clearMocks: true,
+			include: ['src/**/*.svelte.{test,spec}.{js,ts}']
+		}
+	})
+);

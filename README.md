@@ -1585,6 +1585,8 @@ The source code is compact and readable — less than 3000 LOC across a handful 
 
 ## Developing Svedit
 
+Development requires Node.js 22.17 or newer.
+
 Once you've cloned the Svedit repository and installed dependencies with `pnpm install`, start a development server:
 
 ```bash
