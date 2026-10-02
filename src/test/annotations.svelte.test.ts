@@ -239,7 +239,7 @@ describe('mark toggle selection semantics', () => {
 			focus_offset: 8
 		};
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
@@ -255,7 +255,7 @@ describe('mark toggle selection semantics', () => {
 describe('annotation toggle selection semantics', () => {
 	it('restores an unchanged text selection without scrolling after an annotation toggle', async () => {
 		const session = create_annotation_session();
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
@@ -280,7 +280,7 @@ describe('annotation toggle selection semantics', () => {
 
 	it('still scrolls when the logical text selection moves', async () => {
 		const session = create_annotation_session();
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		const scroll_into_view = vi.spyOn(Element.prototype, 'scrollIntoView');
@@ -467,7 +467,7 @@ describe('shared text and node marks and annotations', () => {
 		const mark_id = session.get(title_path).marks[0].node_id;
 		delete session.config.node_components.strong;
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		expect(container.textContent).toContain('First story');
@@ -485,7 +485,7 @@ describe('shared text and node marks and annotations', () => {
 		const section_id = session.get(body_path).marks[0].node_id;
 		delete session.config.node_components.section;
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		expect(container.querySelector('section')).toBeNull();
@@ -504,7 +504,7 @@ describe('shared text and node marks and annotations', () => {
 		session.apply(session.tr.toggle_mark('section'));
 		const section_id = session.get(body_path).marks[0].node_id;
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const nodes = [...container.querySelectorAll('[data-mark-id]')];
@@ -541,7 +541,7 @@ describe('shared text and node marks and annotations', () => {
 
 		expect(() => session.apply(tr)).not.toThrow();
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const nodes = [...container.querySelectorAll('[data-mark-id]')];
@@ -571,7 +571,7 @@ describe('shared text and node marks and annotations', () => {
 		tr.set(body_path, body);
 		session.apply(tr);
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const nodes = [...container.querySelectorAll('[data-mark-id]')];
@@ -596,7 +596,7 @@ describe('shared text and node marks and annotations', () => {
 		tr.set(body_path, body);
 		session.apply(tr);
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const covered = [...container.querySelectorAll('[data-type="node"].anno-comment')];
@@ -613,7 +613,7 @@ describe('shared text and node marks and annotations', () => {
 		const session = create_annotation_session();
 		create_mark(session, 'section', node_selection(0, 3));
 
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await tick();
 
 		const covered = [...container.querySelectorAll('[data-type="node"].mark-section')];
@@ -964,7 +964,7 @@ describe('shared text and node marks and annotations', () => {
 
 	it('transfers node-array marks through the actual cut and paste handlers', async () => {
 		const session = create_annotation_session();
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 

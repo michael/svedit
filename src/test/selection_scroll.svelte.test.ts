@@ -70,7 +70,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 
 	it('scrolls the array to its end after inserting at the trailing gap of an overflowing array', async () => {
 		const session = make_story_session(20);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle();
 
 		const arr = find_buttons_array(container);
@@ -83,7 +83,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		await settle();
 		const scroll_before = arr.scrollLeft;
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		const trailing_offset = 20;
 		session.selection = {
@@ -112,7 +112,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 	it('scrolls the array back to its start when the cursor moves to offset 0', async () => {
 		// Covers the leading-cursor branch in __render_node_selection.
 		const session = make_story_session(20);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle();
 
 		const arr = find_buttons_array(container);
@@ -122,7 +122,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		await settle();
 		expect(arr.scrollLeft).toBeGreaterThan(0);
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		session.selection = {
 			type: 'node',
@@ -137,7 +137,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 
 	it('keeps the trailing gap .positioned through a delete-cycle back to non-overflow', async () => {
 		const session = make_story_session(20);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle();
 
 		const arr = find_buttons_array(container);
@@ -145,7 +145,7 @@ describe('node-selection scroll-into-view (row buttons array)', () => {
 		arr.scrollLeft = arr.scrollWidth;
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		session.selection = {
 			type: 'node',
@@ -177,7 +177,7 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 
 	it('brings the newly-inserted item into the viewport when inserting at the trailing gap of a page-scrolling grid', async () => {
 		const session = make_image_grid_session(12);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle_grid();
 
 		const arr = find_image_grid_array(container);
@@ -189,7 +189,7 @@ describe('node-selection scroll-into-view (wrap-grid image_grid)', () => {
 		window.scrollTo(0, 0);
 		await settle_grid();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		const trailing_offset = 12;
 		session.selection = {
@@ -232,7 +232,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		// DOM-driven, and render_selection only applies the skip in
 		// that case — if the DOM already matches, no rerender.
 		const session = make_story_session(20);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle();
 
 		const arr = find_buttons_array(container);
@@ -240,7 +240,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		arr.scrollLeft = 0;
 		await settle();
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 
 		// Simulate the DOM-driven path: set the DOM selection directly,
@@ -269,7 +269,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		// scroll position is stale and the new node + cursor are off-
 		// screen. Model-driven path must skip the skip.
 		const session = make_story_session(20);
-		const { container } = render(SveditTest, { session });
+		const { container } = await render(SveditTest, { session });
 		await settle();
 
 		const arr = find_buttons_array(container);
@@ -277,7 +277,7 @@ describe('node-selection: DOM-driven vs. model-driven', () => {
 		await settle();
 		const scroll_before = arr.scrollLeft;
 
-		const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 		canvas.focus();
 		session.selection = {
 			type: 'node',

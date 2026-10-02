@@ -101,7 +101,7 @@ describe('keymap continuity', () => {
 		// InsertDefaultNodeCommand which inserts another default node into
 		// the buttons array.
 		const session = make_story_session(2);
-		const { container } = render(SveditTestWithKeymap, { session });
+		const { container } = await render(SveditTestWithKeymap, { session });
 		await settle();
 
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
@@ -149,7 +149,7 @@ describe('keymap continuity', () => {
 		// guard, Enter fires BreakTextNodeCommand which splits the
 		// paragraph: the body array grows from 1 to 2.
 		const session = make_paragraph_session('Hello world');
-		const { container } = render(SveditTestWithKeymap, { session });
+		const { container } = await render(SveditTestWithKeymap, { session });
 		await settle();
 
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
@@ -184,7 +184,7 @@ describe('keymap continuity', () => {
 		tr.set(content_path, { content: 'Line\n\t  Item', marks: [], annotations: [] });
 		session.apply(tr);
 
-		const { container } = render(SveditTestWithKeymap, { session });
+		const { container } = await render(SveditTestWithKeymap, { session });
 		await settle();
 
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
@@ -214,7 +214,7 @@ describe('keymap continuity', () => {
 	it('inside story.title (non-text node, allow_newlines=false), Enter does nothing', async () => {
 		const session = make_story_session(1);
 		const content_path = ['page_1', 'body', 0, 'title'];
-		const { container } = render(SveditTestWithKeymap, { session });
+		const { container } = await render(SveditTestWithKeymap, { session });
 		await settle();
 
 		const canvas = container.querySelector('.svedit-canvas') as HTMLElement;

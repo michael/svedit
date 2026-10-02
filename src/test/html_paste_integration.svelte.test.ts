@@ -17,7 +17,7 @@ const config: HtmlPasteConfig = {
 async function setup(selection: Selection, html_paste: HtmlPasteConfig | undefined = config) {
 	const session = create_test_session();
 	session.config = { ...session.config, html_paste };
-	const { container } = render(SveditTest, { session });
+	const { container } = await render(SveditTest, { session });
 	(container.querySelector('.svedit-canvas') as HTMLElement).focus();
 	await tick();
 	session.selection = selection;

@@ -34,7 +34,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('non-overflow row array', () => {
 		it('keeps story buttons intrinsic-width and on the same row', async () => {
 			const session = make_story_session(2);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -50,7 +50,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('renders last gap positioned and extending past container right by --_eg', async () => {
 			const session = make_story_session(2);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -72,7 +72,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('renders first gap positioned and extending past container left by --_eg', async () => {
 			const session = make_story_session(2);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -92,7 +92,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('overflow row array', () => {
 		it('at scrollLeft=0: first gap positioned, last gap NOT positioned', async () => {
 			const session = make_story_session(20);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -109,7 +109,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('at scrollLeft=max: last gap positioned, first gap NOT positioned', async () => {
 			const session = make_story_session(20);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -124,7 +124,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('at scrollLeft=mid: neither edge gap is positioned', async () => {
 			const session = make_story_session(20);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -140,7 +140,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('transitions last gap from hidden to positioned as scroll crosses EDGE_TOLERANCE_PX', async () => {
 			const session = make_story_session(20);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -173,7 +173,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('with 4 items: edge_state.last is true and last gap is positioned', async () => {
 			const session = make_image_grid_session(4);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle_grid();
 
 			const array_el = find_image_grid_array(container);
@@ -197,7 +197,9 @@ describe('NodeGap visibility & placement', () => {
 			// sync_gap_class broke.
 			const last_gap = find_last_gap(array_el);
 			expect(last_gap).not.toBeNull();
-			const items = Array.from(array_el.querySelectorAll<HTMLElement>(':scope > [data-type="node"]'));
+			const items = Array.from(
+				array_el.querySelectorAll<HTMLElement>(':scope > [data-type="node"]')
+			);
 			const last_item = items[items.length - 1];
 			const li_rect = last_item.getBoundingClientRect();
 			const arr_rect = array_el.getBoundingClientRect();
@@ -228,7 +230,7 @@ describe('NodeGap visibility & placement', () => {
 
 		it('with 7 items: edge_state.last is true and last gap is positioned', async () => {
 			const session = make_image_grid_session(7);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle_grid();
 
 			const array_el = find_image_grid_array(container);
@@ -246,7 +248,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('empty array', () => {
 		it('renders gap-empty marker, no first/last edge gaps', async () => {
 			const session = make_story_session(0);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			// The story always has a buttons array, even when empty.
@@ -266,7 +268,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('mid gaps', () => {
 		it('positions mid gaps between every pair of adjacent visible nodes', async () => {
 			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -289,7 +291,7 @@ describe('NodeGap visibility & placement', () => {
 	describe('edge_map state', () => {
 		it('is populated for a visible array after mount', async () => {
 			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -317,7 +319,7 @@ describe('NodeGap visibility & placement', () => {
 			// overflowing array makes the edge-gap assertions
 			// deterministic.
 			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -332,7 +334,7 @@ describe('NodeGap visibility & placement', () => {
 			}
 
 			// Delete the button at offset 1 (mid).
-			const canvas = (container.querySelector('.svedit-canvas') as HTMLElement);
+			const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
 			canvas.focus();
 			session.selection = {
 				type: 'node',
@@ -368,7 +370,7 @@ describe('NodeGap visibility & placement', () => {
 		// Document reconciliation must apply them reliably to inserted nodes.
 		it('applies in-view and seen classes to newly-inserted nodes', async () => {
 			const session = make_story_session(2);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -414,7 +416,7 @@ describe('NodeGap visibility & placement', () => {
 		// and responsive breakpoints alike.
 		it('re-syncs edge gaps when the array container is resized', async () => {
 			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
@@ -465,7 +467,7 @@ describe('NodeGap visibility & placement', () => {
 		// observed "save the doc, edit again, gap works" behaviour.
 		it('keeps gaps positioned after a node component subtree is recreated', async () => {
 			const session = make_story_session(3);
-			const { container } = render(SveditTest, { session });
+			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			let array_el = find_buttons_array(container);
