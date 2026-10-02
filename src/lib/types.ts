@@ -21,7 +21,12 @@ export type NodeId = string;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DynamicRecord = Record<string, any>;
-export type SessionConfig = DynamicRecord;
+export type SessionConfig = DynamicRecord & {
+	html_paste?: import('./html_paste.js').HtmlPasteConfig;
+	mark_html_exporters?: Record<string, import('./html_export.js').MarkHtmlExporter>;
+	view_classes?: boolean;
+	visibility_culling?: boolean;
+};
 export type CommandRegistry = DynamicRecord;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DocumentOperation = [string, ...any[]];

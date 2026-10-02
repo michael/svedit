@@ -19,6 +19,9 @@
 		get_default_text_node,
 		create_plain_text_nodes_payload
 	} from './paste_utils.js';
+	import { export_text_html } from './html_export.js';
+	import { escape_html } from './html_utils.js';
+	import { parse_html_paste, map_html_text, map_html_blocks } from './html_paste.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
@@ -31,6 +34,7 @@
 		NodeSelection,
 		TextSelection,
 		PropertySelection,
+		PropertyDefinition,
 		DocumentNode,
 		DocumentPath,
 		DynamicRecord,
@@ -394,12 +398,12 @@ ${fallback_html}`;
 			if (prop_name === 'id' || prop_name === 'type') continue;
 			const property_definition = node_schema.properties[prop_name];
 			// Check if this is a text property.
-			if (property_definition.type === 'text') {
+			if (property_definition?.type === 'text') {
 				const text_content = prop_value.content;
 				if (text_content.trim()) {
-					html += `<p>${text_content}</p>`;
+					html += `<p>${export_text_html(prop_value, session)}</p>`;
 				}
-			} else if (property_definition.type === 'node_array') {
+			} else if (property_definition?.type === 'node_array') {
 				for (const child_id of prop_value.nodes) {
 					const child = session.get(child_id);
 					const child_exporter = html_exporters[child.type] || default_node_html_exporter;
@@ -480,7 +484,7 @@ ${fallback_html}`;
 		if (session.selection?.type === 'text') {
 			plain_text = session.get_selected_plain_text();
 			text = session.get_selected_text();
-			const fallback_html = `<span>${text.content}</span>`;
+			const fallback_html = `<span>${export_text_html(text, session, text.nodes)}</span>`;
 
 			// console.log('Text copy:', {
 			// 	text,
@@ -517,8 +521,12 @@ ${fallback_html}`;
 				type: property_definition.type,
 				value
 			};
-			html = create_svedit_html_format(json_data, `<span>${value}</span>`);
-			plain_text = String(value);
+			const fallback_html =
+				property_definition.type === 'text'
+					? export_text_html(value, session)
+					: escape_html(String(value));
+			html = create_svedit_html_format(json_data, `<span>${fallback_html}</span>`);
+			plain_text = property_definition.type === 'text' ? value.content : String(value);
 		}
 
 		// Write to clipboard using event.clipboardData
@@ -611,14 +619,13 @@ ${fallback_html}`;
 		const { nodes, main_nodes, marks = [], annotations = [] } = pasted_json || {};
 		if (!nodes || !main_nodes?.length) return false;
 
-		let tr = session.tr;
-		if (selection) {
-			tr.set_selection(selection);
-		}
-		if (tr.selection?.type !== 'node') return false;
-
-		const property_definition = session.inspect(tr.selection.path);
+		const target_selection = selection || session.selection;
+		if (target_selection?.type !== 'node') return false;
+		const property_definition = session.inspect(target_selection.path);
 		if (property_definition?.type !== 'node_array') return false;
+
+		const tr = session.tr;
+		if (selection) tr.set_selection(selection);
 
 		const default_text_node_type = get_default_text_node(property_definition, session.schema);
 		const target_text_property_name = get_text_property_name(
@@ -644,17 +651,23 @@ ${fallback_html}`;
 					default_text_node_type &&
 					target_text_property_name
 				) {
-					const new_node_id = tr.build('the_node', {
-						the_node: {
-							id: 'the_node',
-							type: default_text_node_type,
-							[target_text_property_name]: text_content || {
-								content: '',
-								marks: [],
-								annotations: []
+					// Keep the clipboard graph so converted text retains its marks and annotations.
+					const new_node_id = tr.build(
+						node_id,
+						{
+							...nodes,
+							[node_id]: {
+								id: node_id,
+								type: default_text_node_type,
+								[target_text_property_name]: text_content || {
+									content: '',
+									marks: [],
+									annotations: []
+								}
 							}
-						}
-					});
+						},
+						{ preserve_ids }
+					);
 					nodes_to_insert.push(new_node_id);
 				} else {
 					rejected = true;
@@ -681,13 +694,62 @@ ${fallback_html}`;
 		return false;
 	}
 
+	function try_html_paste(html: string): boolean {
+		const config = session.config.html_paste;
+		const selection = session.selection;
+		if (!config || !selection) return false;
+		const blocks = parse_html_paste(html);
+		if (!blocks.length) return false;
+		if (selection.type === 'text') {
+			const owner = session.get(selection.path.slice(0, -1));
+			const insert_as_nodes =
+				blocks.length > 1 ||
+				blocks.some(
+					(block) =>
+						'items' in block && (config.lists?.[block.tag] || block.items.flat().length > 1)
+				);
+			if (insert_as_nodes && owner && session.kind(owner) === 'text') {
+				const caret = get_node_insert_caret_after_text_selection(selection);
+				if (caret) {
+					const payload = map_html_blocks(
+						blocks,
+						config,
+						session.schema,
+						session.inspect(caret.path) as unknown as PropertyDefinition
+					);
+					if (payload && try_node_paste(payload, caret)) return true;
+				}
+			}
+			const nodes: Record<string, DocumentNode> = {};
+			const text = map_html_text(
+				blocks,
+				config,
+				session.schema,
+				session.inspect(selection.path) as unknown as PropertyDefinition,
+				nodes
+			);
+			session.apply(session.tr.insert_text(text.content, text.marks, [], nodes));
+			return true;
+		}
+		const caret = get_target_node_insert_caret(selection);
+		if (!caret) return false;
+		const payload = map_html_blocks(
+			blocks,
+			config,
+			session.schema,
+			session.inspect(caret.path) as unknown as PropertyDefinition
+		);
+		return !!payload && try_node_paste(payload, caret);
+	}
+
 	async function onpaste(event: ClipboardEvent) {
 		// Only handle paste events if editable and focus is within the canvas
 		if (!editable) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
 		event.preventDefault();
 
-		let plain_text,
+		let html_content,
+			plain_text,
 			pasted_json,
 			pasted_media = [];
 
@@ -720,7 +782,7 @@ ${fallback_html}`;
 		} else {
 			// First try to extract svedit data from HTML format
 			try {
-				const html_content = event.clipboardData?.getData('text/html');
+				html_content = event.clipboardData?.getData('text/html');
 				if (html_content) {
 					pasted_json = extract_svedit_data_from_html(html_content);
 				}
@@ -733,6 +795,14 @@ ${fallback_html}`;
 				plain_text = event.clipboardData?.getData('text/plain');
 			} catch (e) {
 				console.error('Failed to paste any content:', e);
+			}
+
+			if (!pasted_json && html_content && session.config.html_paste) {
+				try {
+					if (try_html_paste(html_content)) return;
+				} catch (error) {
+					console.warn('Failed to import pasted HTML; falling back to plain text:', error);
+				}
 			}
 
 			// Try to construct a node payload from plain text when applicable

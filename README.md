@@ -436,6 +436,138 @@ Defaults make it safe to add new defaultable properties, but they are not a repl
 
 Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
 
+### Importing pasted HTML
+
+Set `config.html_paste` to enable external HTML import. Without it, paste keeps its
+existing plain-text behavior. Native Svedit clipboard data and media paste keep
+their existing paths and bypass this importer.
+
+```ts
+import type { HtmlPasteConfig } from 'svedit';
+
+const html_paste: HtmlPasteConfig = {
+	blocks: {
+		p: { type: 'paragraph', text_property: 'content' },
+		h1: { type: 'heading1', text_property: 'content' },
+		h2: { type: 'heading2', text_property: 'content' }
+	},
+	marks: {
+		bold: { type: 'strong' },
+		link: ({ href }) => ({ type: 'link', properties: { href } })
+	}
+};
+
+const config = { /* other configuration */ html_paste };
+```
+
+Use your app's schema names (the demo uses `heading_1`, for example). Blocks accept
+`p` and `h1` through `h6`. Each mapping names a text node type and its text property.
+A block mapping can also be a synchronous factory returning the same descriptor,
+with extra node properties, or `null` to use the destination's default text node:
+
+```ts
+h1: ({ tag }) => ({
+	type: 'heading',
+	text_property: 'content',
+	properties: { level: Number(tag.slice(1)) }
+});
+```
+
+`<strong>` and `<b>` use the `bold` mapping. Link factories receive the decoded,
+trimmed `href`; they may return `null` to discard link formatting. The importer
+accepts HTTP(S), mailto, tel, and relative links, and drops unsafe schemes.
+Mappings describe data; they should not mutate the session. Svedit creates IDs
+and fills schema defaults through its normal insertion transaction.
+
+Map HTML lists separately because they contain an array of text nodes:
+
+```ts
+html_paste.lists = {
+	ul: {
+		type: 'list',
+		children_property: 'list_items',
+		item: { type: 'list_item', text_property: 'content' },
+		properties: { layout: 'square' }
+	},
+	ol: {
+		type: 'list',
+		children_property: 'list_items',
+		item: { type: 'list_item', text_property: 'content' },
+		properties: { layout: 'decimal' }
+	}
+};
+```
+
+All type and property names come from your schema. Nested HTML lists flatten into
+one list in item order, using the outer list's mapping. An item with multiple
+paragraphs becomes one text node. Unmapped or disallowed lists fall back to the
+destination's default text nodes; text fields receive flattened list text.
+
+If a destination requires a containing block, configure an optional wrapper:
+
+```ts
+html_paste.wrapper = { type: 'prose', children_property: 'body' };
+```
+
+The wrapper is used only when blocks cannot be mapped directly to the destination
+and the destination allows its type. Its `children_property` must be a node array;
+blocks are mapped against that property's allowed node types. Wrapper mappings
+also accept `properties` for schema-specific defaults.
+
+Import respects the destination's allowed node and mark types. Unmapped or
+disallowed headings fall back to its default text node; unsupported marks keep
+their text. Marks are exclusive in Svedit, so a supported link takes precedence
+over bold where they overlap. Existing active-mark insertion behavior still applies.
+
+At a node caret, HTML blocks become nodes. A single text block pasted into text
+retains the destination node type. A configured list follows the node insertion
+path, even when it contains only one item. Multiple blocks pasted into a text node
+follow the existing multi-paragraph behavior: insert nodes after that node without splitting
+or replacing its text. In block fields such as titles and captions, blocks are
+joined with blank lines, or spaces when `allow_newlines` is false.
+
+The importer recognizes semantic tags, common block wrappers, entities and
+`<br>`. Unsupported containers retain their text but do not import table
+structure, images, or CSS formatting. Lists retain structure when a list mapping
+is configured. Script/style content is ignored. Empty or
+unusable HTML, and mapping errors, fall back to the existing plain-text path.
+
+### Exporting copied rich text
+
+Copy and cut include both the embedded `data-svedit` payload and readable HTML.
+Configure `mark_html_exporters` to map your schema's marks to HTML. Unknown marks
+keep their text; data-only annotations remain in the native payload.
+
+```ts
+import { export_text_html, escape_html, safe_html_href } from 'svedit';
+import type { MarkHtmlExporter } from 'svedit';
+
+const mark_html_exporters = {
+	strong: (_node, content) => `<strong>${content}</strong>`,
+	link: (node, content) => {
+		const href = safe_html_href(node.href || '');
+		return href ? `<a href="${escape_html(href)}">${content}</a>` : content;
+	}
+} satisfies Record<string, MarkHtmlExporter>;
+
+const config = {
+	mark_html_exporters,
+	html_exporters: {
+		paragraph: (node, session) => `<p>${export_text_html(node.content, session)}</p>`,
+		heading1: (node, session) => `<h1>${export_text_html(node.content, session)}</h1>`
+	}
+};
+```
+
+Text selections and the default node exporter use this automatically. Existing
+custom `html_exporters` should call `export_text_html` for their text properties,
+as above. The helper escapes text, preserves line breaks with `<br>`, and uses
+Svedit's grapheme offsets. Mark exporters receive already escaped inline HTML;
+only attribute values need escaping. Import and export mappings are separate
+because import factories cannot be reliably reversed.
+
+### Custom handlers
+
 Two optional hooks are especially useful when integrating custom media workflows:
 
 - `handle_media_paste(session, pasted_media)`  
@@ -1458,6 +1590,25 @@ Once you've cloned the Svedit repository and installed dependencies with `pnpm i
 ```bash
 pnpm dev
 ```
+
+### Running tests
+
+Run the browser tests in Vitest's interactive watch mode:
+
+```bash
+pnpm test:unit
+```
+
+For a single run, use `pnpm test`.
+
+The tests exercise real browser focus, selection, and keyboard behavior. Keep the
+browser runner tab and window focused and let each run finish uninterrupted.
+Do not switch tabs or applications, open DevTools, or click inside the runner
+while tests are running. Losing focus can cause selection and keyboard tests to
+fail even when the editor works correctly.
+
+If a run was interrupted, return focus to the runner and rerun the tests. Failures
+that persist during a focused, uninterrupted run should be investigated.
 
 ## Building
 
