@@ -157,6 +157,8 @@ export class KeyMapper {
 	 * Handle keyboard event by trying scopes from top to bottom
 	 */
 	handle_keydown(event: KeyboardEvent): void {
+		// Respect keys already claimed by a control or application handler.
+		if (event.defaultPrevented) return;
 		// Key handling temporarily disabled (e.g. while character composition takes place)
 		if (this.skip_onkeydown) return;
 		// console.log('KeyMapper.handle_keydown', event);

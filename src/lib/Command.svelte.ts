@@ -103,9 +103,8 @@ export class RedoCommand extends Command {
 export class SelectParentCommand extends Command {
 	is_enabled() {
 		return Boolean(
-			this.context.editable &&
 			this.context.session.selection &&
-			this.context.session.selection.path.length > 3
+				(!this.context.editable || this.context.session.selection.path.length > 3)
 		);
 	}
 
