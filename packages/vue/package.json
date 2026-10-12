@@ -1,0 +1,112 @@
+{
+	"name": "@svedit/vue",
+	"version": "0.16.0",
+	"description": "Svedit, the rich content editor, for Vue 3: editor components and a Session with Vue reactivity on top of @svedit/core.",
+	"keywords": [
+		"svedit",
+		"vue",
+		"vue3",
+		"editor",
+		"rich-text-editor",
+		"rich-content",
+		"block-editor",
+		"contenteditable",
+		"wysiwyg",
+		"document-model"
+	],
+	"homepage": "https://svedit.dev/vue",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/michael/svedit.git",
+		"directory": "packages/vue"
+	},
+	"bugs": {
+		"url": "https://github.com/michael/svedit/issues"
+	},
+	"license": "MIT",
+	"author": "Michael Aufreiter (https://michaelaufreiter.com)",
+	"contributors": [
+		"Johannes Mutter (https://mutter.co)"
+	],
+	"engines": {
+		"node": ">=20.19"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"build:lib": "vite build --config vite.config.lib.ts && vue-tsc -p tsconfig.lib.json --declaration --emitDeclarationOnly --outDir dist && publint",
+		"prepack": "pnpm build:lib",
+		"check": "vue-tsc --noEmit -p tsconfig.json",
+		"check:watch": "vue-tsc --noEmit -p tsconfig.json --watch",
+		"check:strict": "vue-tsc --noEmit -p tsconfig.strict.json",
+		"format": "prettier --write .",
+		"lint": "prettier --check . && eslint .",
+		"test:unit": "vitest",
+		"test": "pnpm test:unit --run"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*",
+		"src/lib",
+		"!src/lib/**/*.test.*",
+		"!src/lib/**/*.spec.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./svedit.css": "./dist/svedit.css",
+		"./src/lib/*": "./src/lib/*",
+		"./package.json": "./package.json"
+	},
+	"peerDependencies": {
+		"vue": "^3.5.0"
+	},
+	"dependencies": {
+		"@svedit/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^2.1.1",
+		"@eslint/js": "^10.0.1",
+		"@svedit/demo-shared": "workspace:*",
+		"@types/node": "^26.6.4",
+		"@typescript-eslint/eslint-plugin": "^8.71.0",
+		"@typescript-eslint/parser": "^8.71.0",
+		"@vitejs/plugin-vue": "^6.0.10",
+		"@vitest/browser-playwright": "^5.0.3",
+		"@vitest/browser-preview": "^5.0.3",
+		"eslint": "^10.11.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-vue": "^10.11.1",
+		"globals": "^17.13.0",
+		"nanoid": "^6.0.1",
+		"playwright": "^1.64.0",
+		"prettier": "^3.9.9",
+		"publint": "^0.3.25",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.2",
+		"vitest": "^5.0.3",
+		"vitest-browser-vue": "^3.1.0",
+		"vue": "^3.5.43",
+		"vue-eslint-parser": "^10.4.1",
+		"vue-router": "^5.4.0",
+		"vue-tsc": "^3.3.13"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	}
+}
