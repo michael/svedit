@@ -45,6 +45,12 @@ and `@svedit/vue` (Vue 3). The four packages are versioned and released in locks
   otherwise. Previously any change, including to the undo history, recomputed all of them.
 - Assigning a session field its current value (for example `session.selection = session.selection`)
   is a no-op and wakes no one, like `$state.raw`.
+- `tr.set` and `tr.create` copy the value they record, so an object you keep mutating after the
+  transaction (a form model, say) no longer changes what redo applies.
+- `session.apply`, `session.undo`, `session.redo` and the `session.selection` setter read session state
+  untracked. Calling them inside a framework effect no longer subscribes that effect to the history and
+  document fields the session reads internally. The properties the bindings rely on are listed in
+  `packages/core/CLAUDE.md` and pinned by `packages/core/src/test/invariants.test.ts`.
 
 ### Fixed
 
@@ -73,8 +79,14 @@ and `@svedit/vue` (Vue 3). The four packages are versioned and released in locks
 
 ### Breaking changes
 
-- A transaction is applied once. Changing it after `session.apply(tr)` throws, because its draft has
-  become the session's document; create a new one with `session.tr`.
+- A transaction is applied once. Changing it after `session.apply(tr)` (ops or `set_selection`)
+  throws, because its draft has become the session's document; create a new one with `session.tr`.
+- A transaction applies only to the document it was created from. `session.apply` throws when a
+  transaction with ops was created before another change (an apply, undo, redo or a doc assignment),
+  instead of silently overwriting that change with the transaction's draft. Code that creates a
+  transaction, awaits something (an upload, a dialog) and applies it afterwards must create the
+  transaction after the await. Selection-only transactions still apply; `transaction.doc_before` is
+  the document a transaction was created from.
 - `derived()` takes a `Store` or an object with a `store` (such as a `Session`). The
   `DerivedSource` type no longer accepts an object with just a `version`.
 - The selection is stored by reference, like `session.doc`: `session.selection = x` keeps `x`, and

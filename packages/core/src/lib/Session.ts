@@ -82,6 +82,17 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	#commands: CommandRegistry = {};
 	#keymap: Keymap = {};
 
+	// Reads of the current document that do not go through the tracked
+	// getters. State transitions (apply, undo, redo and the selection setter's
+	// validation) read through this view, so calling them inside a framework
+	// effect does not subscribe that effect to the fields they read. Only
+	// public getters track.
+	#untracked = {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		get: (path: DocumentPath): any => doc_get(this.#schema, this.#doc, path),
+		inspect: (path: DocumentPath): Inspection => doc_inspect(this.#schema, this.#doc, path)
+	};
+
 	// Derived helpers for UI state, memoized per change so they keep a stable
 	// reference between changes (important for snapshot comparisons)
 	#selected_node = derived<AnyNode<S> | null>(this.#store, () => this.get_selected_node());
@@ -301,7 +312,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * @throws {Error} Throws if the selection is invalid
 	 */
 	private _validate_selection(selection: Selection | null): void {
-		validate_selection(selection, this);
+		validate_selection(selection, this.#untracked);
 	}
 
 	/**
@@ -344,14 +355,14 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 				...transaction.modified_node_ids,
 				...transaction.deleted_node_ids
 			]);
-			for (const node_id of get_referencing_node_ids(this.schema, doc, scan_targets)) {
+			for (const node_id of get_referencing_node_ids(this.#schema, doc, scan_targets)) {
 				affected_node_ids.add(node_id);
 			}
 		}
 
 		for (const node_id of affected_node_ids) {
 			const node = doc.nodes[node_id];
-			if (node) validate_node(node, this.schema, doc.nodes);
+			if (node) validate_node(node, this.#schema, doc.nodes);
 		}
 	}
 
@@ -434,6 +445,16 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * @param options - Optional configuration (batch: whether to allow batching with previous transaction)
 	 */
 	apply(transaction: Transaction, { batch = false }: { batch?: boolean } = {}): this {
+		// A transaction's ops were recorded against the document it was created
+		// from. If the session moved on since (another apply, undo, redo or a
+		// doc assignment), its draft would silently overwrite those changes.
+		// A transaction without ops only carries a selection, which is
+		// validated against the current document below, so it may still apply.
+		if (transaction.ops.length > 0 && transaction.doc_before !== this.#doc) {
+			throw new Error(
+				'Transaction is stale: the session document changed after the transaction was created. Create a new transaction with session.tr and apply it before the next change.'
+			);
+		}
 		this.validate_transaction_result(transaction);
 		// Validate the selection against the transaction's document before any
 		// state is swapped: the selection setter below would throw after the
@@ -459,43 +480,45 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			// document) changed nothing undoable: recording it would add an undo
 			// step that visibly does nothing.
 			if (transaction.ops.length === 0) return;
-			if (this.history_index < this.history.length - 1) {
-				this.history = this.history.slice(0, this.history_index + 1);
+			// Reads below use the private fields: a state transition must not
+			// subscribe a surrounding framework effect to history state.
+			if (this.#history_index < this.#history.length - 1) {
+				this.history = this.#history.slice(0, this.#history_index + 1);
 			}
 
 			const now = Date.now();
 			const should_batch =
 				batch &&
-				this.history_index >= 0 &&
-				this.last_batch_started !== undefined &&
-				now - this.last_batch_started < BATCH_WINDOW_MS;
+				this.#history_index >= 0 &&
+				this.#last_batch_started !== undefined &&
+				now - this.#last_batch_started < BATCH_WINDOW_MS;
 
 			if (should_batch) {
 				// Merge into the existing history entry (within the batch window).
 				// The merged entry gets fresh arrays: the entry's arrays belong to
 				// the transaction that created it and must not change under it.
-				const last_entry = this.history[this.history_index];
+				const last_entry = this.#history[this.#history_index];
 				const merged_entry: HistoryEntry = {
 					...last_entry,
 					ops: [...last_entry.ops, ...transaction.ops],
 					inverse_ops: [...last_entry.inverse_ops, ...transaction.inverse_ops],
-					selection_after: this.selection
+					selection_after: this.#selection
 				};
-				this.history = this.history.map((entry, index) =>
-					index === this.history_index ? merged_entry : entry
+				this.history = this.#history.map((entry, index) =>
+					index === this.#history_index ? merged_entry : entry
 				);
 			} else {
 				// Create new history entry (batch window elapsed, first edit, or batch not requested)
 				this.history = [
-					...this.history,
+					...this.#history,
 					{
 						ops: transaction.ops,
 						inverse_ops: transaction.inverse_ops,
 						selection_before: transaction.selection_before,
-						selection_after: this.selection
+						selection_after: this.#selection
 					}
 				];
-				this.history_index = this.history_index + 1;
+				this.history_index = this.#history_index + 1;
 				// Only set last_batch_started if batching was requested
 				if (batch) {
 					this.last_batch_started = now;
@@ -509,13 +532,13 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	}
 
 	undo(): this | undefined {
-		if (this.history_index < 0) {
+		if (this.#history_index < 0) {
 			return;
 		}
-		const change = this.history[this.history_index];
+		const change = this.#history[this.#history_index];
 		// One draft for the whole change set — ops mutate the draft with
 		// node-level copy-on-write instead of copying the nodes map per op.
-		const doc = create_document_draft(this.doc);
+		const doc = create_document_draft(this.#doc);
 		change.inverse_ops
 			.slice()
 			.reverse()
@@ -525,7 +548,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		this.#store.batch(() => {
 			this.doc = doc;
 			this.selection = change.selection_before;
-			this.history_index = this.history_index - 1;
+			this.history_index = this.#history_index - 1;
 			// History navigation ends any open typing batch, so the next batched
 			// apply starts a fresh entry instead of appending to a stale one.
 			this.last_batch_started = undefined;
@@ -534,16 +557,16 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	}
 
 	redo(): this | undefined {
-		if (this.history_index >= this.history.length - 1) {
+		if (this.#history_index >= this.#history.length - 1) {
 			return;
 		}
-		const change = this.history[this.history_index + 1];
-		const doc = create_document_draft(this.doc);
+		const change = this.#history[this.#history_index + 1];
+		const doc = create_document_draft(this.#doc);
 		change.ops.forEach((op) => {
 			apply_op_to_draft(doc, op);
 		});
 		this.#store.batch(() => {
-			this.history_index = this.history_index + 1;
+			this.history_index = this.#history_index + 1;
 			this.doc = doc;
 			this.selection = change.selection_after;
 			// Redo ends any open typing batch, matching undo().

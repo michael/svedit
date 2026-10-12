@@ -93,6 +93,13 @@ export default class Transaction {
 	ops: DocumentOperation[];
 	inverse_ops: DocumentOperation[];
 	selection_before: Selection | null;
+	/**
+	 * The document the transaction was created from. `Session.apply` refuses a
+	 * transaction with ops whose `doc_before` is no longer the session's
+	 * document: its draft would silently overwrite every change made in
+	 * between.
+	 */
+	doc_before: Document;
 	created_node_ids: NodeId[];
 	modified_node_ids: NodeId[];
 	deleted_node_ids: NodeId[];
@@ -124,7 +131,8 @@ export default class Transaction {
 		// Here we track the ops during the transaction
 		this.ops = [];
 		this.inverse_ops = [];
-		// Remember the selection before the transaction started
+		// Remember the document and selection before the transaction started
+		this.doc_before = doc;
 		this.selection_before = selection;
 
 		this.created_node_ids = [];
@@ -296,7 +304,10 @@ export default class Transaction {
 		// Important to keep changes of multiple ops invertible.
 		const normalized_path = [node.id, path.at(-1)];
 
-		// Just to be sure, make a deep copy of the old value
+		// The op records its own copy of the value: the caller may go on
+		// mutating its object (a form model, say), and redo must still apply
+		// what was set. Likewise a deep copy of the old value for the inverse.
+		value = snapshot(value);
 		const property_key = path.at(-1);
 		const property_key_str = String(property_key);
 		const previous_value = snapshot(node[property_key_str]);
@@ -415,7 +426,9 @@ export default class Transaction {
 	 * ```
 	 */
 	create(node: DocumentNode): this {
-		const node_with_defaults = fill_node_defaults(node, this.schema);
+		// Recorded as a copy, like a set value: the caller's object (and the
+		// values nested in it) must not reach the ops or the document.
+		const node_with_defaults = fill_node_defaults(snapshot(node), this.schema);
 
 		// Validate node against schema
 		this.validate_node(node_with_defaults);
@@ -478,6 +491,11 @@ export default class Transaction {
 	 * @throws {Error} Throws if the selection is invalid or out of bounds
 	 */
 	set_selection(selection: Selection): this {
+		if (this.applied) {
+			throw new Error(
+				'This transaction has already been applied. Create a new one with session.tr for further changes.'
+			);
+		}
 		this._validate_selection(selection);
 		this.selection = selection;
 		return this;

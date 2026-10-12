@@ -837,6 +837,10 @@ The `Session` class manages your content graph, selection state, and history. Th
 
 Document content (`session.doc`) and selection (`session.selection`) are **immutable** with **copy-on-write** semantics. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. State is held in plain fields and reassigned rather than mutated, so there are no deep reactive proxies and `console.log(session.get(some_node_id))` gives you a readable plain object. Every reassignment notifies the session's subscribers, which is how the bindings know what to re-render.
 
+Two rules follow from this for application code. Treat everything you read from the session as read-only: to change a value, make a transaction. And apply a transaction to the document it was created from: `session.tr` snapshots the current document, so create the transaction right before you use it. Applying a transaction after another change (an apply, undo, redo or a doc assignment) throws instead of silently overwriting that change. Values you pass to `tr.set` and `tr.create` are copied, so you may reuse or mutate your own objects afterwards.
+
+The properties the bindings rely on are listed in [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) and pinned by [`packages/core/src/test/invariants.test.ts`](packages/core/src/test/invariants.test.ts).
+
 ### Creating a session
 
 ```js

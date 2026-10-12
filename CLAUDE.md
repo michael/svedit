@@ -8,6 +8,8 @@ CLAUDE.md with the conventions for that framework; read the one for the package 
 
 - Framework-free logic (Session, Transaction, Command, doc_utils, transforms, paste/export, types): `packages/core/src/lib`.
   Never add a framework import there. The bindings alias `@svedit/core` to this source in dev and tests, so no build step is needed.
+  The correctness properties the bindings rely on (immutable values, copy on write, stale-transaction guard, untracked
+  state transitions, …) are listed in `packages/core/CLAUDE.md` and pinned by `packages/core/src/test/invariants.test.ts`.
 - Reactivity bridge: `packages/core/src/lib/reactive.ts` (`Store`, `derived`, `Tracker`). The Svelte and Vue bindings install a
   tracker in their `Session` subclass (`packages/svelte/src/lib/reactivity.svelte.ts`, `packages/vue/src/lib/reactivity.ts`).
   A tracker's `trigger` must only write, never read, or effects that write session state loop.
