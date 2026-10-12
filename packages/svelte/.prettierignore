@@ -1,0 +1,16 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Build output and generated files (the workspace .gitignore lives at the repo root)
+node_modules
+dist
+build
+.svelte-kit
+site

@@ -5,9 +5,10 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
-/dist
+.svelte-kit
+build
+dist
+site
 
 # OS
 .DS_Store
@@ -26,3 +27,10 @@ vite.config.ts.timestamp-*
 # Development
 .cursor
 .claude
+
+# Declarations belong in dist/, never next to the core sources
+packages/core/src/lib/**/*.d.ts
+packages/core/src/lib/**/*.d.ts.map
+
+# Vitest artifacts (failure screenshots from the headless Playwright runner)
+.vitest

@@ -1,0 +1,113 @@
+{
+	"name": "svedit",
+	"version": "0.16.0",
+	"description": "Svedit, the rich content editor, for Svelte 5: editor components and a Session with Svelte reactivity on top of @svedit/core.",
+	"keywords": [
+		"svedit",
+		"svelte",
+		"svelte5",
+		"editor",
+		"rich-text-editor",
+		"rich-content",
+		"block-editor",
+		"contenteditable",
+		"wysiwyg",
+		"document-model"
+	],
+	"homepage": "https://svedit.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/michael/svedit.git",
+		"directory": "packages/svelte"
+	},
+	"bugs": {
+		"url": "https://github.com/michael/svedit/issues"
+	},
+	"license": "MIT",
+	"author": "Michael Aufreiter (https://michaelaufreiter.com)",
+	"contributors": [
+		"Johannes Mutter (https://mutter.co)"
+	],
+	"engines": {
+		"node": ">=20.19"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"build:lib": "svelte-kit sync && svelte-package && publint",
+		"prepack": "pnpm build:lib",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"check:strict": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.strict.json",
+		"format": "prettier --write .",
+		"lint": "prettier --check . && eslint .",
+		"test:unit": "vitest",
+		"test": "pnpm test:unit --run"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*",
+		"src/lib",
+		"!src/lib/**/*.test.*",
+		"!src/lib/**/*.spec.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"svelte": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0"
+	},
+	"dependencies": {
+		"@svedit/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^2.1.1",
+		"@eslint/js": "^10.0.1",
+		"@svedit/demo-shared": "workspace:*",
+		"@sveltejs/adapter-static": "^4.0.0",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/load-config": "^0.2.3",
+		"@sveltejs/package": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/node": "^26.6.4",
+		"@typescript-eslint/eslint-plugin": "^8.71.0",
+		"@typescript-eslint/parser": "^8.71.0",
+		"@vitest/browser-playwright": "^5.0.3",
+		"@vitest/browser-preview": "^5.0.3",
+		"eslint": "^10.11.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.23.0",
+		"globals": "^17.13.0",
+		"nanoid": "^6.0.1",
+		"playwright": "^1.64.0",
+		"prettier": "^3.9.9",
+		"prettier-plugin-svelte": "^4.1.1",
+		"publint": "^0.3.25",
+		"svelte": "^5.57.1",
+		"svelte-check": "^4.7.6",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.2",
+		"vitest": "^5.0.3",
+		"vitest-browser-svelte": "^3.1.0"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	}
+}

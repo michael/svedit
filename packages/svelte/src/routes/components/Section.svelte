@@ -1,0 +1,34 @@
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '@svedit/demo-shared/src/demo_schema.js';
+
+	const svedit = get_svedit_context();
+	let { path, content, children }: { path: DocumentPath; content?: string; children?: Snippet } =
+		$props();
+	let node: Nodes['section'] = $derived(svedit.session.get(path));
+</script>
+
+<section id={node.id} class="section" data-node-id={node.id}>
+	{#if children}
+		{@render children()}
+	{:else}
+		{content}
+	{/if}
+</section>
+
+<style>
+	.section {
+		display: block;
+		background: color-mix(in oklch, var(--foreground) 4.5%, var(--background));
+		box-shadow:
+			inset 0 1px 0 color-mix(in oklch, var(--foreground) 16%, transparent),
+			inset 0 -1px 0 color-mix(in oklch, var(--foreground) 16%, transparent);
+	}
+
+	/* Stacked sections share one hairline instead of doubling it */
+	:global(.section + .section) {
+		box-shadow: inset 0 -1px 0 color-mix(in oklch, var(--foreground) 16%, transparent);
+	}
+</style>

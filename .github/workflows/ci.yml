@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # GitHub sets CI=true, which switches the vitest configs from the preview
+    # provider to headless Playwright (see packages/*/vitest.config.*).
+    steps:
+      - uses: actions/checkout@v5
+
+      # No version here: pnpm/action-setup reads the `packageManager` field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm check
+
+      - run: pnpm lint
+
+      - run: pnpm build:lib
+
+      - run: pnpm build:site
+
+      # The browser suites run in Chromium through @vitest/browser-playwright.
+      - run: pnpm --filter @svedit/core exec playwright install --with-deps chromium
+
+      # The root script runs the four suites one package at a time.
+      - run: pnpm test

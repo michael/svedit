@@ -1,0 +1,15 @@
+{
+	"name": "@svedit/demo-shared",
+	"version": "0.16.0",
+	"private": true,
+	"description": "Bits shared by the the Svelte, React and Vue versions of Svedit demo sites (framework switcher, demo schema, demo document, stylesheets).",
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		"./*": "./*"
+	},
+	"dependencies": {
+		"@svedit/core": "workspace:*",
+		"nanoid": "^6.0.1"
+	}
+}
