@@ -1,124 +1,35 @@
----
-description:
-alwaysApply: false
----
-
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+pnpm workspace with the framework-free editor core (`packages/core`, npm `@svedit/core`) and three bindings:
+`packages/svelte` (`svedit`), `packages/react` (`@svedit/react`), `packages/vue` (`@svedit/vue`). Each package keeps its own
+CLAUDE.md with the conventions for that framework; read the one for the package you are editing.
+
+## Where things live
+
+- Framework-free logic (Session, Transaction, Command, doc_utils, transforms, paste/export, types): `packages/core/src/lib`.
+  Never add a framework import there. The bindings alias `@svedit/core` to this source in dev and tests, so no build step is needed.
+- Reactivity bridge: `packages/core/src/lib/reactive.ts` (`Store`, `derived`, `Tracker`). The Svelte and Vue bindings install a
+  tracker in their `Session` subclass (`packages/svelte/src/lib/reactivity.svelte.ts`, `packages/vue/src/lib/reactivity.ts`).
+  A tracker's `trigger` must only write, never read, or effects that write session state loop.
+- Components, node visibility and attachments are per binding and intentionally duplicated across the three.
+- Component styles are duplicated too (Svelte/Vue inline, React in `.css` files), so a copied component stays self-contained.
+  `pnpm lint:styles` (part of `pnpm lint`) fails when they drift apart: change a component's styles in all three bindings.
+- Binding `types.ts` files hold only component props and the editor context; everything else is `export type * from '@svedit/core'`.
+- The demo switcher at the top of every demo: `packages/demo-shared/framework-switcher.css`, one small component per demo.
 
 ## Commands
 
-**Development:**
+- `pnpm dev:site` runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the
+  other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included.
+- `pnpm check`, `pnpm lint`, `pnpm test` run across all packages (tests run in the browser, one package at a time).
+- `pnpm build:site` builds the three demos into `site/` (`/`, `/react/`, `/vue/`); `pnpm preview:site` serves it like Vercel.
+- `pnpm perftest` builds the site and runs the Svelte/React/Vue benchmark headless (the `/perftest` page). The suite is
+  `packages/demo-shared/src/perftest`; each demo only has a harness route (`perftest/harness`) implementing `PerfHarness`.
+- The React and Vue demos are served under `/react/` and `/vue/` in dev too (`base` in their vite configs); static asset
+  URLs in demo code go through `import.meta.env.BASE_URL`.
 
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build
+## Conventions
 
-**Testing:**
-
-- `pnpm test:unit` - Run unit tests with Vitest
-- `pnpm test:e2e` - Run end-to-end tests with Playwright
-- `pnpm test` - Run both unit and e2e tests
-
-**Testing Guidelines:**
-
-- DO NOT run tests automatically (test:unit, test:e2e, test, etc.)
-- The user prefers to run all tests manually
-- Focus on implementing code changes and let the user handle testing
-- DO NOT start the dev server or drive the app in a browser (preview tools, screenshots, etc.) to verify changes — in-browser verification is done manually by the user
-- Static checks are fine: `pnpm build` and `pnpm check` may be used to verify that changes compile
-
-**Implementation Guidelines:**
-
-- Do exactly what the user asks for - one step at a time
-- Do NOT think 4 steps ahead or add extra features/improvements
-- Only implement the specific change requested
-- You can suggest what the next step could be, but don't implement it
-
-**Refactoring Guidelines:**
-
-- During refactors, make ONLY the minimal changes needed (e.g., renaming APIs)
-- Do NOT "improve" or restructure logic while refactoring
-- If you see something that could be improved, note it separately for a future task
-- Refactoring and improving are two separate activities - never combine them
-
-**Code Style:**
-
-- Use snake_case for all variable names, function names, and identifiers
-- This applies to JavaScript/TypeScript code, test files, and any new code written
-
-**What to NOT change (keep camelCase):**
-
-- `window.getSelection()` - native API
-- `document.activeElement` - native API
-- `navigator.clipboard` - native API
-- `addEventListener` - native API
-- `preventDefault()` - native API
-- `stopPropagation()` - native API
-- `getRangeAt()` - native API
-- Svelte event handlers: `onclick`, `onmousedown`, etc.
-- DOM properties: `innerHTML`, `textContent`, `nodeType`, etc.
-
-**Pattern**: If it's a web platform API or Svelte API, keep camelCase. If it's our custom variable/function name, use snake_case.
-
-**File Extensions:**
-
-- Files using Svelte runes (`$state`, `$derived`, `$effect`, etc.) must use `.svelte.js` or `.svelte.ts` extension
-
-**Documentation Style:**
-
-- Use sentence case for all headings in documentation (README.md, etc.)
-- Use sentence case for code comments
-- Sentence case means: capitalize only the first word and proper nouns
-- **Exception**: "Svedit" is always capitalized as it's a proper noun (the product name)
-- Examples:
-  - ✓ "Getting started" (not "Getting Started")
-  - ✓ "Why Svedit?" (not "Why svedit?") - Svedit is a proper noun
-  - ✓ "Developing Svedit" (not "Developing svedit") - Svedit is a proper noun
-  - ✓ "Document-scoped commands" (not "Document-Scoped Commands")
-  - ✓ "Create a new user" (not "Create a New User")
-  - ✓ "API reference" (not "API Reference")
-- This applies to: markdown headings, JSDoc comments, inline comments, commit messages
-
-## Architecture
-
-Svedit is a rich content editor template built with Svelte 5 that uses a graph-based data model.
-
-### Core Components
-
-**Document Model:**
-
-- `Document` - Central document class with state management, transactions, and history
-- `Tras` - Handles atomic operations on the document
-- Documents are represented as graphs of nodes with properties and references
-
-**Selection System:**
-
-- Supports text, node, and property selections
-- Maps between internal selection model and DOM selection
-- Handles complex selection scenarios like backwards selections and multi-node selections
-
-**Key Components:**
-
-- `Svedit.svelte` - Main editor component with event handling and selection management
-- `NodeArrayProperty.svelte` - Renders containers that hold sequences of nodes
-- `Node.svelte` - Wrapper component for document nodes that handles node gap placement and viewport culling
-- `TextProperty.svelte` - Handles text rendering and editing with inline annotations
-- Node components (`Story`, `List`, etc.) - Render specific content types
-
-### Schema System
-
-Content is defined through schemas that specify:
-
-- Node types and their properties
-- Property types: `string`, `integer`, `boolean`, `string_array`, `text`, `node`, `node_array`
-- Reference relationships between nodes
-- Default types and optional annotation types for node arrays
-
-### Data Flow
-
-1. Raw document data is loaded into `Session`
-2. Changes are made through transactions for undo/redo support
-3. Selection state is synchronized between internal model and DOM
-4. Components render content based on document state and schema definitions
+- snake_case for our own identifiers (React hooks are the one camelCase exception, see `packages/react/CLAUDE.md`).
+- Versions of core and bindings move in lockstep; the bindings depend on `@svedit/core` via `workspace:*`.
+- When changing core behaviour, run all four test suites: a change that is fine for one framework's reactivity can break another's.
