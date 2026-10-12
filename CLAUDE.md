@@ -21,10 +21,10 @@ CLAUDE.md with the conventions for that framework; read the one for the package 
 
 ## Commands
 
-- `pnpm dev:site` runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the
+- `pnpm dev` (alias of `pnpm dev:site`) runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the
   other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included.
 - `pnpm check`, `pnpm lint`, `pnpm test` run across all packages (tests run in the browser, one package at a time).
-- `pnpm build:site` builds the three demos into `site/` (`/`, `/react/`, `/vue/`); `pnpm preview:site` serves it like Vercel.
+- `pnpm build:site` builds the three demos into `site/` (`/`, `/react/`, `/vue/`); `pnpm preview` (alias of `pnpm preview:site`) serves it like Vercel.
 - `pnpm perftest` builds the site and runs the Svelte/React/Vue benchmark headless (the `/perftest` page). The suite is
   `packages/demo-shared/src/perftest`; each demo only has a harness route (`perftest/harness`) implementing `PerfHarness`.
 - The React and Vue demos are served under `/react/` and `/vue/` in dev too (`base` in their vite configs); static asset

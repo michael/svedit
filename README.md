@@ -2347,7 +2347,8 @@ the node visibility registry and the element attachment helpers. Versions of cor
 
 ```bash
 pnpm install
-pnpm dev:site       # all three demos on http://localhost:5173 (/, /react/, /vue/) with the switcher, hot reload
+pnpm dev            # all three demos on http://localhost:5173 (/, /react/, /vue/) with the switcher, hot reload
+pnpm dev:site       # same as pnpm dev
 pnpm dev:svelte     # http://localhost:5173/
 pnpm dev:react      # http://localhost:5173/react/
 pnpm dev:vue        # http://localhost:5173/vue/
@@ -2357,11 +2358,12 @@ pnpm lint:styles    # fails if a component's styles drifted apart between the bi
 pnpm test           # core (node-style) + the three browser suites, one package at a time
 pnpm build:lib      # publishable builds into each package's dist/
 pnpm build:site     # the demos, assembled into site/ (see below)
-pnpm preview:site   # serve site/ the way Vercel does
+pnpm preview        # serve site/ the way Vercel does
+pnpm preview:site   # same as pnpm preview
 pnpm perftest       # headless Svelte vs React vs Vue benchmark, prints a table
 ```
 
-`pnpm dev:site` runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included. Inside a package, `pnpm dev`, `pnpm build`, `pnpm preview`, `pnpm check`, `pnpm test:unit` (watch mode) and `pnpm test` (single run) work as usual.
+`pnpm dev` (alias of `pnpm dev:site`) runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included. Inside a package, `pnpm dev`, `pnpm build`, `pnpm preview`, `pnpm check`, `pnpm test:unit` (watch mode) and `pnpm test` (single run) work as usual.
 
 ### Running tests
 
@@ -2374,11 +2376,11 @@ fail even when the editor works correctly.
 If a run was interrupted, return focus to the runner and rerun the tests. Failures
 that persist during a focused, uninterrupted run should be investigated. When changing core behaviour, run all four test suites: a change that is fine for one framework's reactivity can break another's.
 
-### The demo site
-
 ### Publishing
 
 The bindings depend on `@svedit/core` with `workspace:*`, which only pnpm rewrites to the real version when packing. Publish with pnpm, never with `npm publish`, and publish the core before the bindings: `pnpm publish:all` (`pnpm -r publish --access public`) builds each package through its `prepack` script and publishes the four packages in dependency order. Keep the versions in lockstep; a consumer that ends up with two copies of `@svedit/core` gets two `Store` classes, and `derived()` cannot tell them apart.
+
+### The demo site
 
 `pnpm build:site` builds the three demos and assembles one static site:
 

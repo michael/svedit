@@ -20,6 +20,14 @@ import { fileURLToPath } from 'node:url';
 const project_root = fileURLToPath(new URL('..', import.meta.url));
 const root = join(project_root, 'site');
 const port = Number(process.env.PORT ?? 4173);
+
+// Like `vite preview`, this serves an existing build and never builds one.
+// Without `site/` every request would be a 404, which looks like a routing
+// bug rather than a missing build.
+if (!existsSync(join(root, 'index.html'))) {
+	console.error('No site build found at site/. Run `pnpm build:site` first, then `pnpm preview`.');
+	process.exit(1);
+}
 const config = JSON.parse(readFileSync(join(project_root, 'vercel.json'), 'utf8'));
 const clean_urls = config.cleanUrls === true;
 

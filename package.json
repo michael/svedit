@@ -6,6 +6,7 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
+		"dev": "pnpm dev:site",
 		"dev:site": "node scripts/dev_site.mjs",
 		"dev:svelte": "pnpm --filter svedit dev",
 		"dev:react": "pnpm --filter @svedit/react dev",
@@ -13,12 +14,13 @@
 		"build": "pnpm -r build",
 		"build:lib": "pnpm -r --filter @svedit/core --filter svedit --filter @svedit/react --filter @svedit/vue build:lib",
 		"build:site": "node scripts/build_site.mjs",
-		"check": "pnpm -r check",
 		"publish:all": "pnpm -r publish --access public",
+		"check": "pnpm -r check",
 		"lint": "pnpm -r lint && pnpm lint:styles",
 		"lint:styles": "node scripts/check_style_drift.mjs",
 		"format": "pnpm -r format",
 		"test": "pnpm -r --workspace-concurrency 1 test",
+		"preview": "pnpm preview:site",
 		"preview:site": "node scripts/serve_site.mjs",
 		"perftest": "node scripts/perftest.mjs"
 	},
