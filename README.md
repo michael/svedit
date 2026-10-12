@@ -2327,7 +2327,7 @@ Everything about the document, schema, session, transactions, transforms, comman
 
 ## Developing Svedit
 
-Development requires Node.js 22.17 or newer and pnpm. The repository is a pnpm workspace; the bindings alias `@svedit/core` to its source in dev and tests, so no build step is needed between core changes and seeing them in a demo.
+Development requires Node.js 20.19 or newer and pnpm. The repository is a pnpm workspace; the bindings alias `@svedit/core` to its source in dev and tests, so no build step is needed between core changes and seeing them in a demo.
 
 ### How the core stays framework-free
 
@@ -2375,6 +2375,10 @@ If a run was interrupted, return focus to the runner and rerun the tests. Failur
 that persist during a focused, uninterrupted run should be investigated. When changing core behaviour, run all four test suites: a change that is fine for one framework's reactivity can break another's.
 
 ### The demo site
+
+### Publishing
+
+The bindings depend on `@svedit/core` with `workspace:*`, which only pnpm rewrites to the real version when packing. Publish with pnpm, never with `npm publish`, and publish the core before the bindings: `pnpm publish:all` (`pnpm -r publish --access public`) builds each package through its `prepack` script and publishes the four packages in dependency order. Keep the versions in lockstep; a consumer that ends up with two copies of `@svedit/core` gets two `Store` classes, and `derived()` cannot tell them apart.
 
 `pnpm build:site` builds the three demos and assembles one static site:
 

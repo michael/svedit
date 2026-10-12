@@ -28,9 +28,5 @@ vite.config.ts.timestamp-*
 .cursor
 .claude
 
-# Declarations belong in dist/, never next to the core sources
-packages/core/src/lib/**/*.d.ts
-packages/core/src/lib/**/*.d.ts.map
-
 # Vitest artifacts (failure screenshots from the headless Playwright runner)
 .vitest

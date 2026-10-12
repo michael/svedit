@@ -14,6 +14,7 @@
 		"build:lib": "pnpm -r --filter @svedit/core --filter svedit --filter @svedit/react --filter @svedit/vue build:lib",
 		"build:site": "node scripts/build_site.mjs",
 		"check": "pnpm -r check",
+		"publish:all": "pnpm -r publish --access public",
 		"lint": "pnpm -r lint && pnpm lint:styles",
 		"lint:styles": "node scripts/check_style_drift.mjs",
 		"format": "pnpm -r format",
