@@ -1,0 +1,85 @@
+{
+	"name": "@svedit/core",
+	"version": "0.16.0",
+	"description": "Framework-free core of Svedit, the rich content editor for Svelte, React and Vue: document model, Session, Transaction, Command, transforms, paste and export utilities and all types.",
+	"keywords": [
+		"svedit",
+		"editor",
+		"rich-text-editor",
+		"rich-content",
+		"block-editor",
+		"contenteditable",
+		"wysiwyg",
+		"document-model",
+		"framework-agnostic"
+	],
+	"homepage": "https://svedit.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/michael/svedit.git",
+		"directory": "packages/core"
+	},
+	"bugs": {
+		"url": "https://github.com/michael/svedit/issues"
+	},
+	"license": "MIT",
+	"author": "Michael Aufreiter (https://michaelaufreiter.com)",
+	"contributors": [
+		"Johannes Mutter (https://mutter.co)"
+	],
+	"engines": {
+		"node": ">=20.19"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./src/lib/*": "./src/lib/*",
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"src/lib",
+		"!src/lib/**/*.test.*"
+	],
+	"sideEffects": false,
+	"scripts": {
+		"build": "pnpm build:lib",
+		"build:lib": "rm -rf dist && tsc -p tsconfig.lib.json && publint",
+		"prepack": "pnpm build:lib",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"check:strict": "tsc --noEmit -p tsconfig.strict.json",
+		"format": "prettier --write .",
+		"lint": "prettier --check . && eslint .",
+		"test:unit": "vitest",
+		"test": "pnpm test:unit --run"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^2.1.1",
+		"@eslint/js": "^10.0.1",
+		"@types/node": "^26.6.4",
+		"@typescript-eslint/eslint-plugin": "^8.71.0",
+		"@typescript-eslint/parser": "^8.71.0",
+		"@vitest/browser-playwright": "^5.0.3",
+		"@vitest/browser-preview": "^5.0.3",
+		"eslint": "^10.11.0",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^17.13.0",
+		"nanoid": "^6.0.1",
+		"playwright": "^1.64.0",
+		"prettier": "^3.9.9",
+		"publint": "^0.3.25",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.2",
+		"vitest": "^5.0.3"
+	}
+}
