@@ -306,13 +306,12 @@ describe('NodeGap visibility & placement', () => {
 	});
 
 	describe('mid-delete', () => {
-		// NodeArrayProperty's `{#each ... (index)}` keys by index, so a
-		// mid-delete unmounts ONLY the trailing-index element. Surviving
-		// siblings keep their DOM nodes and data-path attributes; their
-		// content shifts but the near-index entries remain valid. If
-		// anyone ever changes that keying to e.g. `(node.id)`, this
-		// invariant breaks and this test fails — pointing straight at
-		// the cause.
+		// NodeArrayProperty keys children by `id:occurrence`, so a mid-delete
+		// unmounts the deleted node's element and the following siblings
+		// re-register under their shifted paths. The registry's ownership
+		// guards keep the near-index entries valid regardless of the order in
+		// which the old and new attachments run; if that bookkeeping breaks,
+		// this test fails.
 		it('removes only the trailing index from the near set, keeps adjacent gaps positioned', async () => {
 			// 3 buttons fit the narrow vitest viewport. The mid-delete
 			// invariant holds regardless of overflow, but a non-

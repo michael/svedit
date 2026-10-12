@@ -38,7 +38,9 @@ import type { DocumentPath, SveditRenderContext } from './types.js';
  * pointer-events: auto themselves.
  *
  * Rendered with a render function so the markers are inserted as a flat
- * list without Vue fragment anchors inside the node-array container.
+ * list. The component root is a fragment, so Vue adds two empty text
+ * nodes as anchors next to the markers; the selection mapping walks
+ * elements by their data attributes and skips them.
  */
 type GapMarker = {
 	key: string;

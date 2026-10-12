@@ -70,7 +70,9 @@ the Session subclass with this framework's reactivity, node visibility and eleme
 
 - Components whose DOM is read by the selection mapping (TextProperty, NodeArrayProperty, Node, CustomProperty, NodeGapMarkers, node-array mark wrappers such as Section) are written with render functions, not templates. Vue templates wrap `v-for`, `v-if` and `<slot />` output in fragments whose anchor nodes (empty text nodes, `<!--v-if-->` comments) would otherwise land inside the contenteditable canvas. Keep it that way.
 - Element lifecycle hooks use the `v-attach` directive (`src/lib/attach.ts`), the equivalent of Svelte's `{@attach}`.
-- Reactive class state (Session, Command) lives in `shallowRef`/`computed` fields exposed through getters. Document and selection values are plain objects, never deep proxies.
+- Reactive class state (Session, Command) lives in `shallowRef`/`computed` fields exposed through getters. Document and selection values are plain objects, never deep proxies: the Vue `Session` unwraps `reactive()` proxies (deeply, for transaction values and selections) before storing anything.
+- Node components must root at `<Node>` (or declare `mark` and `annotations` props): `NodeArrayProperty` passes both to every child, and on a plain-element root Vue's attribute fallthrough would render them as `mark="[object Object]"`.
+- Inside the canvas, avoid `v-if` on elements of a node's template (`v-show` or a class toggle instead): the `<!--v-if-->` placeholder comment lands in the contenteditable DOM.
 
 **Documentation Style:**
 

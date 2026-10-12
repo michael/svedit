@@ -130,3 +130,43 @@ describe('session reactivity', () => {
 		stop();
 	});
 });
+
+describe('proxies handed to the session', () => {
+	it('unwraps proxies nested in a value passed to a transaction', () => {
+		// toRaw only unwraps the outermost proxy. A value spread from a
+		// reactive() object carries proxies for its nested arrays, which used
+		// to make structuredClone throw inside tr.set.
+		const session = create_test_session();
+		const title = reactive(session.get(['story_1', 'title']));
+		const tr = session.tr;
+		expect(() => tr.set(['story_1', 'title'], { ...title, content: 'Nested' })).not.toThrow();
+		session.apply(tr);
+		const stored = session.get(['story_1', 'title']);
+		expect(stored.content).toBe('Nested');
+		expect(isReactive(stored.marks)).toBe(false);
+	});
+
+	it('keeps a plain value identical', () => {
+		const session = create_test_session();
+		const selection = {
+			type: 'text' as const,
+			path: ['story_1', 'title'],
+			anchor_offset: 0,
+			focus_offset: 0
+		};
+		session.selection = selection;
+		expect(session.selection).toBe(selection);
+	});
+
+	it('stores a reactive() document, schema and config raw', () => {
+		const session = create_test_session();
+		const { doc, schema, config } = session;
+		session.doc = reactive(doc);
+		session.schema = reactive(schema);
+		session.config = reactive(config);
+		expect(session.doc).toBe(doc);
+		expect(session.schema).toBe(schema);
+		expect(session.config).toBe(config);
+		expect(toRaw(session.doc)).toBe(doc);
+	});
+});

@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
 		:class="`hero mx-auto w-full ${has_image ? 'has-image' : ''}`"
 		:style="has_image ? `background-image: url(${node.image});` : ''"
 	>
-		<div v-if="has_image" class="hero-overlay"></div>
+		<div v-show="has_image" class="hero-overlay"></div>
 		<div class="hero-content">
 			<TextProperty
 				class="hero-title"
