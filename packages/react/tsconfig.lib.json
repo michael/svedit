@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"declarationMap": true,
+		"emitDeclarationOnly": true,
+		"rootDir": "./src/lib",
+		"outDir": "./dist",
+		"paths": {
+			"@svedit/react": ["./src/lib/index.ts"]
+		}
+	},
+	"include": ["src/lib/**/*.ts", "src/lib/**/*.tsx"],
+	"exclude": ["src/lib/**/*.test.*", "src/lib/**/*.spec.*"]
+}

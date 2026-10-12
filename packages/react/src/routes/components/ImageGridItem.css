@@ -1,0 +1,38 @@
+.image-grid-item {
+	padding: var(--s-4);
+	height: 100%;
+}
+.image-grid-item img {
+	width: 100%;
+	object-fit: cover;
+	height: 100%;
+}
+
+/* Don't crop SVGs */
+.image-grid-item img[src*='.svg'] {
+	object-fit: contain;
+	object-position: center;
+}
+
+/* Placeholder styling */
+.image-grid-item img.placeholder {
+	opacity: 0.7;
+	border-radius: var(--s-2);
+	padding: var(--s-4);
+	background: var(--background);
+}
+
+.image-grid-item .image-wrapper {
+	/* for now ignore clicks on the image, until we have non-text selections */
+	/* pointer-events: none; */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+@media (max-width: 680px) {
+	.image-grid-item .image-wrapper {
+		min-width: 100%;
+		max-width: 100%;
+	}
+}

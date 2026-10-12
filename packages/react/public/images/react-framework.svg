@@ -1,0 +1,18 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- A component tree: a root function component fanning out into children, props flowing down. -->
+<rect x="70" y="24" width="60" height="32" rx="6" stroke="black"/>
+<path d="M84 40H116" stroke="black"/>
+<path d="M100 56V80" stroke="black"/>
+<path d="M40 80H160" stroke="black"/>
+<path d="M40 80V100M100 80V100M160 80V100" stroke="black"/>
+<rect x="16" y="100" width="48" height="28" rx="6" stroke="black"/>
+<rect x="76" y="100" width="48" height="28" rx="6" stroke="black"/>
+<rect x="136" y="100" width="48" height="28" rx="6" stroke="black"/>
+<path d="M100 128V150M70 150H130M70 150V166M130 150V166" stroke="black"/>
+<rect x="48" y="166" width="44" height="20" rx="6" stroke="black"/>
+<rect x="108" y="166" width="44" height="20" rx="6" stroke="black"/>
+<circle cx="100" cy="24" r="3.4" fill="#58c4dc"/>
+<circle cx="40" cy="80" r="3.4" fill="#58c4dc"/>
+<circle cx="160" cy="80" r="3.4" fill="#58c4dc"/>
+<circle cx="100" cy="150" r="3.4" fill="#58c4dc"/>
+</svg>

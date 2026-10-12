@@ -1,0 +1,14 @@
+.node-button .button {
+	display: block;
+	text-decoration: none;
+	border-radius: var(--s-2);
+	background: var(--accent);
+	color: var(--background);
+	padding: var(--s-2) var(--s-4);
+}
+
+.node-button .button:hover {
+	background: var(--accent);
+	color: var(--background);
+	opacity: 0.8;
+}
