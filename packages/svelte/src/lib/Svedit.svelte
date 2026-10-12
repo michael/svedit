@@ -1,5 +1,5 @@
 <script lang="ts" generics="S extends DocumentSchema">
-	import { flushSync, getContext, setContext } from 'svelte';
+	import { flushSync, getContext, onDestroy, setContext } from 'svelte';
 
 	import { check_duplicate_paths, remove_native_composition_text } from '@svedit/core';
 	import {
@@ -347,6 +347,15 @@
 			pushed_keymap = null;
 		}
 	}
+
+	// Destroying the editor while focused (route change, {#key} remount) must
+	// not leave the session keymap on the app's KeyMapper stack.
+	onDestroy(() => {
+		if (key_mapper && pushed_keymap) {
+			key_mapper.remove_scope(pushed_keymap);
+			pushed_keymap = null;
+		}
+	});
 
 	function focus_canvas() {
 		// Use flushSync so highlight spans are removed from the DOM

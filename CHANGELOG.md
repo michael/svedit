@@ -76,6 +76,16 @@ and `@svedit/vue` (Vue 3). The four packages are versioned and released in locks
   changing the transaction.
 - Batching edits into one undo step no longer appends to the operations of the transaction that
   started the batch.
+- `@svedit/react`: the canvas only counts as focused when the canvas element itself has focus. React's
+  `onFocus`/`onBlur` also fire for descendants, so focusing an input inside a node component re-pushed
+  the session keymap and Enter or Backspace typed into the input ran editor commands.
+- `@svedit/react`: swapping the `session` prop on a mounted `<Svedit>` now re-renders the editor's
+  descendants with the new session; they used to stay subscribed to the old one.
+- `@svedit/react`: `context.editable = value` is visible to the next read in the same tick, like the
+  Svelte bindable; `context.canvas_el` readers are woken once the canvas element is attached; the
+  visibility registry is installed in a StrictMode-safe way.
+- Unmounting an editor while it has focus removes the session keymap from the app's `KeyMapper`
+  stack in all three bindings; it used to stay there and keep handling shortcuts.
 
 ### Breaking changes
 

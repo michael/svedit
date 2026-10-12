@@ -420,6 +420,12 @@ onBeforeUnmount(() => {
 	document.removeEventListener('cut', oncut);
 	document.removeEventListener('copy', oncopy);
 	document.removeEventListener('paste', onpaste);
+	// Unmounting while focused (route change, remount with a new key) must
+	// not leave the session keymap on the app's KeyMapper stack.
+	if (key_mapper && pushed_keymap) {
+		key_mapper.remove_scope(pushed_keymap);
+		pushed_keymap = null;
+	}
 });
 </script>
 

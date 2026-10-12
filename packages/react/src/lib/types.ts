@@ -129,8 +129,10 @@ export type SveditProps<S extends DocumentSchema = DocumentSchema> = {
 	session: Session<S>;
 	/**
 	 * Determines whether the document should be editable or read-only.
-	 * Controlled when provided together with `on_editable_change`; omit it
-	 * to let the editor manage the flag itself (defaults to false).
+	 * Controlled whenever it is provided: pass `on_editable_change` too, or a
+	 * command that sets `context.editable` (e.g. save) is reverted on the next
+	 * render. Omit it to let the editor manage the flag itself (defaults to
+	 * false).
 	 */
 	editable?: boolean;
 	/** Called when a command (e.g. save) changes the editable flag. */

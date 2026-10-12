@@ -40,6 +40,7 @@ import type {
 	SveditProps
 } from './types.js';
 import type { Keymap } from '@svedit/core';
+import type { FocusEvent } from 'react';
 
 type Locals = {
 	before_composition_selection: TextSelection | null;
@@ -126,6 +127,14 @@ export default function Svedit<S extends DocumentSchema>(props: SveditProps<S>) 
 			},
 			set editable(value: boolean) {
 				const current = latest.current;
+				// Reflect the write at once, like Svelte's bindable: a command that
+				// sets `editable` and reads it back in the same tick (or a second
+				// command in the same keydown) must see the new value. The next
+				// render re-syncs with the prop in controlled mode.
+				if (state.editable !== value) {
+					state.editable = value;
+					store.notify();
+				}
 				if (current.editable === undefined) set_local_editable(value);
 				current.on_editable_change?.(value);
 			},
@@ -454,11 +463,26 @@ export default function Svedit<S extends DocumentSchema>(props: SveditProps<S>) 
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selection, doc, canvas_focused]);
 
-	// Wake subscribers of the context store when the editable prop changes;
-	// descendants that rendered in the same pass already saw the new value.
+	// Wake subscribers of the context store when the editable prop or the
+	// session changes; descendants that rendered in the same pass already saw
+	// the new value. A session swap must go through here: the memoized root
+	// element bails the subtree out of reconciliation, and every `useSvedit`
+	// subscribes to this store, so this notify is what makes descendants
+	// re-read `context.session` and resubscribe to the new session.
 	useLayoutEffect(() => {
 		store.notify();
-	}, [store, editable]);
+	}, [store, editable, session]);
+
+	// Unmounting while focused (route change, remount with a new key) must not
+	// leave the session keymap on the app's KeyMapper stack.
+	useEffect(() => {
+		return () => {
+			if (key_mapper && locals.pushed_keymap) {
+				key_mapper.remove_scope(locals.pushed_keymap);
+				locals.pushed_keymap = null;
+			}
+		};
+	}, [key_mapper, locals]);
 
 	// Initialize commands and keymap on the session. Runs after mount and
 	// re-runs when the session or its config changes.
@@ -535,13 +559,27 @@ export default function Svedit<S extends DocumentSchema>(props: SveditProps<S>) 
 
 	const canvas_ref = useCallback(
 		(el: HTMLDivElement | null) => {
+			if (state.canvas_el === (el ?? undefined)) return;
 			state.canvas_el = el ?? undefined;
+			// Descendants rendered before the ref attached; wake readers of
+			// `context.canvas_el`.
+			store.notify();
 		},
-		[state]
+		[state, store]
 	);
 
-	const on_focus = () => handle_canvas_focus();
-	const on_blur = () => handle_canvas_blur();
+	// React's onFocus/onBlur are focusin/focusout: they also fire for
+	// descendants (an input inside a node component). Only the canvas itself
+	// gaining or losing focus counts, like the native focus/blur listeners of
+	// the Svelte and Vue editors.
+	const on_focus = (event: FocusEvent<HTMLDivElement>) => {
+		if (event.target !== event.currentTarget) return;
+		handle_canvas_focus();
+	};
+	const on_blur = (event: FocusEvent<HTMLDivElement>) => {
+		if (event.target !== event.currentTarget) return;
+		handle_canvas_blur();
+	};
 
 	return (
 		<SveditContextObject.Provider value={context}>

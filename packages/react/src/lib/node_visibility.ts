@@ -556,10 +556,15 @@ export function useNodeVisibility(
 		const registry = new VisibilityRegistry();
 		registry.view_classes = svedit.session?.config?.view_classes !== false;
 		registry.visibility_culling = svedit.session?.config?.visibility_culling !== false;
-		// eslint-disable-next-line react-hooks/immutability -- installs the registry on the (mutable) context object
-		svedit.visibility_registry = registry;
 		return registry;
 	});
+	// Installed during render, not in the initializer: StrictMode runs the
+	// initializer twice and keeps the first registry, so a side effect there
+	// would leave the context pointing at the discarded one.
+	if (svedit.visibility_registry !== registry) {
+		// eslint-disable-next-line react-hooks/immutability -- installs the registry on the (mutable) context object
+		svedit.visibility_registry = registry;
+	}
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
