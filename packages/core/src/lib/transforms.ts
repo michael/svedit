@@ -1,0 +1,209 @@
+import { split_text, join_text, get_char_length } from './utils.js';
+import { get_default_node_type } from './doc_utils.js';
+import type Transaction from './Transaction.js';
+import type {
+	DocumentNode,
+	DocumentPath,
+	NodeArrayProperty,
+	NodeProperty,
+	Selection,
+	TextSelection
+} from './types.js';
+
+/**
+ * Set multiple properties on a node via a transaction.
+ *
+ * @param tr - The transaction
+ * @param path - Path to the node
+ * @param properties - Key/value pairs to set
+ */
+export function set_properties(
+	tr: Transaction,
+	path: DocumentPath,
+	properties: Record<string, unknown>
+): void {
+	for (const [key, value] of Object.entries(properties)) {
+		tr.set([...path, key], value);
+	}
+}
+
+/**
+ * Whether a text property path sits in a node inside a node array, e.g.
+ * ['page_1', 'body', 0, 'content']. A path of a top-level node's property
+ * (['paragraph_1', 'content']) has no enclosing node array.
+ */
+function is_in_node_array(tr: Transaction, text_path: DocumentPath): boolean {
+	const parent_path = text_path.slice(0, -2);
+	if (parent_path.length === 0) return false;
+	return tr.inspect(parent_path)?.type === 'node_array';
+}
+
+export function break_text_node(tr: Transaction): boolean {
+	// Keep a reference of the original selection (before any transforms are applied)
+	const selection = tr.selection;
+	// First we need to ensure we have a text selection
+	if (selection.type !== 'text') return false;
+
+	// Next, we need to determine if the enclosing node is a pure text node (e.g. paragraph),
+	// which is wrapped inside a node_array (e.g. page.body)
+
+	// Owner of the text property (e.g. paragraph)
+	const node = tr.get(selection.path.slice(0, -1));
+	if (tr.kind(node) !== 'text') return false;
+	if (!is_in_node_array(tr, selection.path)) return false; // Do nothing if we're not inside a node_array
+	const node_array_prop = String(selection.path.at(-3));
+	// Get the node that owns the node_array property (e.g. a page.body)
+	const node_array_node = tr.get(selection.path.slice(0, -3));
+
+	// Determine the type of the new node (and that it can be inserted) before
+	// changing anything, so a failure leaves the transaction untouched.
+	// TODO: Only use default_node_type when caret is at the end of
+	const node_array_property_definition =
+		tr.schema[node_array_node.type].properties[node_array_prop];
+	const target_node_type = get_default_node_type(
+		node_array_property_definition as NodeProperty | NodeArrayProperty
+	);
+	if (!target_node_type) {
+		console.warn(
+			'Cannot determine target node type for break_text_node - no default_ref_type and multiple node_types'
+		);
+		return false;
+	}
+	const inserter = tr.config?.inserters?.[target_node_type];
+	if (!inserter) {
+		throw new Error(`No inserter function available for node type '${target_node_type}'`);
+	}
+
+	// Delete selection unless collapsed
+	if (selection.anchor_offset !== selection.focus_offset) {
+		tr.delete_selection();
+	}
+
+	// After delete_selection the selection is still a (collapsed) text selection
+	const split_at_position = (tr.selection as TextSelection).anchor_offset;
+	const content = tr.get(selection.path);
+	const [left_text, right_text] = split_text(content, split_at_position);
+
+	// Each attachment occurrence belongs to one range after the paragraph split.
+	const used_attachment_ids = new Set(
+		[...left_text.marks, ...left_text.annotations].map((range) => range.node_id)
+	);
+	for (const range of [...right_text.marks, ...right_text.annotations]) {
+		const original_id = range.node_id;
+		if (used_attachment_ids.has(original_id)) {
+			range.node_id = tr.build(original_id, tr.doc.nodes);
+		} else {
+			used_attachment_ids.add(original_id);
+		}
+	}
+
+	tr.set([node.id, 'content'], left_text);
+
+	const node_insert_position: Selection = {
+		type: 'node',
+		path: tr.selection.path.slice(0, -2),
+		anchor_offset: (tr.selection.path.at(-2) as number) + 1,
+		focus_offset: (tr.selection.path.at(-2) as number) + 1
+	};
+
+	tr.set_selection(node_insert_position);
+
+	inserter(tr, right_text);
+	return true;
+}
+
+export function join_text_node(tr: Transaction): boolean {
+	// Keep a reference of the original selection (before any transforms are applied)
+	const selection = tr.selection;
+	// First we need to ensure we have a text selection
+	if (selection.type !== 'text') return false;
+
+	const node = tr.get(selection.path.slice(0, -1));
+	if (tr.kind(node) !== 'text') return false;
+	if (!is_in_node_array(tr, selection.path)) return false; // Do nothing if we're not inside a node_array
+
+	const node_index = tr.selection.path.at(-2) as number;
+
+	// Determine if we can join with the previous node
+	let can_join = false;
+	let predecessor_node: DocumentNode | null = null;
+
+	if (node_index > 0) {
+		const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
+		predecessor_node = tr.get(previous_text_path);
+		can_join = predecessor_node !== null && tr.kind(predecessor_node) === 'text';
+	}
+
+	// Special behavior: if we can't join and current node is empty, delete it
+	if (!can_join && node.content.content === '') {
+		tr.set_selection({
+			type: 'node',
+			path: tr.selection.path.slice(0, -2),
+			anchor_offset: node_index,
+			focus_offset: node_index + 1
+		});
+		tr.delete_selection();
+		return true;
+	}
+
+	// If we can't join for any reason, return false
+	if (!can_join || !predecessor_node) {
+		return false;
+	}
+
+	// Normal joining logic - both nodes are text nodes
+	const previous_text_path = [...tr.selection.path.slice(0, -2), node_index - 1];
+	const joined_text = join_text(predecessor_node.content, node.content);
+
+	// Calculate caret position based on original predecessor content length
+	const caret_position = get_char_length(predecessor_node.content.content);
+
+	// First set the joined content on the predecessor node (preserves annotations)
+	tr.set([predecessor_node.id, 'content'], joined_text);
+
+	// Then delete the current node
+	tr.set_selection({
+		type: 'node',
+		path: tr.selection.path.slice(0, -2),
+		anchor_offset: node_index,
+		focus_offset: node_index + 1
+	});
+
+	tr.delete_selection();
+
+	// Finally set the caret position at the join point using the pre-calculated position
+	tr.set_selection({
+		type: 'text',
+		path: [...previous_text_path, 'content'],
+		anchor_offset: caret_position,
+		focus_offset: caret_position
+	});
+	return true;
+}
+
+export function insert_default_node(tr: Transaction): boolean {
+	const selection = tr.selection;
+
+	// Only work with collapsed node selections
+	if (selection?.type !== 'node' || selection.anchor_offset !== selection.focus_offset) {
+		return false;
+	}
+
+	const path = selection.path;
+	const node_array_node = tr.get(path.slice(0, -1));
+	const property_name = String(path.at(-1));
+
+	// Get the definition for this property
+	const property_definition = tr.schema[node_array_node.type].properties[property_name];
+	const default_type = get_default_node_type(
+		property_definition as NodeProperty | NodeArrayProperty
+	);
+
+	// Use the inserter function if available
+	if (tr.config?.inserters?.[default_type as string]) {
+		tr.config.inserters[default_type as string](tr);
+		return true;
+	} else {
+		throw new Error(`No inserter function available for default node type '${default_type}'`);
+	}
+}

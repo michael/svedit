@@ -1,0 +1,55 @@
+/* The tab bar at the top of every demo that switches between the Svelte (/),
+   React (/react/) and Vue (/vue/) builds of the same editor. The links are
+   plain anchors: each build is a separate static app. The active tab takes
+   the demo's own accent color (see each demo's colors.css). */
+.framework-switcher {
+	position: fixed;
+	top: max(10px, env(safe-area-inset-top, 0px));
+	left: 50%;
+	transform: translateX(-50%);
+	/* Above page content, but below the editor tools (toolbar 50, its floating
+	   node tools and the link popover 60), which can sit at the top of the
+	   viewport when the first node is selected. */
+	z-index: 40;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+	border-radius: 9999px;
+	background: color-mix(in oklch, var(--background) 82%, transparent);
+	border: 1px solid color-mix(in oklch, var(--background) 86%, var(--foreground));
+	box-shadow: var(--shadow-2);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.framework-switcher a {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45em;
+	padding: 7px 13px;
+	border-radius: 9999px;
+	color: var(--foreground);
+	text-decoration: none;
+	opacity: 0.7;
+	transition:
+		opacity 120ms ease,
+		background-color 120ms ease;
+}
+
+.framework-switcher a:hover,
+.framework-switcher a:focus-visible {
+	opacity: 1;
+	background: color-mix(in oklch, var(--background) 92%, var(--foreground));
+	outline: none;
+}
+
+.framework-switcher a[aria-current='page'] {
+	opacity: 1;
+	background: var(--accent);
+	color: var(--background);
+}

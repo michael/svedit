@@ -1,0 +1,16 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"paths": {
+			"svedit": ["./src/lib/index.ts"],
+			"@svedit/core": ["../core/src/lib/index.ts"],
+			"@svedit/core/*": ["../core/*"]
+		},
+		"erasableSyntaxOnly": true,
+		"sourceMap": true,
+		"strict": false,
+		"declarationMap": true,
+		"declaration": true
+	},
+	"include": ["src"]
+}

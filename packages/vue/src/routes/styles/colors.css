@@ -1,0 +1,7 @@
+:root {
+	/* Vue brand colors: green #42b883 and dark blue-gray #35495e */
+	--accent: oklch(70.25% 0.132 160.37);
+	--background: oklch(100% 0 0);
+	--foreground: oklch(39.77% 0.0437 250.18);
+	--border: oklch(0 0 0 / 0.2);
+}

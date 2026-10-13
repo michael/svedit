@@ -1,0 +1,14 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- A single-file component card: template, script and style blocks stacked. -->
+<rect x="40" y="30" width="120" height="140" rx="6" stroke="black"/>
+<path d="M40 60H160M40 110H160M40 140H160" stroke="black"/>
+<path d="M62 45L54 50L62 55M74 45L82 50L74 55" stroke="black"/>
+<path d="M56 78L50 88L56 98M94 78L100 88L94 98M80 76L70 100" stroke="black"/>
+<path d="M56 120L68 134L80 120" stroke="black"/>
+<path d="M116 124H146M116 132H134" stroke="black"/>
+<path d="M56 152L76 152M84 152L112 152M120 152L146 152" stroke="black"/>
+<circle cx="40" cy="60" r="3.4" fill="#42b883"/>
+<circle cx="160" cy="110" r="3.4" fill="#42b883"/>
+<circle cx="40" cy="140" r="3.4" fill="#42b883"/>
+<circle cx="160" cy="30" r="3.4" fill="#42b883"/>
+</svg>

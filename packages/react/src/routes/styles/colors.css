@@ -1,0 +1,7 @@
+:root {
+	/* React brand colors: cyan #58c4dc and dark blue-gray #23272f */
+	--accent: oklch(58% 0.11 225);
+	--background: oklch(100% 0 0);
+	--foreground: oklch(39.77% 0.0437 250.18);
+	--border: oklch(0 0 0 / 0.2);
+}

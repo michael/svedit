@@ -1,0 +1,409 @@
+<script setup lang="ts">
+import { computed, inject } from 'vue';
+import { serialize_path } from '@svedit/core';
+import { should_position_gap } from './node_visibility.js';
+import type { DocumentPath, SveditRenderContext } from './types.js';
+
+/**
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ MUST RULES — do not violate when modifying this file            │
+ * ├─────────────────────────────────────────────────────────────────┤
+ * │ 1. Edge gaps (gap-before at offset 0 / gap-after.last) MUST      │
+ * │    render OUTSIDE the node-array container — they extend into   │
+ * │    the whitespace above/below (column) or left/right (row) of   │
+ * │    the first/last node. They only clamp when the consumer       │
+ * │    explicitly opts in via --node-caret-boundary(-x/-y).         │
+ * │ 2. Gaps MUST NEVER overlap nodes. They render strictly in the   │
+ * │    whitespace between nodes (mid gaps) or outside the node      │
+ * │    array bounds (edge gaps). Never on top of a node.            │
+ * └─────────────────────────────────────────────────────────────────┘
+ *
+ * Invisible keyboard caret selectable and gap hit area.
+ *
+ * Rendered as a sibling of Node elements inside NodeArrayProperty,
+ * interleaved between nodes in DOM order. This ensures:
+ * - Correct DOM order for native drag-to-select across nodes
+ * - No containing-block issues from transform/filter/will-change on nodes
+ *
+ * Always present in the DOM when editable (stable structure for
+ * selection anchoring, scrollTo, etc.). Anchor positioning is
+ * activated lazily via the `.positioned` class, derived reactively
+ * from the visibility registry's array_indices / edge_map. Vue's
+ * reactive collections track reads at per-key granularity, so a
+ * registry write only re-evaluates the adjacent gaps. Applying the
+ * class declaratively (instead of imperative classList toggles) means
+ * it survives DOM recreation without a document change (e.g. dev-mode HMR).
+ *
+ * `position-visibility: anchors-visible` does NOT skip anchor
+ * resolution — the browser resolves all anchor() then hides the
+ * result. The `.positioned` class toggle is required to prevent
+ * O(N) anchor resolution on every layout pass.
+ *
+ * Row/column detection uses var(--row, 1) with the * 99999 multiplier
+ * trick — no @container style() queries, works in all browsers.
+ *
+ * If you override this component via `system_components.node_gap`, make
+ * sure your custom component also handles read-only mode by rendering a
+ * plain `.node-gap` placeholder without editable internals.
+ */
+const svedit = inject<SveditRenderContext>('svedit')!;
+const props = withDefaults(
+	defineProps<{ array_path: DocumentPath; offset: number; count: number; empty?: boolean }>(),
+	{ empty: false }
+);
+const is_editable = computed(() => svedit.editable);
+
+const is_first = computed(() => props.offset === 0);
+const is_last = computed(() => props.offset === props.count);
+const type = computed(() => (is_first.value ? 'gap-before' : 'gap-after'));
+
+const path_str = computed(() => serialize_path(props.array_path));
+// get_array_indices lazily creates the (stable) reactive set for this
+// array; membership reads below are tracked per key.
+const near_indices = computed(() => svedit.visibility_registry.get_array_indices(path_str.value));
+const positioned = computed(
+	() =>
+		is_editable.value &&
+		should_position_gap(
+			near_indices.value,
+			svedit.visibility_registry.edge_map.get(path_str.value),
+			props.offset,
+			is_last.value,
+			props.empty
+		)
+);
+
+const gap_style = computed(() => {
+	if (!is_editable.value) return '';
+	const prev_idx = props.offset - 1;
+	const pa = is_first.value
+		? `--${serialize_path([...props.array_path, 0])}`
+		: `--${serialize_path([...props.array_path, prev_idx])}`;
+	const next = `--${serialize_path([...props.array_path, props.offset])}`;
+	const container = `--${serialize_path(props.array_path)}`;
+	return `--_pa:${pa};--_next:${next};--_container:${container}`;
+});
+
+const anchor_name = computed(() => {
+	if (!is_editable.value) return '';
+	if (is_first.value) return `--g-${serialize_path([...props.array_path, 0])}-gap-before`;
+	return `--g-${serialize_path([...props.array_path, props.offset - 1])}-gap-after`;
+});
+
+function cycle_z_index(e: MouseEvent) {
+	const el = e.currentTarget as HTMLElement;
+	if (el.hasAttribute('data-sent-to-back')) {
+		document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach((prev) => {
+			prev.removeAttribute('data-sent-to-back');
+		});
+	}
+	el.setAttribute('data-sent-to-back', '');
+}
+</script>
+
+<template>
+	<div
+		v-if="is_editable"
+		class="node-gap"
+		:class="{ 'gap-before': is_first, 'gap-after': !is_first, empty, last: is_last, positioned }"
+		:data-type="type"
+		:data-gap-array-path="path_str"
+		:data-gap-offset="offset"
+		:style="gap_style"
+	>
+		<div
+			class="svedit-selectable"
+			:style="`anchor-name:${anchor_name}`"
+			@pointerdown="cycle_z_index"
+		>
+			<br />
+		</div>
+	</div>
+	<div v-else class="node-gap"></div>
+</template>
+
+<style scoped>
+.node-gap {
+	display: contents;
+	/* The native browser caret briefly appears inside .svedit-selectable for one frame
+		before the model-driven NodeCaret renders at the correct edge position.
+		Suppressing it here avoids a flash of the native caret. */
+	caret-color: transparent;
+}
+</style>
+
+<style>
+/* ------------------------------------------------------------------ */
+/* Un-positioned: no layout box at all                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+	 * display: none is load-bearing for large documents. A zero-size
+	 * absolutely-positioned selectable still belongs to the containing
+	 * block's out-of-flow list, and the browser lays out EVERY such box
+	 * on EVERY layout pass — measured ~430ms per pass at 2000 nodes
+	 * (~3500 gaps) in Chrome vs ~23ms with the boxes removed. That cost
+	 * hits every keystroke (the per-change reconcile reads a rect for
+	 * every node, and selection rendering forces layout), every window
+	 * resize frame, and every scroll-triggered layout.
+	 *
+	 * Off-screen gaps therefore contribute no layout box. DOM structure
+	 * stays stable (the .node-gap wrapper and selectable elements remain),
+	 * and DOM Ranges may still point into display:none elements, so
+	 * programmatic node selections targeting off-screen gaps keep working.
+	 * Empty-array gaps are excluded: they must stay clickable/visible even
+	 * before reconcile positions them.
+	 */
+.node-gap:not(.positioned):not(.empty) .svedit-selectable {
+	display: none;
+}
+
+.node-gap:not(.positioned) .svedit-selectable {
+	position: absolute;
+	pointer-events: none;
+	width: 0;
+	height: 0;
+	overflow: clip;
+}
+
+/* ------------------------------------------------------------------ */
+/* Positioned: full anchor layout                                      */
+/* ------------------------------------------------------------------ */
+
+/*
+	 * Anchor references resolved from CSS variable names passed via
+	 * inline style (--_pa = parent anchor, --_next, --_container).
+	 * Same pattern as NodeGapMarkers — keeps JS minimal and anchor() in CSS.
+	 *
+	 * --_pa references the anchor-name of the node this gap belongs to,
+	 * allowing us to position relative to that node's edges.
+	 *
+	 * Edge gaps extend outward and clamp to the containing block edge
+	 * (0px floor). This can overlap neighboring elements when the node
+	 * array isn't alone in its parent. anchor() only sees the border
+	 * box, so it can't detect margin, gap, or parent padding around
+	 * the container. --node-caret-boundary lets consumers set an
+	 * explicit clamp target (a parent element's anchor-name) so edge
+	 * gaps stop at that boundary instead. --node-caret-boundary-x and
+	 * --node-caret-boundary-y override per-axis, falling back to
+	 * --node-caret-boundary when unset.
+	 */
+.node-gap.positioned {
+	/* Fallback 9999999px: when --_pa is orphan (node briefly missing during
+		   edits), anchor() without a fallback invalidates the custom property
+		   and `top` falls back to 0, placing the gap at viewport top as a
+		   giant overlay. 9999999px ensures orphan anchors produce huge values
+		   that min() excludes instead.
+		   LIMIT: documents taller or wider than 9999999px will re-surface
+		   the reported giant-overlay bug — the fallback must exceed the
+		   containing block's dimensions to land off-screen. If you need to
+		   support larger documents, bump this value here and in the matching
+		   `* 9999999px` branch-disable trick throughout this file (and in
+		   NodeGapMarkers.vue). Stay below ~33M px to avoid Blink's
+		   LayoutUnit ceiling. */
+	--_s-t: anchor(var(--_pa) top, 9999999px);
+	--_s-b: anchor(var(--_pa) bottom, 9999999px);
+	--_s-l: anchor(var(--_pa) left, 9999999px);
+	--_s-r: anchor(var(--_pa) right, 9999999px);
+}
+.node-gap.positioned.gap-before:not(.empty) {
+	--_b-t: anchor(var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) top, 0px);
+	--_b-l: anchor(
+		var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) left,
+		0px
+	);
+}
+.node-gap.positioned.gap-after:not(.last) {
+	--_n-t: anchor(var(--_next) top);
+	--_n-l: anchor(var(--_next) left);
+	--_c-r: anchor(var(--_container) right);
+}
+.node-gap.positioned.gap-after.last,
+.node-gap.positioned.gap-before.empty {
+	--_c-t: anchor(var(--_container) top);
+	--_c-b: anchor(var(--_container) bottom);
+	--_c-l: anchor(var(--_container) left);
+	--_c-r: anchor(var(--_container) right);
+	--_b-b: anchor(
+		var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom,
+		0px
+	);
+	--_b-r: anchor(
+		var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right,
+		0px
+	);
+	--_b-bt: anchor(
+		var(--node-caret-boundary-y, var(--node-caret-boundary, --_no-boundary)) bottom,
+		9999999px
+	);
+	--_b-rl: anchor(
+		var(--node-caret-boundary-x, var(--node-caret-boundary, --_no-boundary)) right,
+		9999999px
+	);
+}
+
+.node-gap.positioned .svedit-selectable {
+	--_eg: var(--node-caret-edge-gap, 24px);
+	--_gm: var(--node-caret-gap-min-size, 16px);
+	--_R: var(--row, 1);
+	--_C: calc(1 - var(--row, 1));
+	user-select: none;
+	pointer-events: auto;
+	position: absolute;
+	position-anchor: var(--_pa);
+	position-visibility: anchors-visible;
+	z-index: var(--node-caret-gap-z-index, 1);
+	cursor: pointer;
+}
+
+.node-gap.positioned .svedit-selectable[data-sent-to-back] {
+	z-index: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Merged column / row layout positioning                              */
+/*                                                                    */
+/* Uses var(--row, 1) with the * 99999 multiplier trick:              */
+/*   --_R = var(--row, 1)          → 1 in row, 0 in column           */
+/*   --_C = calc(1 - var(--row, 1))→ 1 in column, 0 in row           */
+/* Inside min(), + var(--_R) * 9999999px disables a col branch in row,  */
+/* + var(--_C) * 9999999px disables a row branch in column.             */
+/* ------------------------------------------------------------------ */
+
+/* Between two siblings: col centers vertically, row centers horizontally */
+.node-gap.positioned.gap-after:not(.last) .svedit-selectable {
+	--_mid: calc((var(--_s-b) + var(--_n-t)) / 2 - var(--_gm) / 2);
+	top: min(
+		calc(var(--_s-b) + var(--_R) * 9999999px),
+		calc(var(--_mid) + var(--_R) * 9999999px),
+		calc(var(--_s-t) + var(--_C) * 9999999px)
+	);
+	bottom: min(
+		calc(var(--_n-t) + var(--_R) * 9999999px),
+		calc(var(--_mid) + var(--_R) * 9999999px),
+		calc(var(--_s-b) + var(--_C) * 9999999px)
+	);
+	left: min(
+		calc(var(--_s-l) + var(--_R) * 9999999px),
+		calc(var(--_s-r) + var(--_C) * 9999999px),
+		calc(
+			(var(--_s-r) + var(--_n-l)) / 2 - var(--_gm) / 2 + max(0px, var(--_s-r) - var(--_n-l)) * 999 +
+				var(--_C) * 9999999px
+		),
+		/* Safety clamp for wrap: pins gap inside CB when current/next
+			   wrap across rows. Disabled in nowrap/horizontal-scroll where
+			   next is side-by-side on the same row (n-l > s-r) — there
+			   the other branches position correctly and this clamp would
+			   wrongly force the gap to CB right minus eg. */
+		calc(
+				100% - var(--_eg) + max(0px, var(--_n-l) - var(--_s-r) + 0.5px) * 9999 + var(--_C) *
+					9999999px
+			)
+	);
+	right: min(
+		calc(var(--_s-r) + var(--_R) * 9999999px),
+		calc(
+			max(
+					0px,
+					min(
+						var(--_n-l),
+						calc((var(--_s-r) + var(--_n-l)) / 2 - var(--_gm) / 2),
+						max(
+							min(calc(var(--_c-r) - var(--_eg)), calc(var(--_s-r) - var(--_eg))),
+							calc(var(--_s-r) - (var(--_n-l) - var(--_s-r)) * 999)
+						)
+					)
+				) +
+				var(--_C) * 9999999px
+		)
+	);
+	min-height: calc(var(--_gm) * var(--_C));
+	min-width: calc(var(--_gm) * var(--_R));
+}
+
+/* After last node: col extends down, row extends right.
+	   top also clamps to boundary_bottom - eg so that min-height
+	   (which wins over bottom in overconstrained abs-pos) cannot
+	   push the element past the boundary.
+
+	   left's third branch (100% - --_eg + max(0, --_s-r - 100% + 0.5px) * 9999)
+	   is the wrap-layout safety clamp: in column or row+wrap layouts
+	   where the last node sits WITHIN the CB (--_s-r < 100%), it pins
+	   the gap inside the CB so it doesn't extend past the right edge.
+	   The * 9999 multiplier disables this branch in nowrap horizontal-
+	   scroll (where --_s-r > 100% — the trailing node has overflowed
+	   the CB and the gap is expected to follow it).
+
+	   right's `min(--_c-r - --_eg, --_s-r - --_eg)` is what fills the
+	   gap into the whitespace between the last node and the container
+	   in non-overflow layouts. In non-overflow, --_c-r < --_s-r in the
+	   `right` axis (container right is further left than node right
+	   from the CB right edge), so min picks --_c-r - --_eg and the gap
+	   ends at container.right + --_eg (the MUST-RULE overshoot). In
+	   overflow, --_s-r < --_c-r and min picks --_s-r - --_eg — the gap
+	   follows the node out past the container. */
+.node-gap.positioned.gap-after.last .svedit-selectable {
+	top: min(
+		calc(min(var(--_s-b), calc(var(--_b-bt) - var(--_eg))) + var(--_R) * 9999999px),
+		calc(var(--_s-t) + var(--_C) * 9999999px)
+	);
+	bottom: min(
+		calc(max(var(--_b-b), var(--_s-b) - var(--_eg)) + var(--_R) * 9999999px),
+		calc(var(--_s-b) + var(--_C) * 9999999px)
+	);
+	left: min(
+		calc(var(--_s-l) + var(--_R) * 9999999px),
+		calc(min(var(--_s-r), calc(var(--_b-rl) - var(--_eg))) + var(--_C) * 9999999px),
+		calc(100% - var(--_eg) + max(0px, var(--_s-r) - 100% + 0.5px) * 9999 + var(--_C) * 9999999px)
+	);
+	right: min(
+		calc(var(--_s-r) + var(--_R) * 9999999px),
+		calc(
+			max(var(--_b-r), min(calc(var(--_c-r) - var(--_eg)), calc(var(--_s-r) - var(--_eg)))) +
+				var(--_C) * 9999999px
+		)
+	);
+	min-height: calc(var(--_eg) * var(--_C));
+	min-width: calc(var(--_eg) * var(--_R));
+}
+
+/* Before first node: col extends up, row extends left */
+.node-gap.positioned.gap-before:not(.empty) .svedit-selectable {
+	top: min(
+		calc(max(var(--_b-t), var(--_s-t) - var(--_eg)) + var(--_R) * 9999999px),
+		calc(var(--_s-t) + var(--_C) * 9999999px)
+	);
+	bottom: min(calc(var(--_s-t) + var(--_R) * 9999999px), calc(var(--_s-b) + var(--_C) * 9999999px));
+	left: min(
+		calc(var(--_s-l) + var(--_R) * 9999999px),
+		calc(max(var(--_b-l), var(--_s-l) - var(--_eg)) + var(--_C) * 9999999px)
+	);
+	right: min(calc(var(--_s-r) + var(--_R) * 9999999px), calc(var(--_s-l) + var(--_C) * 9999999px));
+	min-height: calc(var(--_eg) * var(--_C));
+	min-width: calc(var(--_eg) * var(--_R));
+}
+
+/* Empty array: the gap fills its placeholder, which is this
+	   selectable's containing block (NodeArrayProperty sets it
+	   position: relative). inset:0 fills it with no anchor() — so no
+	   .positioned gating and no anchor cost. The width:auto, height:auto
+	   and pointer-events:auto override the :not(.positioned) 0×0
+	   collapse; position-visibility:always overrides the .positioned
+	   rule's anchors-visible, so a transient positioned toggle can't
+	   hide the gap. */
+.node-gap.gap-before.empty .svedit-selectable {
+	position: absolute;
+	inset: 0;
+	width: auto;
+	height: auto;
+	pointer-events: auto;
+	position-visibility: always;
+}
+
+/* Debugging styles - DO NOT CHANGE OR REMOVE */
+/* .node-gap.positioned .svedit-selectable {
+		outline: 2px solid rgba(238, 0, 255, 0.5);
+		background-color: rgba(238, 0, 255, 0.5);
+		outline-offset: -0.5px;
+	} */
+</style>

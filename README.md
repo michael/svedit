@@ -1,28 +1,23 @@
 # Svedit
 
-Svedit is Editing for Svelte. It offers structured, full-canvas content editing. Model content in JSON, render it with custom components, and **edit it directly in the layout**.
+One editor, three frameworks. Svedit offers structured, full-canvas content editing: model content in JSON, render it with your own components, and **edit it directly in the layout**. The editor core is framework-free, and thin bindings make it feel native in Svelte 5, React 19 and Vue 3.
 
-- Try the [Svedit demo](https://svedit.dev) — watch the debug output at the bottom of the page
+- Try the [Svedit demo](https://svedit.dev) (Svelte), [svedit.dev/react](https://svedit.dev/react) and [svedit.dev/vue](https://svedit.dev/vue) — watch the debug output at the bottom of the page
 - Try [Editable](https://editable.website) — build Svelte websites you can edit on the page
+
+| Package                              | npm name        | What it is                                                                             |
+| ------------------------------------ | --------------- | -------------------------------------------------------------------------------------- |
+| [`packages/core`](packages/core)     | `@svedit/core`  | Document model, Session, Transaction, Command, transforms, paste and export, all types |
+| [`packages/svelte`](packages/svelte) | `svedit`        | Svelte 5 components and a Session with Svelte reactivity. Demo at `/`                  |
+| [`packages/react`](packages/react)   | `@svedit/react` | React 19 components, hooks and a snapshot-based store. Demo at `/react/`               |
+| [`packages/vue`](packages/vue)       | `@svedit/vue`   | Vue 3 components and a Session with Vue reactivity. Demo at `/vue/`                    |
+| `packages/demo-shared`               | private         | The framework switcher shown at the top of every demo                                  |
+
+Each binding re-exports everything from the core, so `import { Session, Transaction, define_document_schema } from 'svedit'` keeps working, and the React and Vue packages export the same names from `@svedit/react` and `@svedit/vue`. The document format, schema language, Session and Transaction API, transforms, commands, keymaps, clipboard payload and CSS tokens are identical across the three: a document edited in the Svelte version loads unchanged in the React or Vue version. Only the rendering layer differs, and this README calls out those differences where they matter.
 
 ## Why Svedit?
 
-Because Svelte‘s reactivity system is **the perfect fit** for building super-lightweight content editing experiences. In fact, they're so lightweight, **your content is your editor** — no context switching between a backend and the live site. Svedit just gives you the gluing pieces around **defining a custom document model** and **mapping DOM selections** to the internal model and vice versa.
-
-## Getting started
-
-The fastest way to get started is to clone the `hello-svedit` template and turn it into your own project:
-
-```bash
-git clone https://github.com/michael/hello-svedit
-cd hello-svedit
-pnpm install
-pnpm dev
-```
-
-Now make it your own. The next thing you probably want to do is define your own [node types](./src/routes/demo_schema.ts), add a [Toolbar](./src/routes/components/Toolbar.svelte), and render custom [Overlays](./src/routes/components/Overlays.svelte). For that just get inspired by the [Svedit demo code](./src/routes).
-
-You can also install Svedit into an existing SvelteKit project with `pnpm add svedit`, but you'll need to set up the session, schema, config, and components yourself. See the [hello-svedit repo](https://github.com/michael/hello-svedit) or this repo's [`src/routes`](./src/routes) for reference.
+Because a modern component framework's reactivity is **the perfect fit** for building super-lightweight content editing experiences. In fact, they're so lightweight, **your content is your editor** — no context switching between a backend and the live site. Svedit just gives you the gluing pieces around **defining a custom document model** and **mapping DOM selections** to the internal model and vice versa.
 
 ## Principles
 
@@ -34,6 +29,224 @@ You can also install Svedit into an existing SvelteKit project with `pnpm add sv
 
 **Native-first:** Svedit favors standardized native browser solutions over custom ones whenever possible — using browser-based rendering and the browser's selection APIs underneath, rather than reimplementing them (e.g. by building on [pretext](https://github.com/chenglou/pretext)). When we hit browser bugs, we try to get them fixed upstream (in collaboration with the W3C editing working group). Workarounds we add are intended to be temporary, until the underlying issue is fixed by browser vendors. And where we believe there's a better way to solve a problem than what's currently specified, we lobby for it to become a new (or improved) web standard.
 
+## Installation
+
+```bash
+pnpm add svedit          # Svelte 5
+pnpm add @svedit/react   # React 19
+pnpm add @svedit/vue     # Vue 3
+```
+
+The Svelte package ships its styles inside the components, so nothing else is needed. The React and Vue packages ship one stylesheet that you import once, next to the editor:
+
+```js
+import '@svedit/react/svedit.css'; // React
+import '@svedit/vue/svedit.css'; // Vue
+```
+
+If you prefer to start from a running app, the [hello-svedit](https://github.com/michael/hello-svedit) template is a minimal SvelteKit project; for React and Vue, the demos in [`packages/react/src/routes`](packages/react/src/routes) and [`packages/vue/src/routes`](packages/vue/src/routes) are the reference. Each demo has a schema ([`demo_schema.ts`](packages/svelte/src/routes/demo_schema.ts)), a config ([`demo_config.ts`](packages/svelte/src/routes/demo_config.ts)), a toolbar and overlays you can copy and adapt.
+
+## Quick start
+
+A Svedit app has three framework-neutral parts — a schema, a document and a config — plus one node component per node type and a page that mounts `<Svedit>`. The schema and document below are shared by all three examples.
+
+```js
+import { define_document_schema } from 'svedit'; // or '@svedit/react', '@svedit/vue'
+
+export const document_schema = define_document_schema({
+	page: {
+		kind: 'document',
+		properties: {
+			body: { type: 'node_array', node_types: ['paragraph'], default_node_type: 'paragraph' }
+		}
+	},
+	paragraph: {
+		kind: 'text',
+		properties: {
+			content: { type: 'text', mark_types: ['strong'], allow_newlines: true }
+		}
+	},
+	strong: { kind: 'mark', properties: {} }
+});
+
+export const doc = {
+	document_id: 'page_1',
+	nodes: {
+		page_1: {
+			id: 'page_1',
+			type: 'page',
+			body: { nodes: ['paragraph_1'], marks: [], annotations: [] }
+		},
+		paragraph_1: {
+			id: 'paragraph_1',
+			type: 'paragraph',
+			content: { content: 'Hello world.', marks: [], annotations: [] }
+		}
+	}
+};
+```
+
+The config maps node types to components and wires up commands and keybindings. Only the component imports differ per framework:
+
+```js
+import {
+	define_keymap,
+	UndoCommand,
+	RedoCommand,
+	ToggleMarkCommand,
+	BreakTextNodeCommand,
+	InsertDefaultNodeCommand
+} from 'svedit';
+
+export const config = {
+	node_components: { page: Page, paragraph: Paragraph, strong: Strong },
+	inserters: {
+		paragraph: (tr, content = { content: '', marks: [], annotations: [] }) => {
+			const id = tr.generate_id();
+			tr.create({ id, type: 'paragraph', content });
+			tr.insert_nodes([id]);
+		}
+	},
+	create_commands_and_keymap: (context) => {
+		const commands = {
+			undo: new UndoCommand(context),
+			redo: new RedoCommand(context),
+			toggle_strong: new ToggleMarkCommand('strong', context),
+			break_text_node: new BreakTextNodeCommand(context),
+			insert_default_node: new InsertDefaultNodeCommand(context)
+		};
+		const keymap = define_keymap({
+			'meta+z,ctrl+z': [commands.undo],
+			'meta+shift+z,ctrl+shift+z': [commands.redo],
+			'meta+b,ctrl+b': [commands.toggle_strong],
+			enter: [commands.break_text_node, commands.insert_default_node]
+		});
+		return { commands, keymap };
+	}
+};
+```
+
+### Svelte
+
+```svelte
+<!-- Paragraph.svelte -->
+<script>
+	import { Node, TextProperty } from 'svedit';
+	let { path } = $props();
+</script>
+
+<Node {path}>
+	<TextProperty tag="p" path={[...path, 'content']} placeholder="Paragraph" />
+</Node>
+```
+
+```svelte
+<!-- +page.svelte -->
+<script>
+	import { setContext } from 'svelte';
+	import { Svedit, Session, KeyMapper } from 'svedit';
+	import { document_schema, doc } from './schema.js';
+	import { config } from './config.js';
+
+	const session = new Session(document_schema, doc, config);
+	const key_mapper = new KeyMapper();
+	setContext('key_mapper', key_mapper);
+	let editable = $state(true);
+</script>
+
+<svelte:window onkeydown={(event) => key_mapper.handle_keydown(event)} />
+<Svedit {session} path={[session.doc.document_id]} bind:editable />
+```
+
+### React
+
+```jsx
+// Paragraph.jsx
+import { Node, TextProperty } from '@svedit/react';
+
+export default function Paragraph({ path }) {
+	return (
+		<Node path={path}>
+			<TextProperty tag="p" path={[...path, 'content']} placeholder="Paragraph" />
+		</Node>
+	);
+}
+```
+
+```jsx
+// App.jsx
+import { useEffect, useState } from 'react';
+import { Svedit, Session, KeyMapper, KeyMapperContext } from '@svedit/react';
+import '@svedit/react/svedit.css';
+import { document_schema, doc } from './schema.js';
+import { config } from './config.js';
+
+export default function App() {
+	const [session] = useState(() => new Session(document_schema, doc, config));
+	const [key_mapper] = useState(() => new KeyMapper());
+	const [editable, set_editable] = useState(true);
+
+	useEffect(() => {
+		const handle_keydown = (event) => key_mapper.handle_keydown(event);
+		window.addEventListener('keydown', handle_keydown);
+		return () => window.removeEventListener('keydown', handle_keydown);
+	}, [key_mapper]);
+
+	return (
+		<KeyMapperContext.Provider value={key_mapper}>
+			<Svedit
+				session={session}
+				path={[session.doc.document_id]}
+				editable={editable}
+				on_editable_change={set_editable}
+			/>
+		</KeyMapperContext.Provider>
+	);
+}
+```
+
+### Vue
+
+```vue
+<!-- Paragraph.vue -->
+<script setup>
+import { Node, TextProperty } from '@svedit/vue';
+defineProps(['path']);
+</script>
+
+<template>
+	<Node :path="path">
+		<TextProperty tag="p" :path="[...path, 'content']" placeholder="Paragraph" />
+	</Node>
+</template>
+```
+
+```vue
+<!-- App.vue -->
+<script setup>
+import { onBeforeUnmount, onMounted, provide, ref } from 'vue';
+import { Svedit, Session, KeyMapper } from '@svedit/vue';
+import '@svedit/vue/svedit.css';
+import { document_schema, doc } from './schema.js';
+import { config } from './config.js';
+
+const session = new Session(document_schema, doc, config);
+const key_mapper = new KeyMapper();
+provide('key_mapper', key_mapper);
+const editable = ref(true);
+
+const handle_keydown = (event) => key_mapper.handle_keydown(event);
+onMounted(() => window.addEventListener('keydown', handle_keydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', handle_keydown));
+</script>
+
+<template>
+	<Svedit :session="session" :path="[session.doc.document_id]" v-model:editable="editable" />
+</template>
+```
+
+The key mapper is optional: without one, `<Svedit>` still renders and edits, but the keymap returned by `create_commands_and_keymap` is not pushed when the canvas gains focus. See [Scope-aware keyboard shortcuts](#scope-aware-keyboard-shortcuts).
+
 ## How it works
 
 Svedit connects eight key pieces:
@@ -44,13 +257,13 @@ Svedit connects eight key pieces:
 4. **Transaction** - Groups multiple document operations (create, delete, set) into a single atomic unit with undo/redo support
 5. **Transforms** - Higher-level composable functions that run inside a transaction (e.g., `break_text_node`, `join_text_node`) to modify the document.
 6. **Config** - Maps node types to components, provides inserters and commands
-7. **Components** - Render your content using Svelte (one component per node type)
+7. **Components** - Render your content with your framework (one component per node type)
 8. **Commands** - User actions (bold text, insert node, undo/redo) that modify the session
 
 **The flow:**
 
-- Define a schema → create a session → provide config → render with `<Svedit>` component
-- User interactions trigger commands → commands create transactions → which run transforms to modify the document → session applies the transaction → Svelte's reactivity updates the UI
+- Define a schema → create a session → provide config → render with the `<Svedit>` component
+- User interactions trigger commands → commands create transactions → which run transforms to modify the document → session applies the transaction → the framework's reactivity (or, in React, the session subscription) updates the UI
 - Native DOM selections are mapped to Svedit's internal selection model
 
 ## Schema
@@ -226,9 +439,11 @@ const document_schema = {
 
 Mark types are defined as nodes with `kind: 'mark'`, annotation types as nodes with `kind: 'annotation'`. Simple marks like `strong` and `emphasis` have no properties, while marks like `link` can carry data (e.g. `href`). Each `text` or `node_array` property specifies which types are allowed via `mark_types` and `annotation_types` — this lets you control formatting per property (e.g. allow bold and links in body text, but only emphasis in titles). `mark_types` may only reference `kind: 'mark'` node types and `annotation_types` only `kind: 'annotation'` node types.
 
+Wrap the schema in `define_document_schema(...)` to get a schema-typed `Session<typeof document_schema>`, so `session.get(path)` results can be annotated with your own node types (see the `Nodes` helper type in the demos' `demo_schema.ts`).
+
 ## Document
 
-A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes.
+A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes. The format is the same in all three bindings, so documents can be shared between a Svelte, a React and a Vue application.
 
 Rules:
 
@@ -436,7 +651,53 @@ Defaults make it safe to add new defaultable properties, but they are not a repl
 
 ## Config
 
-Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
+Documents need a config object that tells Svedit how to render and manipulate your content. See the full example in `demo_config.ts` of each demo ([Svelte](packages/svelte/src/routes/demo_config.ts), [React](packages/react/src/routes/demo_config.ts), [Vue](packages/vue/src/routes/demo_config.ts)).
+
+```js
+const session_config = {
+	// ID generator for creating new nodes
+	generate_id: () => nanoid(),
+
+	// User-land overlays and optional system component overrides
+	system_components: { overlays: Overlays, node_gap_tools: GapInsertTool },
+
+	// Map node types to components of your framework
+	node_components: { page: Page, paragraph: Paragraph, story: Story, list: List, strong: Strong, ... },
+
+	// Functions that create and insert new nodes
+	inserters: {
+		paragraph: (tr, content = { content: '', marks: [], annotations: [] }) => {
+			const paragraph_id = tr.generate_id();
+			tr.create({ id: paragraph_id, type: 'paragraph', content });
+			tr.insert_nodes([paragraph_id]);
+		}
+	},
+
+	// Returns { commands, keymap } for the editor instance
+	create_commands_and_keymap: (context) => { ... },
+
+	// Optional: handle media paste events
+	handle_media_paste: async (session, pasted_media) => { ... }
+};
+```
+
+**Key config options:**
+
+- **`generate_id`** - Function that generates unique IDs for new nodes (defaults to `node_${crypto.randomUUID()}`)
+- **`node_components`** - Maps each node type from your schema to a component (a Svelte component, a React component or a Vue component, depending on the binding)
+- **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
+  - `overlays` — A component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See `Overlays` in the demos ([Svelte](packages/svelte/src/routes/components/Overlays.svelte), [React](packages/react/src/routes/components/Overlays.tsx), [Vue](packages/vue/src/routes/components/Overlays.vue)).
+  - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
+  - `node_gap_tools` — A component rendered inside the active node gap marker, next to the caret. Use it for gap-scoped tools like an insert button: it inherits the `--row` orientation variable from the node array, and it appears and disappears together with the caret. Receives `{ path, offset, is_first, is_last }` (see the `NodeGapToolsProps` type). The marker has `pointer-events: none`, so interactive tools must set `pointer-events: auto`. See `GapInsertTool` in the demos.
+- **`inserters`** - Functions that create blank nodes of each type and set up the selection. `insert_default_node` and the split/join transforms call the inserter of the target node type with `(tr, content?)`.
+- **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
+- **`handle_media_paste(session, pasted_media)`** - Optional handler for pasted files. You can upload/process files, replace an existing media property, or return a node payload to insert new content. (`handle_image_paste` is still accepted as a legacy alias.)
+- **`handle_property_deletion(tr, path)`** - Optional handler called when deleting/cutting a property selection. Use it to define app-specific reset behavior on the transaction (for example clearing an image property or resetting a referenced media node).
+- **`html_paste`**, **`mark_html_exporters`**, **`html_exporters`** - Rich-text import and export, see below.
+- **`view_classes`** - Viewport visibility classes. Every node element gets `.in-view`, `.seen`, `.fully-in-view`, `.visible-top`, `.visible-bottom` toggled as it scrolls through the viewport. Useful for scrollytelling and reveal animations driven from CSS. **On by default**. Set `view_classes: false` to opt out — saves ~5 classList ops per IO entry (measurable scroll-FPS win at 200+ nodes) and reduces the IntersectionObserver work during scroll. Disable if your app doesn't read these classes from CSS.
+- **`visibility_culling`** - Gates the anchor positioning of node gaps and markers by viewport proximity (an overscan IntersectionObserver). **On by default**. `visibility_culling: false` is intended for debugging only: it makes anchor positioning O(N) over every node in the document, and large documents can become unresponsive without it.
+
+The config is accessible throughout your app via `session.config`.
 
 ### Importing pasted HTML
 
@@ -568,68 +829,17 @@ Svedit's grapheme offsets. Mark exporters receive already escaped inline HTML;
 only attribute values need escaping. Import and export mappings are separate
 because import factories cannot be reliably reversed.
 
-### Custom handlers
-
-Two optional hooks are especially useful when integrating custom media workflows:
-
-- `handle_media_paste(session, pasted_media)`  
-  Called when media is pasted. You can upload/process files, replace an existing media property, or return a node payload to insert new content.  
-  See example implementation in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
-
-- `handle_property_deletion(session, path)`  
-  Called when deleting/cutting a property selection. Use it to define app-specific reset behavior (for example clearing an image property or resetting a referenced media node).  
-  See example implementation in [`src/routes/demo_config.ts`](src/routes/demo_config.ts).
-
-```js
-const session_config = {
-  // ID generator for creating new nodes
-  generate_id: () => nanoid(),
-
-  // User-land overlays and optional system component overrides
-  system_components: { overlays: Overlays },
-
-  // Map node types to Svelte components
-  node_components: { page: Page, text: Text, story: Story, list: List, button: Button, ... },
-
-  // Functions that create and insert new nodes
-  inserters: {
-    text: (tr, content = { content: '', marks: [], annotations: [] }) => {
-      const text_id = nanoid();
-      tr.create({ id: text_id, type: 'text', content });
-      tr.insert_nodes([text_id]);
-    }
-  },
-
-  // Returns { commands, keymap } for the editor instance
-  create_commands_and_keymap: (context) => { ... },
-
-  // Optional: handle image paste events
-  handle_image_paste: (session, images) => { ... }
-};
-```
-
-**Key config options:**
-
-- **`generate_id`** - Function that generates unique IDs for new nodes
-- **`node_components`** - Maps each node type from your schema to a Svelte component
-- **`system_components`** - Optional overrides for internal editor components and a slot for your own overlays:
-  - `overlays` — A Svelte component rendered inside `<Svedit>` but outside the content canvas. Use it to add floating UI like link editors, image toolbars, or annotation popovers that appear near the current selection. See [`src/routes/components/Overlays.svelte`](src/routes/components/Overlays.svelte) for an example.
-  - `node_gap`, `node_gap_markers`, `node_selection_markers` — Override the default system components if you need custom visuals for node gaps or selection indicators.
-  - `node_gap_tools` — A component rendered inside the active node gap marker, next to the caret. Use it for gap-scoped tools like an insert button: it inherits the `--row` orientation variable from the node array, and it appears and disappears together with the caret. Receives `{ path, offset, is_first, is_last }` (see the `NodeGapToolsProps` type). The marker has `pointer-events: none`, so interactive tools must set `pointer-events: auto`. See [`src/routes/components/GapInsertTool.svelte`](src/routes/components/GapInsertTool.svelte) for an example.
-- **`inserters`** - Functions that create blank nodes of each type and set up the selection
-- **`create_commands_and_keymap`** - Factory function that creates commands and keybindings for an editor instance
-- **`handle_image_paste`** - Optional handler for image paste events
-- **`view_classes`** - Viewport visibility classes. Every node element gets `.in-view`, `.seen`, `.fully-in-view`, `.visible-top`, `.visible-bottom` toggled as it scrolls through the viewport. Useful for scrollytelling and reveal animations driven from CSS. **On by default**. Set `view_classes: false` to opt out — saves ~5 classList ops per IO entry (measurable scroll-FPS win at 200+ nodes) and narrows the IntersectionObserver thresholds from `[0, 0.98]` to `[0]` (halves callback frequency during scroll). Disable if your app doesn't read these classes from CSS.
-
-The config is accessible throughout your app via `session.config`.
-
 ## Session
 
-The `Session` class manages your content graph, selection state, and history. See [`src/lib/Session.svelte.js`](src/lib/Session.svelte.js) for the full API.
+The `Session` class manages your content graph, selection state, and history. The framework-free implementation lives in [`packages/core/src/lib/Session.ts`](packages/core/src/lib/Session.ts); each binding exports a `Session` subclass that plugs in its reactivity (see [Framework differences at a glance](#framework-differences-at-a-glance)).
 
 ### Immutable state
 
-Document content (`session.doc`) and selection (`session.selection`) are **immutable** with **copy-on-write** semantics. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. This avoids the overhead of reactive proxies (using Svelte's `$state.raw`) since state is reassigned rather than mutated. Also, `console.log(session.get(some_node_id))` gives you a readable raw object, not a proxy.
+Document content (`session.doc`) and selection (`session.selection`) are **immutable** with **copy-on-write** semantics. When a change is made, only the modified parts are copied — unchanged nodes keep their original references. State is held in plain fields and reassigned rather than mutated, so there are no deep reactive proxies and `console.log(session.get(some_node_id))` gives you a readable plain object. Every reassignment notifies the session's subscribers, which is how the bindings know what to re-render.
+
+Two rules follow from this for application code. Treat everything you read from the session as read-only: to change a value, make a transaction. And apply a transaction to the document it was created from: `session.tr` snapshots the current document, so create the transaction right before you use it. Applying a transaction after another change (an apply, undo, redo or a doc assignment) throws instead of silently overwriting that change. Values you pass to `tr.set` and `tr.create` are copied, so you may reuse or mutate your own objects afterwards.
+
+The properties the bindings rely on are listed in [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) and pinned by [`packages/core/src/test/invariants.test.ts`](packages/core/src/test/invariants.test.ts).
 
 ### Creating a session
 
@@ -638,6 +848,8 @@ import { Session } from 'svedit';
 
 const session = new Session(schema, doc, config);
 ```
+
+Import `Session` from the binding you use (`svedit`, `@svedit/react` or `@svedit/vue`), not from `@svedit/core`: the binding's subclass is what installs the framework's reactivity.
 
 ### Reading the graph
 
@@ -663,6 +875,8 @@ session.available_mark_types; // Mark types allowed at current selection (derive
 session.available_annotation_types; // Annotation types allowed at current selection (derived)
 ```
 
+Derived values are memoized per session change and remember which fields they read, so they are cheap to read from templates and commands.
+
 #### Native selection as source of truth
 
 Every selection that can exist in Svedit must have a DOM representation. This is a core design decision: the browser's native selection determines where the selection is, and `session.selection` is derived from it — not the other way around. If the DOM selection stops being the source of truth, selection mapping becomes ambiguous and Svedit loses the simplicity and determinism that the editor is built on.
@@ -686,13 +900,13 @@ session.apply(tr); // Apply the transaction
 
 #### Batching history entries
 
-By default, every `session.apply(tr)` creates a new undo/redo entry. Pass `{ batch: true }` to merge the transaction into the previous history entry instead — useful for continuous interactions like dragging, where you want the entire gesture to undo as one step.
+By default, every `session.apply(tr)` creates a new undo/redo entry. Pass `{ batch: true }` to merge the transaction into the previous history entry instead — useful for continuous interactions like typing or dragging, where you want the entire gesture to undo as one step.
 
 ```js
 session.apply(tr, { batch: true });
 ```
 
-Batched transactions merge into the current history entry as long as they arrive within a 2-second window of the batch start. After 2 seconds of inactivity, the next `apply` starts a fresh entry. To force a new entry immediately (e.g. on pointer up), reset the batch timer:
+Batched transactions merge into the current history entry as long as they arrive within a 1-second window of the batch start. After 1 second of inactivity, the next `apply` starts a fresh entry. To force a new entry immediately (e.g. on pointer up), reset the batch timer:
 
 ```js
 session.last_batch_started = undefined;
@@ -709,7 +923,10 @@ session.redo();
 
 ### Detecting unsaved changes
 
-Because document state is immutable, you can detect unsaved changes by comparing references. When a change is made, `session.doc` gets a new reference — unchanged documents keep the same reference.
+Because document state is immutable, you can detect unsaved changes by comparing references. When a change is made, `session.doc` gets a new reference — unchanged documents keep the same reference. This works because of Svedit's copy-on-write strategy: only modified parts of the document are copied, so reference equality is a reliable and efficient way to detect changes. You can use `has_unsaved_changes` to show/hide a save button, display a dirty indicator, or warn before navigating away.
+
+<details open>
+<summary>Svelte</summary>
 
 ```js
 let last_saved_doc = $state(null);
@@ -729,7 +946,94 @@ function save() {
 }
 ```
 
-This works because of Svedit's copy-on-write strategy: only modified parts of the document are copied, so reference equality is a reliable and efficient way to detect changes. You can use `has_unsaved_changes` to show/hide a save button, display a dirty indicator, or warn before navigating away.
+</details>
+
+<details>
+<summary>React</summary>
+
+```jsx
+import { useState } from 'react';
+import { useVersion } from '@svedit/react';
+
+function SaveButton({ session }) {
+	const [last_saved_doc, set_last_saved_doc] = useState(null);
+	// Re-render on every session change
+	useVersion(session);
+	const has_unsaved_changes = last_saved_doc
+		? // Compare current doc reference against last saved
+			last_saved_doc !== session.doc
+		: // No save yet — use undo history as indicator
+			session.can_undo;
+
+	function save() {
+		// ... save to server ...
+		set_last_saved_doc(session.doc);
+	}
+
+	return (
+		<button disabled={!has_unsaved_changes} onClick={save}>
+			Save
+		</button>
+	);
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```js
+import { computed, shallowRef } from 'vue';
+
+const last_saved_doc = shallowRef(null);
+const has_unsaved_changes = computed(() => {
+	if (!last_saved_doc.value) {
+		// No save yet — use undo history as indicator
+		return session.can_undo;
+	} else {
+		// Compare current doc reference against last saved
+		return last_saved_doc.value !== session.doc;
+	}
+});
+
+function save() {
+	// ... save to server ...
+	last_saved_doc.value = session.doc;
+}
+```
+
+</details>
+
+### Reading session state from components
+
+The session notifies subscribers whenever a field is reassigned. How a component subscribes depends on the binding:
+
+- **Svelte:** the `svedit` Session keeps one `$state` signal per field. Reading `session.doc`, `session.selection`, `session.can_undo` or a command's `disabled` inside a `$derived`, `$effect` or template subscribes automatically. Get the editor context with `getContext('svedit')`.
+- **Vue:** the `@svedit/vue` Session keeps one `shallowRef` per field and marks the session raw. Reads inside `computed`, `watchEffect` or templates subscribe automatically. Get the editor context with `inject('svedit')`.
+- **React:** nothing is tracked implicitly. Components pick what they need with a selector, and re-render only when that value changes:
+
+```jsx
+import { useSvedit, useNode, useVersion, useSveditContext } from '@svedit/react';
+
+// Re-render when the selected value changes (compared with Object.is)
+const editable = useSvedit((ctx) => ctx.editable);
+const can_undo = useSvedit((ctx) => ctx.session.can_undo);
+
+// Shortcut for the node (or property value) at a path. Values are
+// copy-on-write, so an unchanged node keeps its reference.
+const node = useNode(path);
+
+// The raw context object (session, editable, canvas_el, focus_canvas, ...)
+const svedit = useSveditContext();
+
+// Re-render on every change (e.g. for a toolbar that reads many values)
+useVersion(session);
+```
+
+`useSvedit`, `useNode` and `useSveditContext` must be called inside a component rendered under `<Svedit>`. Pass `shallow_equal` (exported from `@svedit/react`) as the second argument of `useSvedit` when the selector returns a fresh object. Outside the editor tree, subscribe with `useSnapshot([session], () => ...)` or `useVersion(session)`.
+
+The editor context has the same shape in all three bindings (`SveditContext`): `session`, `editable`, `is_composing`, `canvas_el`, `canvas_focused` and `focus_canvas()`. The React context additionally exposes `subscribe` and `version` for its own state.
 
 ### Utilities
 
@@ -737,7 +1041,7 @@ This works because of Svedit's copy-on-write strategy: only modified parts of th
 session.doc.document_id; // The document's root ID
 session.generate_id(); // Generate a new unique ID
 session.config; // Access the config object
-session.validate_doc(); // Validate all nodes against schema
+session.to_json(); // Serialize the reachable document for persistence
 session.traverse(node_id); // Get all nodes reachable from a node
 session.select_parent(); // Select parent of current selection
 ```
@@ -761,11 +1065,12 @@ if (success) {
 
 ### Built-in transforms
 
-Svedit provides several core transforms in [`src/lib/transforms.svelte.js`](src/lib/transforms.svelte.js):
+Svedit provides several core transforms in [`packages/core/src/lib/transforms.ts`](packages/core/src/lib/transforms.ts):
 
 - `break_text_node(tr)` - Split a text node at the caret position
 - `join_text_node(tr)` - Join current text node with the previous one
 - `insert_default_node(tr)` - Insert a new node at the current selection
+- `set_properties(tr, path, properties)` - Set several properties of a node at once (a helper that returns nothing)
 
 ### Composability
 
@@ -805,7 +1110,7 @@ function insert_heading(tr) {
 
 ## Transaction
 
-Transactions group multiple operations into atomic units that can be applied and undone as one. They provide the same read API as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, `tr.generate_id()`), so transforms can query document state directly. See [`src/lib/Transaction.svelte.js`](src/lib/Transaction.svelte.js) for the full API.
+Transactions group multiple operations into atomic units that can be applied and undone as one. They provide the same read API as sessions (`tr.get()`, `tr.inspect()`, `tr.kind()`, `tr.generate_id()`), so transforms can query document state directly. See [`packages/core/src/lib/Transaction.ts`](packages/core/src/lib/Transaction.ts) for the full API.
 
 ### Basic usage
 
@@ -916,18 +1221,20 @@ class ToggleStrongCommand extends Command {
 
 #### Document command context
 
-Document-scoped commands receive a `context` object with access to the Svedit instance's state:
+Document-scoped commands receive a `context` object with access to the Svedit instance's state (the `EditorContext` type):
 
 - `context.session` - The current session instance
 - `context.editable` - Whether the editor is in edit mode
 - `context.canvas_el` - The DOM element of the Svedit editor canvas
+- `context.canvas_focused` - Whether the canvas currently has focus
 - `context.is_composing` - Whether IME composition is currently taking place
+- `context.focus_canvas()` - Moves focus back into the canvas
 
 ### Command lifecycle methods
 
 **`is_enabled(): boolean`**
 
-Determines if the command can currently be executed. This is automatically evaluated and exposed as the `disabled` derived property, which can be used to disable UI elements.
+Determines if the command can currently be executed. This is automatically evaluated and exposed as the `disabled` getter, which can be used to disable UI elements.
 
 ```js
 is_enabled() {
@@ -949,7 +1256,7 @@ execute() {
 
 #### Built-in document commands
 
-Svedit provides several [core commands](src/lib/Command.svelte.js) out of the box:
+Svedit provides several [core commands](packages/core/src/lib/Command.ts) out of the box:
 
 - `UndoCommand` - Undo the last change
 - `RedoCommand` - Redo the last undone change
@@ -963,7 +1270,7 @@ Svedit provides several [core commands](src/lib/Command.svelte.js) out of the bo
 
 #### Using document commands
 
-Commands are created by passing them a context object from the Svedit component. See a complete example in [`src/routes/demo_config.ts`](src/routes/demo_config.ts) in the `create_commands_and_keymap` configuration function:
+Commands are created by passing them a context object from the Svedit component. See a complete example in the demos' `demo_config.ts` in the `create_commands_and_keymap` configuration function:
 
 ```js
 create_commands_and_keymap: (context) => {
@@ -985,26 +1292,64 @@ create_commands_and_keymap: (context) => {
 };
 ```
 
-Bind commands to UI elements in your components:
+The result is stored on the session as `session.commands` and `session.keymap`. Bind commands to UI elements in your components:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
 <button
-	disabled={document_commands.toggle_strong.disabled}
-	class:active={document_commands.toggle_strong.active}
-	onclick={() => document_commands.toggle_strong.execute()}
+	disabled={session.commands.toggle_strong.disabled}
+	class:active={session.commands.toggle_strong.active}
+	onclick={() => session.commands.toggle_strong.execute()}
 >
 	Bold
 </button>
 ```
 
+</details>
+
+<details>
+<summary>React</summary>
+
+The component must subscribe to the session (e.g. with `useVersion(session)`) so it re-renders when `disabled`/`active` change:
+
+```jsx
+<button
+	disabled={session.commands.toggle_strong.disabled}
+	className={session.commands.toggle_strong.active ? 'active' : undefined}
+	onClick={() => session.commands.toggle_strong.execute()}
+>
+	Bold
+</button>
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<button
+	:disabled="session.commands.toggle_strong.disabled"
+	:class="{ active: session.commands.toggle_strong.active }"
+	@click="session.commands.toggle_strong.execute()"
+>
+	Bold
+</button>
+```
+
+</details>
+
 #### Derived state in commands
 
-Commands can have derived state for reactive UI binding. The `active` property in toggle commands is a common pattern:
+Commands can have derived state for UI binding; the `active` property of the toggle commands is a common pattern. The `disabled` property is automatically derived from `is_enabled()` on all commands and recomputed on access. A plain getter is enough in all three bindings, because the session reads inside it are tracked (Svelte, Vue) or the component is subscribed to the session anyway (React):
 
 ```js
 class ToggleEmphasisCommand extends Command {
-	// Automatically recomputes when mark state changes
-	active = $derived(this.context.session.active_mark?.node.type === 'emphasis');
+	get active() {
+		return this.context.session.active_mark?.node.type === 'emphasis';
+	}
 
 	is_enabled() {
 		return this.context.editable && this.context.session.selection?.type === 'text';
@@ -1016,18 +1361,20 @@ class ToggleEmphasisCommand extends Command {
 }
 ```
 
-The `disabled` property is automatically derived from `is_enabled()` on all commands.
+To memoize an expensive derivation, use the framework's primitive behind the getter: a `$derived` field in Svelte (`active = $derived(...)` in a `.svelte.js` module), a `computed` in Vue (`#active = computed(() => ...)` and `get active() { return this.#active.value }`), or the core's `derived(session, fn)` in React (`#active = derived(this.context.session, () => ...)` and `get active() { return this.#active() }`), which recomputes only when session state it read has changed, and works the same in all three frameworks.
 
 #### DOM access in commands
 
 Commands can access the DOM through the context or global APIs:
 
 ```js
+import { Command, deserialize_path } from 'svedit';
+
 class FocusNextSelectableCommand extends Command {
 	execute() {
 		const selectables = this.context.canvas_el.querySelectorAll('.svedit-selectable');
 		const next = selectables[0]; // Find next based on current selection
-		const path = next.closest('[data-path]').dataset.path.split('.');
+		const path = deserialize_path(next.closest('[data-path]').dataset.path);
 		this.context.session.selection = { type: 'text', path, anchor_offset: 0, focus_offset: 0 };
 	}
 }
@@ -1082,9 +1429,14 @@ class ToggleEditModeCommand extends Command {
 
 #### App-level context
 
-The app-level context contains application-wide state and methods:
+The app-level context contains application-wide state and methods. It is a plain object whose getters and setters read and write your app's reactive state, so the same command classes work in every framework:
+
+<details open>
+<summary>Svelte</summary>
 
 ```js
+let editable = $state(true);
+
 const app_context = {
 	get editable() {
 		return editable; // App-level editable state
@@ -1102,9 +1454,63 @@ const app_context = {
 
 const app_commands = {
 	save: new SaveCommand(app_context),
-	toggle_edit: new ToggleEditCommand(app_context)
+	toggle_edit: new ToggleEditModeCommand(app_context)
 };
 ```
+
+</details>
+
+<details>
+<summary>React</summary>
+
+Reactive state lives in React state; the context reads the latest value from a ref so that commands created once (in a `useMemo`) never see a stale closure:
+
+```jsx
+const [editable, set_editable] = useState(true);
+const editable_ref = useRef(editable);
+editable_ref.current = editable;
+
+const app_context = {
+	get editable() {
+		return editable_ref.current; // App-level editable state
+	},
+	set editable(value) {
+		set_editable(value);
+	},
+	get session() {
+		return session;
+	},
+	get app_el() {
+		return app_el.current;
+	}
+};
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```js
+const editable = ref(true);
+
+const app_context = {
+	get editable() {
+		return editable.value; // App-level editable state
+	},
+	set editable(value) {
+		editable.value = value;
+	},
+	get session() {
+		return session;
+	},
+	get app_el() {
+		return app_el.value;
+	}
+};
+```
+
+</details>
 
 ## Scope-aware keyboard shortcuts
 
@@ -1133,6 +1539,18 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
+### Providing the key mapper to `<Svedit>`
+
+`<Svedit>` pushes the session keymap (from `create_commands_and_keymap`) when the canvas gains focus and pops it when focus leaves. For that it needs the app's key mapper, which you provide from a parent component:
+
+| Framework | Provide                                                   | How `<Svedit>` reads it        |
+| --------- | --------------------------------------------------------- | ------------------------------ |
+| Svelte    | `setContext('key_mapper', key_mapper)`                    | `getContext('key_mapper')`     |
+| React     | `<KeyMapperContext.Provider value={key_mapper}>...</...>` | `useContext(KeyMapperContext)` |
+| Vue       | `provide('key_mapper', key_mapper)`                       | `inject('key_mapper')`         |
+
+The key mapper is optional in all three: without one, the document keymap is simply never pushed.
+
 ### Key syntax
 
 - **Multiple modifiers**: `meta+shift+z`, `ctrl+alt+k`
@@ -1155,7 +1573,7 @@ define_keymap({
 
 ### Scope stack
 
-Use `push_scope()` and `pop_scope()` to manage different keyboard contexts:
+Use `push_scope()` and `remove_scope()` to manage different keyboard contexts:
 
 ```js
 // App-level keymap (always active)
@@ -1175,10 +1593,10 @@ const doc_keymap = define_keymap({
 key_mapper.push_scope(doc_keymap);
 
 // When editor loses focus:
-key_mapper.pop_scope();
+key_mapper.remove_scope(doc_keymap);
 ```
 
-The KeyMapper tries scopes from top to bottom, so push more specific keymaps last.
+The KeyMapper tries scopes from top to bottom, so push more specific keymaps last. `remove_scope(keymap)` removes that keymap wherever it is in the stack, so it stays correct when another scope (for example a modal's) was pushed on top in the meantime. `pop_scope()` removes whatever is on top and is only safe when you know your scope is the topmost one. `<Svedit>` pushes the session keymap on focus and removes exactly that keymap on blur.
 
 ## Selection
 
@@ -1230,19 +1648,62 @@ You can access the current selection through `session.selection` anytime. And yo
 
 ## Rendering
 
-Now you can start making your Svelte pages in-place editable by wrapping your design inside the `<Svedit>` component.
+Now you can start making your pages in-place editable by wrapping your design inside the `<Svedit>` component. The props are the same everywhere (`session`, `path`, `editable`, optional `class`/`className`, `autocapitalize`, `spellcheck`); what differs is how the `editable` flag flows back out when a command (like save) flips it, and how you get hold of `focus_canvas()`:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
-<Svedit {session} path={[session.doc.document_id]} editable={true} />
+<Svedit {session} path={[session.doc.document_id]} bind:editable bind:this={svedit_ref} />
 ```
+
+`editable` is bindable; pass `editable={true}` for a fixed value. `svedit_ref.focus_canvas()` focuses the canvas.
+
+</details>
+
+<details>
+<summary>React</summary>
+
+```jsx
+<Svedit
+	ref={svedit_ref}
+	session={session}
+	path={[session.doc.document_id]}
+	editable={editable}
+	on_editable_change={set_editable}
+/>
+```
+
+`editable` is controlled when you pass it together with `on_editable_change`; omit both to let the editor manage the flag itself (defaults to `false`). The component exposes `focus_canvas()` through its `ref` (type `SveditHandle`).
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<Svedit
+	ref="svedit_ref"
+	:session="session"
+	:path="[session.doc.document_id]"
+	v-model:editable="editable"
+/>
+```
+
+`editable` is a two-way bindable model prop; pass `:editable="true"` for a plain read of the prop. The component exposes `focus_canvas()` through a template ref.
+
+</details>
 
 ## Node components
 
-Node components are Svelte components that render specific node types in your document. Each node component receives a `path` prop and uses the `<Node>` wrapper component along with property components to render the node's content.
+Node components render specific node types in your document. Each node component receives a `path` prop and uses the `<Node>` wrapper component along with property components to render the node's content.
 
 ### Basic structure
 
 A typical node component follows this pattern:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
 <script>
@@ -1257,6 +1718,47 @@ A typical node component follows this pattern:
 </Node>
 ```
 
+</details>
+
+<details>
+<summary>React</summary>
+
+```jsx
+import { Node, TextProperty } from '@svedit/react';
+
+export default function MyNode({ path }) {
+	return (
+		<Node path={path}>
+			<div className="my-node">
+				<TextProperty path={[...path, 'content']} />
+			</div>
+		</Node>
+	);
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<script setup>
+import { Node, TextProperty } from '@svedit/vue';
+defineProps(['path']);
+</script>
+
+<template>
+	<Node :path="path">
+		<div class="my-node">
+			<TextProperty :path="[...path, 'content']" />
+		</div>
+	</Node>
+</template>
+```
+
+</details>
+
 ### The `<Node>` wrapper
 
 Every node component must wrap its content in the `<Node>` component. This wrapper:
@@ -1267,7 +1769,7 @@ Every node component must wrap its content in the `<Node>` component. This wrapp
 
 ### Property components
 
-Svedit provides specialized components for rendering different property types:
+Svedit provides specialized components for rendering different property types. The examples use Svelte syntax; in React use `className` and `path={...}`, in Vue use `class` and `:path="..."`.
 
 **`<TextProperty>`** - For editable text content with inline marks:
 
@@ -1291,7 +1793,10 @@ buttons: {
 }
 ```
 
-`<NodeArrayProperty>` wraps marked ranges with the matching mark component, just like `<TextProperty>` does for text ranges. Child node components also receive range context:
+`<NodeArrayProperty>` wraps marked ranges with the matching mark component, just like `<TextProperty>` does for text ranges. Child node components also receive range context through two optional props, `mark` and `annotations`:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
 <script>
@@ -1302,6 +1807,42 @@ buttons: {
 	<!-- render node content -->
 </div>
 ```
+
+</details>
+
+<details>
+<summary>React</summary>
+
+```jsx
+export default function MyNode({ path, mark = null, annotations = [] }) {
+	return (
+		<div className={mark?.is_start ? 'section-start' : undefined}>{/* render node content */}</div>
+	);
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<script setup>
+const props = defineProps({
+	path: Array,
+	mark: { type: Object, default: null },
+	annotations: { type: Array, default: () => [] }
+});
+</script>
+
+<template>
+	<div :class="{ 'section-start': mark?.is_start }">
+		<!-- render node content -->
+	</div>
+</template>
+```
+
+</details>
 
 `mark` is the mark wrapping the child node, or `null` when none does — mark exclusivity guarantees there is at most one. `annotations` contains all annotations covering the child node, including overlapping ones. Annotations are data-only: they never wrap and are never rendered as components. Each entry contains the flattened attachment plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved mark or annotation node, `index` is the position in the parent `marks`/`annotations` array, and the `is_*` flags describe the current child node's position in the attached range.
 
@@ -1319,7 +1860,7 @@ Use the `annotations` prop only when a component should render something richer 
 > may be mounted exactly once. Mounting the same path twice (e.g. rendering the
 > same `nav_items` array in both header and footer) breaks anchor positioning,
 > intersection tracking, id uniqueness, and selection mapping.
-> Svedit logs an error if it detects a duplicate mount.
+> Svedit logs a warning if it detects a duplicate mount.
 >
 > If you need to render shared content in multiple places, model it as distinct
 > node_arrays (`header_nav`, `footer_nav`) in the same document, or render it
@@ -1335,9 +1876,14 @@ Use the `annotations` prop only when a component should render something richer 
 </CustomProperty>
 ```
 
+(In React, write `contentEditable={false}`; in Vue, `:src`/`:alt` bindings.)
+
 ### Accessing node data
 
-Use the Svedit context to access node data:
+Node components read their node through the editor context's session. Each binding has its own idiom for making that read reactive:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
 <script>
@@ -1350,9 +1896,50 @@ Use the Svedit context to access node data:
 </script>
 ```
 
+</details>
+
+<details>
+<summary>React</summary>
+
+Use the `useNode` hook; it re-renders the component when the node changes. The editor context (session, editable, canvas state) is available through `useSveditContext()` and `useSvedit(selector)`:
+
+```jsx
+import { useNode, useSvedit } from '@svedit/react';
+
+export default function MyNode({ path }) {
+	const node = useNode(path);
+	const editable = useSvedit((ctx) => ctx.editable);
+	const layout = node.layout || 1;
+	// ...
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<script setup>
+import { computed, inject } from 'vue';
+const svedit = inject('svedit');
+
+const props = defineProps(['path']);
+const node = computed(() => svedit.session.get(props.path));
+const layout = computed(() => node.value.layout || 1);
+</script>
+```
+
+</details>
+
+The demos wrap this in a small typed helper (`get_svedit_context()` in Svelte and Vue, `useAppSvedit()` in React, see `svedit_context.ts`) so that `session.get(path)` results carry the app's node types.
+
 ### Example: Text component
 
 Here's a complete example of a text node component that supports multiple layouts:
+
+<details open>
+<summary>Svelte</summary>
 
 ```svelte
 <script>
@@ -1373,9 +1960,65 @@ Here's a complete example of a text node component that supports multiple layout
 </Node>
 ```
 
+</details>
+
+<details>
+<summary>React</summary>
+
+```jsx
+import { Node, TextProperty, useNode } from '@svedit/react';
+
+export default function Text({ path }) {
+	const node = useNode(path);
+	const layout = node.layout || 1;
+	const tag = layout === 1 ? 'p' : `h${layout - 1}`;
+
+	return (
+		<Node path={path}>
+			<div className={`text layout-${layout}`}>
+				<TextProperty
+					tag={tag}
+					className="body"
+					path={[...path, 'content']}
+					placeholder="Enter text"
+				/>
+			</div>
+		</Node>
+	);
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+```vue
+<script setup>
+import { computed, inject } from 'vue';
+import { Node, TextProperty } from '@svedit/vue';
+
+const svedit = inject('svedit');
+const props = defineProps(['path']);
+const node = computed(() => svedit.session.get(props.path));
+const layout = computed(() => node.value.layout || 1);
+const tag = computed(() => (layout.value === 1 ? 'p' : `h${layout.value - 1}`));
+</script>
+
+<template>
+	<Node :path="path">
+		<div :class="`text layout-${layout}`">
+			<TextProperty :tag="tag" class="body" :path="[...path, 'content']" placeholder="Enter text" />
+		</div>
+	</Node>
+</template>
+```
+
+</details>
+
 ### Example: List component
 
-A simple list component that renders child items:
+A simple list component that renders child items (Svelte shown; the React and Vue versions follow the basic structure above):
 
 ```svelte
 <script>
@@ -1407,6 +2050,69 @@ const session_config = {
 ```
 
 The keys must be the snake_case node types in your schema. Svedit looks up node components directly by node type, so a node with `type: "list_item"` will look for a component registered as `list_item`.
+
+### Mark components
+
+Mark components render marked ranges in place and are registered in `node_components` like any other node type. For text marks they receive `path` and `content` (the marked text); for node-array marks they receive `path` and the wrapped nodes. The selection mapping walks the DOM inside the contenteditable canvas, so a node-array mark component must render the wrapped nodes directly inside one wrapper element, with no extra elements or anchor nodes between the node array and its nodes.
+
+<details open>
+<summary>Svelte</summary>
+
+The wrapped nodes arrive as the `children` snippet (see [`Section.svelte`](packages/svelte/src/routes/components/Section.svelte)):
+
+```svelte
+<script>
+	let { path, content, children } = $props();
+</script>
+
+<section class="section">
+	{#if children}{@render children()}{:else}{content}{/if}
+</section>
+```
+
+</details>
+
+<details>
+<summary>React</summary>
+
+The wrapped nodes arrive as `children` (props type `MarkComponentProps`, see [`Section.tsx`](packages/react/src/routes/components/Section.tsx)):
+
+```jsx
+export default function Section({ path, content, children }) {
+	return <section className="section">{children ?? content}</section>;
+}
+```
+
+</details>
+
+<details>
+<summary>Vue</summary>
+
+The wrapped nodes arrive in the default slot. Use a render function rather than a template `<slot />`, so the nodes are inserted without Vue fragment anchor nodes (see [`Section.vue`](packages/vue/src/routes/components/Section.vue)):
+
+```js
+import { defineComponent, h } from 'vue';
+
+export default defineComponent({
+	props: { path: Array, content: String },
+	setup(props, { slots }) {
+		return () =>
+			h('section', { class: 'section' }, slots.default ? slots.default() : props.content);
+	}
+});
+```
+
+</details>
+
+### Element attachments
+
+Svedit's own components hook into the lifecycle of DOM elements (for viewport tracking and anchor positioning) with a small "attachment" abstraction: a function that receives the element and returns an optional cleanup. You rarely need it in app code, but it is exported for custom system components:
+
+| Framework | Mechanism                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| Svelte    | Svelte's native `{@attach fn}`                                                                     |
+| React     | `const ref = useAttach(key, fn)` returns a ref callback; cleanup runs on unmount or key change     |
+| Vue       | `v-attach` directive (`vAttach`) with `{ key, attach: fn }`; cleanup runs on unmount or key change |
 
 ## Mastering contenteditable
 
@@ -1444,12 +2150,19 @@ a simplified version of the markup of `<NodeGap>` and why it is implemented the 
 
 Further things to consider:
 
-- If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit`>)
+- If you make a sub-tree `contenteditable="false"`, be aware that you can't create a `contenteditable="true"` segment somewhere inside it. Svedit can only work reliably when there's one contenteditable="true" at root (it's set by `<Svedit>`)
 - `<TextProperty>` and `<CustomProperty>` must not be wrapped in `contenteditable="false"` to work properly.
 - Never apply `position: relative` to the direct parent of `<TextProperty>`, it will cause a [weird Safari bug](https://bsky.app/profile/michaelaufreiter.com/post/3lxvdqyxc622s) to destroy the DOM.
-- Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node.svelte>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
+- Never apply `position: relative`, `position: absolute`, `position: fixed` to `<Node>` (data-type="node") in edit mode. Only `position: static` is permitted to allow css anchor positioning queries to resolve correctly.
 - Never use an `<a>` tag inside a `contenteditable="true"` element, as it will cause unexpected behavior. Make it a `<div>` while editing, and an `<a>` in read-only mode (when `svedit.editable` is `false` ).
 - Avoid adding css `margin` to nodes inside node arrays when using flex or grid layouts. Use `gap` on the container instead. This ensures `NodeGap` and `NodeGapMarkers` render consistently. If you need to add a margin, add it to a child element of Node.
+
+### Keeping stray DOM nodes out of the canvas
+
+The selection mapping walks the DOM inside the contenteditable canvas, so the markup between a node array and its nodes must stay clean. The Svelte components are the reference implementation; React and Vue each have their own pitfalls:
+
+- **React** inserts no comment or anchor nodes, so fragments and conditional rendering are safe. But JSX only strips whitespace-only text between elements on separate lines: a `{' '}` or text on the same line as an element becomes a real text node. Keep stray text nodes out of editable regions.
+- **Vue** templates strip whitespace-only text between elements, but they keep HTML comments in development and render `v-if`/`v-for`/`<slot>` output inside fragments with anchor nodes. Keep comments out of editable regions and avoid `<slot />` and `v-for` directly between a node array's children. Svedit's own structural components (TextProperty, NodeArrayProperty, Node, CustomProperty, NodeGapMarkers) use render functions for exactly this reason.
 
 ### Consistent DOM structure across modes
 
@@ -1512,12 +2225,14 @@ Without the `of` filter, plain `:nth-child(even)` would count `.node-gap` divs a
 **`--row`** — Tell Svedit whether a node array flows horizontally (`1`) or vertically (`0`). Gaps, carets, and markers all switch orientation accordingly. Defaults to `0` on the Svedit canvas. Set it on the node array or an ancestor:
 
 ```css
-.my-horizontal-layout :global(.grid-items) {
+.my-horizontal-layout .grid-items {
 	--row: 1;
 	display: flex;
 	flex-wrap: wrap;
 }
 ```
+
+(Inside scoped styles, reach the node array with `:global(.grid-items)` in Svelte or `:deep(.grid-items)` in Vue.)
 
 **`--node-caret-boundary`** — Edge gaps (before the first node, after the last) extend outward beyond the container to enlarge their click target. If the node array has neighboring elements (e.g. a preceding node or surrounding UI), the outward extension can overlap them:
 
@@ -1581,48 +2296,124 @@ For per-axis control, use `--node-caret-boundary-x` (left/right) and `--node-car
 }
 ```
 
-## Beyond the README
+### Styles
 
-The source code is compact and readable — less than 3000 LOC across a handful of files. We encourage you to explore it. The files in [`src/lib`](./src/lib) are the library code, while the files in [`src/routes`](./src/routes) are example code you can copy and adapt to your needs.
+The CSS classes Svedit adds are the same in all bindings: `svedit`, `svedit-canvas`, `svedit-selectable` on the editor, `node-<type>` plus the mark/annotation range classes on every node wrapper, `node-gap`, and the `[data-type]`/`[data-path]` attributes. How you write your own component styles differs:
+
+- **Svelte:** `<style>` blocks are scoped per component; use `:global(...)` to reach into Svedit's markup.
+- **React:** there are no scoped styles. Each component imports a colocated `.css` file, and selectors are qualified with a component-specific class (for example `.node-paragraph > .text`). The `node-<type>` class that `<Node>` adds is the natural hook for this.
+- **Vue:** `<style scoped>` adds a `data-v-*` attribute to the last compound selector; use `:deep(...)` where Svelte would use a trailing `:global()`, and an unscoped `<style>` block for rules that must be global. The library's toolbar styles are global because the toolbar's reusable snippets are functional components, which don't carry the parent's scope id.
+
+## Framework differences at a glance
+
+Everything about the document, schema, session, transactions, transforms, commands, keymaps, clipboard payload and CSS tokens is shared. This is what changes per binding:
+
+| Concern                        | Svelte (`svedit`)                         | React (`@svedit/react`)                                                | Vue (`@svedit/vue`)                                       |
+| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| Styles                         | bundled with the components               | `import '@svedit/react/svedit.css'`                                    | `import '@svedit/vue/svedit.css'`                         |
+| Session reactivity             | one `$state` signal per field             | plain fields notifying a `Store`; `useSyncExternalStore` subscriptions | one `shallowRef` per field, session marked raw            |
+| Reading session state          | read inside `$derived`/`$effect`/template | `useSvedit(selector)`, `useNode(path)`, `useSnapshot`, `useVersion`    | read inside `computed`/`watchEffect`/template             |
+| Editor context                 | `getContext('svedit')`                    | `useSveditContext()` (context object `SveditContextObject`)            | `inject('svedit')`                                        |
+| Key mapper                     | `setContext('key_mapper', km)`            | `<KeyMapperContext.Provider value={km}>`                               | `provide('key_mapper', km)`                               |
+| `editable` flag                | `bind:editable`                           | `editable` + `on_editable_change`                                      | `v-model:editable`                                        |
+| `focus_canvas()`               | `bind:this={svedit_ref}`                  | `ref={svedit_ref}` (`SveditHandle`)                                    | template `ref`                                            |
+| Class prop                     | `class`                                   | `className`                                                            | `class`                                                   |
+| Inline styles                  | `style` string                            | `style` object                                                         | `style` string or object                                  |
+| Node content / mark children   | `children` snippet                        | `children`                                                             | default slot (render function for node-array marks)       |
+| Element attachments            | `{@attach}`                               | `useAttach(key, fn)`                                                   | `v-attach` (`vAttach`)                                    |
+| Memoized derived command state | `$derived` field                          | `derived(session, fn)` behind a getter                                 | `computed` behind a getter                                |
+| Waiting for the DOM            | `tick()`                                  | next task (`await new Promise((r) => setTimeout(r, 0))`)               | `nextTick()`                                              |
+| DOM pitfalls in the canvas     | reference implementation                  | `{' '}` / same-line text becomes a text node                           | comments in dev, `v-if`/`v-for`/`<slot>` fragment anchors |
 
 ## Developing Svedit
 
-Development requires Node.js 22.17 or newer.
+Development requires Node.js 20.19 or newer and pnpm. The repository is a pnpm workspace; the bindings alias `@svedit/core` to its source in dev and tests, so no build step is needed between core changes and seeing them in a demo.
 
-Once you've cloned the Svedit repository and installed dependencies with `pnpm install`, start a development server:
+### How the core stays framework-free
+
+Session state lives in plain fields on a small `Store`. Every read tracks the field name, every write notifies it,
+and derived values (`selected_node`, `active_mark`, …) are memoized per change and remember which fields they read.
+A binding plugs its reactivity in through a `Tracker`:
+
+- **Svelte** keeps one `$state` signal per field, so `session.doc` inside a `$derived`, `$effect` or template
+  subscribes exactly like a `$state.raw` class field would.
+- **Vue** keeps one `shallowRef` per field and marks the session raw.
+- **React** subscribes with `useSyncExternalStore` through `useSvedit` / `useSnapshot` and compares snapshots.
+
+What is still implemented once per framework: the components (editor, node, node array, text property, gaps, markers),
+the node visibility registry and the element attachment helpers. Versions of core and bindings move in lockstep; the bindings depend on `@svedit/core` via `workspace:*`.
+
+### Commands
 
 ```bash
-pnpm dev
+pnpm install
+pnpm dev            # all three demos on http://localhost:5173 (/, /react/, /vue/) with the switcher, hot reload
+pnpm dev:site       # same as pnpm dev
+pnpm dev:svelte     # http://localhost:5173/
+pnpm dev:react      # http://localhost:5173/react/
+pnpm dev:vue        # http://localhost:5173/vue/
+pnpm check          # type-check all packages
+pnpm lint           # prettier + eslint, all packages, plus pnpm lint:styles
+pnpm lint:styles    # fails if a component's styles drifted apart between the bindings
+pnpm test           # core (node-style) + the three browser suites, one package at a time
+pnpm build:lib      # publishable builds into each package's dist/
+pnpm build:site     # the demos, assembled into site/ (see below)
+pnpm preview        # serve site/ the way Vercel does
+pnpm preview:site   # same as pnpm preview
+pnpm perftest       # headless Svelte vs React vs Vue benchmark, prints a table
 ```
+
+`pnpm dev` (alias of `pnpm dev:site`) runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included. Inside a package, `pnpm dev`, `pnpm build`, `pnpm preview`, `pnpm check`, `pnpm test:unit` (watch mode) and `pnpm test` (single run) work as usual.
 
 ### Running tests
 
-Run the browser tests in Vitest's interactive watch mode:
-
-```bash
-pnpm test:unit
-```
-
-For a single run, use `pnpm test`.
-
-The tests exercise real browser focus, selection, and keyboard behavior. Keep the
+The browser tests exercise real browser focus, selection, and keyboard behavior. Keep the
 browser runner tab and window focused and let each run finish uninterrupted.
 Do not switch tabs or applications, open DevTools, or click inside the runner
 while tests are running. Losing focus can cause selection and keyboard tests to
 fail even when the editor works correctly.
 
 If a run was interrupted, return focus to the runner and rerun the tests. Failures
-that persist during a focused, uninterrupted run should be investigated.
+that persist during a focused, uninterrupted run should be investigated. When changing core behaviour, run all four test suites: a change that is fine for one framework's reactivity can break another's.
 
-## Building
+### Publishing
 
-To create a production version of your app:
+The bindings depend on `@svedit/core` with `workspace:*`, which only pnpm rewrites to the real version when packing. Publish with pnpm, never with `npm publish`, and publish the core before the bindings: `pnpm publish:all` (`pnpm -r publish --access public`) builds each package through its `prepack` script and publishes the four packages in dependency order. Keep the versions in lockstep; a consumer that ends up with two copies of `@svedit/core` gets two `Store` classes, and `derived()` cannot tell them apart.
 
-```bash
-pnpm build
+### The demo site
+
+`pnpm build:site` builds the three demos and assembles one static site:
+
+```
+site/          <- packages/svelte/build  (SvelteKit, prerendered)
+site/react/    <- packages/react/build   (Vite, base /react/)
+site/vue/      <- packages/vue/build     (Vite, base /vue/)
 ```
 
-You can preview the production build with `pnpm preview`.
+The React and Vue demos are served under `/react/` and `/vue/` in dev too (`base` in their vite configs); static asset URLs in demo code go through `import.meta.env.BASE_URL`.
+
+`vercel.json` deploys that directory: clean URLs for the prerendered Svelte pages and SPA fallbacks for
+`/react/*` and `/vue/*`. Point a Vercel project at this repository and it builds with `pnpm build:site`,
+so `svedit.dev`, `svedit.dev/react` and `svedit.dev/vue` come out of one deployment.
+
+### Performance comparison
+
+`/perftest` runs the same benchmark suite against the Svelte, React and Vue editors and shows a comparison
+table: initial render, caret moves, typing, Enter, relayout, scrolling, pasting, deleting and undoing, at the
+document sizes you pick. Each framework runs in its own iframe (a harness route: `/perftest/harness`,
+`/react/perftest/harness`, `/vue/perftest/harness`), one at a time, with the order rotated every round.
+Every step is timed until the framework has updated the DOM (Svelte and React: `flushSync`, Vue:
+`nextTick`), and the suite checks that the DOM really changed.
+
+Compare production builds only: run `pnpm build:site && pnpm preview:site` and open `/perftest`, or run
+`pnpm perftest` for a headless run that prints a Markdown table (options: `--nodes 200,1000`,
+`--rounds 5`, `--benches type,enter`, `--json results.json`, `--no-build`). The headless run needs
+Playwright's Chromium once: `cd packages/core && pnpm exec playwright install chromium`. The suite lives in
+`packages/demo-shared/src/perftest`.
+
+### Beyond the README
+
+The source code is compact and readable. We encourage you to explore it. The files in `packages/core/src/lib` and each binding's `src/lib` are the library code, while the files in each binding's `src/routes` are example code you can copy and adapt to your needs.
 
 ## Contributing
 
@@ -1649,4 +2440,4 @@ It's still early. Expect bugs. Expect missing features. Expect the need for more
 
 ## Credits
 
-Svedit is made by [Michael Aufreiter](https://michaelaufreiter.com) (maintainer) and [Johannes Mutter](https://mutter.co) (design and engineering). Illustrations and icons are hand-crafted by Johannes.
+Svedit is made by [Michael Aufreiter](https://michaelaufreiter.com) (maintainer) and [Johannes Mutter](https://mutter.co) (design and engineering). Illustrations and icons are hand-crafted by Johannes. Released under the MIT license.

@@ -1,0 +1,72 @@
+/* Positioned relative to the gap marker it renders inside. The marker
+	   hugs the gap in both row and column flow, so no anchor positioning is
+	   needed here. Default: centered above the gap. The marker has
+	   pointer-events: none, so re-enable them on the button. */
+.gap-insert-tool {
+	position: absolute;
+	pointer-events: auto;
+	bottom: calc(100% + var(--s-1));
+	left: 50%;
+	translate: -50% 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 1px solid oklch(from var(--foreground) l c h / 0.12);
+	border-radius: 50%;
+	background: var(--background);
+	color: var(--foreground);
+	box-shadow:
+		0 1px 2px oklch(0% 0 0 / 0.12),
+		0 4px 16px oklch(0% 0 0 / 0.08);
+	cursor: pointer;
+	transition:
+		background 150ms,
+		transform 150ms;
+}
+
+/* Last gap in column flow: below the gap instead of above */
+.gap-insert-tool.last {
+	bottom: auto;
+	top: calc(100% + var(--s-1));
+}
+
+/* Last gap in row flow (--row: 1): right of the gap, vertically centered */
+@container style(--row: 1) {
+	.gap-insert-tool.last {
+		top: 50%;
+		left: calc(100% + var(--s-1));
+		translate: 0 -50%;
+	}
+}
+
+.gap-insert-tool svg {
+	width: 24px;
+	height: 24px;
+}
+
+@media (hover: hover) {
+	.gap-insert-tool:hover {
+		background: oklch(from var(--background) calc(l - 0.03) c h);
+	}
+}
+
+.gap-insert-tool:active {
+	transform: translateY(1px) scale(0.95);
+}
+
+.gap-insert-tool:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--editing);
+}
+
+/* Touch devices use the insert button in the bottom toolbar instead,
+	   matching how the floating toolbar is handled. */
+@media (hover: none), (pointer: coarse) {
+	.gap-insert-tool {
+		display: none;
+	}
+}

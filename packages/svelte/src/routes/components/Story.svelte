@@ -1,0 +1,168 @@
+<script lang="ts">
+	import { TextProperty, CustomProperty, NodeArrayProperty, Node } from 'svedit';
+	import type { DocumentPath } from 'svedit';
+	import { get_svedit_context } from '../svedit_context.js';
+	import type { Nodes } from '@svedit/demo-shared/src/demo_schema.js';
+
+	const svedit = get_svedit_context();
+
+	let { path }: { path: DocumentPath } = $props();
+	let node: Nodes['story'] = $derived(svedit.session.get(path));
+	let has_buttons = $derived(node.buttons.nodes.length > 0);
+</script>
+
+<Node {path}>
+	<div class="story layout-{node.layout} max-w-screen-lg mx-auto w-full">
+		<CustomProperty class="image-wrapper" path={[...path, 'image']}>
+			<div style="width: 100%; height: 100%;" contenteditable="false">
+				<img
+					src={node.image || '/icons/image-placeholder.svg'}
+					alt={node.title.content}
+					class:placeholder={!node.image}
+				/>
+			</div>
+		</CustomProperty>
+		<div class="caption">
+			<!-- ATTENTION: Do not format the following lines, as whitespace will mess up contenteditable -->
+			<TextProperty
+				class="heading2"
+				path={[...path, 'title']}
+				placeholder="The CTA headline should be clear and benefit-driven."
+			/>
+			<TextProperty
+				class="body"
+				path={[...path, 'description']}
+				placeholder="It should be supported by a short sentence or two to clarify the offer or value, especially if the headline is bold or emotional."
+			/>
+			<NodeArrayProperty
+				class="buttons{!has_buttons ? ' empty' : ''}"
+				path={[...path, 'buttons']}
+			/>
+		</div>
+	</div>
+</Node>
+
+<style>
+	.story {
+		container-type: inline-size;
+		display: grid;
+		grid-template-columns: 1fr;
+		/* Apply padding on the sides, but only on devices that need it, e.g. iPhone with notch */
+		/* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
+		padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
+		padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
+		padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
+		padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
+		@media (min-width: 680px) {
+			grid-template-columns: 1fr 2fr;
+		}
+		gap: var(--s-10);
+		padding: var(--s-10) var(--s-6);
+	}
+
+	/* Prevent overflow issues when e.g. the buttons array grows larger than the container */
+	.story .caption {
+		min-width: 0;
+	}
+
+	.story :global(.buttons:not(.empty)) {
+		padding-top: 24px;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		gap: var(--s-2);
+		max-width: 100%;
+		overflow-x: auto;
+		overscroll-behavior: contain;
+	}
+
+	.story :global(.buttons:not(.empty) > [data-type='node']) {
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+
+	.story :global(.buttons:focus),
+	.story :global(.buttons:focus-visible) {
+		outline: none;
+	}
+
+	.story :global(.buttons) {
+		--row: 1;
+	}
+
+	/* important: also add relative positioning to the parent container, so the placeholder occoupies the entire space*/
+	.story :global(.buttons.empty) {
+		position: relative;
+	}
+	.story :global(.buttons.empty .empty-node-placeholder) {
+		position: absolute;
+	}
+
+	.story img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+	/* Don't crop SVGs */
+	.story img[src*='.svg'] {
+		object-fit: contain;
+		object-position: center;
+	}
+
+	/* Placeholder styling */
+	.story img.placeholder {
+		opacity: 0.7;
+		border: 2px dashed var(--border);
+		border-radius: var(--s-2);
+		padding: var(--s-4);
+		background: var(--background);
+	}
+
+	.story :global(.heading2) {
+		margin-bottom: var(--s-2);
+	}
+
+	.story :global(.image-wrapper) {
+		/* for now ignore clicks on the image, until we have non-text selections */
+		/* pointer-events: none; */
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 280px;
+		max-width: 320px;
+		@media (max-width: 680px) {
+			min-width: 100%;
+			max-width: 100%;
+		}
+	}
+
+	/* Layout styles */
+	.story.layout-image-right,
+	.story.layout-image-left {
+		align-items: center;
+	}
+
+	@media (min-width: 680px) {
+		/* Image on the right - use grid areas */
+		.story.layout-image-right {
+			grid-template-columns: 2fr 1fr;
+			grid-template-areas: 'content image';
+		}
+		.story.layout-image-right > :first-child {
+			grid-area: image;
+		}
+		.story.layout-image-right > :last-child {
+			grid-area: content;
+		}
+	}
+
+	.story.layout-stacked > div:first-child {
+		grid-column: 1 / 3;
+		grid-row: 1 / 2;
+	}
+
+	.story.layout-stacked > div:last-child {
+		grid-column: 1 / 3;
+		grid-row: 2 / 3;
+	}
+</style>

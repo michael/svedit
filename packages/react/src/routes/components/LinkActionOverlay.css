@@ -1,0 +1,97 @@
+/* Mirrors .editor-toolbar in Toolbar.tsx, so toggling a link morphs
+	   the floating toolbar into this popover: same design, placement and
+	   size. Keep the values in sync with Toolbar.tsx. */
+.link-popover {
+	--toolbar-item-max-width: 200px;
+	position: fixed;
+	bottom: anchor(top);
+	justify-self: anchor-center;
+	margin-bottom: var(--s-2);
+	position-try-fallbacks: flip-block;
+	position-visibility: anchors-visible;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	gap: 0;
+	width: fit-content;
+	max-width: calc(100vw - 2 * var(--s-4));
+	padding: 4px;
+	color: var(--foreground);
+	background: var(--background);
+	border: 1px solid oklch(from var(--foreground) l c h / 0.12);
+	border-radius: 9999px;
+	box-shadow:
+		0 1px 2px oklch(0% 0 0 / 0.12),
+		0 4px 16px oklch(0% 0 0 / 0.08);
+	pointer-events: auto;
+}
+
+.url-field {
+	padding: var(--s-1) var(--s-2);
+	/* Reserve room for the enter hint so text can never run under it */
+	padding-right: calc(var(--s-2) + 20px);
+	border: none;
+	background: transparent;
+	color: var(--foreground);
+	font: inherit;
+	font-feature-settings: 'calt' 0;
+	font-size: 14px;
+	/* Fixed width on purpose: field-sizing measures the placeholder while
+		   empty and the content afterwards, so the pill would visibly shrink
+		   on the first typed character. Long URLs scroll within the field. */
+	width: 12rem;
+	max-width: var(--toolbar-item-max-width);
+}
+
+.url-field:focus {
+	outline: none;
+}
+
+.link-popover button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 36px;
+	height: 36px;
+	/* Pin the full 36px geometry like the toolbar: height alone would
+		   lose to any outside min-height and stretch the circles into
+		   ovals (and the pill taller than the toolbar). */
+	min-width: 36px;
+	min-height: 36px;
+	aspect-ratio: 1 / 1;
+	flex: 0 0 36px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--foreground);
+	cursor: pointer;
+	transition:
+		background 150ms,
+		transform 150ms;
+	outline: 1px solid transparent;
+	--icon-color: var(--foreground);
+}
+
+@media (hover: hover) {
+	.link-popover button:hover:not(:disabled) {
+		background: oklch(from var(--foreground) l c h / 0.06);
+	}
+}
+
+.link-popover button:active:not(:disabled) {
+	background: oklch(from var(--foreground) l c h / 0.09);
+	transform: translateY(1px) scale(0.95);
+}
+
+.link-popover button:disabled {
+	background: transparent;
+	cursor: not-allowed;
+	--icon-color: oklch(from var(--foreground) l c h / 0.3);
+}
+
+.link-popover button:focus-visible {
+	outline: 1px solid var(--editing);
+	outline-offset: 1px;
+}

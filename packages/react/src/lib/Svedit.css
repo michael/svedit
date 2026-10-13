@@ -1,0 +1,38 @@
+.svedit-canvas {
+	caret-color: var(--editing);
+	caret-shape: bar;
+	/* Default to vertical/ column flow with: --row: 0; (the most common case)
+		Prevents silent failures when developers forget to set the row property in their top level node component.
+		TODO: Warn developers in dev mode via console if they forget to set the --row property and use a different flow.*/
+	--row: 0;
+}
+.svedit-canvas:focus {
+	outline: none;
+}
+
+@media not (pointer: coarse) {
+	.svedit-canvas.hide-selection {
+		caret-color: transparent;
+	}
+}
+
+/* When the caret is in a node gap we never want to see the caret */
+.svedit-canvas.node-caret,
+.svedit-canvas.property-selection {
+	caret-color: transparent;
+}
+
+/* Selection paint — wrapped in :where() so consumers can override with
+	   a plain `::selection` rule. Final specificity is just (0,0,1),
+	   trivially beatable. */
+:where(.svedit-canvas) ::selection {
+	background: var(--editing-muted);
+}
+
+@media not (pointer: coarse) {
+	@supports (anchor-name: --test) {
+		.svedit-canvas.hide-selection ::selection {
+			background: transparent;
+		}
+	}
+}

@@ -1,0 +1,68 @@
+/* Flat inside the unified toolbar pill: no own border, background or
+	   shadow — the hover state on the label provides the affordance. */
+.node-navigator {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-height: 36px;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	line-height: 1.25rem;
+	white-space: nowrap;
+}
+
+.variant-label {
+	position: relative;
+	display: flex;
+	align-items: center;
+	/* Balance spacing icons with text */
+	padding: 0.45rem 0.2rem 0.45rem 0.75rem;
+	border-radius: 9999px;
+}
+
+/* Long variant labels must not push the other tools out of the toolbar;
+	   the cap is shared with the toolbar's other wide elements. */
+.variant-label > span[aria-hidden='true'] {
+	display: block;
+	max-width: var(--toolbar-item-max-width, 200px);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.variant-label.switchable {
+	cursor: pointer;
+}
+
+/* Hover only on hovering devices, so touch taps don't leave the
+	   emulated hover state stuck on the label. */
+@media (hover: hover) {
+	.variant-label.switchable:hover {
+		background: oklch(from var(--foreground) l c h / 0.05);
+	}
+}
+
+.current-type {
+	font-weight: 600;
+}
+
+.current-layout {
+	margin-left: 0.3rem;
+	font-family: monospace;
+	font-size: 0.6875rem;
+	opacity: 0.62;
+}
+
+.variant-select {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	appearance: none;
+	-webkit-appearance: none;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	opacity: 0;
+	cursor: pointer;
+}

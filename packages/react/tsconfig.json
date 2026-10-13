@@ -1,0 +1,37 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"jsx": "react-jsx",
+		"types": ["vite/client"],
+		"paths": {
+			"@svedit/react": ["./src/lib/index.ts"],
+			"@svedit/core": ["../core/src/lib/index.ts"],
+			"@svedit/core/*": ["../core/*"],
+			"#lib": ["./src/lib/index.ts"],
+			"#lib/*": ["./src/lib/*"]
+		},
+		"erasableSyntaxOnly": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"esModuleInterop": true,
+		"allowJs": true,
+		"checkJs": false,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": false,
+		"noEmit": true,
+		"declaration": true,
+		"declarationMap": true
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"vite.config.ts",
+		"vitest.config.ts",
+		"vite.config.lib.ts"
+	]
+}

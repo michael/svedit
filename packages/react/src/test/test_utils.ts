@@ -1,0 +1,151 @@
+/**
+ * Shared timing / session / DOM helpers for the browser test suite.
+ *
+ * Pulled out so the three spec files (focus_retention, gap_visibility,
+ * selection_scroll) stay focused on their assertions instead of
+ * re-implementing the same scaffolding.
+ */
+
+import { Session } from '@svedit/core';
+import { app_config } from '../routes/demo_config.js';
+import { document_schema } from '@svedit/demo-shared/src/demo_schema.js';
+import type { Document } from '../lib/types.js';
+import SveditContextProbe from './testing_components/SveditContextProbe.js';
+
+function create_test_config() {
+	return {
+		...app_config,
+		system_components: {
+			...app_config.system_components,
+			overlays: SveditContextProbe
+		}
+	};
+}
+
+/**
+ * Wait until React has flushed the re-render and effects caused by a
+ * session change (external-store updates flush in a microtask, effects
+ * before the next task), the equivalent of Svelte's `tick()` and Vue's
+ * `nextTick()`.
+ */
+export function tick() {
+	return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+/** Sleep one or more requestAnimationFrame ticks. */
+export function raf(times = 1) {
+	return new Promise<void>((resolve) => {
+		let remaining = times;
+		function step() {
+			remaining -= 1;
+			if (remaining <= 0) resolve();
+			else requestAnimationFrame(step);
+		}
+		requestAnimationFrame(step);
+	});
+}
+
+/**
+ * Let React + IO + scroll-listener RAFs settle. Default values cover
+ * the row-buttons-array case. Grid / wrap-flow tests can pass a longer
+ * RAF count and ms tail because grid layout settles a frame or two
+ * later than a fixed-width row.
+ *
+ */
+export async function settle({ rafs = 3, ms = 60 }: { rafs?: number; ms?: number } = {}) {
+	await tick();
+	await raf(rafs);
+	await new Promise((r) => setTimeout(r, ms));
+}
+
+/** Generous settle for image-grid / wrap-flow scenarios. */
+export const settle_grid = () => settle({ rafs: 8, ms: 150 });
+
+/** Build a session with a single story whose `buttons` array holds `n` buttons. */
+export function make_story_session(n_buttons: number) {
+	const button_ids: string[] = [];
+	const nodes: Document['nodes'] = {};
+	for (let i = 0; i < n_buttons; i++) {
+		const id = `btn_${i}`;
+		nodes[id] = {
+			id,
+			type: 'button',
+			content: { content: `Action ${i + 1}`, marks: [], annotations: [] },
+			href: '#'
+		};
+		button_ids.push(id);
+	}
+	nodes.story_1 = {
+		id: 'story_1',
+		type: 'story',
+		layout: 'image-left',
+		image: '',
+		title: { content: 'Test story', marks: [], annotations: [] },
+		description: { content: 'desc', marks: [], annotations: [] },
+		buttons: { nodes: button_ids, marks: [], annotations: [] }
+	};
+	nodes.page_1 = {
+		id: 'page_1',
+		type: 'page',
+		body: { nodes: ['story_1'], marks: [], annotations: [] },
+		keywords: [],
+		daily_visitors: [],
+		created_at: '2025-05-30T10:39:59.987Z'
+	};
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
+}
+
+/** Build a session with a single image_grid containing `n` items. */
+export function make_image_grid_session(n_items: number) {
+	const item_ids: string[] = [];
+	const nodes: Document['nodes'] = {};
+	for (let i = 0; i < n_items; i++) {
+		const id = `igi_${i}`;
+		nodes[id] = {
+			id,
+			type: 'image_grid_item',
+			image: '',
+			title: { content: `Item ${i + 1}`, marks: [], annotations: [] },
+			description: { content: 'desc', marks: [], annotations: [] }
+		};
+		item_ids.push(id);
+	}
+	nodes.image_grid_1 = {
+		id: 'image_grid_1',
+		type: 'image_grid',
+		image_grid_items: { nodes: item_ids, marks: [], annotations: [] }
+	};
+	nodes.page_1 = {
+		id: 'page_1',
+		type: 'page',
+		body: { nodes: ['image_grid_1'], marks: [], annotations: [] },
+		keywords: [],
+		daily_visitors: [],
+		created_at: '2025-05-30T10:39:59.987Z'
+	};
+	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
+}
+
+/** Find the (non-empty) buttons node-array inside the rendered tree. */
+export function find_buttons_array(container: HTMLElement) {
+	return container.querySelector<HTMLElement>(
+		'[data-type="node_array"][data-path$="buttons"]:not(.empty)'
+	);
+}
+
+/** Find the image-grid items node-array inside the rendered tree. */
+export function find_image_grid_array(container: HTMLElement) {
+	return container.querySelector<HTMLElement>(
+		'[data-type="node_array"][data-path$="image_grid_items"]'
+	);
+}
+
+/** The trailing .gap-after.last element of a node-array. */
+export function find_last_gap(array_el: Element) {
+	return array_el.querySelector<HTMLElement>(':scope > .node-gap.gap-after.last');
+}
+
+/** The leading .gap-before element of a node-array (skips the empty-array placeholder). */
+export function find_first_gap(array_el: Element) {
+	return array_el.querySelector<HTMLElement>(':scope > .node-gap.gap-before:not(.empty)');
+}
