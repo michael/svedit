@@ -56,7 +56,11 @@ function UrlField({
 export default function LinkActionOverlay() {
 	const svedit = useAppSvedit();
 
-	const { active_link_path, active_link, anchor_name } = useSvedit((context) => {
+	// The snapshot holds only values that are stable between changes (a
+	// serialized path string, the link node, a string): shallow_equal compares
+	// fields with Object.is, so a fresh array per call would make every
+	// snapshot look new and re-render the component without end.
+	const { active_link_key, active_link, anchor_name } = useSvedit((context) => {
 		const session = context.session;
 		const sel = session.selection;
 		let active_link_path: DocumentPath | null = null;
@@ -69,11 +73,12 @@ export default function LinkActionOverlay() {
 		const active_link: Nodes['link'] | null = active_link_path
 			? session.get(active_link_path)
 			: null;
+		const active_link_key = active_link_path ? serialize_path(active_link_path) : null;
 		// Anchor to the text property owning the selection — the same anchor the
 		// floating toolbar uses — so toggling a link morphs the toolbar into this
 		// popover at the exact same position and size.
 		const anchor_name = sel?.type === 'text' ? serialize_path(sel.path) : null;
-		return { active_link_path, active_link, anchor_name };
+		return { active_link_key, active_link, anchor_name };
 	}, shallow_equal);
 
 	const committed_href = active_link?.href ?? '';
@@ -122,7 +127,7 @@ export default function LinkActionOverlay() {
 		session.apply(session.tr.toggle_mark('link'));
 	}
 
-	if (!active_link_path || !anchor_name) return null;
+	if (!active_link_key || !anchor_name) return null;
 
 	return (
 		<div
@@ -131,7 +136,7 @@ export default function LinkActionOverlay() {
 			onKeyDown={handle_keydown}
 		>
 			<UrlField
-				key={`${serialize_path(active_link_path)}:${committed_href}`}
+				key={`${active_link_key}:${committed_href}`}
 				committed_href={committed_href}
 				on_commit={commit_href}
 			/>

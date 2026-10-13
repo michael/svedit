@@ -52,6 +52,18 @@ export function useSnapshot<T>(
 		const next = get_snapshot();
 		const current = cache.current;
 		if (current.has_value && is_equal(current.value, next)) return current.value;
+		// A snapshot that differs from the cached one must at least equal the
+		// next call's result, or React's consistency check after every commit
+		// sees a new value each time and re-renders until "Maximum update
+		// depth exceeded". Catch it here with a message that names the cause:
+		// a selector that builds a fresh array or object per call must be
+		// paired with an `is_equal` that compares its contents (shallow_equal
+		// for one level; nested arrays need a key such as serialize_path()).
+		if (!is_equal(next, get_snapshot())) {
+			throw new Error(
+				'useSnapshot: the selector returns a value that is never equal to itself. Return stable references (session values are copy-on-write) or pass an is_equal that compares the returned value by content.'
+			);
+		}
 		cache.current = { has_value: true, value: next };
 		return next;
 	};
