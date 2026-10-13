@@ -38,7 +38,11 @@ const children = servers.map((server) => {
 		{
 			cwd: root,
 			env: { ...process.env, ...server.env, FORCE_COLOR: '1' },
-			stdio: ['ignore', 'pipe', 'pipe']
+			stdio: ['ignore', 'pipe', 'pipe'],
+			// Each server gets its own process group: pnpm spawns vite as a
+			// grandchild, and a signal sent to pnpm alone leaves vite running on
+			// its port (reparented to PID 1) after this script exits.
+			detached: true
 		}
 	);
 	const prefix = `${server.color}[${server.name}]\x1b[0m `;
@@ -62,11 +66,19 @@ let shutting_down = false;
 function shutdown(code = 0) {
 	if (shutting_down) return;
 	shutting_down = true;
-	for (const child of children) child.kill('SIGTERM');
+	for (const child of children) {
+		// Negative pid: the whole process group (pnpm and the vite it spawned).
+		try {
+			process.kill(-child.pid, 'SIGTERM');
+		} catch {
+			child.kill('SIGTERM');
+		}
+	}
 	setTimeout(() => process.exit(code), 200);
 }
 process.on('SIGINT', () => shutdown());
 process.on('SIGTERM', () => shutdown());
+process.on('SIGHUP', () => shutdown());
 
 setTimeout(() => {
 	console.log(
