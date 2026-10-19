@@ -102,5 +102,5 @@ createServer((request, response) => {
 	});
 	createReadStream(file).pipe(response);
 }).listen(port, () => {
-	console.log(`site: http://localhost:${port}/  (react: /react/, vue: /vue/)`);
+	console.log(`site: http://localhost:${port}/  (react: /react/, vue: /vue/, solid: /solid/)`);
 });

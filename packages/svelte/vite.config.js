@@ -4,9 +4,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
 /**
- * `pnpm dev:site` (scripts/dev_site.mjs) runs all three demos behind this
- * dev server: /react/ and /vue/ are proxied (HMR websockets included) to the
- * React and Vue Vite dev servers, whose ports the script passes in. Without
+ * `pnpm dev:site` (scripts/dev_site.mjs) runs all four demos behind this
+ * dev server: /react/, /vue/ and /solid/ are proxied (HMR websockets
+ * included) to the React, Vue and Solid Vite dev servers, whose ports the
+ * script passes in. Without
  * the env vars (`pnpm dev` inside this package) no proxy is configured.
  */
 const site_proxy = {};
@@ -18,6 +19,12 @@ if (process.env.SVEDIT_REACT_PORT) {
 }
 if (process.env.SVEDIT_VUE_PORT) {
 	site_proxy['/vue'] = { target: `http://localhost:${process.env.SVEDIT_VUE_PORT}`, ws: true };
+}
+if (process.env.SVEDIT_SOLID_PORT) {
+	site_proxy['/solid'] = {
+		target: `http://localhost:${process.env.SVEDIT_SOLID_PORT}`,
+		ws: true
+	};
 }
 
 export default defineConfig({

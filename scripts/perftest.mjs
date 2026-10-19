@@ -1,5 +1,5 @@
 /**
- * Runs the Svelte/React/Vue performance comparison headless and prints the
+ * Runs the Svelte/React/Vue/Solid performance comparison headless and prints the
  * result table:
  *
  *   pnpm perftest                          build the site, run, print

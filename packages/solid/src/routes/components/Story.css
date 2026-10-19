@@ -1,0 +1,128 @@
+.story {
+	container-type: inline-size;
+	display: grid;
+	grid-template-columns: 1fr;
+	/* Apply padding on the sides, but only on devices that need it, e.g. iPhone with notch */
+	/* Learn more about this technique here: https://kulturbanause.de/blog/websites-fuer-das-iphone-x-optimieren-weisse-balken-entfernen-viewport-anpassen-safe-area-festlegen/ */
+	padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
+	padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
+	padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
+	padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
+	gap: var(--s-10);
+	padding: var(--s-10) var(--s-6);
+}
+
+@media (min-width: 680px) {
+	.story {
+		grid-template-columns: 1fr 2fr;
+	}
+}
+
+/* Prevent overflow issues when e.g. the buttons array grows larger than the container */
+.story .caption {
+	min-width: 0;
+}
+
+.story .buttons:not(.empty) {
+	padding-top: 24px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	gap: var(--s-2);
+	max-width: 100%;
+	overflow-x: auto;
+	overscroll-behavior: contain;
+}
+
+.story .buttons:not(.empty) > [data-type='node'] {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.story .buttons:focus,
+.story .buttons:focus-visible {
+	outline: none;
+}
+
+.story .buttons {
+	--row: 1;
+}
+
+/* important: also add relative positioning to the parent container, so the placeholder occoupies the entire space*/
+.story .buttons.empty {
+	position: relative;
+}
+.story .buttons.empty .empty-node-placeholder {
+	position: absolute;
+}
+
+.story img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+/* Don't crop SVGs */
+.story img[src*='.svg'] {
+	object-fit: contain;
+	object-position: center;
+}
+
+/* Placeholder styling */
+.story img.placeholder {
+	opacity: 0.7;
+	border: 2px dashed var(--border);
+	border-radius: var(--s-2);
+	padding: var(--s-4);
+	background: var(--background);
+}
+
+.story .heading2 {
+	margin-bottom: var(--s-2);
+}
+
+.story .image-wrapper {
+	/* for now ignore clicks on the image, until we have non-text selections */
+	/* pointer-events: none; */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 280px;
+	max-width: 320px;
+}
+
+@media (max-width: 680px) {
+	.story .image-wrapper {
+		min-width: 100%;
+		max-width: 100%;
+	}
+}
+
+/* Layout styles */
+.story.layout-image-right,
+.story.layout-image-left {
+	align-items: center;
+}
+
+@media (min-width: 680px) {
+	/* Image on the right - use grid areas */
+	.story.layout-image-right {
+		grid-template-columns: 2fr 1fr;
+		grid-template-areas: 'content image';
+	}
+	.story.layout-image-right > :first-child {
+		grid-area: image;
+	}
+	.story.layout-image-right > :last-child {
+		grid-area: content;
+	}
+}
+
+.story.layout-stacked > div:first-child {
+	grid-column: 1 / 3;
+	grid-row: 1 / 2;
+}
+
+.story.layout-stacked > div:last-child {
+	grid-column: 1 / 3;
+	grid-row: 2 / 3;
+}

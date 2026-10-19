@@ -9,12 +9,12 @@ See the root `CLAUDE.md` for the workspace layout. Never add a framework import 
 
 - `pnpm check` type-checks, `pnpm lint` runs prettier and eslint.
 - `pnpm test` runs the suites in the browser you have open; `CI=1 pnpm test` runs them in headless Chromium.
-- When changing `Session`, `Transaction` or `reactive.ts`, also run the Svelte, React and Vue suites: a
+- When changing `Session`, `Transaction` or `reactive.ts`, also run the Svelte, React, Vue and Solid suites: a
   change that is fine for one framework's reactivity can break another's.
 
 ## Correctness properties
 
-The three bindings and application code rely on the properties below. `src/test/invariants.test.ts` pins
+The four bindings and application code rely on the properties below. `src/test/invariants.test.ts` pins
 each one; extend it when you add a property, and treat a failure there as a bug in core, never as a test
 to adjust.
 

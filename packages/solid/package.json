@@ -1,0 +1,110 @@
+{
+	"name": "@svedit/solid",
+	"version": "0.16.0",
+	"description": "Svedit, the rich content editor, for SolidJS: editor components and a Session with Solid reactivity on top of @svedit/core.",
+	"keywords": [
+		"svedit",
+		"solid",
+		"solidjs",
+		"editor",
+		"rich-text-editor",
+		"rich-content",
+		"block-editor",
+		"contenteditable",
+		"wysiwyg",
+		"document-model"
+	],
+	"homepage": "https://svedit.dev/solid",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/michael/svedit.git",
+		"directory": "packages/solid"
+	},
+	"bugs": {
+		"url": "https://github.com/michael/svedit/issues"
+	},
+	"license": "MIT",
+	"author": "Michael Aufreiter (https://michaelaufreiter.com)",
+	"contributors": [
+		"Johannes Mutter (https://mutter.co)"
+	],
+	"engines": {
+		"node": ">=20.19"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"build:lib": "vite build --config vite.config.lib.ts && tsc -p tsconfig.lib.json && publint",
+		"prepack": "pnpm build:lib",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"check:watch": "tsc --noEmit -p tsconfig.json --watch",
+		"check:strict": "tsc --noEmit -p tsconfig.strict.json",
+		"format": "prettier --write .",
+		"lint": "prettier --check . && eslint .",
+		"test:unit": "vitest",
+		"test": "pnpm test:unit --run"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*",
+		"src/lib",
+		"!src/lib/**/*.test.*",
+		"!src/lib/**/*.spec.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"solid": "./src/lib/index.ts",
+			"import": "./dist/index.js"
+		},
+		"./svedit.css": "./dist/svedit.css",
+		"./src/lib/*": "./src/lib/*",
+		"./package.json": "./package.json"
+	},
+	"peerDependencies": {
+		"solid-js": "^1.9.0"
+	},
+	"dependencies": {
+		"@svedit/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^2.1.1",
+		"@eslint/js": "^10.0.1",
+		"@solidjs/router": "^1.0.0",
+		"@svedit/demo-shared": "workspace:*",
+		"@types/node": "^26.6.4",
+		"@typescript-eslint/eslint-plugin": "^8.71.0",
+		"@typescript-eslint/parser": "^8.71.0",
+		"@vitest/browser-playwright": "^5.0.3",
+		"@vitest/browser-preview": "^5.0.3",
+		"eslint": "^10.11.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-solid": "^0.18.1",
+		"globals": "^17.13.0",
+		"nanoid": "^6.0.1",
+		"playwright": "^1.64.0",
+		"prettier": "^3.9.9",
+		"publint": "^0.3.25",
+		"solid-js": "^1.9.17",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.2",
+		"vite-plugin-solid": "^2.11.14",
+		"vitest": "^5.0.3"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	}
+}

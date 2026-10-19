@@ -1,0 +1,19 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Fine-grained reactivity: a signal feeding memos that bind straight into the DOM, no virtual DOM in between. -->
+<rect x="72" y="24" width="56" height="28" rx="14" stroke="black"/>
+<path d="M88 38H112" stroke="black"/>
+<path d="M100 52V140" stroke="black"/>
+<path d="M50 72H150" stroke="black"/>
+<path d="M50 72V92M150 72V92" stroke="black"/>
+<rect x="22" y="92" width="56" height="28" rx="6" stroke="black"/>
+<rect x="122" y="92" width="56" height="28" rx="6" stroke="black"/>
+<path d="M36 106H64M136 106H164" stroke="black"/>
+<path d="M50 120V140M150 120V140" stroke="black"/>
+<rect x="30" y="140" width="140" height="40" rx="6" stroke="black"/>
+<path d="M50 154L44 160L50 166M70 154L76 160L70 166" stroke="black"/>
+<path d="M90 160H154M90 168H126" stroke="black"/>
+<circle cx="100" cy="24" r="3.4" fill="#446b9e"/>
+<circle cx="50" cy="72" r="3.4" fill="#446b9e"/>
+<circle cx="150" cy="72" r="3.4" fill="#446b9e"/>
+<circle cx="100" cy="140" r="3.4" fill="#446b9e"/>
+</svg>

@@ -1,8 +1,8 @@
 # Svedit
 
-One editor, three frameworks. Svedit offers structured, full-canvas content editing: model content in JSON, render it with your own components, and **edit it directly in the layout**. The editor core is framework-free, and thin bindings make it feel native in Svelte 5, React 19 and Vue 3.
+One editor, four frameworks. Svedit offers structured, full-canvas content editing: model content in JSON, render it with your own components, and **edit it directly in the layout**. The editor core is framework-free, and thin bindings make it feel native in Svelte 5, React 19, Vue 3 and SolidJS.
 
-- Try the [Svedit demo](https://svedit.dev) (Svelte), [svedit.dev/react](https://svedit.dev/react) and [svedit.dev/vue](https://svedit.dev/vue) — watch the debug output at the bottom of the page
+- Try the [Svedit demo](https://svedit.dev) (Svelte), [svedit.dev/react](https://svedit.dev/react), [svedit.dev/vue](https://svedit.dev/vue) and [svedit.dev/solid](https://svedit.dev/solid) — watch the debug output at the bottom of the page
 - Try [Editable](https://editable.website) — build Svelte websites you can edit on the page
 
 | Package                              | npm name        | What it is                                                                             |
@@ -11,9 +11,10 @@ One editor, three frameworks. Svedit offers structured, full-canvas content edit
 | [`packages/svelte`](packages/svelte) | `svedit`        | Svelte 5 components and a Session with Svelte reactivity. Demo at `/`                  |
 | [`packages/react`](packages/react)   | `@svedit/react` | React 19 components, hooks and a snapshot-based store. Demo at `/react/`               |
 | [`packages/vue`](packages/vue)       | `@svedit/vue`   | Vue 3 components and a Session with Vue reactivity. Demo at `/vue/`                    |
+| [`packages/solid`](packages/solid)   | `@svedit/solid` | SolidJS components and a Session with Solid reactivity. Demo at `/solid/`              |
 | `packages/demo-shared`               | private         | The framework switcher shown at the top of every demo                                  |
 
-Each binding re-exports everything from the core, so `import { Session, Transaction, define_document_schema } from 'svedit'` keeps working, and the React and Vue packages export the same names from `@svedit/react` and `@svedit/vue`. The document format, schema language, Session and Transaction API, transforms, commands, keymaps, clipboard payload and CSS tokens are identical across the three: a document edited in the Svelte version loads unchanged in the React or Vue version. Only the rendering layer differs, and this README calls out those differences where they matter.
+Each binding re-exports everything from the core, so `import { Session, Transaction, define_document_schema } from 'svedit'` keeps working, and the React, Vue and Solid packages export the same names from `@svedit/react`, `@svedit/vue` and `@svedit/solid`. The document format, schema language, Session and Transaction API, transforms, commands, keymaps, clipboard payload and CSS tokens are identical across the four: a document edited in the Svelte version loads unchanged in the React, Vue or Solid version. Only the rendering layer differs, and this README calls out those differences where they matter.
 
 ## Why Svedit?
 
@@ -35,23 +36,25 @@ Because a modern component framework's reactivity is **the perfect fit** for bui
 pnpm add svedit          # Svelte 5
 pnpm add @svedit/react   # React 19
 pnpm add @svedit/vue     # Vue 3
+pnpm add @svedit/solid   # SolidJS
 ```
 
-The Svelte package ships its styles inside the components, so nothing else is needed. The React and Vue packages ship one stylesheet that you import once, next to the editor:
+The Svelte package ships its styles inside the components, so nothing else is needed. The React, Vue and Solid packages ship one stylesheet that you import once, next to the editor:
 
 ```js
 import '@svedit/react/svedit.css'; // React
 import '@svedit/vue/svedit.css'; // Vue
+import '@svedit/solid/svedit.css'; // Solid
 ```
 
-If you prefer to start from a running app, the [hello-svedit](https://github.com/michael/hello-svedit) template is a minimal SvelteKit project; for React and Vue, the demos in [`packages/react/src/routes`](packages/react/src/routes) and [`packages/vue/src/routes`](packages/vue/src/routes) are the reference. Each demo has a schema ([`demo_schema.ts`](packages/svelte/src/routes/demo_schema.ts)), a config ([`demo_config.ts`](packages/svelte/src/routes/demo_config.ts)), a toolbar and overlays you can copy and adapt.
+If you prefer to start from a running app, the [hello-svedit](https://github.com/michael/hello-svedit) template is a minimal SvelteKit project; for React, Vue and Solid, the demos in [`packages/react/src/routes`](packages/react/src/routes), [`packages/vue/src/routes`](packages/vue/src/routes) and [`packages/solid/src/routes`](packages/solid/src/routes) are the reference. Each demo has a schema ([`demo_schema.ts`](packages/svelte/src/routes/demo_schema.ts)), a config ([`demo_config.ts`](packages/svelte/src/routes/demo_config.ts)), a toolbar and overlays you can copy and adapt.
 
 ## Quick start
 
-A Svedit app has three framework-neutral parts — a schema, a document and a config — plus one node component per node type and a page that mounts `<Svedit>`. The schema and document below are shared by all three examples.
+A Svedit app has three framework-neutral parts — a schema, a document and a config — plus one node component per node type and a page that mounts `<Svedit>`. The schema and document below are shared by all four examples.
 
 ```js
-import { define_document_schema } from 'svedit'; // or '@svedit/react', '@svedit/vue'
+import { define_document_schema } from 'svedit'; // or '@svedit/react', '@svedit/vue', '@svedit/solid'
 
 export const document_schema = define_document_schema({
 	page: {
@@ -244,6 +247,53 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handle_keydown));
 	<Svedit :session="session" :path="[session.doc.document_id]" v-model:editable="editable" />
 </template>
 ```
+
+### Solid
+
+```tsx
+// Paragraph.tsx
+import { Node, TextProperty } from '@svedit/solid';
+
+export default function Paragraph(props) {
+	return (
+		<Node path={props.path}>
+			<TextProperty tag="p" path={[...props.path, 'content']} placeholder="Paragraph" />
+		</Node>
+	);
+}
+```
+
+```tsx
+// App.tsx
+import { createSignal, onCleanup, onMount } from 'solid-js';
+import { Svedit, Session, KeyMapper, KeyMapperContext } from '@svedit/solid';
+import '@svedit/solid/svedit.css';
+import { document_schema, doc } from './schema.js';
+import { config } from './config.js';
+
+export default function App() {
+	const session = new Session(document_schema, doc, config);
+	const key_mapper = new KeyMapper();
+	const [editable, set_editable] = createSignal(true);
+
+	const handle_keydown = (event) => key_mapper.handle_keydown(event);
+	onMount(() => window.addEventListener('keydown', handle_keydown));
+	onCleanup(() => window.removeEventListener('keydown', handle_keydown));
+
+	return (
+		<KeyMapperContext.Provider value={key_mapper}>
+			<Svedit
+				session={session}
+				path={[session.doc.document_id]}
+				editable={editable()}
+				on_editable_change={set_editable}
+			/>
+		</KeyMapperContext.Provider>
+	);
+}
+```
+
+Solid components run once, so read props lazily (`props.path`) and never destructure them; the JSX expressions that read them re-run on their own.
 
 The key mapper is optional: without one, `<Svedit>` still renders and edits, but the keymap returned by `create_commands_and_keymap` is not pushed when the canvas gains focus. See [Scope-aware keyboard shortcuts](#scope-aware-keyboard-shortcuts).
 
@@ -443,7 +493,7 @@ Wrap the schema in `define_document_schema(...)` to get a schema-typed `Session<
 
 ## Document
 
-A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes. The format is the same in all three bindings, so documents can be shared between a Svelte, a React and a Vue application.
+A document is a plain JavaScript object (POJO) with a `document_id` (the entry point) and a `nodes` object containing all content nodes. The format is the same in all four bindings, so documents can be shared between a Svelte, a React, a Vue and a Solid application.
 
 Rules:
 
@@ -1005,12 +1055,38 @@ function save() {
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```js
+import { createMemo, createSignal } from 'solid-js';
+
+const [last_saved_doc, set_last_saved_doc] = createSignal(null);
+const has_unsaved_changes = createMemo(() => {
+	if (!last_saved_doc()) {
+		// No save yet — use undo history as indicator
+		return session.can_undo;
+	} else {
+		// Compare current doc reference against last saved
+		return last_saved_doc() !== session.doc;
+	}
+});
+
+function save() {
+	// ... save to server ...
+	set_last_saved_doc(session.doc);
+}
+```
+
+</details>
+
 ### Reading session state from components
 
 The session notifies subscribers whenever a field is reassigned. How a component subscribes depends on the binding:
 
 - **Svelte:** the `svedit` Session keeps one `$state` signal per field. Reading `session.doc`, `session.selection`, `session.can_undo` or a command's `disabled` inside a `$derived`, `$effect` or template subscribes automatically. Get the editor context with `getContext('svedit')`.
 - **Vue:** the `@svedit/vue` Session keeps one `shallowRef` per field and marks the session raw. Reads inside `computed`, `watchEffect` or templates subscribe automatically. Get the editor context with `inject('svedit')`.
+- **Solid:** the `@svedit/solid` Session keeps one signal per field. Reads inside JSX expressions, `createMemo` or `createEffect` subscribe automatically. Get the editor context with `use_svedit()`; its fields are getters, so read them where you use them instead of destructuring.
 - **React:** nothing is tracked implicitly. Components pick what they need with a selector, and re-render only when that value changes:
 
 ```jsx
@@ -1033,7 +1109,7 @@ useVersion(session);
 
 `useSvedit`, `useNode` and `useSveditContext` must be called inside a component rendered under `<Svedit>`. Pass `shallow_equal` (exported from `@svedit/react`) as the second argument of `useSvedit` when the selector returns a fresh object. Outside the editor tree, subscribe with `useSnapshot([session], () => ...)` or `useVersion(session)`.
 
-The editor context has the same shape in all three bindings (`SveditContext`): `session`, `editable`, `is_composing`, `canvas_el`, `canvas_focused` and `focus_canvas()`. The React context additionally exposes `subscribe` and `version` for its own state.
+The editor context has the same shape in all four bindings (`SveditContext`): `session`, `editable`, `is_composing`, `canvas_el`, `canvas_focused` and `focus_canvas()`. The React context additionally exposes `subscribe` and `version` for its own state.
 
 ### Utilities
 
@@ -1341,9 +1417,24 @@ The component must subscribe to the session (e.g. with `useVersion(session)`) so
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```jsx
+<button
+	disabled={session.commands.toggle_strong.disabled}
+	classList={{ active: session.commands.toggle_strong.active }}
+	onClick={() => session.commands.toggle_strong.execute()}
+>
+	Bold
+</button>
+```
+
+</details>
+
 #### Derived state in commands
 
-Commands can have derived state for UI binding; the `active` property of the toggle commands is a common pattern. The `disabled` property is automatically derived from `is_enabled()` on all commands and recomputed on access. A plain getter is enough in all three bindings, because the session reads inside it are tracked (Svelte, Vue) or the component is subscribed to the session anyway (React):
+Commands can have derived state for UI binding; the `active` property of the toggle commands is a common pattern. The `disabled` property is automatically derived from `is_enabled()` on all commands and recomputed on access. A plain getter is enough in all four bindings, because the session reads inside it are tracked (Svelte, Vue, Solid) or the component is subscribed to the session anyway (React):
 
 ```js
 class ToggleEmphasisCommand extends Command {
@@ -1361,7 +1452,7 @@ class ToggleEmphasisCommand extends Command {
 }
 ```
 
-To memoize an expensive derivation, use the framework's primitive behind the getter: a `$derived` field in Svelte (`active = $derived(...)` in a `.svelte.js` module), a `computed` in Vue (`#active = computed(() => ...)` and `get active() { return this.#active.value }`), or the core's `derived(session, fn)` in React (`#active = derived(this.context.session, () => ...)` and `get active() { return this.#active() }`), which recomputes only when session state it read has changed, and works the same in all three frameworks.
+To memoize an expensive derivation, use the framework's primitive behind the getter: a `$derived` field in Svelte (`active = $derived(...)` in a `.svelte.js` module), a `computed` in Vue (`#active = computed(() => ...)` and `get active() { return this.#active.value }`), or the core's `derived(session, fn)` in React (`#active = derived(this.context.session, () => ...)` and `get active() { return this.#active() }`), which recomputes only when session state it read has changed, and works the same in all four frameworks. In Solid a `createMemo` created inside a reactive owner works too, but `derived` needs no owner, so it is the simpler choice for commands.
 
 #### DOM access in commands
 
@@ -1512,6 +1603,31 @@ const app_context = {
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```js
+const [editable, set_editable] = createSignal(true);
+let app_el;
+
+const app_context = {
+	get editable() {
+		return editable(); // App-level editable state
+	},
+	set editable(value) {
+		set_editable(value);
+	},
+	get session() {
+		return session;
+	},
+	get app_el() {
+		return app_el;
+	}
+};
+```
+
+</details>
+
 ## Scope-aware keyboard shortcuts
 
 The KeyMapper manages keyboard shortcuts using a scope-based stack system. Scopes are tried from top to bottom (most recent to least recent), allowing more specific keymaps to override general ones.
@@ -1549,7 +1665,7 @@ window.addEventListener('keydown', (event) => {
 | React     | `<KeyMapperContext.Provider value={key_mapper}>...</...>` | `useContext(KeyMapperContext)` |
 | Vue       | `provide('key_mapper', key_mapper)`                       | `inject('key_mapper')`         |
 
-The key mapper is optional in all three: without one, the document keymap is simply never pushed.
+The key mapper is optional in all four: without one, the document keymap is simply never pushed.
 
 ### Key syntax
 
@@ -1694,6 +1810,23 @@ Now you can start making your pages in-place editable by wrapping your design in
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```jsx
+<Svedit
+	ref={(handle) => (svedit_handle = handle)}
+	session={session}
+	path={[session.doc.document_id]}
+	editable={editable()}
+	on_editable_change={set_editable}
+/>
+```
+
+Like in React, `editable` is controlled when you pass it together with `on_editable_change`; omit both to let the editor manage the flag itself (defaults to `false`). The `ref` callback receives a `SveditHandle` with `focus_canvas()`.
+
+</details>
+
 ## Node components
 
 Node components render specific node types in your document. Each node component receives a `path` prop and uses the `<Node>` wrapper component along with property components to render the node's content.
@@ -1755,6 +1888,25 @@ defineProps(['path']);
 		</div>
 	</Node>
 </template>
+```
+
+</details>
+
+<details>
+<summary>Solid</summary>
+
+```jsx
+import { Node, TextProperty } from '@svedit/solid';
+
+export default function MyNode(props) {
+	return (
+		<Node path={props.path}>
+			<div class="my-node">
+				<TextProperty path={[...props.path, 'content']} />
+			</div>
+		</Node>
+	);
+}
 ```
 
 </details>
@@ -1844,6 +1996,20 @@ const props = defineProps({
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```jsx
+export default function MyNode(props) {
+	// props.mark is null when no mark wraps the node, props.annotations an array
+	return (
+		<div classList={{ 'section-start': props.mark?.is_start }}>{/* render node content */}</div>
+	);
+}
+```
+
+</details>
+
 `mark` is the mark wrapping the child node, or `null` when none does — mark exclusivity guarantees there is at most one. `annotations` contains all annotations covering the child node, including overlapping ones. Annotations are data-only: they never wrap and are never rendered as components. Each entry contains the flattened attachment plus context for the current child node: `start_offset`, `end_offset`, `node_id`, `index`, `node`, `is_start`, `is_middle`, `is_end`. `node` is the resolved mark or annotation node, `index` is the position in the parent `marks`/`annotations` array, and the `is_*` flags describe the current child node's position in the attached range.
 
 For styling, you usually don't need the props at all: `<Node>` adds range classes to the node wrapper automatically. A node covered by a `section` mark gets `mark-section`, a node covered by a `marker` annotation gets `anno-marker` — plus `-start`/`-end` variants on the run's first/last covered node. So styling a mark or annotation type — including types without a component — is pure CSS:
@@ -1876,7 +2042,7 @@ Use the `annotations` prop only when a component should render something richer 
 </CustomProperty>
 ```
 
-(In React, write `contentEditable={false}`; in Vue, `:src`/`:alt` bindings.)
+(In React, write `contentEditable={false}`; in Vue, `:src`/`:alt` bindings; in Solid, `contenteditable="false"` as above.)
 
 ### Accessing node data
 
@@ -1932,7 +2098,24 @@ const layout = computed(() => node.value.layout || 1);
 
 </details>
 
-The demos wrap this in a small typed helper (`get_svedit_context()` in Svelte and Vue, `useAppSvedit()` in React, see `svedit_context.ts`) so that `session.get(path)` results carry the app's node types.
+<details>
+<summary>Solid</summary>
+
+```jsx
+import { createMemo } from 'solid-js';
+import { use_svedit } from '@svedit/solid';
+
+export default function MyNode(props) {
+	const svedit = use_svedit();
+	const node = createMemo(() => svedit.session.get(props.path));
+	const layout = () => node().layout || 1;
+	// ...
+}
+```
+
+</details>
+
+The demos wrap this in a small typed helper (`get_svedit_context()` in Svelte and Vue, `useAppSvedit()` in React, `use_app_svedit()` in Solid, see `svedit_context.ts`) so that `session.get(path)` results carry the app's node types.
 
 ### Example: Text component
 
@@ -2016,9 +2199,39 @@ const tag = computed(() => (layout.value === 1 ? 'p' : `h${layout.value - 1}`));
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+```jsx
+import { createMemo } from 'solid-js';
+import { Node, TextProperty, use_svedit } from '@svedit/solid';
+
+export default function Text(props) {
+	const svedit = use_svedit();
+	const node = createMemo(() => svedit.session.get(props.path));
+	const layout = () => node().layout || 1;
+	const tag = () => (layout() === 1 ? 'p' : `h${layout() - 1}`);
+
+	return (
+		<Node path={props.path}>
+			<div class={`text layout-${layout()}`}>
+				<TextProperty
+					tag={tag()}
+					class="body"
+					path={[...props.path, 'content']}
+					placeholder="Enter text"
+				/>
+			</div>
+		</Node>
+	);
+}
+```
+
+</details>
+
 ### Example: List component
 
-A simple list component that renders child items (Svelte shown; the React and Vue versions follow the basic structure above):
+A simple list component that renders child items (Svelte shown; the React, Vue and Solid versions follow the basic structure above):
 
 ```svelte
 <script>
@@ -2104,6 +2317,19 @@ export default defineComponent({
 
 </details>
 
+<details>
+<summary>Solid</summary>
+
+The wrapped nodes arrive as `children` (props type `MarkComponentProps`, see [`Section.tsx`](packages/solid/src/routes/components/Section.tsx)). Render them as the element's only child, so Solid inserts them without placeholder nodes:
+
+```jsx
+export default function Section(props) {
+	return <section class="section">{props.children ?? props.content}</section>;
+}
+```
+
+</details>
+
 ### Element attachments
 
 Svedit's own components hook into the lifecycle of DOM elements (for viewport tracking and anchor positioning) with a small "attachment" abstraction: a function that receives the element and returns an optional cleanup. You rarely need it in app code, but it is exported for custom system components:
@@ -2113,6 +2339,7 @@ Svedit's own components hook into the lifecycle of DOM elements (for viewport tr
 | Svelte    | Svelte's native `{@attach fn}`                                                                     |
 | React     | `const ref = useAttach(key, fn)` returns a ref callback; cleanup runs on unmount or key change     |
 | Vue       | `v-attach` directive (`vAttach`) with `{ key, attach: fn }`; cleanup runs on unmount or key change |
+| Solid     | `ref={(el) => attach(el, () => key, (key) => fn)}`; cleanup runs on unmount or key change          |
 
 ## Mastering contenteditable
 
@@ -2302,28 +2529,29 @@ The CSS classes Svedit adds are the same in all bindings: `svedit`, `svedit-canv
 
 - **Svelte:** `<style>` blocks are scoped per component; use `:global(...)` to reach into Svedit's markup.
 - **React:** there are no scoped styles. Each component imports a colocated `.css` file, and selectors are qualified with a component-specific class (for example `.node-paragraph > .text`). The `node-<type>` class that `<Node>` adds is the natural hook for this.
+- **Solid:** like React, there are no scoped styles: components import colocated `.css` files with selectors qualified by a component-specific class.
 - **Vue:** `<style scoped>` adds a `data-v-*` attribute to the last compound selector; use `:deep(...)` where Svelte would use a trailing `:global()`, and an unscoped `<style>` block for rules that must be global. The library's toolbar styles are global because the toolbar's reusable snippets are functional components, which don't carry the parent's scope id.
 
 ## Framework differences at a glance
 
 Everything about the document, schema, session, transactions, transforms, commands, keymaps, clipboard payload and CSS tokens is shared. This is what changes per binding:
 
-| Concern                        | Svelte (`svedit`)                         | React (`@svedit/react`)                                                | Vue (`@svedit/vue`)                                       |
-| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
-| Styles                         | bundled with the components               | `import '@svedit/react/svedit.css'`                                    | `import '@svedit/vue/svedit.css'`                         |
-| Session reactivity             | one `$state` signal per field             | plain fields notifying a `Store`; `useSyncExternalStore` subscriptions | one `shallowRef` per field, session marked raw            |
-| Reading session state          | read inside `$derived`/`$effect`/template | `useSvedit(selector)`, `useNode(path)`, `useSnapshot`, `useVersion`    | read inside `computed`/`watchEffect`/template             |
-| Editor context                 | `getContext('svedit')`                    | `useSveditContext()` (context object `SveditContextObject`)            | `inject('svedit')`                                        |
-| Key mapper                     | `setContext('key_mapper', km)`            | `<KeyMapperContext.Provider value={km}>`                               | `provide('key_mapper', km)`                               |
-| `editable` flag                | `bind:editable`                           | `editable` + `on_editable_change`                                      | `v-model:editable`                                        |
-| `focus_canvas()`               | `bind:this={svedit_ref}`                  | `ref={svedit_ref}` (`SveditHandle`)                                    | template `ref`                                            |
-| Class prop                     | `class`                                   | `className`                                                            | `class`                                                   |
-| Inline styles                  | `style` string                            | `style` object                                                         | `style` string or object                                  |
-| Node content / mark children   | `children` snippet                        | `children`                                                             | default slot (render function for node-array marks)       |
-| Element attachments            | `{@attach}`                               | `useAttach(key, fn)`                                                   | `v-attach` (`vAttach`)                                    |
-| Memoized derived command state | `$derived` field                          | `derived(session, fn)` behind a getter                                 | `computed` behind a getter                                |
-| Waiting for the DOM            | `tick()`                                  | next task (`await new Promise((r) => setTimeout(r, 0))`)               | `nextTick()`                                              |
-| DOM pitfalls in the canvas     | reference implementation                  | `{' '}` / same-line text becomes a text node                           | comments in dev, `v-if`/`v-for`/`<slot>` fragment anchors |
+| Concern                        | Svelte (`svedit`)                         | React (`@svedit/react`)                                                | Vue (`@svedit/vue`)                                       | Solid (`@svedit/solid`)                                                    |
+| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Styles                         | bundled with the components               | `import '@svedit/react/svedit.css'`                                    | `import '@svedit/vue/svedit.css'`                         | `import '@svedit/solid/svedit.css'`                                        |
+| Session reactivity             | one `$state` signal per field             | plain fields notifying a `Store`; `useSyncExternalStore` subscriptions | one `shallowRef` per field, session marked raw            | one signal per field, triggered in one `batch`                             |
+| Reading session state          | read inside `$derived`/`$effect`/template | `useSvedit(selector)`, `useNode(path)`, `useSnapshot`, `useVersion`    | read inside `computed`/`watchEffect`/template             | read inside JSX/`createMemo`/`createEffect`                                |
+| Editor context                 | `getContext('svedit')`                    | `useSveditContext()` (context object `SveditContextObject`)            | `inject('svedit')`                                        | `use_svedit()` (context object `SveditContextObject`)                      |
+| Key mapper                     | `setContext('key_mapper', km)`            | `<KeyMapperContext.Provider value={km}>`                               | `provide('key_mapper', km)`                               | `<KeyMapperContext.Provider value={km}>`                                   |
+| `editable` flag                | `bind:editable`                           | `editable` + `on_editable_change`                                      | `v-model:editable`                                        | `editable` + `on_editable_change`                                          |
+| `focus_canvas()`               | `bind:this={svedit_ref}`                  | `ref={svedit_ref}` (`SveditHandle`)                                    | template `ref`                                            | `ref={(handle) => ...}` (`SveditHandle`)                                   |
+| Class prop                     | `class`                                   | `className`                                                            | `class`                                                   | `class`                                                                    |
+| Inline styles                  | `style` string                            | `style` object                                                         | `style` string or object                                  | `style` string or object                                                   |
+| Node content / mark children   | `children` snippet                        | `children`                                                             | default slot (render function for node-array marks)       | `children`                                                                 |
+| Element attachments            | `{@attach}`                               | `useAttach(key, fn)`                                                   | `v-attach` (`vAttach`)                                    | `attach(el, key, fn)` from a `ref` callback                                |
+| Memoized derived command state | `$derived` field                          | `derived(session, fn)` behind a getter                                 | `computed` behind a getter                                | `derived(session, fn)` behind a getter                                     |
+| Waiting for the DOM            | `tick()`                                  | next task (`await new Promise((r) => setTimeout(r, 0))`)               | `nextTick()`                                              | nothing: the DOM is updated when a write outside `batch` returns           |
+| DOM pitfalls in the canvas     | reference implementation                  | `{' '}` / same-line text becomes a text node                           | comments in dev, `v-if`/`v-for`/`<slot>` fragment anchors | an empty `<Show>` or expression next to siblings leaves an empty text node |
 
 ## Developing Svedit
 
@@ -2338,6 +2566,7 @@ A binding plugs its reactivity in through a `Tracker`:
 - **Svelte** keeps one `$state` signal per field, so `session.doc` inside a `$derived`, `$effect` or template
   subscribes exactly like a `$state.raw` class field would.
 - **Vue** keeps one `shallowRef` per field and marks the session raw.
+- **Solid** keeps one signal per field and triggers the changed fields inside one `batch`.
 - **React** subscribes with `useSyncExternalStore` through `useSvedit` / `useSnapshot` and compares snapshots.
 
 What is still implemented once per framework: the components (editor, node, node array, text property, gaps, markers),
@@ -2347,23 +2576,24 @@ the node visibility registry and the element attachment helpers. Versions of cor
 
 ```bash
 pnpm install
-pnpm dev            # all three demos on http://localhost:5173 (/, /react/, /vue/) with the switcher, hot reload
+pnpm dev            # all four demos on http://localhost:5173 (/, /react/, /vue/, /solid/) with the switcher, hot reload
 pnpm dev:site       # same as pnpm dev
 pnpm dev:svelte     # http://localhost:5173/
 pnpm dev:react      # http://localhost:5173/react/
 pnpm dev:vue        # http://localhost:5173/vue/
+pnpm dev:solid      # http://localhost:5173/solid/
 pnpm check          # type-check all packages
 pnpm lint           # prettier + eslint, all packages, plus pnpm lint:styles
 pnpm lint:styles    # fails if a component's styles drifted apart between the bindings
-pnpm test           # core (node-style) + the three browser suites, one package at a time
+pnpm test           # core (node-style) + the four browser suites, one package at a time
 pnpm build:lib      # publishable builds into each package's dist/
 pnpm build:site     # the demos, assembled into site/ (see below)
 pnpm preview        # serve site/ the way Vercel does
 pnpm preview:site   # same as pnpm preview
-pnpm perftest       # headless Svelte vs React vs Vue benchmark, prints a table
+pnpm perftest       # headless Svelte vs React vs Vue vs Solid benchmark, prints a table
 ```
 
-`pnpm dev` (alias of `pnpm dev:site`) runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react` and `/vue` to the other two Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT`), websockets included. Inside a package, `pnpm dev`, `pnpm build`, `pnpm preview`, `pnpm check`, `pnpm test:unit` (watch mode) and `pnpm test` (single run) work as usual.
+`pnpm dev` (alias of `pnpm dev:site`) runs the whole site in dev mode on one origin: the SvelteKit dev server proxies `/react`, `/vue` and `/solid` to the other three Vite servers (ports passed through `SVEDIT_REACT_PORT` / `SVEDIT_VUE_PORT` / `SVEDIT_SOLID_PORT`), websockets included. Inside a package, `pnpm dev`, `pnpm build`, `pnpm preview`, `pnpm check`, `pnpm test:unit` (watch mode) and `pnpm test` (single run) work as usual.
 
 ### Running tests
 
@@ -2374,36 +2604,37 @@ while tests are running. Losing focus can cause selection and keyboard tests to
 fail even when the editor works correctly.
 
 If a run was interrupted, return focus to the runner and rerun the tests. Failures
-that persist during a focused, uninterrupted run should be investigated. When changing core behaviour, run all four test suites: a change that is fine for one framework's reactivity can break another's.
+that persist during a focused, uninterrupted run should be investigated. When changing core behaviour, run all five test suites: a change that is fine for one framework's reactivity can break another's.
 
 ### Publishing
 
-The bindings depend on `@svedit/core` with `workspace:*`, which only pnpm rewrites to the real version when packing. Publish with pnpm, never with `npm publish`, and publish the core before the bindings: `pnpm publish:all` (`pnpm -r publish --access public`) builds each package through its `prepack` script and publishes the four packages in dependency order. Keep the versions in lockstep; a consumer that ends up with two copies of `@svedit/core` gets two `Store` classes, and `derived()` cannot tell them apart.
+The bindings depend on `@svedit/core` with `workspace:*`, which only pnpm rewrites to the real version when packing. Publish with pnpm, never with `npm publish`, and publish the core before the bindings: `pnpm publish:all` (`pnpm -r publish --access public`) builds each package through its `prepack` script and publishes the five packages in dependency order. Keep the versions in lockstep; a consumer that ends up with two copies of `@svedit/core` gets two `Store` classes, and `derived()` cannot tell them apart.
 
 ### The demo site
 
-`pnpm build:site` builds the three demos and assembles one static site:
+`pnpm build:site` builds the four demos and assembles one static site:
 
 ```
 site/          <- packages/svelte/build  (SvelteKit, prerendered)
 site/react/    <- packages/react/build   (Vite, base /react/)
 site/vue/      <- packages/vue/build     (Vite, base /vue/)
+site/solid/    <- packages/solid/build   (Vite, base /solid/)
 ```
 
-The React and Vue demos are served under `/react/` and `/vue/` in dev too (`base` in their vite configs); static asset URLs in demo code go through `import.meta.env.BASE_URL`.
+The React, Vue and Solid demos are served under `/react/`, `/vue/` and `/solid/` in dev too (`base` in their vite configs); static asset URLs in demo code go through `import.meta.env.BASE_URL`.
 
 `vercel.json` deploys that directory: clean URLs for the prerendered Svelte pages and SPA fallbacks for
-`/react/*` and `/vue/*`. Point a Vercel project at this repository and it builds with `pnpm build:site`,
-so `svedit.dev`, `svedit.dev/react` and `svedit.dev/vue` come out of one deployment.
+`/react/*`, `/vue/*` and `/solid/*`. Point a Vercel project at this repository and it builds with `pnpm build:site`,
+so `svedit.dev`, `svedit.dev/react`, `svedit.dev/vue` and `svedit.dev/solid` come out of one deployment.
 
 ### Performance comparison
 
-`/perftest` runs the same benchmark suite against the Svelte, React and Vue editors and shows a comparison
+`/perftest` runs the same benchmark suite against the Svelte, React, Vue and Solid editors and shows a comparison
 table: initial render, caret moves, typing, Enter, relayout, scrolling, pasting, deleting and undoing, at the
 document sizes you pick. Each framework runs in its own iframe (a harness route: `/perftest/harness`,
-`/react/perftest/harness`, `/vue/perftest/harness`), one at a time, with the order rotated every round.
+`/react/perftest/harness`, `/vue/perftest/harness`, `/solid/perftest/harness`), one at a time, with the order rotated every round.
 Every step is timed until the framework has updated the DOM (Svelte and React: `flushSync`, Vue:
-`nextTick`), and the suite checks that the DOM really changed.
+`nextTick`, Solid: synchronously on write), and the suite checks that the DOM really changed.
 
 Compare production builds only: run `pnpm build:site && pnpm preview:site` and open `/perftest`, or run
 `pnpm perftest` for a headless run that prints a Markdown table (options: `--nodes 200,1000`,

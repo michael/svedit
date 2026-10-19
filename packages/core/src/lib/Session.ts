@@ -55,7 +55,8 @@ type HistoryEntry = {
  * yields plain objects. Every reassignment notifies the session's store with
  * the name of the field that changed (assigning the current value again is a
  * no-op, as with `$state.raw`); every read tracks it. Framework bindings plug
- * into this through a `Tracker` (Svelte: `$state`, Vue: `shallowRef`) or by
+ * into this through a `Tracker` (Svelte: `$state`, Vue: `shallowRef`, Solid:
+ * `createSignal`) or by
  * subscribing to the store (React), so each framework gets the same
  * per-field granularity it had with `$state.raw`, `shallowRef` and
  * `useSyncExternalStore`. Derived values are memoized per dependency (they

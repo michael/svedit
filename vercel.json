@@ -6,6 +6,7 @@
 	"cleanUrls": true,
 	"rewrites": [
 		{ "source": "/react/:path*", "destination": "/react" },
-		{ "source": "/vue/:path*", "destination": "/vue" }
+		{ "source": "/vue/:path*", "destination": "/vue" },
+		{ "source": "/solid/:path*", "destination": "/solid" }
 	]
 }

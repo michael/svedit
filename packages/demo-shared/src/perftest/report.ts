@@ -5,7 +5,7 @@
 import { BENCHES } from './suite.js';
 import type { BenchId, Framework, SuiteResult } from './suite.js';
 
-export const FRAMEWORKS: Framework[] = ['Svelte', 'React', 'Vue'];
+export const FRAMEWORKS: Framework[] = ['Svelte', 'React', 'Vue', 'Solid'];
 
 export type Cell = { median: number; p95: number; samples: number };
 
@@ -86,7 +86,7 @@ export type ReportMeta = {
 export function to_markdown(results: SuiteResult[], meta: ReportMeta): string {
 	const rows = summarize(results);
 	const lines = [
-		`Svedit performance: Svelte vs React vs Vue`,
+		`Svedit performance: Svelte vs React vs Vue vs Solid`,
 		``,
 		`${meta.mode} build, ${meta.rounds} round(s), ${meta.date}`,
 		`${meta.user_agent}`,

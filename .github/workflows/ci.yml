@@ -37,5 +37,5 @@ jobs:
       # The browser suites run in Chromium through @vitest/browser-playwright.
       - run: pnpm --filter @svedit/core exec playwright install --with-deps chromium
 
-      # The root script runs the four suites one package at a time.
+      # The root script runs the five suites one package at a time.
       - run: pnpm test
