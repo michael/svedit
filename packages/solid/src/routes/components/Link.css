@@ -1,0 +1,6 @@
+/* Style empty links as wavy (like grammar mistakes) */
+a.mark-link:not([href]),
+a.mark-link[href=''],
+a.mark-link[href=' '] {
+	text-decoration-style: wavy;
+}

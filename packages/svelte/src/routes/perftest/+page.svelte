@@ -15,7 +15,7 @@
 		to_markdown
 	} from '@svedit/demo-shared/src/perftest/report.js';
 
-	// Runs the shared benchmark suite against the Svelte, React and Vue editors
+	// Runs the shared benchmark suite against the Svelte, React, Vue and Solid editors
 	// and compares them. Each framework's harness is loaded in the same
 	// fixed-size iframe, one at a time, in a fresh document per round; the
 	// framework order rotates every round.
@@ -23,7 +23,8 @@
 	const HARNESS_URLS: Record<Framework, string> = {
 		Svelte: '/perftest/harness',
 		React: '/react/perftest/harness',
-		Vue: '/vue/perftest/harness'
+		Vue: '/vue/perftest/harness',
+		Solid: '/solid/perftest/harness'
 	};
 	const NODE_COUNT_OPTIONS = [100, 200, 500, 1000, 2000, 3000, 5000];
 
@@ -144,17 +145,17 @@
 </script>
 
 <svelte:head>
-	<title>Svedit performance: Svelte, React, Vue</title>
+	<title>Svedit performance: Svelte, React, Vue, Solid</title>
 </svelte:head>
 
 <div class="perftest">
 	<header>
-		<h1>Svelte vs React vs Vue</h1>
+		<h1>Svelte vs React vs Vue vs Solid</h1>
 		<p>
-			The same editor, document and operations in all three frameworks. Each step is timed until the
+			The same editor, document and operations in all four frameworks. Each step is timed until the
 			framework has updated the DOM (Svelte and React: <code>flushSync</code>, Vue:
-			<code>nextTick</code>), and the suite checks the DOM really changed. The core logic is shared,
-			so differences come from how each binding renders.
+			<code>nextTick</code>, Solid: synchronously on write), and the suite checks the DOM really
+			changed. The core logic is shared, so differences come from how each binding renders.
 		</p>
 		{#if is_development}
 			<p class="notice">

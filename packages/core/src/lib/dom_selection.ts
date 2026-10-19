@@ -1,5 +1,5 @@
 // Mapping between the native DOM selection and the session's selection
-// model, in both directions, shared by the Svelte, React and Vue editor
+// model, in both directions, shared by the Svelte, React, Vue and Solid editor
 // components. The components decide *when* to render (after their
 // framework has flushed the DOM); the rendering itself is plain DOM work.
 import type Session from './Session.js';
@@ -523,7 +523,7 @@ export function render_text_selection<S extends DocumentSchema>(
 		// And the correct caret position is after the <br> element. While the
 		// empty text is focused, TextProperty drops the <br>: depending on the
 		// framework the element then holds only comment anchors (Svelte) or no
-		// children at all (React, Vue), where the only valid caret position is 0.
+		// children at all (React, Vue, Solid), where the only valid caret position is 0.
 		const caret_offset = Math.min(1, el.childNodes.length);
 		anchor_node = el;
 		anchor_node_offset = caret_offset;

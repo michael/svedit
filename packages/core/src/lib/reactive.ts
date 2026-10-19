@@ -17,7 +17,8 @@ export type Subscribable = {
  * `trigger(keys)` is called once per flush with every key that changed.
  *
  * The Svelte binding installs a tracker backed by `$state`, the Vue binding
- * one backed by `shallowRef`s. The React binding needs none: its components subscribe through
+ * one backed by `shallowRef`s and the Solid binding one backed by signals.
+ * The React binding needs none: its components subscribe through
  * `subscribe()` and compare selected snapshots.
  */
 export type Tracker = {

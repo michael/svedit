@@ -425,7 +425,7 @@ export type NodeGapToolsProps = {
 
 /**
 /**
- * Context provided by the editor component (the Svelte, React or Vue Svedit) to
+ * Context provided by the editor component (the Svelte, React, Vue or Solid Svedit) to
  * commands and descendant components. Each binding extends it with its own
  * reactive plumbing (e.g. the visibility registry).
  */

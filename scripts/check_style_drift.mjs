@@ -1,18 +1,19 @@
 /**
  * Guards the component styles that are intentionally duplicated across the
- * three bindings against drifting apart.
+ * four bindings against drifting apart.
  *
  * Each binding keeps its component styles in its own idiom (Svelte and Vue
- * inline in the component, React in a colocated .css file), so a copied
- * component stays self-contained. This script makes sure a fix applied to
- * one copy is applied to all three:
+ * inline in the component, React and Solid in a colocated .css file), so a
+ * copied component stays self-contained. This script makes sure a fix
+ * applied to one copy is applied to all four:
  *
  * - Svelte and Vue must have the same rules: matched by selector (after
  *   unwrapping `:global(...)` and `:deep(...)`) and at-rule context, with
  *   identical declarations.
- * - React must have a rule with the same at-rule context and declarations
- *   for every Svelte rule, and no others. Its selectors are not compared:
- *   without scoped styles the React port qualifies them by hand
+ * - React and Solid must each have a rule with the same at-rule context and
+ *   declarations for every Svelte rule, and no others. Their selectors are
+ *   not compared: without scoped styles the React and Solid ports qualify
+ *   them by hand
  *   (e.g. `[data-type='property'] > .property-selectable`). The same applies
  *   to rules in Vue's unscoped `<style>` blocks, which Vue uses where scoping
  *   would raise specificity (e.g. the zero-specificity `:where()` base rule).
@@ -158,7 +159,8 @@ function compare_component(name) {
 		svelte: parse(style_blocks(join(lib('svelte'), `${name}.svelte`), 'svelte').scoped),
 		vue: parse(vue_blocks.scoped),
 		vue_unscoped: parse(vue_blocks.unscoped),
-		react: parse(readFileSync(join(lib('react'), `${name}.css`), 'utf8'))
+		react: parse(readFileSync(join(lib('react'), `${name}.css`), 'utf8')),
+		solid: parse(readFileSync(join(lib('solid'), `${name}.css`), 'utf8'))
 	};
 	const where = (rule) => (rule.context ? ` (in ${rule.context})` : '');
 	const body = (rule) => rule.declarations.join('; ');
@@ -211,32 +213,34 @@ function compare_component(name) {
 		);
 	}
 
-	// React: same declaration blocks (selectors are qualified differently)
+	// React and Solid: same declaration blocks (selectors are qualified differently)
 	const blocks = (rules) => rules.map((rule) => `${rule.context}|${body(rule)}`);
-	const react_blocks = blocks(parsed.react);
-	for (const rule of parsed.svelte) {
-		const block = `${rule.context}|${body(rule)}`;
-		const index = react_blocks.indexOf(block);
-		if (index === -1) {
-			problems.push(
-				`${name}: no react rule matches svelte \`${normalize_selector(rule.selector)}\`${where(rule)}\n    svelte: ${body(rule)}`
-			);
-		} else {
-			react_blocks.splice(index, 1);
+	for (const pkg of ['react', 'solid']) {
+		const pkg_blocks = blocks(parsed[pkg]);
+		for (const rule of parsed.svelte) {
+			const block = `${rule.context}|${body(rule)}`;
+			const index = pkg_blocks.indexOf(block);
+			if (index === -1) {
+				problems.push(
+					`${name}: no ${pkg} rule matches svelte \`${normalize_selector(rule.selector)}\`${where(rule)}\n    svelte: ${body(rule)}`
+				);
+			} else {
+				pkg_blocks.splice(index, 1);
+			}
 		}
-	}
-	for (const block of react_blocks) {
-		const [context, declarations] = block.split('|');
-		problems.push(
-			`${name}: react has a rule no svelte rule matches${context ? ` (in ${context})` : ''}\n    react: ${declarations}`
-		);
+		for (const block of pkg_blocks) {
+			const [context, declarations] = block.split('|');
+			problems.push(
+				`${name}: ${pkg} has a rule no svelte rule matches${context ? ` (in ${context})` : ''}\n    ${pkg}: ${declarations}`
+			);
+		}
 	}
 }
 
 function compare_shared_styles() {
 	const read = (pkg, file) => readFileSync(join(lib(pkg), 'styles', file), 'utf8');
 	const animations = (pkg) => JSON.stringify(parse(read(pkg, 'svedit-animations.css')));
-	for (const pkg of ['react', 'vue']) {
+	for (const pkg of ['react', 'vue', 'solid']) {
 		if (animations(pkg) !== animations('svelte')) {
 			problems.push(`styles/svedit-animations.css: ${pkg} differs from svelte`);
 		}
@@ -246,7 +250,7 @@ function compare_shared_styles() {
 			.flatMap((rule) => rule.declarations.map((d) => d.split(':')[0].trim()))
 			.sort()
 			.join(', ');
-	for (const pkg of ['react', 'vue']) {
+	for (const pkg of ['react', 'vue', 'solid']) {
 		if (variables(pkg) !== variables('svelte')) {
 			problems.push(
 				`styles/svedit-colors.css: ${pkg} defines different variables\n    svelte: ${variables('svelte')}\n    ${pkg}: ${variables(pkg)}`
@@ -259,6 +263,11 @@ const components = readdirSync(lib('react'))
 	.filter((file) => file.endsWith('.css'))
 	.map((file) => basename(file, '.css'));
 
+for (const file of readdirSync(lib('solid')).filter((file) => file.endsWith('.css'))) {
+	if (!components.includes(basename(file, '.css'))) {
+		problems.push(`${file}: solid has a component stylesheet react does not have`);
+	}
+}
 for (const name of components) compare_component(name);
 compare_shared_styles();
 
@@ -266,10 +275,10 @@ if (problems.length > 0) {
 	console.error(`Component styles drifted apart between the bindings:\n`);
 	for (const problem of problems) console.error(`- ${problem}\n`);
 	console.error(
-		'Apply the change to the matching component in every binding (packages/{svelte,react,vue}/src/lib).'
+		'Apply the change to the matching component in every binding (packages/{svelte,react,vue,solid}/src/lib).'
 	);
 	process.exit(1);
 }
 console.log(
-	`Component styles in sync across svelte, react and vue (${components.length} components).`
+	`Component styles in sync across svelte, react, vue and solid (${components.length} components).`
 );

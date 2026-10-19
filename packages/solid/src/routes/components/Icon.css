@@ -1,0 +1,9 @@
+svg.icon {
+	color: var(--icon-color, var(--foreground));
+	fill: currentColor;
+	user-select: none;
+	object-fit: contain;
+	object-position: center;
+	width: var(--icon-size, 24px);
+	height: var(--icon-size, 24px);
+}

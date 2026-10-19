@@ -3,7 +3,7 @@ import type { Document } from '@svedit/core';
 /** The framework-specific bits of the demo document's copy and assets. */
 export type DemoFramework = {
 	/** Framework name as it appears in the copy, e.g. 'React'. */
-	name: 'Svelte' | 'React' | 'Vue';
+	name: 'Svelte' | 'React' | 'Vue' | 'Solid';
 	/** Name with major version for the "Made for ..." story, e.g. 'React 19'. */
 	version: string;
 	/** Framework homepage linked from the "Made for ..." story. */

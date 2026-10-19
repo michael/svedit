@@ -1,5 +1,5 @@
 // Helpers that read or patch the DOM inside the editor canvas, shared by the
-// Svelte, React and Vue editor components.
+// Svelte, React, Vue and Solid editor components.
 import type Session from './Session.js';
 import type { DocumentPath, DocumentSchema, TextSelection } from './types.js';
 import { char_to_utf16_offset, get_char_length, serialize_path } from './utils.js';

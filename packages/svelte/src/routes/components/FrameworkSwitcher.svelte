@@ -11,4 +11,5 @@
 	<a href="/" aria-current="page" rel="external">Svelte</a>
 	<a href="/react/" rel="external">React</a>
 	<a href="/vue/" rel="external">Vue</a>
+	<a href="/solid/" rel="external">Solid</a>
 </nav>

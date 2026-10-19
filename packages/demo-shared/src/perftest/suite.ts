@@ -1,14 +1,15 @@
 /**
- * The performance benchmark suite shared by the Svelte, React and Vue demos.
+ * The performance benchmark suite shared by the Svelte, React, Vue and Solid demos.
  *
  * Each framework provides a small harness (a route that mounts the editor and
  * implements `PerfHarness`); the suite runs the same operations against all
- * three. The comparison page (`/perftest` in the Svelte demo) loads each
+ * four. The comparison page (`/perftest` in the Svelte demo) loads each
  * harness in an iframe and calls `run_suite` through `window.__svedit_perf`.
  *
  * Every measured operation includes the framework's DOM update: the harness's
  * `settle()` resolves once pending session changes have been applied to the
- * DOM, effects included (Svelte and React: `flushSync`, Vue: `nextTick`). The
+ * DOM, effects included (Svelte and React: `flushSync`, Vue: `nextTick`, Solid:
+ * nothing, a write outside `batch` updates the DOM synchronously). The
  * suite checks that the DOM really reflects each change right after
  * `settle()`, so a framework cannot look fast by deferring work.
  */
@@ -16,7 +17,7 @@ import { serialize_path } from '@svedit/core';
 import type { Document, DocumentNode, DocumentPath } from '@svedit/core';
 import nanoid from '../nanoid.js';
 
-export type Framework = 'Svelte' | 'React' | 'Vue';
+export type Framework = 'Svelte' | 'React' | 'Vue' | 'Solid';
 
 export type PerfHarness = {
 	framework: Framework;

@@ -1,4 +1,4 @@
-// @svedit/core — the framework-free core shared by the Svelte, React and Vue
+// @svedit/core — the framework-free core shared by the Svelte, React, Vue and Solid
 // versions of Svedit.
 //
 // Framework bindings re-export everything here and add their components,
@@ -35,7 +35,7 @@ export * from './html_paste.js';
 export * from './html_export.js';
 export * from './html_utils.js';
 
-// DOM-level editor helpers shared by the Svelte, React and Vue editor
+// DOM-level editor helpers shared by the Svelte, React, Vue and Solid editor
 // components: clipboard format and exporters, DOM to model selection
 // mapping, canvas DOM helpers, paste strategies and insert carets.
 export * from './clipboard.js';

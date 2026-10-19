@@ -2,14 +2,15 @@
 
 ## 0.16.0 (unreleased)
 
-Svedit is now one editor for three frameworks. The framework-free part of the editor lives in a new
-package, `@svedit/core`, and three bindings share it: `svedit` (Svelte 5), `@svedit/react` (React 19)
-and `@svedit/vue` (Vue 3). The four packages are versioned and released in lockstep.
+Svedit is now one editor for four frameworks. The framework-free part of the editor lives in a new
+package, `@svedit/core`, and four bindings share it: `svedit` (Svelte 5), `@svedit/react` (React 19),
+`@svedit/vue` (Vue 3) and `@svedit/solid` (SolidJS). The five packages are versioned and released in
+lockstep.
 
 ### Added
 
 - `KeyMapper.remove_scope(keymap)` removes a specific scope wherever it is in the stack.
-- `@svedit/core` exports the editor's DOM-level building blocks, shared by all three editor
+- `@svedit/core` exports the editor's DOM-level building blocks, shared by all four editor
   components: `render_selection` and the DOM-to-model mapping (`get_selection_from_dom` and
   friends), the clipboard format and exporters (`handle_copy`, `export_html`,
   `export_plain_text`), paste handling (`handle_paste`, `try_node_paste`, `try_html_paste`) and
@@ -27,12 +28,17 @@ and `@svedit/vue` (Vue 3). The four packages are versioned and released in locks
   `KeyMapperContext` contexts. Styles are a separate entry point: `import '@svedit/react/svedit.css'`.
 - `@svedit/vue`: Vue 3 components with the same names as above, a `Session` with Vue reactivity and the
   `vAttach` directive. Styles are a separate entry point: `import '@svedit/vue/svedit.css'`.
-- The demo site is one static site built from the three demos: `svedit.dev` (Svelte),
-  `svedit.dev/react` and `svedit.dev/vue`, with a framework switcher at the top of every demo.
-- `svedit.dev/perftest` compares the three editors on the same benchmark suite (`pnpm perftest`
+- `@svedit/solid`: SolidJS components with the same names as above, a `Session` with Solid reactivity,
+  `use_svedit()`, the `SveditContextObject` and `KeyMapperContext` contexts, the `attach` helper and the
+  `ReactiveSet` / `ReactiveMap` collections. Styles are a separate entry point:
+  `import '@svedit/solid/svedit.css'`.
+- The demo site is one static site built from the four demos: `svedit.dev` (Svelte),
+  `svedit.dev/react`, `svedit.dev/vue` and `svedit.dev/solid`, with a framework switcher at the top
+  of every demo.
+- `svedit.dev/perftest` compares the four editors on the same benchmark suite (`pnpm perftest`
   runs it headless and prints the table). It replaces the per-framework perftest pages.
-- A single document format and schema API across the three packages, so documents, schemas, commands
-  and keymaps can be shared between a Svelte, React and Vue application.
+- A single document format and schema API across the four packages, so documents, schemas, commands
+  and keymaps can be shared between a Svelte, React, Vue and Solid application.
 
 ### Changed
 

@@ -1,0 +1,7 @@
+:root {
+	/* Solid brand colors: blue #446b9e and dark blue #2c4f7c */
+	--accent: oklch(52.5% 0.098 254.6);
+	--background: oklch(100% 0 0);
+	--foreground: oklch(39.5% 0.075 255.4);
+	--border: oklch(0 0 0 / 0.2);
+}

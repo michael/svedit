@@ -11,5 +11,6 @@ import '@svedit/demo-shared/framework-switcher.css';
 		<a href="/">Svelte</a>
 		<a href="/react/">React</a>
 		<a href="/vue/" aria-current="page">Vue</a>
+		<a href="/solid/">Solid</a>
 	</nav>
 </template>

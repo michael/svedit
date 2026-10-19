@@ -1,5 +1,5 @@
 /* The tab bar at the top of every demo that switches between the Svelte (/),
-   React (/react/) and Vue (/vue/) builds of the same editor. The links are
+   React (/react/), Vue (/vue/) and Solid (/solid/) builds of the same editor. The links are
    plain anchors: each build is a separate static app. The active tab takes
    the demo's own accent color (see each demo's colors.css). */
 .framework-switcher {

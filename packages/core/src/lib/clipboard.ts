@@ -1,4 +1,4 @@
-// Clipboard format and node exporters shared by the Svelte, React and Vue
+// Clipboard format and node exporters shared by the Svelte, React, Vue and Solid
 // editor components: the HTML clipboard payload with embedded Svedit data,
 // the default HTML and plain-text node exporters, and the copy handler.
 import type Session from './Session.js';

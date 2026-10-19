@@ -1,9 +1,10 @@
 /**
- * Builds the three demo apps and assembles them into one static site:
+ * Builds the four demo apps and assembles them into one static site:
  *
  *   site/        <- packages/svelte/build  (Svedit, served at /)
  *   site/react/  <- packages/react/build   (React, served at /react/)
  *   site/vue/    <- packages/vue/build     (Vue, served at /vue/)
+ *   site/solid/  <- packages/solid/build   (Solid, served at /solid/)
  *
  * Vercel (see vercel.json) deploys the `site` directory as-is.
  */
@@ -18,7 +19,8 @@ const site = join(root, 'site');
 const apps = [
 	{ filter: 'svedit', output: join(root, 'packages/svelte/build'), target: site },
 	{ filter: '@svedit/react', output: join(root, 'packages/react/build'), target: join(site, 'react') },
-	{ filter: '@svedit/vue', output: join(root, 'packages/vue/build'), target: join(site, 'vue') }
+	{ filter: '@svedit/vue', output: join(root, 'packages/vue/build'), target: join(site, 'vue') },
+	{ filter: '@svedit/solid', output: join(root, 'packages/solid/build'), target: join(site, 'solid') }
 ];
 
 for (const app of apps) {

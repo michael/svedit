@@ -12,6 +12,7 @@ export default function FrameworkSwitcher() {
 				React
 			</a>
 			<a href="/vue/">Vue</a>
+			<a href="/solid/">Solid</a>
 		</nav>
 	);
 }

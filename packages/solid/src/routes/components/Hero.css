@@ -1,0 +1,150 @@
+.hero {
+	padding-inline-start: max(var(--s-10), env(safe-area-inset-left, 0px));
+	padding-inline-end: max(var(--s-10), env(safe-area-inset-right, 0px));
+	padding-block-start: max(var(--s-10), env(safe-area-inset-top, 0px));
+	padding-block-end: max(var(--s-10), env(safe-area-inset-bottom, 0px));
+	padding: 100px var(--s-6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 50vh;
+	position: relative;
+	overflow: hidden;
+}
+
+.hero.has-image {
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+.hero .hero-title {
+	/* Span the content column (text stays centered): shrink-wrapped, a hero text
+	   holding only newlines would collapse to 0px and lose its caret. */
+	width: 100%;
+	font-size: 3rem;
+	font-weight: 700;
+	font-variation-settings: 'wght' 700;
+	line-height: 1.2;
+	margin-bottom: var(--s-6);
+	color: var(--foreground);
+	letter-spacing: -0.03em;
+}
+
+.hero .hero-subtitle {
+	/* Span the content column (text stays centered): shrink-wrapped, a hero text
+	   holding only newlines would collapse to 0px and lose its caret. */
+	width: 100%;
+	font-size: 1.7rem;
+	line-height: 1.6;
+	color: var(--foreground);
+	opacity: 0.95;
+	max-width: 600px;
+	margin: 0 auto;
+}
+
+.hero.has-image .hero-title {
+	color: var(--foreground);
+}
+
+.hero.has-image .hero-subtitle {
+	color: var(--foreground);
+	opacity: 0.95;
+}
+
+.hero a {
+	color: var(--accent);
+	text-decoration-line: underline;
+	text-decoration-color: var(--accent);
+	text-underline-offset: 0.15em;
+}
+
+@media (max-width: 768px) {
+	.hero .hero-title {
+		font-size: 2.5rem;
+	}
+
+	.hero .hero-subtitle {
+		font-size: 1.125rem;
+	}
+}
+
+@media (max-width: 480px) {
+	.hero .hero-title {
+		font-size: 2rem;
+	}
+
+	.hero .hero-subtitle {
+		font-size: 1rem;
+	}
+}
+
+.hero .github-button-wrapper {
+	margin-top: var(--s-6);
+	cursor: pointer;
+}
+
+.hero .github-repo-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5em;
+	border: 1px solid color-mix(in oklch, var(--background) 86%, var(--foreground));
+	border-radius: 9999px;
+	background: var(--background);
+	padding: 0.5em 0.85em;
+	color: var(--foreground);
+	font-size: 0.95rem;
+	font-weight: 650;
+	line-height: 1;
+	text-decoration: none;
+	box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+.hero .github-repo-link:hover {
+	border-color: color-mix(in oklch, var(--background) 72%, var(--foreground));
+	background: color-mix(in oklch, var(--background) 96%, var(--foreground));
+}
+
+.hero .github-repo-link img {
+	width: 1.1em;
+	height: 1.1em;
+}
+
+.hero .github-star-count {
+	margin-inline-start: 0.1em;
+	border-inline-start: 1px solid color-mix(in oklch, var(--background) 82%, var(--foreground));
+	padding-inline-start: 0.6em;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.75;
+}
+
+.hero .hero-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.4);
+	z-index: 1;
+}
+
+.hero .hero-content {
+	text-align: center;
+	max-width: 512px;
+	width: 100%;
+	position: relative;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.hero .hero-content::before {
+	content: '';
+	display: block;
+	width: 3.5rem;
+	height: 0.22rem;
+	margin-bottom: var(--s-5);
+	background: var(--accent);
+	border-radius: 9999px;
+}

@@ -1,0 +1,314 @@
+/* Both toolbars share one unified pill container: a single surface,
+	   border and shadow instead of per-button bubbles. The pill itself does
+	   not scroll — scrolling lives in the unpadded inner scroller below, so
+	   pinned (sticky) tools sit at the exact scrollport edge and scrolled
+	   content can never leak into the pill's padding or rounded corners. */
+.editor-toolbar {
+	/* One shared cap for wide contextual elements (URL inputs, the
+		   NodeNavigator variant label) so no single tool can push the others
+		   out of the bar. */
+	--toolbar-item-max-width: 200px;
+	display: flex;
+	align-items: center;
+	width: fit-content;
+	padding: 4px;
+	color: var(--foreground);
+	background: var(--background);
+	border: 1px solid oklch(from var(--foreground) l c h / 0.12);
+	border-radius: 9999px;
+	box-shadow:
+		0 1px 2px oklch(0% 0 0 / 0.12),
+		0 4px 16px oklch(0% 0 0 / 0.08);
+	z-index: 50;
+	pointer-events: auto;
+	max-width: calc(100vw - 2 * var(--s-4));
+}
+
+.editor-toolbar .toolbar-scroller {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	/* No gap between buttons: adjacent hitboxes tile the toolbar without
+		   dead zones, the visual spacing comes from the icon padding inside
+		   each 36px button. */
+	gap: 0;
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+	/* Round the clip box itself so content and the opaque sticky
+		   backgrounds can never draw over the pill's curved border. */
+	border-radius: 9999px;
+}
+
+.bottom-toolbar {
+	position: fixed;
+	/* The safe-area inset already provides clearance above the home
+		   indicator, so take the larger of the two offsets instead of
+		   stacking them. */
+	bottom: max(var(--s-4), env(safe-area-inset-bottom, 0px));
+	right: var(--s-4);
+}
+
+@position-try --stay-in-viewport {
+	position-area: none;
+	position-anchor: none;
+	top: calc(var(--top-toolbar-safe-area, 0px) + var(--s-2));
+	right: auto;
+	bottom: auto;
+	left: auto;
+}
+
+/* Multi-node selection: when above the first node overflows, sit below
+	   the last selected node instead (--last-selected-node-anchor). */
+@position-try --below-last-node {
+	position-anchor: var(--last-selected-node-anchor);
+	bottom: auto;
+	top: anchor(bottom);
+	margin-bottom: 0;
+	margin-top: var(--s-2);
+}
+
+.floating-toolbar {
+	position: fixed;
+	bottom: anchor(top);
+	justify-self: anchor-center;
+	margin-bottom: var(--s-2);
+	position-visibility: always;
+	position-try-fallbacks: --stay-in-viewport, flip-block;
+	z-index: 60;
+}
+
+.floating-toolbar.has-last-node-anchor {
+	position-try-fallbacks: --below-last-node, --stay-in-viewport, flip-block;
+}
+
+/* The floating toolbar targets precise mouse interactions. On touch
+	   devices all tools live in the single bottom toolbar instead, so the
+	   virtual keyboard handling only has one element to care about. */
+@media (hover: none), (pointer: coarse) {
+	.floating-toolbar {
+		display: none;
+	}
+
+	.bottom-toolbar {
+		right: auto;
+		left: 50%;
+		/* No transition here: the keyboard inset updates on every visual
+			   viewport scroll event and easing towards each new value makes
+			   the toolbar visibly lag behind the finger. */
+		transform: translateX(-50%) translateY(calc(-1 * var(--keyboard-inset, 0px)));
+	}
+
+	/* Hint that more tools are reachable by scrolling */
+	.bottom-toolbar .toolbar-scroller {
+		scrollbar-width: none;
+	}
+}
+
+.editor-toolbar .contextual-tools {
+	display: contents;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.bottom-toolbar .contextual-tools {
+		display: none;
+	}
+}
+
+/* Save pinned to the right edge of the scrollable bar so it stays
+	   reachable without scrolling. Mirrors the select-parent group: gap at
+	   rest via outer margin, divider flush with the opaque background while
+	   pinned so no white strip reads as a second line. */
+.editor-toolbar .save-group {
+	position: sticky;
+	right: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	flex: none;
+	background: var(--background);
+}
+
+.editor-toolbar .save-group.has-leading-tools {
+	margin-inline-start: 4px;
+}
+
+.editor-toolbar .save-group .divider {
+	margin-inline-start: 0;
+}
+
+.editor-toolbar .divider {
+	flex: none;
+	width: 1px;
+	height: 20px;
+	/* Keep the non-interactive strip between hitboxes minimal */
+	margin-inline: 4px;
+	background: oklch(from var(--foreground) l c h / 0.15);
+}
+
+.editor-toolbar button:not(.toggle-editable) {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 36px;
+	height: 36px;
+	min-width: 36px;
+	min-height: 36px;
+	aspect-ratio: 1 / 1;
+	padding: 0;
+	flex: 0 0 36px;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--foreground);
+	text-wrap: nowrap;
+	cursor: pointer;
+	pointer-events: auto;
+	transition:
+		background 150ms,
+		transform 150ms;
+	outline: 1px solid transparent;
+	--icon-color: var(--foreground);
+	position: relative;
+}
+
+/* Hover styles only on devices that actually hover, otherwise touch
+	   browsers keep the emulated hover state stuck on a button after a tap. */
+@media (hover: hover) {
+	.editor-toolbar button:not(.toggle-editable):hover:not(:disabled) {
+		background: oklch(from var(--foreground) l c h / 0.06);
+	}
+}
+
+.editor-toolbar button:not(.toggle-editable):active:not(:disabled) {
+	background: oklch(from var(--foreground) l c h / 0.09);
+	transform: translateY(1px) scale(0.95);
+}
+
+.editor-toolbar button:not(.toggle-editable):focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--editing);
+}
+
+.editor-toolbar button:not(.toggle-editable):disabled {
+	background: transparent;
+	cursor: not-allowed;
+	--icon-color: oklch(from var(--foreground) l c h / 0.3);
+}
+
+/* Same translucent brand fill the text selection uses, so the active
+	   state and the icon color always derive from one variable. */
+.editor-toolbar button:not(.toggle-editable).active {
+	color: var(--editing);
+	background: var(--editing-muted);
+	--icon-color: var(--editing);
+}
+
+/* Select-parent pinned to the left edge of the scroller, mirroring the
+	   keyboard tools on the right. The scroller is unpadded, so the pinned
+	   group sits exactly at the scrollport edge with nothing shining
+	   through, and at rest it never overlaps the neighboring tool. */
+.editor-toolbar .select-parent-group {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	flex: none;
+	background: var(--background);
+	/* Breathing room towards the neighboring tool lives outside the
+		   group as margin: it keeps the divider flush with the opaque
+		   background while pinned, so no white strip reads as a second line. */
+	margin-inline-end: 4px;
+}
+
+.editor-toolbar .select-parent-group .divider {
+	margin-inline-end: 0;
+}
+
+.editor-toolbar .toggle-editable {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	height: 36px;
+	min-height: 36px;
+	flex: none;
+	padding: 0 1rem;
+	border: none;
+	border-radius: 9999px;
+	background: transparent;
+	color: var(--editing);
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1;
+	text-decoration: none;
+	cursor: pointer;
+	pointer-events: auto;
+	transition:
+		background 150ms,
+		transform 150ms;
+	outline: 1px solid transparent;
+}
+
+@media (hover: hover) {
+	.editor-toolbar .toggle-editable:hover {
+		background: oklch(from var(--editing) l c h / 0.08);
+	}
+}
+
+.editor-toolbar .toggle-editable:active {
+	background: oklch(from var(--editing) l c h / 0.12);
+	transform: translateY(1px) scale(0.97);
+}
+
+.editor-toolbar .toggle-editable:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--editing);
+}
+
+.editor-toolbar .toolbar-icon {
+	width: var(--icon-size, 24px);
+	height: var(--icon-size, 24px);
+	color: var(--icon-color, var(--foreground));
+}
+
+.editor-toolbar .contextual-input {
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+}
+
+.editor-toolbar .contextual-input label {
+	display: flex;
+	align-items: center;
+	gap: var(--s-1);
+	font-size: 14px;
+	white-space: nowrap;
+}
+
+/* Flat inside the toolbar pill: no own border or background. Inputs
+	   don't inherit the page font by default, so without font: inherit
+	   this would render in the UA's system font. iOS Safari's focus zoom
+	   on sub-16px inputs is prevented via maximum-scale=1 in index.html,
+	   not by inflating the font size. */
+.editor-toolbar .contextual-input input {
+	padding: var(--s-1) var(--s-2);
+	border: none;
+	background: transparent;
+	color: var(--foreground);
+	font: inherit;
+	font-feature-settings: 'calt' 0;
+	font-size: 14px;
+	/* Fixed width on purpose: field-sizing measures the placeholder
+		   while empty and the content afterwards, so the bar would
+		   visibly shrink on the first typed character. Long URLs scroll
+		   within the field. */
+	width: 9rem;
+	max-width: var(--toolbar-item-max-width);
+}
+
+.editor-toolbar .contextual-input input:focus {
+	outline: none;
+}
