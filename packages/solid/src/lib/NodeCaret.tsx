@@ -8,5 +8,5 @@ import './NodeCaret.css';
  * with the * 99999 multiplier trick — works in all browsers.
  */
 export default function NodeCaret() {
-	return <div class="caret" role="none" />;
+	return <div class="svedit-caret" role="none" />;
 }
