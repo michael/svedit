@@ -1,6 +1,5 @@
 import { Show, createMemo } from 'solid-js';
-import { serialize_path } from '@svedit/core';
-import { should_position_gap } from './node_visibility.js';
+import { get_node_gap_anchors, serialize_path, should_position_gap } from '@svedit/core';
 import { use_svedit } from './context.js';
 import { class_names } from './solid_utils.js';
 import type { DocumentPath, SveditRenderContext } from './types.js';
@@ -89,19 +88,11 @@ export default function NodeGap(props: NodeGapProps) {
 			)
 	);
 
-	const gap_style = createMemo(() => {
-		const pa = is_first()
-			? `--${serialize_path([...props.array_path, 0])}`
-			: `--${serialize_path([...props.array_path, props.offset - 1])}`;
-		const next = `--${serialize_path([...props.array_path, props.offset])}`;
-		const container = `--${path_str()}`;
+	const anchors = createMemo(() => get_node_gap_anchors(props.array_path, props.offset));
+	const gap_style = () => {
+		const { pa, next, container } = anchors();
 		return `--_pa:${pa};--_next:${next};--_container:${container}`;
-	});
-
-	const anchor_name = createMemo(() => {
-		if (is_first()) return `--g-${serialize_path([...props.array_path, 0])}-gap-before`;
-		return `--g-${serialize_path([...props.array_path, props.offset - 1])}-gap-after`;
-	});
+	};
 
 	return (
 		<Show when={is_editable()} fallback={<div class="node-gap" />}>
@@ -120,7 +111,7 @@ export default function NodeGap(props: NodeGapProps) {
 			>
 				<div
 					class="svedit-selectable"
-					style={`anchor-name:${anchor_name()}`}
+					style={`anchor-name:${anchors().anchor_name}`}
 					onPointerDown={cycle_z_index}
 				>
 					<br />

@@ -2,75 +2,16 @@ import { createMemo, mapArray, splitProps } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
-	char_slice,
-	get_char_length,
+	get_selection_range,
+	get_text_fragments,
 	paths_equal,
 	serialize_path,
-	get_selection_range,
-	calculate_fragment_ranges
+	text_fragments_equal
 } from '@svedit/core';
 import { use_svedit } from './context.js';
 import { anchor_style, class_names } from './solid_utils.js';
-import type { Fragment, Mark, SelectionRange, Text, TextPropertyProps } from './types.js';
-import type { Session } from '@svedit/core';
+import type { Fragment, SelectionRange, Text, TextPropertyProps } from './types.js';
 import './TextProperty.css';
-
-/**
- * Converts text with marks into renderable fragments for display.
- * Annotations never fragment the text; they are data-only.
- */
-function get_fragments(
-	session: Session,
-	text: string,
-	marks: Array<Mark>,
-	selection_highlight_range?: SelectionRange | null
-): Array<Fragment> {
-	// Fast path: no marks and no selection highlight means the whole text
-	// is a single content fragment. This runs for EVERY text property on
-	// EVERY document change, so skipping the two full Intl.Segmenter passes
-	// (get_char_length + char_slice over the whole text) matters at scale.
-	if (marks.length === 0 && !selection_highlight_range) {
-		return text.length > 0 ? [text] : [];
-	}
-
-	const ranges = calculate_fragment_ranges(get_char_length(text), marks, selection_highlight_range);
-	const fragments: Array<Fragment> = [];
-
-	for (const range of ranges) {
-		const content = char_slice(text, range.start_offset, range.end_offset);
-
-		if (range.type === 'mark') {
-			const node = session.get(range.node_id);
-			if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
-
-			fragments.push({
-				type: 'mark',
-				node,
-				content,
-				mark_index: range.mark_index!
-			});
-		} else if (range.type === 'selection_highlight') {
-			fragments.push({
-				type: 'selection_highlight',
-				content
-			});
-		} else {
-			fragments.push(content);
-		}
-	}
-
-	return fragments;
-}
-
-function fragments_equal(a: Fragment, b: Fragment): boolean {
-	if (a === b) return true;
-	if (typeof a === 'string' || typeof b === 'string') return false;
-	if (a.type !== b.type || a.content !== b.content) return false;
-	if (a.type === 'mark' && b.type === 'mark') {
-		return a.node === b.node && a.mark_index === b.mark_index;
-	}
-	return true;
-}
 
 /**
  * Renders an editable text property with inline marks.
@@ -137,14 +78,14 @@ export default function TextProperty(props: TextPropertyProps) {
 	);
 
 	const fragments = createMemo<Fragment[]>((previous) => {
-		const next = get_fragments(
+		const next = get_text_fragments(
 			session(),
 			text().content,
 			text().marks,
 			selection_highlight_range()
 		);
 		return next.map((fragment, index) =>
-			previous && previous[index] !== undefined && fragments_equal(previous[index], fragment)
+			previous && previous[index] !== undefined && text_fragments_equal(previous[index], fragment)
 				? previous[index]
 				: fragment
 		);

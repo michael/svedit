@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue';
-import { serialize_path } from '@svedit/core';
-import { should_position_gap } from './node_visibility.js';
+import { get_node_gap_anchors, serialize_path, should_position_gap } from '@svedit/core';
 import type { DocumentPath, SveditRenderContext } from './types.js';
 
 /**
@@ -73,22 +72,13 @@ const positioned = computed(
 		)
 );
 
+const anchors = computed(() => get_node_gap_anchors(props.array_path, props.offset));
 const gap_style = computed(() => {
 	if (!is_editable.value) return '';
-	const prev_idx = props.offset - 1;
-	const pa = is_first.value
-		? `--${serialize_path([...props.array_path, 0])}`
-		: `--${serialize_path([...props.array_path, prev_idx])}`;
-	const next = `--${serialize_path([...props.array_path, props.offset])}`;
-	const container = `--${serialize_path(props.array_path)}`;
+	const { pa, next, container } = anchors.value;
 	return `--_pa:${pa};--_next:${next};--_container:${container}`;
 });
-
-const anchor_name = computed(() => {
-	if (!is_editable.value) return '';
-	if (is_first.value) return `--g-${serialize_path([...props.array_path, 0])}-gap-before`;
-	return `--g-${serialize_path([...props.array_path, props.offset - 1])}-gap-after`;
-});
+const anchor_name = computed(() => (is_editable.value ? anchors.value.anchor_name : ''));
 
 function cycle_z_index(e: MouseEvent) {
 	const el = e.currentTarget as HTMLElement;

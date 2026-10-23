@@ -2,7 +2,13 @@
 import { computed, defineComponent, h, inject, provide, withDirectives } from 'vue';
 import type { PropType, VNode } from 'vue';
 import UnknownNode from './UnknownNode.vue';
-import { serialize_path, calculate_fragment_ranges } from '@svedit/core';
+import {
+	create_node_array_render_context,
+	get_covering_ranges,
+	get_node_array_fragments,
+	get_node_keys,
+	serialize_path
+} from '@svedit/core';
 import DefaultNodeGap from './NodeGap.vue';
 import DefaultNodeGapMarkers from './NodeGapMarkers.vue';
 import { vAttach } from './attach.js';
@@ -10,7 +16,6 @@ import { style_to_string } from './vue_utils.js';
 import type {
 	DocumentPath,
 	NodeArrayAttachmentContext,
-	NodeArrayFragment,
 	NodeId,
 	Attachment,
 	Mark,
@@ -53,81 +58,20 @@ export default defineComponent({
 		const marks = computed<Mark[]>(() => raw_value.value.marks);
 		const annotations = computed<Attachment[]>(() => raw_value.value.annotations);
 
-		const fragments = computed(() => get_fragments(node_ids.value, marks.value));
-
-		function get_fragments(node_ids: NodeId[], marks: Mark[]): NodeArrayFragment[] {
-			const ranges = calculate_fragment_ranges(node_ids.length, marks);
-			const fragments: NodeArrayFragment[] = [];
-
-			for (const range of ranges) {
-				const nodes_slice = node_ids.slice(range.start_offset, range.end_offset);
-
-				if (range.type === 'mark') {
-					const node = svedit.session.get(range.node_id);
-					fragments.push({
-						type: 'mark',
-						node,
-						nodes: nodes_slice,
-						start_index: range.start_offset,
-						mark_index: range.mark_index!
-					});
-				} else if (range.type === 'content') {
-					fragments.push({
-						type: 'nodes',
-						nodes: nodes_slice,
-						start_index: range.start_offset
-					});
-				}
-			}
-			return fragments;
-		}
-
-		function get_node_key(node_id: NodeId, index: number): string {
-			let occurrence = 0;
-			for (let current_index = 0; current_index < index; current_index++) {
-				if (node_ids.value[current_index] === node_id) occurrence += 1;
-			}
-			return `${node_id}:${occurrence}`;
-		}
-
-		function get_range_context(
-			range: Attachment,
-			index: number,
-			node_index: number
-		): NodeArrayAttachmentContext {
-			const node = svedit.session.get(range.node_id);
-			const is_start = node_index === range.start_offset;
-			const is_end = node_index === range.end_offset - 1;
-
-			return {
-				...range,
-				index,
-				node,
-				is_start,
-				is_middle: !is_start && !is_end,
-				is_end
-			};
-		}
-
-		function get_covering_ranges(
-			ranges: Attachment[],
-			node_index: number
-		): NodeArrayAttachmentContext[] {
-			return ranges
-				.map((range, index) => ({ range, index }))
-				.filter(({ range }) => range.start_offset <= node_index && node_index < range.end_offset)
-				.map(({ range, index }) => get_range_context(range, index, node_index));
-		}
+		const fragments = computed(() =>
+			get_node_array_fragments(svedit.session, node_ids.value, marks.value)
+		);
+		const node_keys = computed(() => get_node_keys(node_ids.value));
 
 		function get_annotation_contexts(node_index: number): NodeArrayAttachmentContext[] {
-			return get_covering_ranges(annotations.value, node_index);
+			return get_covering_ranges(svedit.session, annotations.value, node_index);
 		}
 
 		function get_mark(node_index: number): NodeArrayAttachmentContext | null {
 			// The single mark wrapping this node, or null. Mark exclusivity
 			// guarantees at most one. Annotations never wrap and are exposed via
 			// `annotations` instead.
-			return get_covering_ranges(marks.value, node_index)[0] ?? null;
+			return get_covering_ranges(svedit.session, marks.value, node_index)[0] ?? null;
 		}
 
 		// Mirrors the TextProperty pattern: a `focused` class follows
@@ -140,20 +84,16 @@ export default defineComponent({
 				serialize_path(svedit.session.selection.path) === path_str.value
 		);
 
-		provide<NodeArrayRenderContext>('node_array_meta', {
-			get length() {
-				return node_ids.value.length;
-			},
-			// Lets Node self-serve the marks and annotations covering a child, so
-			// node wrappers can carry range classes without every node component
-			// having to thread the `mark`/`annotations` props through.
-			mark_for(node_index: number) {
-				return get_mark(node_index);
-			},
-			annotations_for(node_index: number) {
-				return get_annotation_contexts(node_index);
-			}
-		});
+		// Lets Node self-serve the marks and annotations covering a child, so
+		// node wrappers can carry range classes without every node component
+		// having to thread the `mark`/`annotations` props through.
+		provide<NodeArrayRenderContext>(
+			'node_array_meta',
+			create_node_array_render_context(
+				() => svedit.session,
+				() => raw_value.value
+			)
+		);
 
 		function render_nodes(nodes_slice: NodeId[], start_index: number): VNode[] {
 			const children: VNode[] = [];
@@ -163,7 +103,7 @@ export default defineComponent({
 				const node = svedit.session.get(id);
 				const mark = get_mark(index);
 				const node_annotations = get_annotation_contexts(index);
-				const key = get_node_key(id, index);
+				const key = node_keys.value[index];
 				// The gap before a node is keyed with the node, so it stays with
 				// the node across reorders (mirrors the keyed each block that
 				// owned both the gap and the node).

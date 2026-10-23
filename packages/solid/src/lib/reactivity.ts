@@ -122,9 +122,7 @@ export class ReactiveSet<T> {
 
 /**
  * A Map whose reads are tracked per key: `get(key)` / `has(key)` only re-run
- * their readers when that key is set or deleted. `peek(key)` reads without
- * tracking, so a writer can compare against the previous value without
- * subscribing its surrounding effect.
+ * their readers when that key is set or deleted.
  */
 export class ReactiveMap<K, V> {
 	#values: Map<K, V> = new Map();
@@ -152,10 +150,6 @@ export class ReactiveMap<K, V> {
 	has(key: K): boolean {
 		this.#key(key).read();
 		return this.#values.has(key);
-	}
-
-	peek(key: K): V | undefined {
-		return this.#values.get(key);
 	}
 
 	set(key: K, value: V): this {

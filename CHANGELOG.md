@@ -16,6 +16,13 @@ lockstep.
   `export_plain_text`), paste handling (`handle_paste`, `try_node_paste`, `try_html_paste`) and
   canvas helpers (`check_duplicate_paths`, `remove_native_composition_text`). Useful for building an
   integration for another framework.
+- `@svedit/core` also holds the editor behaviour the four `<Svedit>` components share: `CanvasController`
+  (input, composition, clipboard, DOM selection mapping and the keymap pushed on focus),
+  `VisibilityRegistry` and `should_position_gap` (viewport tracking behind node gaps and gap markers,
+  fed with a framework's reactive Set and Map), and render helpers (`get_text_fragments`,
+  `get_node_array_fragments`, `get_node_keys`, `get_covering_ranges`, `get_range_classes`,
+  `get_gap_markers`, `get_node_gap_anchors`, `get_selected_node_paths`, …). Custom bindings and system
+  components can build on them.
 - `session.store` gives access to the session's change store, and `derived(session, fn)` memoizes a
   value computed from session state in every framework.
 - `@svedit/core`: the document model, `Session`, `Transaction`, `Command`, `KeyMapper`, the document

@@ -1,7 +1,6 @@
 import { useSveditContext } from './context.js';
 import { useSnapshot, shallow_equal } from './reactive.js';
-import { serialize_path } from '@svedit/core';
-import { should_position_gap } from './node_visibility.js';
+import { get_node_gap_anchors, serialize_path, should_position_gap } from '@svedit/core';
 import { class_names } from './react_utils.js';
 import type { CSSProperties, PointerEvent } from 'react';
 import type { DocumentPath, SveditRenderContext } from './types.js';
@@ -94,17 +93,8 @@ export default function NodeGap({ array_path, offset, count, empty = false }: No
 
 	if (!is_editable) return <div className="node-gap"></div>;
 
-	const prev_idx = offset - 1;
-	const pa = is_first
-		? `--${serialize_path([...array_path, 0])}`
-		: `--${serialize_path([...array_path, prev_idx])}`;
-	const next = `--${serialize_path([...array_path, offset])}`;
-	const container = `--${serialize_path(array_path)}`;
+	const { pa, next, container, anchor_name } = get_node_gap_anchors(array_path, offset);
 	const gap_style = { '--_pa': pa, '--_next': next, '--_container': container } as CSSProperties;
-
-	const anchor_name = is_first
-		? `--g-${serialize_path([...array_path, 0])}-gap-before`
-		: `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
 
 	return (
 		<div

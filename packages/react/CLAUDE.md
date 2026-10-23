@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This package is part of the svedit workspace (see the root `CLAUDE.md`). The framework-free parts of the
 editor (Session logic, Transaction, Command, document utilities, transforms, paste/export, data types) live in
 `packages/core` (npm `@svedit/core`) and are re-exported from this package's `src/lib/index.ts`. Only components,
-the Session subclass with this framework's reactivity, node visibility and element attachments live here.
+the Session subclass with this framework's reactivity, the glue installing the core visibility registry and element attachments
+live here. The editor's event handling (`CanvasController`), the visibility registry and the render helpers (`rendering.ts`)
+come from core; components only wire them to this framework's reactivity.
 
 ## Commands
 

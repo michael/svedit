@@ -42,3 +42,12 @@ export * from './clipboard.js';
 export * from './dom_selection.js';
 export * from './canvas_dom.js';
 export * from './editor_paste.js';
+
+// Component logic shared by the four bindings: the editor canvas controller
+// (input, composition, selection and clipboard handling), the viewport
+// visibility registry behind node gaps and gap markers, and the pure render
+// helpers (text and node-array fragments, range classes, gap anchors and
+// markers, selection frames).
+export * from './canvas_controller.js';
+export * from './node_visibility.js';
+export * from './rendering.js';

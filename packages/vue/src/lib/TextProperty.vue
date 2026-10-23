@@ -1,16 +1,9 @@
 <script lang="ts">
 import { computed, defineComponent, h, inject } from 'vue';
 import type { PropType, VNode } from 'vue';
-import {
-	char_slice,
-	get_char_length,
-	paths_equal,
-	serialize_path,
-	get_selection_range,
-	calculate_fragment_ranges
-} from '@svedit/core';
+import { get_selection_range, get_text_fragments, paths_equal, serialize_path } from '@svedit/core';
 import { style_to_string } from './vue_utils.js';
-import type { DocumentPath, Mark, Fragment, SelectionRange, SveditContext } from './types.js';
+import type { DocumentPath, SveditContext } from './types.js';
 
 /**
  * Renders an editable text property with inline marks.
@@ -77,62 +70,13 @@ export default defineComponent({
 		});
 
 		const fragments = computed(() =>
-			get_fragments(
+			get_text_fragments(
+				svedit.session,
 				svedit.session.get(props.path).content,
 				svedit.session.get(props.path).marks,
 				selection_highlight_range.value
 			)
 		);
-
-		/**
-		 * Converts text with marks into renderable fragments for display.
-		 * Annotations never fragment the text; they are data-only.
-		 */
-		function get_fragments(
-			text: string,
-			marks: Array<Mark>,
-			selection_highlight_range?: SelectionRange | null
-		): Array<Fragment> {
-			// Fast path: no marks and no selection highlight means the whole text
-			// is a single content fragment. This runs for EVERY text property on
-			// EVERY document change, so skipping the two full Intl.Segmenter passes
-			// (get_char_length + char_slice over the whole text) matters at scale.
-			if (marks.length === 0 && !selection_highlight_range) {
-				return text.length > 0 ? [text] : [];
-			}
-
-			const ranges = calculate_fragment_ranges(
-				get_char_length(text),
-				marks,
-				selection_highlight_range
-			);
-			const fragments: Array<Fragment> = [];
-
-			for (const range of ranges) {
-				const content = char_slice(text, range.start_offset, range.end_offset);
-
-				if (range.type === 'mark') {
-					const node = svedit.session.get(range.node_id);
-					if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
-
-					fragments.push({
-						type: 'mark',
-						node,
-						content,
-						mark_index: range.mark_index!
-					});
-				} else if (range.type === 'selection_highlight') {
-					fragments.push({
-						type: 'selection_highlight',
-						content
-					});
-				} else {
-					fragments.push(content);
-				}
-			}
-
-			return fragments;
-		}
 
 		// We need to use <br> so the element is reachable by Arrow Up/Down navigation.
 		// But as soon as the element is focused, we get rid of the <br> as it causes issues with caret positioning.
