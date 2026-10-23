@@ -254,13 +254,17 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 		return createMemo(mapArray(entries, render_entry));
 	}
 
-	// render_entries maps the accessor inside a memo.
-	// eslint-disable-next-line solid/reactivity
-	const rendered = render_entries(() => layout().entries);
-
-	// We use the anchor of node_array in Overlays.tsx to position the last insertion point in a horizontal layout based on the right edge of the container
-	return (
-		<NodeArrayMetaContext.Provider value={node_array_meta}>
+	// The container and its keyed children are created inside the Provider.
+	// Solid resolves context through the owner tree, and the children's
+	// computations are owned by the list memo created here: created in the
+	// component body instead, child Node wrappers would not see
+	// NodeArrayMetaContext (and lose their range and first/last classes).
+	function render_container(): JSX.Element {
+		// render_entries maps the accessor inside a memo.
+		// eslint-disable-next-line solid/reactivity
+		const rendered = render_entries(() => layout().entries);
+		// We use the anchor of node_array in Overlays.tsx to position the last insertion point in a horizontal layout based on the right edge of the container
+		return (
 			<Dynamic
 				{...rest}
 				component={local.tag ?? 'div'}
@@ -274,6 +278,12 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 			>
 				{rendered()}
 			</Dynamic>
+		);
+	}
+
+	return (
+		<NodeArrayMetaContext.Provider value={node_array_meta}>
+			{render_container()}
 		</NodeArrayMetaContext.Provider>
 	);
 }
