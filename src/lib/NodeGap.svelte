@@ -64,8 +64,19 @@
 		array_path,
 		offset,
 		count,
-		empty = false
-	}: { array_path: DocumentPath; offset: number; count: number; empty?: boolean } = $props();
+		empty = false,
+		is_selection_endpoint = false
+	}: {
+		array_path: DocumentPath;
+		offset: number;
+		count: number;
+		empty?: boolean;
+		// True when the model node selection's caret, anchor or focus sits
+		// in this gap. Keeps the gap positioned while culled off-screen so
+		// the native DOM selection endpoint inside it is never lost to a
+		// display:none selectable (issue #372).
+		is_selection_endpoint?: boolean;
+	} = $props();
 	let is_editable = $derived(svedit.editable);
 
 	let is_first = $derived(offset === 0);
@@ -84,7 +95,8 @@
 				svedit.visibility_registry.edge_map.get(path_str),
 				offset,
 				is_last,
-				empty
+				empty,
+				is_selection_endpoint
 			)
 	);
 

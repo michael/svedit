@@ -124,6 +124,18 @@
 			serialize_path(svedit.session.selection.path) === path_str
 	);
 
+	// Gap offsets holding the model selection's endpoints, null when the
+	// selection isn't a node selection on this array. Two primitive
+	// deriveds (not one object) so gaps only re-evaluate when an offset
+	// actually changes — text selection changes leave both null.
+	function get_selection_offset(key: 'anchor_offset' | 'focus_offset'): number | null {
+		const selection = svedit.session.selection;
+		if (!is_focused || selection?.type !== 'node') return null;
+		return selection[key];
+	}
+	let selection_anchor_offset = $derived(get_selection_offset('anchor_offset'));
+	let selection_focus_offset = $derived(get_selection_offset('focus_offset'));
+
 	setContext<NodeArrayRenderContext>('node_array_meta', {
 		get length() {
 			return node_ids.length;
@@ -168,7 +180,13 @@
 			{@const node = svedit.session.get(id)}
 			{@const mark = get_mark(index)}
 			{@const annotations = get_annotation_contexts(index)}
-			<NodeGap array_path={path} offset={index} count={node_ids.length} />
+			<NodeGap
+				array_path={path}
+				offset={index}
+				count={node_ids.length}
+				is_selection_endpoint={selection_anchor_offset === index ||
+					selection_focus_offset === index}
+			/>
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{#if Component}
 				<Component path={[...path, index]} {mark} {annotations} />
@@ -193,7 +211,13 @@
 		{/if}
 	{/each}
 	{#if node_ids.length > 0}
-		<NodeGap array_path={path} offset={node_ids.length} count={node_ids.length} />
+		<NodeGap
+			array_path={path}
+			offset={node_ids.length}
+			count={node_ids.length}
+			is_selection_endpoint={selection_anchor_offset === node_ids.length ||
+				selection_focus_offset === node_ids.length}
+		/>
 	{/if}
 	{#if svedit.editable && NodeGapMarkers}
 		<NodeGapMarkers {path} count={node_ids.length} />

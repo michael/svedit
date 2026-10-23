@@ -622,14 +622,25 @@ export type VisibilityRegistryApi = {
  * $derived (see the note there): membership reads on a set created
  * within the same derived are not tracked by Svelte.
  *
+ * A gap holding an endpoint of the model node selection (the caret, or
+ * the anchor/focus of a range) counts as near even when its flanking
+ * nodes left the overscan zone. The native DOM selection points into
+ * the gap's selectable; if that element went display:none mid-drag
+ * (dragging from a gap towards off-screen nodes), the browser
+ * canonicalizes the DOM anchor into the next rendered node and the
+ * selection grows by that node (issue #372). Edge gaps still respect
+ * edge_state so they never render on top of nodes in a scrolled array.
+ *
  * @param near - near child indices of the array
+ * @param is_selection_endpoint - whether this gap holds a selection endpoint
  */
 export function should_position_gap(
 	near: SvelteSet<number>,
 	edge_state: { first: boolean; last: boolean } | undefined,
 	offset: number,
 	is_last: boolean,
-	empty: boolean
+	empty: boolean,
+	is_selection_endpoint = false
 ): boolean {
 	if (!near) return false;
 
@@ -645,14 +656,14 @@ export function should_position_gap(
 	// changes within a horizontal-overflow container that don't change
 	// the visibility ratio.
 	if (offset === 0) {
-		if (!near.has(0)) return false;
+		if (!near.has(0) && !is_selection_endpoint) return false;
 		return edge_state?.first === true;
 	}
 
 	if (is_last) {
-		if (!near.has(offset - 1)) return false;
+		if (!near.has(offset - 1) && !is_selection_endpoint) return false;
 		return edge_state?.last === true;
 	}
 
-	return near.has(offset - 1) && near.has(offset);
+	return is_selection_endpoint || (near.has(offset - 1) && near.has(offset));
 }

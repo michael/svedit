@@ -12,6 +12,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { SvelteSet } from 'svelte/reactivity';
+import { should_position_gap } from '../lib/node_visibility.svelte.js';
 import SveditTest from './testing_components/SveditTest.svelte';
 import StoryHmrProxy from './testing_components/StoryHmrProxy.svelte';
 import {
@@ -451,6 +453,37 @@ describe('NodeGap visibility & placement', () => {
 			array_el.style.maxWidth = '';
 			await settle();
 			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
+		});
+	});
+
+	describe('selection endpoint gaps', () => {
+		// Dragging from a gap towards off-screen nodes culls the start gap
+		// once its flanking nodes leave the overscan zone. Its selectable
+		// would go display:none while still holding the native DOM anchor,
+		// and the browser then canonicalizes that anchor into the next
+		// rendered node — the successor node joins the selection (#372).
+		// A gap holding a selection endpoint therefore stays positioned.
+		const edge_state = { first: true, last: true };
+
+		it('keeps a mid gap positioned when its flanking nodes are not near', () => {
+			const near = new SvelteSet([0, 1]);
+			expect(should_position_gap(near, edge_state, 5, false, false)).toBe(false);
+			expect(should_position_gap(near, edge_state, 5, false, false, true)).toBe(true);
+		});
+
+		it('keeps edge gaps positioned when not near, but still gates on edge_state', () => {
+			const near = new SvelteSet([3, 4]);
+			expect(should_position_gap(near, edge_state, 0, false, false, true)).toBe(true);
+			expect(should_position_gap(near, edge_state, 8, true, false, true)).toBe(true);
+			const scrolled = { first: false, last: false };
+			expect(should_position_gap(near, scrolled, 0, false, false, true)).toBe(false);
+			expect(should_position_gap(near, scrolled, 8, true, false, true)).toBe(false);
+		});
+
+		it('does not change the result for gaps that hold no endpoint', () => {
+			const near = new SvelteSet([2, 3]);
+			expect(should_position_gap(near, edge_state, 3, false, false, false)).toBe(true);
+			expect(should_position_gap(near, edge_state, 5, false, false, false)).toBe(false);
 		});
 	});
 
