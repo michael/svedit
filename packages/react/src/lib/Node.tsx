@@ -1,11 +1,11 @@
 import { useContext } from 'react';
-import { serialize_path } from '@svedit/core';
+import { get_range_classes, serialize_path } from '@svedit/core';
 import { useAttach } from './attach.js';
 import { NodeArrayMetaContext, useSveditContext } from './context.js';
 import { useSvedit } from './hooks.js';
 import { shallow_equal } from './reactive.js';
 import { anchor_style, class_names } from './react_utils.js';
-import type { NodeArrayAttachmentContext, NodeProps, SveditRenderContext } from './types.js';
+import type { NodeProps, SveditRenderContext } from './types.js';
 import './Node.css';
 
 /**
@@ -37,31 +37,10 @@ export default function Node({
 		const is_first = Boolean(node_array_meta && child_index === 0);
 		const is_last = Boolean(node_array_meta && child_index === node_array_meta.length - 1);
 
-		// Marks and annotations covering this node become classes automatically:
-		// `mark-<type>`/`anno-<type>`, plus `-start`/`-end` variants on the run's
-		// first/last covered node. This allows styling ranges (including
-		// annotations, which never render wrapper components) with pure CSS. For
-		// richer rendering, node components still receive the `mark` and
-		// `annotations` props.
-		let range_classes = '';
-		if (child_index >= 0 && node_array_meta?.annotations_for) {
-			const classes: string[] = [];
-			const add_classes = (
-				range: NodeArrayAttachmentContext | null | undefined,
-				prefix: string
-			) => {
-				const range_type = range?.node?.type;
-				if (!range_type) return;
-				classes.push(`${prefix}-${range_type}`);
-				if (range.is_start) classes.push(`${prefix}-${range_type}-start`);
-				if (range.is_end) classes.push(`${prefix}-${range_type}-end`);
-			};
-			add_classes(node_array_meta.mark_for?.(child_index), 'mark');
-			for (const annotation of node_array_meta.annotations_for(child_index)) {
-				add_classes(annotation, 'anno');
-			}
-			range_classes = classes.join(' ');
-		}
+		// Marks and annotations covering this node become `mark-<type>` /
+		// `anno-<type>` classes (plus `-start`/`-end` variants), see
+		// get_range_classes in @svedit/core.
+		const range_classes = get_range_classes(node_array_meta, child_index);
 		return { node, is_first, is_last, range_classes };
 	}, shallow_equal);
 

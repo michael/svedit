@@ -27,7 +27,14 @@ export default defineConfig({
 		// Enables the JS self-profiling API (used by the perftest lab) on dev-served pages.
 		headers: { 'Document-Policy': 'js-profiling' }
 	},
-	test: { fileParallelism: false, setupFiles: ['./src/test/setup.ts'] },
+	test: {
+		// The suites run in the browser (vitest.config.ts). Set an environment
+		// explicitly: otherwise vite-plugin-solid defaults it to 'jsdom', which
+		// is not installed, and vitest then exits with code 1 after the run.
+		environment: 'node',
+		fileParallelism: false,
+		setupFiles: ['./src/test/setup.ts']
+	},
 	// The demo builds to build/, so it never wipes the library output in dist/
 	// (vite.config.lib.ts), which is what gets published.
 	build: { outDir: 'build', sourcemap: true },

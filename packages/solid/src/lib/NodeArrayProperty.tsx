@@ -2,82 +2,29 @@ import { createMemo, mapArray, splitProps } from 'solid-js';
 import type { Accessor, JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import UnknownNode from './UnknownNode.js';
-import { calculate_fragment_ranges, paths_equal, serialize_path } from '@svedit/core';
+import {
+	attachment_context_equal,
+	attachment_contexts_equal,
+	create_node_array_render_context,
+	get_node_array_fragments,
+	get_node_keys,
+	paths_equal,
+	serialize_path
+} from '@svedit/core';
 import DefaultNodeGap from './NodeGap.js';
 import DefaultNodeGapMarkers from './NodeGapMarkers.js';
 import { attach } from './attach.js';
 import { NodeArrayMetaContext, use_svedit } from './context.js';
 import { anchor_style, class_names } from './solid_utils.js';
-import type { Session } from '@svedit/core';
 import type {
 	AnyComponent,
-	Attachment,
 	DocumentPath,
 	NodeArray,
-	NodeArrayAttachmentContext,
 	NodeArrayPropertyProps,
-	NodeArrayRenderContext,
 	NodeId,
 	SveditRenderContext
 } from './types.js';
 import './NodeArrayProperty.css';
-
-function get_range_context(
-	session: Session,
-	range: Attachment,
-	index: number,
-	node_index: number
-): NodeArrayAttachmentContext {
-	const node = session.get(range.node_id);
-	const is_start = node_index === range.start_offset;
-	const is_end = node_index === range.end_offset - 1;
-
-	return {
-		...range,
-		index,
-		node,
-		is_start,
-		is_middle: !is_start && !is_end,
-		is_end
-	};
-}
-
-function get_covering_ranges(
-	session: Session,
-	ranges: Attachment[],
-	node_index: number
-): NodeArrayAttachmentContext[] {
-	return ranges
-		.map((range, index) => ({ range, index }))
-		.filter(({ range }) => range.start_offset <= node_index && node_index < range.end_offset)
-		.map(({ range, index }) => get_range_context(session, range, index, node_index));
-}
-
-function attachment_context_equal(
-	a: NodeArrayAttachmentContext | null,
-	b: NodeArrayAttachmentContext | null
-): boolean {
-	if (a === b) return true;
-	if (!a || !b) return false;
-	return (
-		a.start_offset === b.start_offset &&
-		a.end_offset === b.end_offset &&
-		a.node_id === b.node_id &&
-		a.index === b.index &&
-		a.node === b.node &&
-		a.is_start === b.is_start &&
-		a.is_middle === b.is_middle &&
-		a.is_end === b.is_end
-	);
-}
-
-function attachment_contexts_equal(
-	a: NodeArrayAttachmentContext[],
-	b: NodeArrayAttachmentContext[]
-): boolean {
-	if (a.length !== b.length) return false;
-	return a.every((context, index) => attachment_context_equal(context, b[index]));
-}
 
 /**
  * One child slot of the node array. Entries are identified by their key
@@ -157,20 +104,13 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 		const index_by_key: Map<string, number> = new Map();
 		const mark_children: Map<string, Entry[]> = new Map();
 		const mark_index: Map<string, number> = new Map();
-		const occurrences: Map<NodeId, number> = new Map();
 		const used: Set<string> = new Set();
 		const use = <E extends Entry>(candidate: E): E => {
 			used.add(candidate.key);
 			return entry(candidate);
 		};
 
-		// Keys are `<node_id>:<occurrence>`, so a node that appears twice in
-		// the same array still gets a unique, stable key.
-		const node_keys = node_ids.map((id) => {
-			const occurrence = occurrences.get(id) ?? 0;
-			occurrences.set(id, occurrence + 1);
-			return `${id}:${occurrence}`;
-		});
+		const node_keys = get_node_keys(node_ids);
 		node_keys.forEach((key, index) => index_by_key.set(key, index));
 
 		function node_entries(start: number, end: number): Entry[] {
@@ -190,22 +130,15 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 			entries.push(use({ kind: 'placeholder', key: 'empty-node-placeholder' }));
 		}
 
-		const ranges = calculate_fragment_ranges(node_ids.length, marks);
-		ranges.forEach((range, fragment_index) => {
-			if (range.type === 'mark') {
+		get_node_array_fragments(session(), node_ids, marks).forEach((fragment, fragment_index) => {
+			const end = fragment.start_index + fragment.nodes.length;
+			if (fragment.type === 'mark' && session().config.node_components[fragment.node?.type]) {
 				const key = `fragment:${fragment_index}`;
-				const has_component = Boolean(
-					session().config.node_components[session().get(range.node_id)?.type]
-				);
-				if (has_component) {
-					entries.push(use({ kind: 'mark', key }));
-					mark_children.set(key, node_entries(range.start_offset, range.end_offset));
-					mark_index.set(key, range.mark_index!);
-				} else {
-					entries.push(...node_entries(range.start_offset, range.end_offset));
-				}
-			} else if (range.type === 'content') {
-				entries.push(...node_entries(range.start_offset, range.end_offset));
+				entries.push(use({ kind: 'mark', key }));
+				mark_children.set(key, node_entries(fragment.start_index, end));
+				mark_index.set(key, fragment.mark_index);
+			} else {
+				entries.push(...node_entries(fragment.start_index, end));
 			}
 		});
 
@@ -226,20 +159,9 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 	// node wrappers can carry range classes without every node component
 	// having to thread the `mark`/`annotations` props through. The object
 	// is stable; its members read the live node array value.
-	const node_array_meta: NodeArrayRenderContext = {
-		get length() {
-			return count();
-		},
-		mark_for(node_index: number) {
-			// The single mark wrapping this node, or null. Mark exclusivity
-			// guarantees at most one. Annotations never wrap and are exposed
-			// via `annotations` instead.
-			return get_covering_ranges(session(), value().marks, node_index)[0] ?? null;
-		},
-		annotations_for(node_index: number) {
-			return get_covering_ranges(session(), value().annotations, node_index);
-		}
-	};
+	// The accessors are read on every member access, inside the readers' scopes.
+	// eslint-disable-next-line solid/reactivity
+	const node_array_meta = create_node_array_render_context(session, value);
 
 	function render_placeholder(): JSX.Element {
 		const placeholder_path = createMemo(() => serialize_path([...local.path, 0]));
@@ -332,13 +254,17 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 		return createMemo(mapArray(entries, render_entry));
 	}
 
-	// render_entries maps the accessor inside a memo.
-	// eslint-disable-next-line solid/reactivity
-	const rendered = render_entries(() => layout().entries);
-
-	// We use the anchor of node_array in Overlays.tsx to position the last insertion point in a horizontal layout based on the right edge of the container
-	return (
-		<NodeArrayMetaContext.Provider value={node_array_meta}>
+	// The container and its keyed children are created inside the Provider.
+	// Solid resolves context through the owner tree, and the children's
+	// computations are owned by the list memo created here: created in the
+	// component body instead, child Node wrappers would not see
+	// NodeArrayMetaContext (and lose their range and first/last classes).
+	function render_container(): JSX.Element {
+		// render_entries maps the accessor inside a memo.
+		// eslint-disable-next-line solid/reactivity
+		const rendered = render_entries(() => layout().entries);
+		// We use the anchor of node_array in Overlays.tsx to position the last insertion point in a horizontal layout based on the right edge of the container
+		return (
 			<Dynamic
 				{...rest}
 				component={local.tag ?? 'div'}
@@ -352,6 +278,12 @@ export default function NodeArrayProperty(props: NodeArrayPropertyProps) {
 			>
 				{rendered()}
 			</Dynamic>
+		);
+	}
+
+	return (
+		<NodeArrayMetaContext.Provider value={node_array_meta}>
+			{render_container()}
 		</NodeArrayMetaContext.Provider>
 	);
 }

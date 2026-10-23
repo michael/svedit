@@ -1,7 +1,6 @@
 import { For, Show, createMemo } from 'solid-js';
-import { serialize_path } from '@svedit/core';
+import { get_selected_node_paths, serialize_path } from '@svedit/core';
 import { use_svedit } from './context.js';
-import type { DocumentPath } from './types.js';
 import './NodeSelectionMarkers.css';
 
 /**
@@ -12,19 +11,7 @@ import './NodeSelectionMarkers.css';
 export default function NodeSelectionMarkers() {
 	const svedit = use_svedit();
 
-	const selected_node_paths = createMemo((): DocumentPath[] | undefined => {
-		const selection = svedit.session.selection;
-		if (!selection) return;
-		if (selection.type !== 'node' || selection.anchor_offset === selection.focus_offset) return;
-
-		const paths: DocumentPath[] = [];
-		const start = Math.min(selection.anchor_offset, selection.focus_offset);
-		const end = Math.max(selection.anchor_offset, selection.focus_offset);
-		for (let index = start; index < end; index++) {
-			paths.push([...selection.path, index]);
-		}
-		return paths;
-	});
+	const selected_node_paths = createMemo(() => get_selected_node_paths(svedit.session.selection));
 
 	// Keyed by serialized path, so an unchanged frame keeps its element.
 	const selected_node_keys = createMemo(() => selected_node_paths()?.map(serialize_path) ?? []);

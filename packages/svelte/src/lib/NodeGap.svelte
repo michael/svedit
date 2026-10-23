@@ -11,9 +11,8 @@
 </script>
 
 <script lang="ts">
-	import { serialize_path } from '@svedit/core';
+	import { get_node_gap_anchors, serialize_path, should_position_gap } from '@svedit/core';
 	import { getContext } from 'svelte';
-	import { should_position_gap } from './node_visibility.svelte.js';
 	import type { DocumentPath, SveditRenderContext } from './types.js';
 
 	/**
@@ -88,22 +87,13 @@
 			)
 	);
 
-	let gap_style = $derived.by(() => {
-		if (!is_editable) return '';
-		const prev_idx = offset - 1;
-		const pa = is_first
-			? `--${serialize_path([...array_path, 0])}`
-			: `--${serialize_path([...array_path, prev_idx])}`;
-		const next = `--${serialize_path([...array_path, offset])}`;
-		const container = `--${serialize_path(array_path)}`;
-		return `--_pa:${pa};--_next:${next};--_container:${container}`;
-	});
-
-	let anchor_name = $derived.by(() => {
-		if (!is_editable) return '';
-		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
-		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
-	});
+	let anchors = $derived(get_node_gap_anchors(array_path, offset));
+	let gap_style = $derived(
+		is_editable
+			? `--_pa:${anchors.pa};--_next:${anchors.next};--_container:${anchors.container}`
+			: ''
+	);
+	let anchor_name = $derived(is_editable ? anchors.anchor_name : '');
 </script>
 
 {#if is_editable}

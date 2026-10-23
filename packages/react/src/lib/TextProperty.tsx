@@ -1,66 +1,11 @@
 import { useMemo } from 'react';
-import {
-	char_slice,
-	get_char_length,
-	paths_equal,
-	serialize_path,
-	get_selection_range,
-	calculate_fragment_ranges
-} from '@svedit/core';
+import { get_selection_range, get_text_fragments, paths_equal, serialize_path } from '@svedit/core';
 import { useSvedit } from './hooks.js';
 import { shallow_equal } from './reactive.js';
 import { anchor_style, class_names } from './react_utils.js';
 import type { ReactNode } from 'react';
-import type { Mark, Fragment, SelectionRange, TextPropertyProps, Text } from './types.js';
-import type { Session } from '@svedit/core';
+import type { SelectionRange, TextPropertyProps, Text } from './types.js';
 import './TextProperty.css';
-
-/**
- * Converts text with marks into renderable fragments for display.
- * Annotations never fragment the text; they are data-only.
- */
-function get_fragments(
-	session: Session,
-	text: string,
-	marks: Array<Mark>,
-	selection_highlight_range?: SelectionRange | null
-): Array<Fragment> {
-	// Fast path: no marks and no selection highlight means the whole text
-	// is a single content fragment. This runs for EVERY text property on
-	// EVERY document change, so skipping the two full Intl.Segmenter passes
-	// (get_char_length + char_slice over the whole text) matters at scale.
-	if (marks.length === 0 && !selection_highlight_range) {
-		return text.length > 0 ? [text] : [];
-	}
-
-	const ranges = calculate_fragment_ranges(get_char_length(text), marks, selection_highlight_range);
-	const fragments: Array<Fragment> = [];
-
-	for (const range of ranges) {
-		const content = char_slice(text, range.start_offset, range.end_offset);
-
-		if (range.type === 'mark') {
-			const node = session.get(range.node_id);
-			if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
-
-			fragments.push({
-				type: 'mark',
-				node,
-				content,
-				mark_index: range.mark_index!
-			});
-		} else if (range.type === 'selection_highlight') {
-			fragments.push({
-				type: 'selection_highlight',
-				content
-			});
-		} else {
-			fragments.push(content);
-		}
-	}
-
-	return fragments;
-}
 
 /**
  * Renders an editable text property with inline marks.
@@ -123,7 +68,7 @@ export default function TextProperty({
 
 	const fragments = useMemo(
 		() =>
-			get_fragments(
+			get_text_fragments(
 				session,
 				text.content,
 				text.marks,

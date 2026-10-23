@@ -14,7 +14,12 @@ CLAUDE.md with the conventions for that framework; read the one for the package 
   tracker in their `Session` subclass (`packages/svelte/src/lib/reactivity.svelte.ts`, `packages/vue/src/lib/reactivity.ts`,
   `packages/solid/src/lib/reactivity.ts`).
   A tracker's `trigger` must only write, never read, or effects that write session state loop.
-- Components, node visibility and attachments are per binding and intentionally duplicated across the four.
+- Behaviour shared by the four editors lives in core too: `canvas_controller.ts` (`CanvasController`: input, composition,
+  clipboard, DOM selection mapping, keymap push on focus), `node_visibility.ts` (`VisibilityRegistry`, fed with each framework's
+  reactive Set/Map) and `rendering.ts` (pure helpers: text and node-array fragments, node keys, range classes, gap anchors and
+  markers, selection frames). Put new editor logic there when it does not depend on how a framework renders.
+- What stays per binding: the components' markup and reactivity wiring, the Session subclass, the element attachment helper and
+  the small glue that installs the registry (`node_visibility.*`). These are intentionally duplicated across the four.
 - Component styles are duplicated too (Svelte/Vue inline, React and Solid in `.css` files), so a copied component stays self-contained.
   `pnpm lint:styles` (part of `pnpm lint`) fails when they drift apart: change a component's styles in all four bindings.
 - Binding `types.ts` files hold only component props and the editor context; everything else is `export type * from '@svedit/core'`.

@@ -1,24 +1,10 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue';
-import { serialize_path } from '@svedit/core';
-import type { DocumentPath, SveditContext } from './types.js';
+import { get_selected_node_paths, serialize_path } from '@svedit/core';
+import type { SveditContext } from './types.js';
 
 const svedit = inject<SveditContext>('svedit')!;
-const selected_node_paths = computed(() => get_selected_node_paths());
-
-function get_selected_node_paths(): DocumentPath[] | undefined {
-	const paths: DocumentPath[] = [];
-	const selection = svedit.session.selection;
-	if (!selection) return;
-	if (selection.type !== 'node' || selection.anchor_offset === selection.focus_offset) return;
-
-	const start = Math.min(selection.anchor_offset, selection.focus_offset);
-	const end = Math.max(selection.anchor_offset, selection.focus_offset);
-	for (let index = start; index < end; index++) {
-		paths.push([...selection.path, index]);
-	}
-	return paths;
-}
+const selected_node_paths = computed(() => get_selected_node_paths(svedit.session.selection));
 </script>
 
 <template>

@@ -2569,8 +2569,11 @@ A binding plugs its reactivity in through a `Tracker`:
 - **Solid** keeps one signal per field and triggers the changed fields inside one `batch`.
 - **React** subscribes with `useSyncExternalStore` through `useSvedit` / `useSnapshot` and compares snapshots.
 
-What is still implemented once per framework: the components (editor, node, node array, text property, gaps, markers),
-the node visibility registry and the element attachment helpers. Versions of core and bindings move in lockstep; the bindings depend on `@svedit/core` via `workspace:*`.
+The editor's behaviour is shared too: `CanvasController` handles input, composition, clipboard and the
+selection mapping for every `<Svedit>`, `VisibilityRegistry` tracks which nodes are near the viewport (each
+binding hands it its reactive Set and Map), and the render helpers in `rendering.ts` compute fragments, node
+keys, range classes and gap markers. What is still implemented once per framework: the components' markup and
+reactivity wiring, the element attachment helpers and the few lines that install the registry. Versions of core and bindings move in lockstep; the bindings depend on `@svedit/core` via `workspace:*`.
 
 ### Commands
 

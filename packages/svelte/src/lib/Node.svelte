@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { serialize_path } from '@svedit/core';
-	import type {
-		NodeArrayAttachmentContext,
-		NodeArrayRenderContext,
-		NodeProps,
-		SveditRenderContext
-	} from './types.js';
+	import { get_range_classes, serialize_path } from '@svedit/core';
+	import type { NodeArrayRenderContext, NodeProps, SveditRenderContext } from './types.js';
 
 	const svedit = getContext<SveditRenderContext>('svedit');
 
@@ -20,30 +15,10 @@
 	let is_first = $derived(node_array_meta && child_index === 0);
 	let is_last = $derived(node_array_meta && child_index === node_array_meta.length - 1);
 
-	// Marks and annotations covering this node become classes automatically:
-	// `mark-<type>`/`anno-<type>`, plus `-start`/`-end` variants on the run's
-	// first/last covered node. This allows styling ranges (including
-	// annotations, which never render wrapper components) with pure CSS. For
-	// richer rendering, node components still receive the `mark` and
-	// `annotations` props.
-	let range_classes = $derived.by(() => {
-		if (child_index < 0 || !node_array_meta?.annotations_for) return '';
-		const classes: string[] = [];
-
-		const add_classes = (range: NodeArrayAttachmentContext | null | undefined, prefix: string) => {
-			const range_type = range?.node?.type;
-			if (!range_type) return;
-			classes.push(`${prefix}-${range_type}`);
-			if (range.is_start) classes.push(`${prefix}-${range_type}-start`);
-			if (range.is_end) classes.push(`${prefix}-${range_type}-end`);
-		};
-
-		add_classes(node_array_meta.mark_for?.(child_index), 'mark');
-		for (const annotation of node_array_meta.annotations_for(child_index)) {
-			add_classes(annotation, 'anno');
-		}
-		return classes.join(' ');
-	});
+	// Marks and annotations covering this node become `mark-<type>` /
+	// `anno-<type>` classes (plus `-start`/`-end` variants), see
+	// get_range_classes in @svedit/core.
+	let range_classes = $derived(get_range_classes(node_array_meta, child_index));
 </script>
 
 <svelte:element

@@ -2,7 +2,15 @@
    it memoizes child elements across renders so unchanged siblings bail out of reconciliation. */
 import { useMemo, useRef } from 'react';
 import UnknownNode from './UnknownNode.js';
-import { serialize_path, calculate_fragment_ranges } from '@svedit/core';
+import {
+	attachment_context_equal,
+	attachment_contexts_equal,
+	create_node_array_render_context,
+	get_covering_ranges,
+	get_node_array_fragments,
+	get_node_keys,
+	serialize_path
+} from '@svedit/core';
 import DefaultNodeGap from './NodeGap.js';
 import DefaultNodeGapMarkers from './NodeGapMarkers.js';
 import { useAttach } from './attach.js';
@@ -11,12 +19,10 @@ import { useSvedit } from './hooks.js';
 import { shallow_equal } from './reactive.js';
 import { anchor_style, class_names } from './react_utils.js';
 import type { ReactElement, ReactNode } from 'react';
-import type { Session } from '@svedit/core';
 import type {
 	AnyComponent,
 	NodeArray,
 	NodeArrayAttachmentContext,
-	NodeArrayFragment,
 	NodeArrayPropertyProps,
 	NodeId,
 	Attachment,
@@ -25,90 +31,6 @@ import type {
 	SveditRenderContext
 } from './types.js';
 import './NodeArrayProperty.css';
-
-function get_fragments(session: Session, node_ids: NodeId[], marks: Mark[]): NodeArrayFragment[] {
-	const ranges = calculate_fragment_ranges(node_ids.length, marks);
-	const fragments: NodeArrayFragment[] = [];
-
-	for (const range of ranges) {
-		const nodes_slice = node_ids.slice(range.start_offset, range.end_offset);
-
-		if (range.type === 'mark') {
-			const node = session.get(range.node_id);
-			fragments.push({
-				type: 'mark',
-				node,
-				nodes: nodes_slice,
-				start_index: range.start_offset,
-				mark_index: range.mark_index!
-			});
-		} else if (range.type === 'content') {
-			fragments.push({
-				type: 'nodes',
-				nodes: nodes_slice,
-				start_index: range.start_offset
-			});
-		}
-	}
-	return fragments;
-}
-
-function get_range_context(
-	session: Session,
-	range: Attachment,
-	index: number,
-	node_index: number
-): NodeArrayAttachmentContext {
-	const node = session.get(range.node_id);
-	const is_start = node_index === range.start_offset;
-	const is_end = node_index === range.end_offset - 1;
-
-	return {
-		...range,
-		index,
-		node,
-		is_start,
-		is_middle: !is_start && !is_end,
-		is_end
-	};
-}
-
-function get_covering_ranges(
-	session: Session,
-	ranges: Attachment[],
-	node_index: number
-): NodeArrayAttachmentContext[] {
-	return ranges
-		.map((range, index) => ({ range, index }))
-		.filter(({ range }) => range.start_offset <= node_index && node_index < range.end_offset)
-		.map(({ range, index }) => get_range_context(session, range, index, node_index));
-}
-
-function attachment_context_equal(
-	a: NodeArrayAttachmentContext | null,
-	b: NodeArrayAttachmentContext | null
-): boolean {
-	if (a === b) return true;
-	if (!a || !b) return false;
-	return (
-		a.start_offset === b.start_offset &&
-		a.end_offset === b.end_offset &&
-		a.node_id === b.node_id &&
-		a.index === b.index &&
-		a.node === b.node &&
-		a.is_start === b.is_start &&
-		a.is_middle === b.is_middle &&
-		a.is_end === b.is_end
-	);
-}
-
-function attachment_contexts_equal(
-	a: NodeArrayAttachmentContext[],
-	b: NodeArrayAttachmentContext[]
-): boolean {
-	if (a.length !== b.length) return false;
-	return a.every((context, index) => attachment_context_equal(context, b[index]));
-}
 
 type ChildInputs = {
 	Component: AnyComponent;
@@ -183,35 +105,20 @@ export default function NodeArrayProperty({
 	// node wrappers can carry range classes without every node component
 	// having to thread the `mark`/`annotations` props through. The object
 	// is stable; its members read the live node array value.
-	const node_array_meta = useMemo<NodeArrayRenderContext>(() => {
-		const current = () => session.get(path) as NodeArray;
-		return {
-			get length() {
-				return current().nodes.length;
-			},
-			mark_for(node_index: number) {
-				// The single mark wrapping this node, or null. Mark exclusivity
-				// guarantees at most one. Annotations never wrap and are exposed
-				// via `annotations` instead.
-				return get_covering_ranges(session, current().marks, node_index)[0] ?? null;
-			},
-			annotations_for(node_index: number) {
-				return get_covering_ranges(session, current().annotations, node_index);
-			}
-		};
+	const node_array_meta = useMemo<NodeArrayRenderContext>(
+		() =>
+			create_node_array_render_context(
+				() => session,
+				() => session.get(path) as NodeArray
+			),
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [session, path_str]);
+		[session, path_str]
+	);
 
 	const cache = useRef<ElementCache>({ nodes: new Map(), gaps: new Map() });
 	const next_cache: ElementCache = { nodes: new Map(), gaps: new Map() };
 
-	function get_node_key(node_id: NodeId, index: number): string {
-		let occurrence = 0;
-		for (let current_index = 0; current_index < index; current_index++) {
-			if (node_ids[current_index] === node_id) occurrence += 1;
-		}
-		return `${node_id}:${occurrence}`;
-	}
+	const node_keys = get_node_keys(node_ids);
 
 	function gap_element(key: string, offset: number, empty = false): ReactElement {
 		const inputs: GapInputs = { Component: NodeGap, path_str, offset, count };
@@ -262,7 +169,7 @@ export default function NodeArrayProperty({
 			const node = session.get(id);
 			const mark = get_covering_ranges(session, marks, index)[0] ?? null;
 			const node_annotations = get_covering_ranges(session, annotations, index);
-			const key = get_node_key(id, index);
+			const key = node_keys[index];
 			// The gap before a node is keyed with the node, so it stays with
 			// the node across reorders.
 			children.push(gap_element(`gap:${key}`, index));
@@ -296,7 +203,7 @@ export default function NodeArrayProperty({
 		);
 	}
 
-	get_fragments(session, node_ids, marks).forEach((fragment, fragment_index) => {
+	get_node_array_fragments(session, node_ids, marks).forEach((fragment, fragment_index) => {
 		if (fragment.type === 'nodes') {
 			children.push(...render_nodes(fragment.nodes, fragment.start_index));
 		} else if (fragment.type === 'mark') {
