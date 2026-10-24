@@ -1714,13 +1714,20 @@ ${fallback_html}`;
 	{#if Overlays}<Overlays />{/if}
 	<!--
 		inputmode is derived from the model selection: when a custom property
-		(image, embed, etc.) is selected, set inputmode="none" so iOS does
-		not open the virtual keyboard. For any other selection (text, node,
-		none), allow the keyboard via inputmode="text". The browser's native
-		selection-change flow updates session.selection on tap, which flips
-		this attribute before iOS decides whether to show the keyboard — no
-		imperative state tracking, drag detection, or click/pointerdown
-		handlers are required for keyboard suppression.
+		(image, embed, etc.) or a node gap is selected, set inputmode="none"
+		so iOS does not open the virtual keyboard. For a text selection, or
+		while there is no selection yet, allow the keyboard via
+		inputmode="text". The browser's native selection-change flow updates
+		session.selection on tap, which flips this attribute — no imperative
+		state tracking, drag detection, or click/pointerdown handlers are
+		required for keyboard suppression.
+
+		The "no selection" case must resolve to "text": on iOS 27 Safari the
+		keyboard decision for the tap that focuses the canvas is made from
+		the inputmode present at focus time, and a later flip of the
+		attribute is ignored until the next tap. With inputmode="none" on a
+		freshly loaded document, the first tap into text focused the canvas
+		without a keyboard, and it only appeared after a second tap.
 	-->
 	<div
 		class="svedit-canvas {css_class}"
@@ -1734,7 +1741,7 @@ ${fallback_html}`;
 		{oncompositionend}
 		onfocus={handle_canvas_focus}
 		onblur={handle_canvas_blur}
-		inputmode={session.selection?.type === 'text' ? 'text' : 'none'}
+		inputmode={session.selection && session.selection.type !== 'text' ? 'none' : 'text'}
 		contenteditable={editable ? 'true' : 'false'}
 		tabindex="-1"
 		{autocapitalize}
