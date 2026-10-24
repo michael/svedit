@@ -88,6 +88,17 @@
 			)
 	);
 
+	// The gap holding the anchor or focus of a node selection is never
+	// hidden, even when culled. The browser moves a selection endpoint out
+	// of a display:none element on the next drag or shift+click, which
+	// pulls the adjacent node into the selection (issue #372).
+	let is_selection_endpoint = $derived.by(() => {
+		const selection = svedit.session.selection;
+		if (selection?.type !== 'node') return false;
+		if (selection.anchor_offset !== offset && selection.focus_offset !== offset) return false;
+		return serialize_path(selection.path) === path_str;
+	});
+
 	let gap_style = $derived.by(() => {
 		if (!is_editable) return '';
 		const prev_idx = offset - 1;
@@ -114,6 +125,7 @@
 		class:empty
 		class:last={is_last}
 		class:positioned
+		class:selection-endpoint={is_selection_endpoint}
 		data-type={type}
 		data-gap-array-path={path_str}
 		data-gap-offset={offset}
@@ -156,9 +168,11 @@
 	 * and DOM Ranges may still point into display:none elements, so
 	 * programmatic node selections targeting off-screen gaps keep working.
 	 * Empty-array gaps are excluded: they must stay clickable/visible even
-	 * before reconcile positions them.
+	 * before reconcile positions them. Gaps holding a node selection
+	 * endpoint are excluded too: they keep a 0×0 box so the browser never
+	 * moves the selection out of them.
 	 */
-	:global(.node-gap:not(.positioned):not(.empty) .svedit-selectable) {
+	:global(.node-gap:not(.positioned):not(.empty):not(.selection-endpoint) .svedit-selectable) {
 		display: none;
 	}
 
