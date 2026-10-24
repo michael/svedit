@@ -454,6 +454,46 @@ describe('NodeGap visibility & placement', () => {
 		});
 	});
 
+	describe('selection endpoint gaps', () => {
+		// The browser moves a selection endpoint out of a display:none
+		// element on the next drag or shift+click, which pulls the
+		// adjacent node into the selection (#372). A culled gap that holds
+		// a node selection endpoint must therefore keep its box.
+		it('keeps a culled gap rendered while it holds a selection endpoint', async () => {
+			const session = make_story_session(20);
+			const { container } = await render(SveditTest, { session });
+			await settle();
+
+			const array_el = find_buttons_array(container);
+			array_el.scrollLeft = 0;
+			await settle();
+
+			const last_gap = find_last_gap(array_el);
+			const last_sel = last_gap.querySelector('.svedit-selectable');
+			expect(last_gap.classList.contains('positioned')).toBe(false);
+			expect(getComputedStyle(last_sel).display).toBe('none');
+
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 0, 'buttons'],
+				anchor_offset: 0,
+				focus_offset: 20
+			};
+			await settle();
+			expect(last_gap.classList.contains('positioned')).toBe(false);
+			expect(getComputedStyle(last_sel).display).not.toBe('none');
+
+			session.selection = {
+				type: 'node',
+				path: ['page_1', 'body', 0, 'buttons'],
+				anchor_offset: 0,
+				focus_offset: 0
+			};
+			await settle();
+			expect(getComputedStyle(last_sel).display).toBe('none');
+		});
+	});
+
 	describe('DOM recreation without document change (dev-mode HMR)', () => {
 		// Reproduces the "node gap no longer clickable after a code change in
 		// dev mode" bug. When Vite/Svelte HMR replaces a node component, the
