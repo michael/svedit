@@ -139,10 +139,20 @@
 	});
 
 	/**
+	 * Whether an event comes from a form field inside the canvas, such as an
+	 * input in content an app renders there. Such a field edits itself, so the
+	 * canvas leaves its input and composition alone.
+	 */
+	function from_form_field(event: Event) {
+		return event.target instanceof Element && !!event.target.closest('input, textarea, select');
+	}
+
+	/**
 	 * @param {InputEvent} event
 	 */
 	async function onbeforeinput(event: InputEvent) {
 		// console.log(`onbeforeinput: ${event.inputType}, data: "${event.data}", isComposing: ${event.isComposing}`, event);
+		if (from_form_field(event)) return;
 
 		if (event.inputType === 'historyUndo' && is_composing) {
 			// Let the historyundo event pass through (when triggered from within oncompositionend)
@@ -248,8 +258,9 @@
 	 * Handles composition start events for input methods like dead keys
 	 * This occurs when user starts typing a composed character (e.g., backtick for accents)
 	 */
-	function oncompositionstart(/*event*/) {
+	function oncompositionstart(event: CompositionEvent) {
 		// console.log('DEBUG: oncompositionstart', event.data);
+		if (from_form_field(event)) return;
 		if (session.selection.type !== 'text') {
 			// Remove all ranges - completely clears the selection
 			window.getSelection()?.removeAllRanges();
@@ -274,6 +285,7 @@
 	 */
 	function oncompositionend(event: CompositionEvent) {
 		// console.log('DEBUG: oncompositionend, insert:', event.data, event);
+		if (from_form_field(event)) return;
 		if (!canvas_el?.contains(document.activeElement)) return;
 		if (session.selection?.type === 'text') {
 			// We need to remember the user's selection, as it might have changed in the process
