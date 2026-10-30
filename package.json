@@ -1,6 +1,11 @@
 {
 	"name": "svedit",
 	"version": "0.15.1",
+	"description": "Structured, full-canvas editing for Svelte",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/michael/svedit.git"
+	},
 	"homepage": "https://svedit.dev",
 	"packageManager": "pnpm@12.8.1",
 	"license": "MIT",
