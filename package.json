@@ -1,6 +1,6 @@
 {
 	"name": "svedit",
-	"version": "0.15.1",
+	"version": "0.15.2",
 	"description": "Structured, full-canvas editing for Svelte",
 	"repository": {
 		"type": "git",
