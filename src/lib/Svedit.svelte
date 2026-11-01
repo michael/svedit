@@ -366,6 +366,19 @@
 		background: var(--editing-muted);
 	}
 
+	/* The canvas's children take their caret color from --editing instead of
+	   inheriting the canvas's, so the selection state classes below restyle
+	   the canvas alone, not the whole document. The canvas's own caret color
+	   still follows them, which is the one iOS Safari uses. Elsewhere, the
+	   caret can only be in the selectables of node gaps and properties, or
+	   in unfocused texts, in those states, which hide it on their own. */
+	:where(.svedit-canvas) > :global(*) {
+		caret-color: var(--editing);
+	}
+	:where(.svedit-canvas :global(.svedit-selectable:not(.text))) {
+		caret-color: transparent;
+	}
+
 	@media not (pointer: coarse) {
 		.svedit-canvas.hide-selection {
 			caret-color: transparent;
@@ -378,9 +391,15 @@
 		caret-color: transparent;
 	}
 
+	/* A node selection only spans the selected nodes and the gaps between
+	   them, so hiding its native highlight there, rather than everywhere in
+	   the canvas, keeps a selection change from restyling the document. */
 	@media not (pointer: coarse) {
 		@supports (anchor-name: --test) {
-			.svedit-canvas.hide-selection :global(::selection) {
+			.svedit-canvas :global([data-selected])::selection,
+			.svedit-canvas :global([data-selected] ::selection),
+			.svedit-canvas :global(.svedit-selectable:not(.text))::selection,
+			.svedit-canvas :global(.svedit-selectable:not(.text) ::selection) {
 				background: transparent;
 			}
 		}

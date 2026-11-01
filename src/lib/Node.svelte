@@ -26,6 +26,8 @@
 			path_str
 		)
 	);
+	// Marks the node inside a node selection, whose native highlight is hidden
+	let selected = $derived(svedit.visibility_registry.is_selected(path_str));
 	// The properties of this node carry their anchor names along with it
 	setContext('node_anchor', {
 		get anchored() {
@@ -61,6 +63,7 @@
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"
+	data-selected={selected ? '' : undefined}
 	style="{anchored ? `anchor-name: --${path_str};` : ''}{style}"
 	{...rest}
 	{@attach svedit.visibility_registry.track_node(path_str)}

@@ -167,24 +167,28 @@ export class KeyedState<K, V> {
 	}
 }
 
+type Pin = 'pinned' | 'selected';
+
 /**
  * Paths of the nodes holding or containing a selection, which keep their
  * anchor names wherever they are: the nodes along the selection path, and
- * the selected nodes (or the nodes around a node caret).
+ * the nodes around a node selection, of which the ones inside are selected.
  */
-function get_selection_node_paths(selection: Selection | null): Set<string> {
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
-	const paths = new Set<string>();
+function get_selection_node_paths(selection: Selection | null): Map<string, Pin> {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
+	const paths = new Map<string, Pin>();
 	if (!selection) return paths;
 	const path: DocumentPath = selection.path;
 	for (let index = 1; index < path.length; index++) {
-		if (typeof path[index] === 'number') paths.add(serialize_path(path.slice(0, index + 1)));
+		if (typeof path[index] === 'number')
+			paths.set(serialize_path(path.slice(0, index + 1)), 'pinned');
 	}
 	if (selection.type === 'node') {
 		const start = Math.min(selection.anchor_offset, selection.focus_offset);
 		const end = Math.max(selection.anchor_offset, selection.focus_offset);
 		for (let index = Math.max(start - 1, 0); index <= end; index++) {
-			paths.add(serialize_path([...path, index]));
+			const selected = index >= start && index < end;
+			paths.set(serialize_path([...path, index]), selected ? 'selected' : 'pinned');
 		}
 	}
 	return paths;
@@ -203,8 +207,8 @@ class VisibilityRegistry {
 	visibility_culling = true;
 
 	#array_indices = new Map<string, KeyedState<number, boolean>>();
-	#pins = new KeyedState<string, boolean>();
-	#pinned = new Set<string>();
+	#pins = new KeyedState<string, Pin | false>();
+	#pinned = new Map<string, Pin>();
 	// Per element registrations, and the element currently owning each path
 	#nodes = new Map<HTMLElement, Registration>();
 	#node_owners = new Map<string, HTMLElement>();
@@ -272,11 +276,16 @@ class VisibilityRegistry {
 		return this.#pins.has(path);
 	}
 
+	/** Whether the node at a path is inside a node selection. */
+	is_selected(path: string): boolean {
+		return this.#pins.get(path) === 'selected';
+	}
+
 	/** Pins the nodes holding or containing the selection, see is_pinned. */
 	pin_selection(selection: Selection | null): void {
 		const paths = get_selection_node_paths(selection);
-		for (const path of this.#pinned) if (!paths.has(path)) this.#pins.set(path, false);
-		for (const path of paths) this.#pins.set(path, true);
+		for (const path of this.#pinned.keys()) if (!paths.has(path)) this.#pins.set(path, false);
+		for (const [path, pin] of paths) this.#pins.set(path, pin);
 		this.#pinned = paths;
 	}
 
@@ -556,6 +565,7 @@ export type VisibilityRegistryApi = {
 	edge_map: KeyedState<string, EdgeState>;
 	get_array_indices(array_path_str: string): KeyedState<number, boolean>;
 	is_pinned(path: string): boolean;
+	is_selected(path: string): boolean;
 	track_node(path: string): (el: HTMLElement) => () => void;
 	track_array(path: string): (el: Element) => () => void;
 };
