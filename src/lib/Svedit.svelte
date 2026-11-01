@@ -9,7 +9,7 @@
 		remove_native_composition_text
 	} from './dom_selection.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
-	import { paths_equal } from './utils.js';
+	import { deserialize_path, paths_equal } from './utils.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
 	import './styles/svedit-animations.css';
@@ -257,6 +257,39 @@
 	function focus_canvas() {
 		flushSync(() => (canvas_focused = true));
 		canvas_el?.focus();
+	}
+
+	// Removing DOM that holds the native selection makes the browser
+	// revalidate the selection on each removal, which forces a layout every
+	// time (undoing a 100 node paste took three times as long). So unless
+	// the selection lies in a text that stays (e.g. while typing), it is
+	// parked on the canvas while the document rerenders. The effect below
+	// renders it again afterwards.
+	$effect.pre(() => {
+		void session.doc;
+		untrack(() => {
+			if (!canvas_focused || is_composing || !session.selection || !canvas_el) return;
+			const dom_selection = window.getSelection();
+			if (!dom_selection?.rangeCount || !canvas_el.contains(dom_selection.anchorNode)) return;
+			if (dom_selection_stays(dom_selection)) return;
+			dom_selection.setBaseAndExtent(canvas_el, 0, canvas_el, 0);
+		});
+	});
+
+	/** Whether the DOM selection lies in a text whose node keeps its path. */
+	function dom_selection_stays(dom_selection: globalThis.Selection): boolean {
+		const node = dom_selection.anchorNode!;
+		const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+		const text_el = el?.closest<HTMLElement>('[data-type="text"]');
+		if (!text_el?.contains(dom_selection.focusNode)) return false;
+		const owner_el = text_el.parentElement?.closest<HTMLElement>('[data-type="node"]');
+		try {
+			const owner_path = deserialize_path(text_el.dataset.path!).slice(0, -1);
+			return !!owner_el && session.get(owner_path)?.id === owner_el.dataset.nodeId;
+		} catch {
+			// The path no longer resolves
+			return false;
+		}
 	}
 
 	// Render the model selection whenever it (or the document) changes. Not
