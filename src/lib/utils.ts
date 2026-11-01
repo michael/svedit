@@ -184,6 +184,8 @@ export function snake_to_pascal(str: string): string {
 export const PATH_SEPARATOR = '__';
 const PATH_STRING_SEGMENT_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 const PATH_INDEX_SEGMENT_RE = /^(0|[1-9]\d*)$/;
+// Segments repeat across paths (node ids, property names), so they are checked once
+const valid_segments = new Set<string>();
 
 /**
  * Check whether a string can be used as a Svedit path segment (node ids and
@@ -191,12 +193,15 @@ const PATH_INDEX_SEGMENT_RE = /^(0|[1-9]\d*)$/;
  * valid as HTML ids, and safe as CSS anchor-name suffixes.
  */
 export function is_path_string_segment_valid(segment: string): boolean {
-	return (
+	if (valid_segments.has(segment)) return true;
+	const valid =
 		typeof segment === 'string' &&
 		PATH_STRING_SEGMENT_RE.test(segment) &&
-		!segment.includes(PATH_SEPARATOR)
-	);
+		!segment.includes(PATH_SEPARATOR);
+	if (valid) valid_segments.add(segment);
+	return valid;
 }
+
 
 /** Assert that a string can be used as a Svedit path segment. */
 export function assert_path_string_segment(segment: string, label = 'Path segment'): void {
