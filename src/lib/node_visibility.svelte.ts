@@ -20,7 +20,8 @@
  *   one getBoundingClientRect, so there's no flash.
  * - An optional viewport IntersectionObserver toggles view classes
  *   (`.in-view`, `.seen`, `.fully-in-view`, `.visible-top`,
- *   `.visible-bottom`). Opt out with `session.config.view_classes = false`.
+ *   `.visible-bottom`) of near nodes. Opt out with
+ *   `session.config.view_classes = false`.
  * - `edge_map` holds per array whether its first and last nodes reached the
  *   container edges. It is recomputed on scroll inside the array (the IO does
  *   not fire there), on array resize, and after document changes.
@@ -58,6 +59,15 @@ function split_path(path: string): { array_path: string; index: number } | null 
 	return separator < 0 || Number.isNaN(index)
 		? null
 		: { array_path: path.slice(0, separator), index };
+}
+
+function intersects_viewport(rect: DOMRectReadOnly, margin: number): boolean {
+	return (
+		rect.bottom > -margin &&
+		rect.top < window.innerHeight + margin &&
+		rect.right > -margin &&
+		rect.left < window.innerWidth + margin
+	);
 }
 
 function apply_view_classes(el: HTMLElement, in_viewport: boolean, rect: DOMRectReadOnly): void {
@@ -289,7 +299,6 @@ class VisibilityRegistry {
 				}
 				this.#nodes.set(el, { path, attached: true });
 				this.#io?.observe(el);
-				this.#view_io?.observe(el);
 				// Seed synchronously; the observers own later transitions. A new
 				// element takes over its path, even before the element it
 				// displaced moved on.
@@ -298,15 +307,10 @@ class VisibilityRegistry {
 					return this.#claim_node(el, path);
 				}
 				const rect = el.getBoundingClientRect();
-				const { innerWidth: width, innerHeight: height } = window;
-				const intersects = (margin: number) =>
-					rect.bottom > -margin &&
-					rect.top < height + margin &&
-					rect.right > -margin &&
-					rect.left < width + margin;
-				if (!this.visibility_culling || intersects(OVERSCAN_PX)) this.#near_nodes.add(el);
+				const near = !this.visibility_culling || intersects_viewport(rect, OVERSCAN_PX);
+				if (near) this.#near_nodes.add(el);
 				this.#claim_node(el, path);
-				if (this.view_classes) apply_view_classes(el, intersects(0), rect);
+				this.#watch_view(el, near, rect);
 			});
 			return () => this.#detach(el, this.#nodes.get(el));
 		};
@@ -439,14 +443,28 @@ class VisibilityRegistry {
 	}
 
 	#process_near(entries: IntersectionObserverEntry[]): void {
-		for (const { target, isIntersecting } of entries) {
+		for (const { target, isIntersecting, boundingClientRect } of entries) {
 			const el = target as HTMLElement;
 			const path = this.#nodes.get(el)?.path;
 			if (!path || !el.isConnected || isIntersecting === this.#near_nodes.has(el)) continue;
 			if (isIntersecting) this.#near_nodes.add(el);
 			else this.#near_nodes.delete(el);
 			if (this.#node_owners.get(path) === el) this.#claim_node(el, path);
+			this.#watch_view(el, isIntersecting, boundingClientRect);
 		}
+	}
+
+	/**
+	 * The viewport observer only watches near nodes, since nodes in view are
+	 * near, which spares it most targets on every frame. View classes are
+	 * applied right away, as its first callback comes a frame later.
+	 */
+	#watch_view(el: HTMLElement, near: boolean, rect: DOMRectReadOnly): void {
+		if (!this.#view_io) return;
+		if (near) this.#view_io.observe(el);
+		else this.#view_io.unobserve(el);
+		if (near || el.classList.contains('in-view'))
+			apply_view_classes(el, near && intersects_viewport(rect, 0), rect);
 	}
 
 	#process_view(entries: IntersectionObserverEntry[]): void {
