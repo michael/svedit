@@ -25,7 +25,7 @@
 	   `>` after :nth-child keeps the browser from testing every ancestor of
 	   .list-item, which would make inserting any node into the document
 	   restyle all nodes after it. */
-	.list :global(.list-node-array > :nth-child(2n of [data-type="node"]) > .list-item) {
+	.list :global(.list-node-array > :nth-child(2n of [data-type='node']) > .list-item) {
 		background: color-mix(in oklab, var(--accent) 5%, transparent);
 	}
 </style>
