@@ -9,10 +9,11 @@
 		remove_native_composition_text
 	} from './dom_selection.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
+	import { paths_equal } from './utils.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
 	import './styles/svedit-animations.css';
-	import type { DocumentSchema, SveditProps, TextSelection } from './types.js';
+	import type { DocumentPath, DocumentSchema, SveditProps, TextSelection } from './types.js';
 	import type { KeyMapper } from './KeyMapper.svelte.js';
 
 	let {
@@ -39,7 +40,16 @@
 	};
 
 	let canvas_el: HTMLElement | undefined;
-	let root_node = $derived(session.get(path));
+	// Every node path derives from the root path, so it lives in its own state,
+	// updated only when its segments change. Apps may pass an expression that
+	// depends on the whole document (e.g. `path={[session.doc.document_id]}`),
+	// which would otherwise make every node's path re-check on every edit.
+	let root_path: DocumentPath = $state.raw(untrack(() => path));
+	$effect.pre(() => {
+		const current = untrack(() => root_path);
+		if (!paths_equal(current, path)) root_path = path;
+	});
+	let root_node = $derived(session.get(root_path));
 	let RootComponent = $derived(session.config.node_components[root_node.type]);
 	let Overlays = $derived(session.config.system_components?.overlays);
 	let NodeSelectionMarkers = $derived(
@@ -213,7 +223,7 @@
 	function onpaste(event: ClipboardEvent) {
 		if (!editable || !is_focus_inside()) return;
 		event.preventDefault();
-		paste(session, event.clipboardData, path);
+		paste(session, event.clipboardData, root_path);
 	}
 
 	function render_selection(dom_driven = false, scroll = true) {
@@ -298,7 +308,7 @@
 		{autocapitalize}
 		{spellcheck}
 	>
-		<RootComponent {path} />
+		<RootComponent path={root_path} />
 	</div>
 </div>
 
