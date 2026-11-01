@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
 	import { PATH_SEPARATOR, serialize_path } from './utils.js';
-	import type { DocumentPath, SveditRenderContext } from './types.js';
+	import type { DocumentPath, NodeArrayRenderContext, SveditRenderContext } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -39,13 +39,14 @@
 	};
 
 	const svedit = getContext<SveditRenderContext>('svedit');
+	// The node array this belongs to (rendered inside it)
+	const node_array = getContext<NodeArrayRenderContext>('node_array_meta');
 	let NodeGapTools = $derived(svedit.session.config.system_components?.node_gap_tools);
 	let path_str = $derived(serialize_path(path));
-	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
 
 	let caret_gap_key = $derived.by(() => {
-		const selection = svedit.session.selection_at(path);
-		if (selection?.type !== 'node' || selection.anchor_offset !== selection.focus_offset) return null;
+		const selection = node_array.node_selection;
+		if (!selection || selection.anchor_offset !== selection.focus_offset) return null;
 		return `${path_str}-gap-${selection.anchor_offset}`;
 	});
 
@@ -62,18 +63,18 @@
 			has_pair: count >= 2
 		});
 
+		const near_indices = node_array.items.near_indices();
 		if (count === 0) {
-			return visible.has(0)
+			return near_indices[0] === 0
 				? [marker(0, 'gap-empty', `--_ct:--g-${path_str}${PATH_SEPARATOR}0-gap-before;--_a:${anchor(0)}`)]
 				: [];
 		}
 
-		// Iterating the near indices (O(visible)) instead of 0..count. Stale
-		// indices >= count can briefly remain after a delete.
-		const near = [...visible].filter((index) => index >= 0 && index < count).sort((a, b) => a - b);
+		// Iterating the near indices (O(visible)) instead of 0..count
+		const near = near_indices.filter((index) => index < count);
 		if (near.length === 0) return [];
 
-		const edge_state = svedit.visibility_registry.edge_map.get(path_str);
+		const edge_state = node_array.items.edge;
 		const pair = count >= 2 ? `;--_f:${anchor(0)};--_s:${anchor(1)}` : '';
 		const edge = (offset: number, adjacent: number) => {
 			const gap_anchor = offset === 0 ? `0-gap-before` : `${offset - 1}-gap-after`;

@@ -5,18 +5,22 @@
 		get_char_length,
 		serialize_path,
 		get_selection_range,
-		calculate_fragment_ranges
+		calculate_fragment_ranges,
+		paths_equal
 	} from './utils.js';
+	import { root_path } from './doc_utils.js';
+	import { PathTracker } from './stable.svelte.js';
 	import type {
 		TextPropertyProps,
 		Text,
 		Fragment,
+		NodeRenderContext,
 		SelectionRange,
 		SveditContext
 	} from './types.js';
 
 	const svedit = getContext<SveditContext>('svedit');
-	const node_anchor = getContext<{ anchored: boolean } | undefined>('node_anchor');
+	const owner = getContext<NodeRenderContext | undefined>('node_anchor');
 	let {
 		path,
 		class: css_class,
@@ -26,10 +30,23 @@
 		...rest
 	}: TextPropertyProps = $props();
 
-	let path_str = $derived(serialize_path(path));
-	let text: Text = $derived(svedit.session.get(path));
+	// Rooted at the owning node, so index shifts of the owner don't re-read it
+	const tracker = new PathTracker(
+		() => path,
+		() => root_path(path, owner),
+		paths_equal
+	);
+	// The tracker writes path changes straight to the element
+	const track_el = (el: HTMLElement) => {
+		tracker.el = el;
+	};
+	let rooted = $derived(tracker.current);
+	let text: Text = $derived(svedit.session.get(rooted));
 	// Only re-evaluates while the selection is in the node owning this text
-	let selection = $derived(svedit.session.selection_at(path));
+	let selection = $derived.by(() => {
+		const selection = svedit.session.selection_in(rooted.slice(0, -1));
+		return selection && paths_equal(selection.path, path) ? selection : null;
+	});
 	let is_focused = $derived(selection?.type === 'text');
 	let is_empty = $derived(text.content.length === 0 && !(is_focused && svedit.is_composing));
 
@@ -70,13 +87,14 @@
 <svelte:element
 	this={tag}
 	data-type="text"
-	data-path={path_str}
-	style="{(node_anchor?.anchored ?? true) ? `anchor-name: --${path_str};` : ''}{style}"
+	data-path={tracker.path_str}
+	style="{(owner?.anchored ?? true) ? `anchor-name: --${serialize_path(path)};` : ''}{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}
 	{placeholder}
 	{...rest}
+	use:track_el
 >
 	{#each fragments as fragment, index (index)}{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
 				class="selection-highlight"

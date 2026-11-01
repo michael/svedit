@@ -7,30 +7,32 @@
  * gap markers only render while their nodes are near the viewport. The DOM
  * structure stays stable either way.
  *
- * Node elements register with `{@attach registry.track_node(path)}`, node
- * array containers with `{@attach registry.track_array(path)}`, so
+ * Node elements register with `{@attach registry.track_node(array, key, pin)}`,
+ * node array containers with `{@attach registry.track_array(array)}`, so
  * observation follows the actual DOM lifecycle, including DOM recreation
- * without a document change (e.g. dev-mode HMR). During keyed updates
- * several elements can swap paths, so per-path ownership makes teardown
- * collision-safe: a teardown only clears state its element still owns.
+ * without a document change (e.g. dev-mode HMR). Registrations are keyed by
+ * the rendered node array (a NodeArrayState) and the item key (node id and
+ * occurrence), never by index: inserting or deleting a node leaves the
+ * registrations and flags of the nodes after it untouched.
  *
  * Sources of truth:
- * - An overscan IntersectionObserver (500px margin) sets the per-array
- *   flags of near node indices. Registration seeds them synchronously from
- *   one getBoundingClientRect, so there's no flash.
+ * - An overscan IntersectionObserver (500px margin) sets the near flags of
+ *   items. Registration seeds them synchronously from one
+ *   getBoundingClientRect, so there's no flash.
  * - An optional viewport IntersectionObserver toggles view classes
  *   (`.in-view`, `.seen`, `.fully-in-view`, `.visible-top`,
  *   `.visible-bottom`) of near nodes. Opt out with
  *   `session.config.view_classes = false`.
- * - `edge_map` holds per array whether its first and last nodes reached the
- *   container edges. It is recomputed on scroll inside the array (the IO does
- *   not fire there), on array resize, and after document changes.
+ * - `NodeArrayState.edge` holds whether an array's first and last nodes
+ *   reached the container edges. It is recomputed on scroll inside the
+ *   array (the IO does not fire there), on array resize, and after document
+ *   changes.
  *
  * Anchor names cost every layout pass O(N) too, so nodes and their
  * properties only carry their `anchor-name` while near the viewport, while
  * they hold or contain the selection (overlays anchor to it), or as one of
  * the first two nodes of their array (gap markers measure row gaps with
- * them). See `is_anchored`.
+ * them). See Node.svelte.
  *
  * State lives in KeyedState stores, which track reads per key, so only
  * components whose own entries changed re-evaluate.
@@ -39,8 +41,7 @@
  */
 
 import { tick, untrack } from 'svelte';
-import { PATH_SEPARATOR, serialize_path } from './utils.js';
-import type { DocumentPath, Selection } from './types.js';
+import type { NodeId, Selection } from './types.js';
 
 /** Nodes within this distance (px) of the viewport count as near. */
 const OVERSCAN_PX = 500;
@@ -51,15 +52,15 @@ const OVERSCAN_PX = 500;
  */
 const EDGE_TOLERANCE_PX = 10;
 
-type EdgeState = { first: boolean; last: boolean };
+/** Item key of the placeholder of an empty node array. */
+export const EMPTY_KEY = '';
 
-function split_path(path: string): { array_path: string; index: number } | null {
-	const separator = path.lastIndexOf(PATH_SEPARATOR);
-	const index = parseInt(path.slice(separator + PATH_SEPARATOR.length), 10);
-	return separator < 0 || Number.isNaN(index)
-		? null
-		: { array_path: path.slice(0, separator), index };
-}
+/** End flags of an item, see NodeArrayState.ends. */
+export const FIRST = 1;
+export const SECOND = 2;
+export const LAST = 4;
+
+type EdgeState = { first: boolean; last: boolean };
 
 function intersects_viewport(rect: DOMRectReadOnly, margin: number): boolean {
 	return (
@@ -84,8 +85,6 @@ function apply_view_classes(el: HTMLElement, in_viewport: boolean, rect: DOMRect
 	classes.toggle('visible-top', !top_clipped && bottom_clipped);
 	classes.toggle('visible-bottom', top_clipped && !bottom_clipped);
 }
-
-type Registration = { path: string; attached: boolean; near?: boolean; edge?: EdgeState };
 
 class Cell<V> {
 	value: V | undefined = $state.raw();
@@ -142,6 +141,7 @@ export class KeyedState<K, V> {
 		});
 	}
 
+	/** Clears the value of a key, without creating its cell. */
 	delete(key: K): void {
 		if (this.#cells.has(key)) this.set(key, undefined);
 	}
@@ -149,6 +149,17 @@ export class KeyedState<K, V> {
 	/** Creates the cell of a key, so its readers depend on it alone. */
 	ensure(key: K, value: V): void {
 		if (!this.#cells.has(key)) this.set(key, value);
+	}
+
+	/** Drops the cells of all other keys. Only for keys nothing reads anymore. */
+	retain(keys: Set<K>): void {
+		untrack(() => {
+			for (const key of this.#cells.keys()) {
+				if (keys.has(key)) continue;
+				this.#cells.delete(key);
+				if (this.#keys.delete(key)) this.#changed += 1;
+			}
+		});
 	}
 
 	clear(): void {
@@ -167,36 +178,121 @@ export class KeyedState<K, V> {
 	}
 }
 
-type Pin = 'pinned' | 'selected';
-
 /**
- * Paths of the nodes holding or containing a selection, which keep their
- * anchor names wherever they are: the nodes along the selection path, and
- * the nodes around a node selection, of which the ones inside are selected.
+ * The items of a rendered node array, by item key (node id and
+ * occurrence): their neighbors, ends and visibility. Updating the keys only
+ * notifies the items next to a change, so the nodes after an inserted or
+ * deleted node don't re-evaluate.
  */
-function get_selection_node_paths(selection: Selection | null): Map<string, Pin> {
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
-	const paths = new Map<string, Pin>();
-	if (!selection) return paths;
-	const path: DocumentPath = selection.path;
-	for (let index = 1; index < path.length; index++) {
-		if (typeof path[index] === 'number')
-			paths.set(serialize_path(path.slice(0, index + 1)), 'pinned');
-	}
-	if (selection.type === 'node') {
-		const start = Math.min(selection.anchor_offset, selection.focus_offset);
-		const end = Math.max(selection.anchor_offset, selection.focus_offset);
-		for (let index = Math.max(start - 1, 0); index <= end; index++) {
-			const selected = index >= start && index < end;
-			paths.set(serialize_path([...path, index]), selected ? 'selected' : 'pinned');
+export class NodeArrayState {
+	/** Item keys of the nodes near the viewport */
+	near = new KeyedState<string, boolean>();
+	/** The key of the item before each item, null for the first */
+	prev = new KeyedState<string, string | null>();
+	/** FIRST, SECOND and LAST flags of the items at the array's ends */
+	ends = new KeyedState<string, number>();
+	keys: string[] = $state.raw([]);
+	/** Whether the first/last node reached the container edges */
+	edge: EdgeState | undefined = $state.raw();
+	/** The element owning each item key (see track_node) */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive registry map.
+	owners = new Map<string, HTMLElement>();
+	el: Element | null = null;
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Rebuilt with the keys.
+	#index_of = $derived(new Map(this.keys.map((key, index) => [key, index])));
+
+	set_keys(keys: string[]): void {
+		const previous = this.keys;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
+		const present = new Set(keys).add(EMPTY_KEY);
+		for (const state of [this.near, this.prev, this.ends]) state.retain(present);
+		keys.forEach((key, index) => {
+			this.prev.set(key, index ? keys[index - 1] : null);
+			// Readers of keys without a cell would re-check on every new cell
+			this.ends.ensure(key, 0);
+		});
+		// Only the items at the ends, before or after the change, have flags
+		for (const key of [previous[0], previous[1], previous.at(-1), keys[0], keys[1], keys.at(-1)]) {
+			if (key === undefined || !present.has(key)) continue;
+			const flags =
+				(keys[0] === key ? FIRST : 0) |
+				(keys[1] === key ? SECOND : 0) |
+				(keys.at(-1) === key ? LAST : 0);
+			this.ends.set(key, flags);
 		}
+		this.keys = keys;
 	}
-	return paths;
+
+	/** The indexes of the near items, ascending. Depends on every change. */
+	near_indices(): number[] {
+		const indices: number[] = [];
+		for (const key of this.near) {
+			const index =
+				key === EMPTY_KEY ? (this.keys.length ? undefined : 0) : this.#index_of.get(key);
+			if (index !== undefined) indices.push(index);
+		}
+		return indices.sort((a, b) => a - b);
+	}
 }
 
+type Pin = 'pinned' | 'selected';
+type Lookup = <T>(path: Selection['path']) => T;
+
+/**
+ * Identifies an item for pinning by the node owning its node array, the
+ * array property and the item key (e.g. `page_1.body.p_3:0`), which, unlike
+ * its path, survive index shifts. See NodeArrayRenderContext.pin_scope.
+ */
+export function pin_key(scope: string, key: string): string {
+	return `${scope}.${key}`;
+}
+
+/**
+ * The items holding or containing a selection, which keep their anchor
+ * names wherever they are: the items along the selection path, and the
+ * items around a node selection, of which the ones inside are selected.
+ */
+function get_selection_pins(selection: Selection | null, get: Lookup): Map<string, Pin> {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
+	const pins = new Map<string, Pin>();
+	if (!selection) return pins;
+	const path = selection.path;
+	// Items from..to of an array, keyed as NodeArrayProperty keys them
+	const pin = (
+		array_path: Selection['path'],
+		from: number,
+		to: number,
+		pin_of: (i: number) => Pin
+	) => {
+		const nodes = get<{ nodes: NodeId[] }>(array_path).nodes;
+		const scope = `${get<{ id: NodeId }>(array_path.slice(0, -1)).id}.${array_path.at(-1)}`;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
+		const occurrences = new Map<NodeId, number>();
+		for (let index = 0; index <= to && index < nodes.length; index++) {
+			const occurrence = occurrences.get(nodes[index]) ?? 0;
+			occurrences.set(nodes[index], occurrence + 1);
+			if (index >= from) pins.set(pin_key(scope, `${nodes[index]}:${occurrence}`), pin_of(index));
+		}
+	};
+	try {
+		for (let index = 2; index < path.length; index++) {
+			const segment = path[index];
+			if (typeof segment === 'number') pin(path.slice(0, index), segment, segment, () => 'pinned');
+		}
+		if (selection.type === 'node') {
+			const start = Math.min(selection.anchor_offset, selection.focus_offset);
+			const end = Math.max(selection.anchor_offset, selection.focus_offset);
+			pin(path, start - 1, end, (index) => (index >= start && index < end ? 'selected' : 'pinned'));
+		}
+	} catch {
+		// A selection that no longer resolves (e.g. after `session.doc = ...`) pins nothing more
+	}
+	return pins;
+}
+
+type NodeRegistration = { array: NodeArrayState | null; key: string; near: boolean };
+
 class VisibilityRegistry {
-	/** Per array path: whether the first/last node reached the container edge. */
-	edge_map = new KeyedState<string, EdgeState>();
 	/** Toggle view classes on nodes (opt out via config.view_classes = false). */
 	view_classes = true;
 	/**
@@ -206,16 +302,10 @@ class VisibilityRegistry {
 	 */
 	visibility_culling = true;
 
-	#array_indices = new Map<string, KeyedState<number, boolean>>();
 	#pins = new KeyedState<string, Pin | false>();
 	#pinned = new Map<string, Pin>();
-	// Per element registrations, and the element currently owning each path
-	#nodes = new Map<HTMLElement, Registration>();
-	#node_owners = new Map<string, HTMLElement>();
-	#arrays = new Map<Element, Registration>();
-	#array_owners = new Map<string, Element>();
-	#detached = new Set<Element>();
-	#sweep: ReturnType<typeof setTimeout> | 0 = 0;
+	#nodes = new Map<HTMLElement, NodeRegistration>();
+	#arrays = new Map<Element, NodeArrayState>();
 	#io: IntersectionObserver | null = null;
 	#view_io: IntersectionObserver | null = null;
 	#resize_observer: ResizeObserver | null = null;
@@ -242,147 +332,86 @@ class VisibilityRegistry {
 		this.#view_io?.disconnect();
 		this.#resize_observer?.disconnect();
 		this.#io = this.#view_io = this.#resize_observer = null;
-		clearTimeout(this.#sweep);
-		this.#sweep = 0;
-		for (const map of [
-			this.#detached,
-			this.#nodes,
-			this.#node_owners,
-			this.#arrays,
-			this.#array_owners
-		]) {
-			map.clear();
+		for (const array of this.#arrays.values()) {
+			array.near.clear();
+			array.owners.clear();
+			array.edge = undefined;
 		}
-		this.edge_map.clear();
-		for (const flags of this.#array_indices.values()) flags.clear();
+		this.#nodes.clear();
+		this.#arrays.clear();
+	}
+
+	/** The state of a registered node array element. */
+	array_state(el: Element): NodeArrayState | undefined {
+		return this.#arrays.get(el);
+	}
+
+	/** Whether the item (see pin_key) holds or contains the selection. */
+	is_pinned(key: string): boolean {
+		return this.#pins.has(key);
+	}
+
+	/** Whether the item (see pin_key) is inside a node selection. */
+	is_selected(key: string): boolean {
+		return this.#pins.get(key) === 'selected';
+	}
+
+	/** Pins the items holding or containing the selection, see is_pinned. */
+	pin_selection(selection: Selection | null, get: Lookup): void {
+		const pins = get_selection_pins(selection, get);
+		for (const key of this.#pinned.keys()) if (!pins.has(key)) this.#pins.set(key, false);
+		for (const [key, pin] of pins) this.#pins.set(key, pin);
+		this.#pinned = pins;
 	}
 
 	/**
-	 * The stable flags of near node indices of an array, created lazily.
-	 *
-	 * IMPORTANT: hold the returned flags in their own $derived and read
-	 * them in another one (see NodeGap). Svelte doesn't track state created
-	 * inside the reaction that reads it, so creating the flags and reading
-	 * `.has()` in one derived would never re-evaluate.
+	 * Attachment for node elements (Node.svelte and the empty-array
+	 * placeholder). Nodes outside node arrays (no `array`) only get view
+	 * classes.
 	 */
-	get_array_indices(array_path: string): KeyedState<number, boolean> {
-		let flags = this.#array_indices.get(array_path);
-		if (!flags) this.#array_indices.set(array_path, (flags = new KeyedState()));
-		return flags;
-	}
-
-	/** Whether the node at a path holds or contains the selection. */
-	is_pinned(path: string): boolean {
-		return this.#pins.has(path);
-	}
-
-	/** Whether the node at a path is inside a node selection. */
-	is_selected(path: string): boolean {
-		return this.#pins.get(path) === 'selected';
-	}
-
-	/** Pins the nodes holding or containing the selection, see is_pinned. */
-	pin_selection(selection: Selection | null): void {
-		const paths = get_selection_node_paths(selection);
-		for (const path of this.#pinned.keys()) if (!paths.has(path)) this.#pins.set(path, false);
-		for (const [path, pin] of paths) this.#pins.set(path, pin);
-		this.#pinned = paths;
-	}
-
-	/**
-	 * Attachment for node elements (Node.svelte and the empty-array placeholder).
-	 *
-	 * Inserting or deleting a node shifts the paths of all following nodes,
-	 * which re-attaches their elements. A re-attached element keeps its
-	 * registration and observed state and only moves to its new path, so a
-	 * shift costs no layout reads (see #detach).
-	 */
-	track_node(path: string) {
+	track_node(array: NodeArrayState | null, key: string, pin?: string) {
 		return (el: HTMLElement) => {
 			this.start();
 			untrack(() => {
-				const registration = this.#nodes.get(el);
-				if (registration) {
-					registration.attached = true;
-					if (registration.path === path) return;
-					this.#release_node(el, registration.path);
-					registration.path = path;
-					return this.#claim_node(el, path);
-				}
-				// Seed synchronously; the observers own later transitions. A new
-				// element takes over its path, even before the element it
-				// displaced moved on.
+				// Seed synchronously; the observers own later transitions
 				const rect = this.#io || this.#view_io ? el.getBoundingClientRect() : null;
 				const near = !this.#io || intersects_viewport(rect!, OVERSCAN_PX);
-				this.#nodes.set(el, { path, attached: true, near });
+				this.#nodes.set(el, { array, key, near });
 				this.#io?.observe(el);
-				this.#claim_node(el, path);
+				if (pin) this.#pins.ensure(pin, false);
+				// A new element takes over its key, even before the element it replaces is removed
+				if (array) {
+					array.owners.set(key, el);
+					array.near.set(key, near);
+				}
 				if (rect) this.#watch_view(el, near, rect);
 			});
-			return () => this.#detach(el, this.#nodes.get(el));
+			return () => {
+				this.#nodes.delete(el);
+				this.#io?.unobserve(el);
+				this.#view_io?.unobserve(el);
+				if (array?.owners.get(key) !== el) return;
+				array.owners.delete(key);
+				array.near.delete(key);
+			};
 		};
 	}
 
-	/**
-	 * A connected element is being re-attached with a new path, which Svelte
-	 * does in a later effect. Removed elements are disconnected first.
-	 */
-	#detach(el: Element, registration: Registration | undefined): void {
-		if (!registration) return;
-		registration.attached = false;
-		if (!el.isConnected) return this.#forget(el);
-		this.#detached.add(el);
-		// Safety net for an element that is not re-attached after all
-		this.#sweep ||= setTimeout(() => {
-			this.#sweep = 0;
-			for (const detached of this.#detached) this.#forget(detached);
-		});
-	}
-
-	#forget(el: Element): void {
-		this.#detached.delete(el);
-		const node = this.#nodes.get(el as HTMLElement);
-		if (node && !node.attached) {
-			this.#nodes.delete(el as HTMLElement);
-			this.#io?.unobserve(el);
-			this.#view_io?.unobserve(el);
-			untrack(() => this.#release_node(el as HTMLElement, node.path));
-		}
-		const array = this.#arrays.get(el);
-		if (array && !array.attached) {
-			this.#arrays.delete(el);
-			this.#resize_observer?.unobserve(el);
-			untrack(() => this.#release_array(el, array.path));
-		}
-	}
-
-	/** Attachment for node array containers. Re-attaching moves the registration, like track_node. */
-	track_array(path: string) {
+	/** Attachment for node array containers. */
+	track_array(array: NodeArrayState) {
 		return (el: Element) => {
 			this.start();
-			const registration = this.#arrays.get(el);
-			if (registration) {
-				registration.attached = true;
-				if (registration.path !== path) {
-					untrack(() => {
-						this.#release_array(el, registration.path);
-						registration.path = path;
-						this.#claim_array(el, registration);
-					});
-				}
-			} else {
-				this.#arrays.set(el, { path, attached: true });
-				this.#resize_observer?.observe(el);
-				// Synchronously, as the ResizeObserver's first callback comes a frame later
-				this.sync_edge_state(el);
-			}
-			return () => this.#detach(el, this.#arrays.get(el));
+			array.el = el;
+			this.#arrays.set(el, array);
+			this.#resize_observer?.observe(el);
+			// Synchronously, as the ResizeObserver's first callback comes a frame later
+			untrack(() => this.sync_edge_state(el));
+			return () => {
+				this.#arrays.delete(el);
+				this.#resize_observer?.unobserve(el);
+				if (array.el === el) array.el = null;
+			};
 		};
-	}
-
-	/** Whether an element is a registered node array of this registry. */
-	has_array(el: Element): boolean {
-		return this.#arrays.has(el);
 	}
 
 	/**
@@ -391,8 +420,8 @@ class VisibilityRegistry {
 	 * of their nodes comes near.
 	 */
 	sync_all_edge_states() {
-		for (const [el, { path }] of this.#arrays) {
-			if (el.isConnected && this.#array_indices.get(path)?.any()) this.sync_edge_state(el);
+		for (const [el, array] of this.#arrays) {
+			if (el.isConnected && array.near.any()) this.sync_edge_state(el);
 		}
 	}
 
@@ -402,8 +431,8 @@ class VisibilityRegistry {
 	 * from computed style alone (no forced layout).
 	 */
 	sync_edge_state(array_el: Element): void {
-		const registration = this.#arrays.get(array_el);
-		if (!registration) return;
+		const array = this.#arrays.get(array_el);
+		if (!array) return;
 		const style = getComputedStyle(array_el);
 		let first = true;
 		let last = true;
@@ -417,59 +446,26 @@ class VisibilityRegistry {
 			first &&= scrollTop <= EDGE_TOLERANCE_PX;
 			last &&= scrollTop + clientHeight >= scrollHeight - EDGE_TOLERANCE_PX;
 		}
-		const previous = registration.edge;
+		const previous = untrack(() => array.edge);
 		if (previous?.first === first && previous?.last === last) return;
-		registration.edge = { first, last };
-		untrack(() => this.#claim_array(array_el, registration));
-	}
-
-	#claim_array(el: Element, registration: Registration): void {
-		this.#array_owners.set(registration.path, el);
-		if (registration.edge) this.edge_map.set(registration.path, registration.edge);
-	}
-
-	#release_array(el: Element, path: string): void {
-		if (this.#array_owners.get(path) !== el) return;
-		this.#array_owners.delete(path);
-		this.edge_map.delete(path);
-	}
-
-	/** A path's index is near exactly when the element owning the path is near. */
-	#claim_node(el: HTMLElement, path: string): void {
-		this.#node_owners.set(path, el);
-		this.#pins.ensure(path, false);
-		this.#update_index(path, !!this.#nodes.get(el)?.near);
-	}
-
-	// Another element may already own the path after a keyed update
-	#release_node(el: HTMLElement, path: string): void {
-		if (this.#node_owners.get(path) !== el) return;
-		this.#node_owners.delete(path);
-		this.#update_index(path, false);
-	}
-
-	#update_index(path: string, near: boolean): void {
-		const split = split_path(path);
-		if (split) this.get_array_indices(split.array_path).set(split.index, near);
+		array.edge = { first, last };
 	}
 
 	#process_near(entries: IntersectionObserverEntry[]): void {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
-		const arrays = new Set<Element>();
+		const arrays = new Set<NodeArrayState>();
 		for (const { target, isIntersecting, boundingClientRect } of entries) {
 			const el = target as HTMLElement;
 			const registration = this.#nodes.get(el);
 			if (!registration || !el.isConnected || isIntersecting === registration.near) continue;
-			const { path } = registration;
+			const { array, key } = registration;
 			registration.near = isIntersecting;
-			if (this.#node_owners.get(path) === el) this.#claim_node(el, path);
+			if (array?.owners.get(key) === el) array.near.set(key, isIntersecting);
 			this.#watch_view(el, isIntersecting, boundingClientRect);
 			// The edge state of an array without near nodes may be outdated
-			const array_path = isIntersecting ? split_path(path)?.array_path : undefined;
-			const array_el = array_path !== undefined && this.#array_owners.get(array_path);
-			if (array_el) arrays.add(array_el);
+			if (isIntersecting && array) arrays.add(array);
 		}
-		for (const array_el of arrays) this.sync_edge_state(array_el);
+		for (const array of arrays) if (array.el) this.sync_edge_state(array.el);
 	}
 
 	/**
@@ -504,6 +500,7 @@ export function create_node_visibility(svedit: {
 		config?: { view_classes?: boolean; visibility_culling?: boolean };
 		doc: unknown;
 		selection: Selection | null;
+		get: Lookup;
 	};
 	editable: boolean;
 	visibility_registry?: VisibilityRegistryApi;
@@ -529,7 +526,7 @@ export function create_node_visibility(svedit: {
 		};
 		const on_scroll = (event: Event) => {
 			const array_el = (event.target as Element | null)?.closest?.('[data-type="node_array"]');
-			if (!array_el || !registry.has_array(array_el)) return;
+			if (!array_el || !registry.array_state(array_el)) return;
 			pending.add(array_el);
 			frame ||= requestAnimationFrame(flush);
 		};
@@ -541,9 +538,11 @@ export function create_node_visibility(svedit: {
 		};
 	});
 
+	// The nodes along the selection can change without the selection (e.g. `session.doc = ...`)
 	$effect.pre(() => {
 		const selection = svedit.session.selection;
-		untrack(() => registry.pin_selection(selection));
+		void svedit.session.doc;
+		untrack(() => registry.pin_selection(selection, (path) => svedit.session.get(path)));
 	});
 
 	$effect(() => {
@@ -562,49 +561,13 @@ export function create_node_visibility(svedit: {
 }
 
 export type VisibilityRegistryApi = {
-	edge_map: KeyedState<string, EdgeState>;
-	get_array_indices(array_path_str: string): KeyedState<number, boolean>;
-	is_pinned(path: string): boolean;
-	is_selected(path: string): boolean;
-	track_node(path: string): (el: HTMLElement) => () => void;
-	track_array(path: string): (el: Element) => () => void;
+	array_state(el: Element): NodeArrayState | undefined;
+	is_pinned(key: string): boolean;
+	is_selected(key: string): boolean;
+	track_node(
+		array: NodeArrayState | null,
+		key: string,
+		pin?: string
+	): (el: HTMLElement) => () => void;
+	track_array(array: NodeArrayState): (el: Element) => () => void;
 };
-
-/**
- * Whether a gap gets its `.positioned` class. Mid gaps need both adjacent
- * nodes near; edge gaps need their edge node near and at the container
- * edge (scroll-aware, see edge_map).
- *
- * `near` must come from get_array_indices, held in a separate $derived.
- */
-export function should_position_gap(
-	near: KeyedState<number, boolean>,
-	edge_state: EdgeState | undefined,
-	offset: number,
-	is_last: boolean,
-	empty: boolean
-): boolean {
-	if (!near) return false;
-	if (empty) return near.has(0);
-	if (offset === 0) return near.has(0) && edge_state?.first === true;
-	if (is_last) return near.has(offset - 1) && edge_state?.last === true;
-	return near.has(offset - 1) && near.has(offset);
-}
-
-/**
- * Whether a node (or a property of it) carries its anchor name: outside
- * node arrays always, else while near the viewport, pinned by the
- * selection, or as one of the first two nodes of an anchored array.
- *
- * `near` must come from get_array_indices, held in a separate $derived.
- */
-export function is_anchored(
-	registry: VisibilityRegistryApi,
-	near: KeyedState<number, boolean> | null,
-	array_anchored: boolean,
-	index: number,
-	path: string
-): boolean {
-	if (!near) return true;
-	return (array_anchored && index < 2) || near.has(index) || registry.is_pinned(path);
-}

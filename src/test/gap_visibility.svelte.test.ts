@@ -4,7 +4,7 @@
  * Mounts a Session into a real Chromium browser (vitest-browser-svelte) so
  * CSS anchor positioning, IntersectionObserver, scroll events and BCRs all
  * behave like production. Each test builds a focused document shape and
- * asserts the DOM state after IO + edge_map have settled.
+ * asserts the DOM state after IO + edge state have settled.
  *
  * Node and array elements register with the visibility registry via
  * attachments; IntersectionObserver owns later viewport transitions.
@@ -187,7 +187,7 @@ describe('NodeGap visibility & placement', () => {
 			// wrap-fill behaviour.
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			expect(ctx).toBeTruthy();
-			const edge_state = ctx.visibility_registry.edge_map.get(array_el.dataset.path);
+			const edge_state = ctx.visibility_registry.array_state(array_el).edge;
 			expect(edge_state).toBeTruthy();
 			expect(edge_state.last).toBe(true);
 
@@ -221,8 +221,9 @@ describe('NodeGap visibility & placement', () => {
 				last_item_in_viewport: li_rect.bottom > 0 && li_rect.top < window.innerHeight,
 				last_gap_prev_is_last_item: last_gap.previousElementSibling === last_item,
 				near_has_last: ctx.visibility_registry
-					.get_array_indices(array_el.dataset.path)
-					.has(items.length - 1),
+					.array_state(array_el)
+					.near_indices()
+					.includes(items.length - 1),
 				edge_state
 			};
 			expect(last_gap.classList.contains('positioned'), JSON.stringify(diag, null, 2)).toBe(true);
@@ -237,7 +238,7 @@ describe('NodeGap visibility & placement', () => {
 			await ensure_last_item_observed(array_el);
 
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
-			const edge_state = ctx.visibility_registry.edge_map.get(array_el.dataset.path);
+			const edge_state = ctx.visibility_registry.array_state(array_el).edge;
 			expect(edge_state?.last).toBe(true);
 
 			const last_gap = find_last_gap(array_el);
@@ -288,17 +289,16 @@ describe('NodeGap visibility & placement', () => {
 		});
 	});
 
-	describe('edge_map state', () => {
+	describe('edge state', () => {
 		it('is populated for a visible array after mount', async () => {
 			const session = make_story_session(3);
 			const { container } = await render(SveditTest, { session });
 			await settle();
 
 			const array_el = find_buttons_array(container);
-			const path = array_el.dataset.path;
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			expect(ctx).toBeTruthy();
-			const state = ctx.visibility_registry.edge_map.get(path);
+			const state = ctx.visibility_registry.array_state(array_el).edge;
 			expect(state).toBeTruthy();
 			expect(state.first).toBe(true);
 			expect(state.last).toBe(true);
@@ -306,13 +306,9 @@ describe('NodeGap visibility & placement', () => {
 	});
 
 	describe('mid-delete', () => {
-		// NodeArrayProperty's `{#each ... (index)}` keys by index, so a
-		// mid-delete unmounts ONLY the trailing-index element. Surviving
-		// siblings keep their DOM nodes and data-path attributes; their
-		// content shifts but the near-index entries remain valid. If
-		// anyone ever changes that keying to e.g. `(node.id)`, this
-		// invariant breaks and this test fails — pointing straight at
-		// the cause.
+		// Near flags are kept per node, not per index, so a mid-delete
+		// removes the deleted node's flag and the surviving nodes keep
+		// theirs at their new indexes.
 		it('removes only the trailing index from the near set, keeps adjacent gaps positioned', async () => {
 			// 3 buttons fit the narrow vitest viewport. The mid-delete
 			// invariant holds regardless of overflow, but a non-
@@ -326,12 +322,9 @@ describe('NodeGap visibility & placement', () => {
 			expect(array_el.scrollWidth).toBeLessThanOrEqual(array_el.clientWidth + 5);
 
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
-			const array_path = 'page_1__body__0__buttons';
-			const near = ctx.visibility_registry.get_array_indices(array_path);
+			const near = () => ctx.visibility_registry.array_state(array_el).near_indices();
 
-			for (let i = 0; i < 3; i++) {
-				expect(near.has(i)).toBe(true);
-			}
+			expect(near()).toEqual([0, 1, 2]);
 
 			// Delete the button at offset 1 (mid).
 			const canvas = container.querySelector('.svedit-canvas') as HTMLElement;
@@ -349,15 +342,10 @@ describe('NodeGap visibility & placement', () => {
 
 			expect(session.doc.nodes.story_1.buttons.nodes.length).toBe(2);
 
-			// Near set: indices 0 and 1 remain (surviving DOM elements
-			// kept their data-path attributes — the element at index 1
-			// now renders what was at index 2). Index 2 is gone (trailing
-			// element unmounted by Svelte's keyed-each-by-index).
-			expect(near.has(0)).toBe(true);
-			expect(near.has(1)).toBe(true);
-			expect(near.has(2)).toBe(false);
+			// Near set: the two remaining buttons, now at indices 0 and 1
+			expect(near()).toEqual([0, 1]);
 
-			// Edge gaps stay positioned (no overflow → edge_map.first
+			// Edge gaps stay positioned (no overflow → edge.first
 			// and .last both true).
 			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
 			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(true);
@@ -398,8 +386,7 @@ describe('NodeGap visibility & placement', () => {
 
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
 			const array_path = array_el.dataset.path;
-			const visible = ctx.visibility_registry.get_array_indices(array_path);
-			expect(Array.from(visible as Set<number>).sort((a, b) => a - b)).toEqual([0, 1, 2]);
+			expect(ctx.visibility_registry.array_state(array_el).near_indices()).toEqual([0, 1, 2]);
 
 			const markers = array_el.querySelectorAll<HTMLElement>(
 				`:scope > .gap-marker[data-gap-array-path="${array_path}"]`
@@ -412,7 +399,7 @@ describe('NodeGap visibility & placement', () => {
 		// A box-size change can flip an array between fitting and
 		// overflowing while scrollLeft stays 0 — no scroll event fires
 		// and no document change happens, so only the ResizeObserver
-		// can re-sync edge_map. Covers window resizes, sidebar toggles
+		// can re-sync the edge state. Covers window resizes, sidebar toggles
 		// and responsive breakpoints alike.
 		it('re-syncs edge gaps when the array container is resized', async () => {
 			const session = make_story_session(3);
@@ -428,7 +415,7 @@ describe('NodeGap visibility & placement', () => {
 			// clipped (overflow past EDGE_TOLERANCE_PX, but well short of
 			// the whole button). scrollLeft stays 0 and the node stays
 			// near (a partial clip crosses no overscan-IO threshold), so
-			// only the ResizeObserver's edge_map re-sync can hide the
+			// only the ResizeObserver's edge re-sync can hide the
 			// last gap. A full clip would zero the node's intersection
 			// and hide the gap via near_map instead, making this test
 			// pass without the RO.
@@ -438,11 +425,9 @@ describe('NodeGap visibility & placement', () => {
 			expect(overflow).toBeGreaterThan(10); // past EDGE_TOLERANCE_PX
 			expect(array_el.scrollLeft).toBe(0);
 			// Guard against the vacuous pass: the last button must still
-			// be near, so the gap's visibility is decided by edge_map.
+			// be near, so the gap's visibility is decided by the edge state.
 			const ctx = (globalThis as any).__svedit_ctx_for_test;
-			expect(ctx.visibility_registry.get_array_indices('page_1__body__0__buttons').has(2)).toBe(
-				true
-			);
+			expect(ctx.visibility_registry.array_state(array_el).near_indices()).toContain(2);
 
 			expect(find_first_gap(array_el).classList.contains('positioned')).toBe(true);
 			expect(find_last_gap(array_el).classList.contains('positioned')).toBe(false);

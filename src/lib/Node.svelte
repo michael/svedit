@@ -1,37 +1,62 @@
 <script lang="ts">
 	import { getContext, setContext } from 'svelte';
-	import { serialize_path } from './utils.js';
-	import { is_anchored } from './node_visibility.svelte.js';
+	import { serialize_path, paths_equal } from './utils.js';
+	import { FIRST, LAST, SECOND, pin_key } from './node_visibility.svelte.js';
+	import { PathTracker } from './stable.svelte.js';
 	import type {
 		NodeArrayAttachmentContext,
 		NodeArrayRenderContext,
+		NodeItemContext,
 		NodeProps,
+		NodeRenderContext,
 		SveditRenderContext
 	} from './types.js';
 
 	const svedit = getContext<SveditRenderContext>('svedit');
 	const node_array = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
+	const item = getContext<NodeItemContext | undefined>('node_item');
+	// Nodes inside this one are not the item
+	setContext('node_item', undefined);
 
 	let { path, children, tag = 'div', class: css_class, style = '', ...rest }: NodeProps = $props();
 
-	let node = $derived(svedit.session.get(path));
-	let path_str = $derived(serialize_path(path));
-	let index = $derived(node_array ? (path.at(-1) as number) : -1);
-	let anchored = $derived(
-		is_anchored(
-			svedit.visibility_registry,
-			node_array?.near ?? null,
-			!!node_array?.anchored,
-			index,
-			path_str
-		)
+	// The node array item this node renders (passed its item's path).
+	// Everything but the path then follows the item's key and node id, so
+	// index shifts only update the path.
+	const tracker = new PathTracker(
+		() => path,
+		() => (item && (item.path === path || paths_equal(item.path, path)) ? item : null)
 	);
+	let node = $derived(tracker.current ? tracker.current.node : svedit.session.get(path));
+	// Outside node arrays nodes always carry their anchor name, else while
+	// near the viewport, pinned by the selection, or as one of the first two
+	// nodes of an anchored array.
+	let anchored = $derived.by(() => {
+		const own = tracker.current;
+		if (!own) return true;
+		const { items, pin_scope } = node_array!;
+		return (
+			items.near.has(own.key) ||
+			svedit.visibility_registry.is_pinned(pin_key(pin_scope, own.key)) ||
+			(node_array!.anchored && ((items.ends.get(own.key) ?? 0) & (FIRST | SECOND)) !== 0)
+		);
+	});
 	// Marks the node inside a node selection, whose native highlight is hidden
-	let selected = $derived(svedit.visibility_registry.is_selected(path_str));
-	// The properties of this node carry their anchor names along with it
-	setContext('node_anchor', {
+	let selected = $derived(
+		!!tracker.current &&
+			svedit.visibility_registry.is_selected(pin_key(node_array!.pin_scope, tracker.current.key))
+	);
+	// The properties of this node carry their anchor names along with it,
+	// and root their paths at it
+	setContext<NodeRenderContext>('node_anchor', {
 		get anchored() {
 			return anchored;
+		},
+		get id() {
+			return node.id;
+		},
+		get path() {
+			return path;
 		}
 	});
 
@@ -40,9 +65,20 @@
 	// covered node, so ranges (including data-only annotations) can be
 	// styled with pure CSS. Node components also receive them as props.
 	let classes = $derived.by(() => {
-		if (!node_array || index < 0) return '';
-		let result = index === 0 ? ' first' : '';
-		if (index === node_array.length - 1) result += ' last';
+		if (!node_array) return '';
+		let result = '';
+		const own = tracker.current;
+		if (own) {
+			const ends = node_array.items.ends.get(own.key) ?? 0;
+			if (ends & FIRST) result += ' first';
+			if (ends & LAST) result += ' last';
+		} else {
+			const index = path.at(-1);
+			if (index === 0) result += ' first';
+			if (index === node_array.length - 1) result += ' last';
+		}
+		if (!node_array.has_ranges) return result;
+		const index = own ? own.index : (path.at(-1) as number);
 		const add = (range: NodeArrayAttachmentContext | null, prefix: string) => {
 			const type = range?.node?.type;
 			if (!type) return;
@@ -61,12 +97,20 @@
 	id={node.id}
 	class="node-{node.type} {css_class}{classes}"
 	data-node-id={node.id}
-	data-path={path_str}
+	data-path={tracker.path_str}
 	data-type="node"
 	data-selected={selected ? '' : undefined}
-	style="{anchored ? `anchor-name: --${path_str};` : ''}{style}"
+	style="{anchored ? `anchor-name: --${serialize_path(path)};` : ''}{style}"
 	{...rest}
-	{@attach svedit.visibility_registry.track_node(path_str)}
+	{@attach (el: HTMLElement) => {
+		tracker.el = el;
+		const own = tracker.current;
+		return svedit.visibility_registry.track_node(
+			own && node_array!.items,
+			own?.key ?? '',
+			own ? pin_key(node_array!.pin_scope, own.key) : undefined
+		)(el);
+	}}
 >
 	{@render children()}
 </svelte:element>

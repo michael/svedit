@@ -14,8 +14,13 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { PATH_SEPARATOR } from './utils.js';
-	import { should_position_gap } from './node_visibility.svelte.js';
-	import type { DocumentPath, NodeArrayRenderContext, SveditRenderContext } from './types.js';
+	import { EMPTY_KEY } from './node_visibility.svelte.js';
+	import type {
+		DocumentPath,
+		NodeArrayRenderContext,
+		NodeItemContext,
+		SveditRenderContext
+	} from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -44,25 +49,30 @@
 	 * handle read-only mode by rendering a plain `.node-gap` placeholder.
 	 */
 	const svedit = getContext<SveditRenderContext>('svedit');
-	// The array's path, near nodes and node selection, shared by its gaps
+	// The array's path, items and node selection, shared by its gaps
 	const node_array = getContext<NodeArrayRenderContext>('node_array_meta');
+	// The item this gap comes before, absent for the trailing and empty-array gaps
+	const item = getContext<NodeItemContext | undefined>('node_item');
 	let {
 		offset,
 		count,
 		empty = false
 	}: { array_path: DocumentPath; offset: number; count: number; empty?: boolean } = $props();
 
-	let is_last = $derived(offset === count);
-	let positioned = $derived(
-		svedit.editable &&
-			should_position_gap(
-				node_array.near,
-				svedit.visibility_registry.edge_map.get(node_array.path_str),
-				offset,
-				is_last,
-				empty
-			)
-	);
+	let is_last = $derived(!item && offset === count);
+	// Mid gaps need both adjacent nodes near; edge gaps need their edge node
+	// near and at the container edge (scroll-aware, see NodeArrayState.edge).
+	// Read by key, so index shifts don't re-evaluate it.
+	let positioned = $derived.by(() => {
+		if (!svedit.editable) return false;
+		const items = node_array.items;
+		if (empty) return items.near.has(EMPTY_KEY);
+		if (!item) return items.near.has(items.keys.at(-1)!) && items.edge?.last === true;
+		const previous = items.prev.get(item.key);
+		if (previous === undefined) return false;
+		if (previous === null) return items.near.has(item.key) && items.edge?.first === true;
+		return items.near.has(previous) && items.near.has(item.key);
+	});
 	// A gap holding a node selection endpoint is never culled: the browser
 	// moves a selection endpoint out of a display:none element on the next
 	// drag or shift+click, which pulls the adjacent node into the selection.

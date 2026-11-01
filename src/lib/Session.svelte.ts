@@ -244,10 +244,20 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 */
 	selection_at(path: DocumentPath): Selection | null {
 		if (path.length < 2) return null;
-		// Only which node owns the path matters, not its content
-		const owner = resolve(this.schema, path.slice(0, -1), this.#peek, this.#tracker, false);
-		const selection = owner?.id ? this.#cells.get(owner.id)?.focus : null;
+		const selection = this.selection_in(path.slice(0, -1));
 		return selection && paths_equal(selection.path, path) ? selection : null;
+	}
+
+	/**
+	 * The selection while it lies in a property of the node at `path`
+	 * (including node selections of its node arrays), otherwise null. Only
+	 * re-evaluates when the selection enters, moves within, or leaves that node.
+	 */
+	selection_in(path: DocumentPath): Selection | null {
+		if (path.length === 0) return null;
+		// Only which node the path addresses matters, not its content
+		const owner = resolve(this.schema, path, this.#peek, this.#tracker, false);
+		return (owner?.id && this.#cells.get(owner.id)?.focus) || null;
 	}
 
 	get document_id(): string {

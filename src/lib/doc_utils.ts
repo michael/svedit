@@ -515,6 +515,23 @@ export function resolve(
 }
 
 /**
+ * Roots a path at the node rendering it: [page, 'body', 3, 'content']
+ * becomes [<id of that node>, 'content']. Unlike the path, the rooted path
+ * doesn't change when the node's index does, so values read through it
+ * aren't re-read on index shifts. Paths outside the node stay as they are.
+ */
+export function root_path(
+	path: DocumentPath,
+	owner: { id: NodeId; path: DocumentPath } | undefined
+): DocumentPath {
+	const prefix = owner?.path;
+	if (!prefix || path.length <= prefix.length) return path;
+	for (let index = 0; index < prefix.length; index++)
+		if (path[index] !== prefix[index]) return path;
+	return [owner.id, ...path.slice(prefix.length)];
+}
+
+/**
  * Gets a value from the document at the specified path.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

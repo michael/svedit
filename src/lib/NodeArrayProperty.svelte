@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { getContext, setContext, untrack } from 'svelte';
-	import UnknownNode from './UnknownNode.svelte';
-	import { serialize_path, calculate_fragment_ranges, PATH_SEPARATOR } from './utils.js';
+	import NodeArrayItem from './NodeArrayItem.svelte';
+	import {
+		serialize_path,
+		calculate_fragment_ranges,
+		paths_equal,
+		PATH_SEPARATOR
+	} from './utils.js';
+	import { root_path } from './doc_utils.js';
+	import { Stable } from './stable.svelte.js';
+	import { EMPTY_KEY, NodeArrayState } from './node_visibility.svelte.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 	import type {
@@ -10,12 +18,13 @@
 		NodeArrayAttachmentContext,
 		Attachment,
 		NodeArrayRenderContext,
+		NodeRenderContext,
 		SveditRenderContext
 	} from './types.js';
 
 	const NO_ANNOTATIONS: NodeArrayAttachmentContext[] = [];
 	const svedit = getContext<SveditRenderContext>('svedit');
-	const node_anchor = getContext<{ anchored: boolean } | undefined>('node_anchor');
+	const owner = getContext<NodeRenderContext | undefined>('node_anchor');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
 	let NodeGapMarkers = $derived(
 		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
@@ -30,17 +39,24 @@
 	}: NodeArrayPropertyProps = $props();
 
 	let path_str = $derived(serialize_path(path));
-	let anchored = $derived(node_anchor?.anchored ?? true);
-	let value: NodeArray = $derived(svedit.session.get(path));
+	let anchored = $derived(owner?.anchored ?? true);
+	// Rooted at the owning node, so index shifts of the owner don't re-read it
+	const root = new Stable(() => root_path(path, owner), paths_equal);
+	let rooted = $derived(root.current);
+	let value: NodeArray = $derived(svedit.session.get(rooted));
+	// The owning node and property, which identify the items for pinning (see
+	// pin_key). Read from the rooted path, as reading the owner would make
+	// every array change reach all item nodes.
+	let pin_scope = $derived(
+		`${rooted.length === 2 ? rooted[0] : svedit.session.get(rooted.slice(0, -1)).id}.${rooted.at(-1)}`
+	);
 	let count = $derived(value.nodes.length);
 	// The `focused` class follows a node selection in this array. CSS uses it
 	// to hide the empty-array gap's <br>, so it is no second arrow-key stop.
 	let node_selection = $derived.by(() => {
-		const selection = svedit.session.selection_at(path);
-		return selection?.type === 'node' ? selection : null;
+		const selection = svedit.session.selection_in(rooted.slice(0, -1));
+		return selection?.type === 'node' && paths_equal(selection.path, path) ? selection : null;
 	});
-	// Held separately from its readers: see get_array_indices
-	let near = $derived(svedit.visibility_registry.get_array_indices(path_str));
 	// Keyed by id and occurrence, so repeated references keep stable keys
 	let keys = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
@@ -51,19 +67,31 @@
 			return `${id}:${occurrence}`;
 		});
 	});
+	// Neighbors, ends and visibility of the items, by key
+	const items = new NodeArrayState();
+	$effect.pre(() => {
+		const next_keys = keys;
+		untrack(() => items.set_keys(next_keys));
+	});
 	// Nodes are grouped by the (mutually exclusive) marks wrapping them
 	let fragments = $derived(calculate_fragment_ranges(count, value.marks));
 	// Every node reads the ranges covering it, so they live in their own
 	// state, which changes only along with them, not with every array change
-	let marks = $state.raw(untrack(() => value.marks));
-	let annotations = $state.raw(untrack(() => value.annotations));
-	$effect.pre(() => {
-		const { marks: next_marks, annotations: next_annotations } = value;
-		untrack(() => {
-			if (marks !== next_marks) marks = next_marks;
-			if (annotations !== next_annotations) annotations = next_annotations;
-		});
-	});
+	const marks = new Stable(() => value.marks, ranges_equal);
+	const annotations = new Stable(() => value.annotations, ranges_equal);
+
+	// Array changes remap the ranges, which then are new but often equal
+	function ranges_equal(a: Attachment[], b: Attachment[]): boolean {
+		return (
+			a.length === b.length &&
+			a.every(
+				(range, index) =>
+					range.start_offset === b[index].start_offset &&
+					range.end_offset === b[index].end_offset &&
+					range.node_id === b[index].node_id
+			)
+		);
+	}
 
 	function attachment_context(
 		range: Attachment,
@@ -94,15 +122,15 @@
 
 	/** The single mark wrapping a node, if any (marks are mutually exclusive). */
 	function mark_for(node_index: number): NodeArrayAttachmentContext | null {
-		return marks.length ? (covering(marks, node_index)[0] ?? null) : null;
+		return marks.current.length ? (covering(marks.current, node_index)[0] ?? null) : null;
 	}
 
 	/** All annotations covering a node. Annotations never wrap nodes. */
 	function annotations_for(node_index: number): NodeArrayAttachmentContext[] {
-		return annotations.length ? covering(annotations, node_index) : NO_ANNOTATIONS;
+		return annotations.current.length ? covering(annotations.current, node_index) : NO_ANNOTATIONS;
 	}
 
-	// Lets Node self-serve its position and covering ranges
+	// Lets items, nodes and gaps self-serve their position and covering ranges
 	setContext<NodeArrayRenderContext>('node_array_meta', {
 		get length() {
 			return count;
@@ -113,12 +141,21 @@
 		get anchored() {
 			return anchored;
 		},
-		get near() {
-			return near;
-		},
 		get node_selection() {
 			return node_selection;
 		},
+		get pin_scope() {
+			return pin_scope;
+		},
+		// Checked before mark_for and annotations_for, so items only depend on
+		// their index while ranges exist
+		get has_ranges() {
+			return marks.current.length > 0 || annotations.current.length > 0;
+		},
+		get NodeGap() {
+			return NodeGap;
+		},
+		items,
 		mark_for,
 		annotations_for
 	});
@@ -133,7 +170,7 @@
 	data-path={path_str}
 	style="{anchored ? `anchor-name: --${path_str};` : ''}{style ? ` ${style}` : ''}"
 	{...rest}
-	{@attach svedit.visibility_registry.track_array(path_str)}
+	{@attach svedit.visibility_registry.track_array(items)}
 >
 	{#if count === 0 && svedit.editable}
 		{@const placeholder_path = `${path_str}${PATH_SEPARATOR}0`}
@@ -142,24 +179,14 @@
 			data-path={placeholder_path}
 			data-type="node"
 			style="anchor-name: --{placeholder_path};"
-			{@attach svedit.visibility_registry.track_node(placeholder_path)}
+			{@attach svedit.visibility_registry.track_node(items, EMPTY_KEY)}
 		>
 			<NodeGap array_path={path} offset={0} count={0} empty />
 		</div>
 	{/if}
 	{#snippet render_nodes(start: number, end: number)}
 		{#each keys.slice(start, end) as key, slice_index (key)}
-			{@const index = start + slice_index}
-			{@const node = svedit.session.get(key.slice(0, key.lastIndexOf(':')))}
-			{@const Component = svedit.session.config.node_components[node.type]}
-			{@const mark = mark_for(index)}
-			{@const annotations = annotations_for(index)}
-			<NodeGap array_path={path} offset={index} {count} />
-			{#if Component}
-				<Component path={[...path, index]} {mark} {annotations} />
-			{:else}
-				<UnknownNode path={[...path, index]} />
-			{/if}
+			<NodeArrayItem {key} index={start + slice_index} array_path={path} {count} />
 		{/each}
 	{/snippet}
 	{#each fragments as fragment, fragment_index (fragment_index)}
