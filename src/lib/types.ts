@@ -1,5 +1,5 @@
 import type Session from './Session.svelte.js';
-import type { VisibilityRegistryApi } from './node_visibility.svelte.js';
+import type { KeyedState, VisibilityRegistryApi } from './node_visibility.svelte.js';
 
 // ===== SVELTE TYPE IMPORTS =====
 
@@ -600,6 +600,10 @@ export type NodeArrayRenderContext = {
 	path_str: string;
 	/** Whether the node array carries its anchor name (see is_anchored) */
 	anchored: boolean;
+	/** The near node indexes of the node array (see get_array_indices) */
+	near: KeyedState<number, boolean>;
+	/** The node selection in the node array, if any */
+	node_selection: NodeSelection | null;
 	mark_for: (node_index: number) => NodeArrayAttachmentContext | null;
 	annotations_for: (node_index: number) => NodeArrayAttachmentContext[];
 };

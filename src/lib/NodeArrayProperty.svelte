@@ -35,7 +35,12 @@
 	let count = $derived(value.nodes.length);
 	// The `focused` class follows a node selection in this array. CSS uses it
 	// to hide the empty-array gap's <br>, so it is no second arrow-key stop.
-	let is_focused = $derived(svedit.session.selection_at(path)?.type === 'node');
+	let node_selection = $derived.by(() => {
+		const selection = svedit.session.selection_at(path);
+		return selection?.type === 'node' ? selection : null;
+	});
+	// Held separately from its readers: see get_array_indices
+	let near = $derived(svedit.visibility_registry.get_array_indices(path_str));
 	// Keyed by id and occurrence, so repeated references keep stable keys
 	let keys = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
@@ -108,6 +113,12 @@
 		get anchored() {
 			return anchored;
 		},
+		get near() {
+			return near;
+		},
+		get node_selection() {
+			return node_selection;
+		},
 		mark_for,
 		annotations_for
 	});
@@ -117,7 +128,7 @@
 <svelte:element
 	this={tag}
 	class={css_class}
-	class:focused={is_focused}
+	class:focused={!!node_selection}
 	data-type="node_array"
 	data-path={path_str}
 	style="{anchored ? `anchor-name: --${path_str};` : ''}{style ? ` ${style}` : ''}"

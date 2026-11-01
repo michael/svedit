@@ -13,9 +13,9 @@
 
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { serialize_path, PATH_SEPARATOR } from './utils.js';
+	import { PATH_SEPARATOR } from './utils.js';
 	import { should_position_gap } from './node_visibility.svelte.js';
-	import type { DocumentPath, SveditRenderContext } from './types.js';
+	import type { DocumentPath, NodeArrayRenderContext, SveditRenderContext } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -44,23 +44,20 @@
 	 * handle read-only mode by rendering a plain `.node-gap` placeholder.
 	 */
 	const svedit = getContext<SveditRenderContext>('svedit');
+	// The array's path, near nodes and node selection, shared by its gaps
+	const node_array = getContext<NodeArrayRenderContext>('node_array_meta');
 	let {
-		array_path,
 		offset,
 		count,
 		empty = false
 	}: { array_path: DocumentPath; offset: number; count: number; empty?: boolean } = $props();
 
-	let is_first = $derived(offset === 0);
 	let is_last = $derived(offset === count);
-	let path_str = $derived(serialize_path(array_path));
-	// Held separately from `positioned`: see get_array_indices
-	let near_indices = $derived(svedit.visibility_registry.get_array_indices(path_str));
 	let positioned = $derived(
 		svedit.editable &&
 			should_position_gap(
-				near_indices,
-				svedit.visibility_registry.edge_map.get(path_str),
+				node_array.near,
+				svedit.visibility_registry.edge_map.get(node_array.path_str),
 				offset,
 				is_last,
 				empty
@@ -70,40 +67,39 @@
 	// moves a selection endpoint out of a display:none element on the next
 	// drag or shift+click, which pulls the adjacent node into the selection.
 	let is_selection_endpoint = $derived.by(() => {
-		const selection = svedit.session.selection_at(array_path);
-		return (
-			selection?.type === 'node' &&
-			(selection.anchor_offset === offset || selection.focus_offset === offset)
-		);
+		const selection = node_array.node_selection;
+		return !!selection && (selection.anchor_offset === offset || selection.focus_offset === offset);
 	});
-	// The node this gap belongs to: the first node for the gap before it, else the previous node
-	let owner_anchor = $derived(`${path_str}${PATH_SEPARATOR}${is_first ? 0 : offset - 1}`);
 	// Only gaps with a box need their anchor references. Leaving them out
 	// elsewhere spares off-screen gaps a style change when indexes shift.
 	let has_box = $derived(positioned || is_selection_endpoint || empty);
+	// The node this gap belongs to: the first node for the gap before it, else the previous node
+	let owner_anchor = $derived(
+		`${node_array.path_str}${PATH_SEPARATOR}${offset === 0 ? 0 : offset - 1}`
+	);
 </script>
 
 {#if svedit.editable}
 	<div
 		class="node-gap"
-		class:gap-before={is_first}
-		class:gap-after={!is_first}
+		class:gap-before={offset === 0}
+		class:gap-after={offset !== 0}
 		class:empty
 		class:last={is_last}
 		class:positioned
 		class:selection-endpoint={is_selection_endpoint}
-		data-type={is_first ? 'gap-before' : 'gap-after'}
-		data-gap-array-path={path_str}
+		data-type={offset === 0 ? 'gap-before' : 'gap-after'}
+		data-gap-array-path={node_array.path_str}
 		data-gap-offset={offset}
 		style={has_box
-			? `--_pa:--${owner_anchor};--_next:--${path_str}${PATH_SEPARATOR}${offset};--_container:--${path_str}`
+			? `--_pa:--${owner_anchor};--_next:--${node_array.path_str}${PATH_SEPARATOR}${offset};--_container:--${node_array.path_str}`
 			: undefined}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="svedit-selectable"
 			style={has_box
-				? `anchor-name:--g-${owner_anchor}-${is_first ? 'gap-before' : 'gap-after'}`
+				? `anchor-name:--g-${owner_anchor}-${offset === 0 ? 'gap-before' : 'gap-after'}`
 				: undefined}
 			onpointerdown={cycle_z_index}
 		>
