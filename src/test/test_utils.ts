@@ -86,6 +86,41 @@ export function make_story_session(n_buttons: number) {
 	return new Session(document_schema, { document_id: 'page_1', nodes }, create_test_config());
 }
 
+/**
+ * Build a session whose page body holds `n` paragraphs `p_0` … `p_{n-1}`.
+ * Config overrides (e.g. `visibility_culling: false`) are merged in.
+ */
+export function make_paragraph_session(n: number, config: Record<string, unknown> = {}) {
+	const ids: string[] = [];
+	const nodes: Document['nodes'] = {};
+	for (let i = 0; i < n; i++) {
+		const id = `p_${i}`;
+		nodes[id] = {
+			id,
+			type: 'paragraph',
+			content: {
+				content: `Paragraph ${i}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.`,
+				marks: [],
+				annotations: []
+			}
+		};
+		ids.push(id);
+	}
+	nodes.page_1 = {
+		id: 'page_1',
+		type: 'page',
+		body: { nodes: ids, marks: [], annotations: [] },
+		keywords: [],
+		daily_visitors: [],
+		created_at: '2025-05-30T10:39:59.987Z'
+	};
+	return new Session(
+		document_schema,
+		{ document_id: 'page_1', nodes },
+		{ ...create_test_config(), ...config }
+	);
+}
+
 /** Build a session with a single image_grid containing `n` items. */
 export function make_image_grid_session(n_items: number) {
 	const item_ids: string[] = [];
