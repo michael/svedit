@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import { serialize_path } from './utils.js';
+	import { is_anchored } from './node_visibility.svelte.js';
 	import type {
 		NodeArrayAttachmentContext,
 		NodeArrayRenderContext,
@@ -16,6 +17,19 @@
 	let node = $derived(svedit.session.get(path));
 	let path_str = $derived(serialize_path(path));
 	let index = $derived(node_array ? (path.at(-1) as number) : -1);
+	// Held separately from `anchored`: see get_array_indices
+	let near_indices = $derived(
+		node_array ? svedit.visibility_registry.get_array_indices(node_array.path_str) : null
+	);
+	let anchored = $derived(
+		is_anchored(svedit.visibility_registry, near_indices, !!node_array?.anchored, index, path_str)
+	);
+	// The properties of this node carry their anchor names along with it
+	setContext('node_anchor', {
+		get anchored() {
+			return anchored;
+		}
+	});
 
 	// Marks and annotations covering this node become classes:
 	// `mark-<type>`/`anno-<type>`, plus `-start`/`-end` on the first/last
@@ -45,7 +59,7 @@
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"
-	style="anchor-name: --{path_str};{style}"
+	style="{anchored ? `anchor-name: --${path_str};` : ''}{style}"
 	{...rest}
 	{@attach svedit.visibility_registry.track_node(path_str)}
 >

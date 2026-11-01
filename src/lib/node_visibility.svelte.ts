@@ -15,9 +15,9 @@
  * collision-safe: a teardown only clears state its element still owns.
  *
  * Sources of truth:
- * - An overscan IntersectionObserver (500px margin) fills the per-array
- *   `array_indices` sets of near node indices. Registration seeds them
- *   synchronously from one getBoundingClientRect, so there's no flash.
+ * - An overscan IntersectionObserver (500px margin) sets the per-array
+ *   flags of near node indices. Registration seeds them synchronously from
+ *   one getBoundingClientRect, so there's no flash.
  * - An optional viewport IntersectionObserver toggles view classes
  *   (`.in-view`, `.seen`, `.fully-in-view`, `.visible-top`,
  *   `.visible-bottom`). Opt out with `session.config.view_classes = false`.
@@ -25,15 +25,22 @@
  *   container edges. It is recomputed on scroll inside the array (the IO does
  *   not fire there), on array resize, and after document changes.
  *
- * State lives in SvelteSets and a SvelteMap, which track reads per key, so
- * only gaps and markers whose own entries changed re-evaluate.
+ * Anchor names cost every layout pass O(N) too, so nodes and their
+ * properties only carry their `anchor-name` while near the viewport, while
+ * they hold or contain the selection (overlays anchor to it), or as one of
+ * the first two nodes of their array (gap markers measure row gaps with
+ * them). See `is_anchored`.
+ *
+ * State lives in per-key flags and a SvelteMap, which track reads per key,
+ * so only components whose own entries changed re-evaluate.
  *
  * @module
  */
 
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteMap } from 'svelte/reactivity';
 import { tick, untrack } from 'svelte';
-import { PATH_SEPARATOR } from './utils.js';
+import { PATH_SEPARATOR, serialize_path } from './utils.js';
+import type { DocumentPath, Selection } from './types.js';
 
 /** Nodes within this distance (px) of the viewport count as near. */
 const OVERSCAN_PX = 500;
@@ -69,6 +76,96 @@ function apply_view_classes(el: HTMLElement, in_viewport: boolean, rect: DOMRect
 	classes.toggle('visible-bottom', top_clipped && !bottom_clipped);
 }
 
+type Registration = { path: string; attached: boolean; edge?: EdgeState };
+
+class Flag {
+	value = $state.raw(false);
+}
+
+/**
+ * Reactive boolean flags, read per key: only readers of a changed key
+ * re-run (a SvelteSet makes every miss depend on every change). Flags are
+ * created by writers, since Svelte doesn't track state created inside the
+ * reaction that reads it. A reader of a key without a flag yet re-checks
+ * once new flags were added, notified once per microtask: during a mount,
+ * every reader misses and is notified only once.
+ */
+export class KeyedFlags<K> {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in the flags.
+	#flags = new Map<K, Flag>();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in #changed.
+	#set_keys = new Set<K>();
+	#added = $state.raw(0);
+	#added_pending = false;
+	#changed = $state.raw(0);
+
+	has(key: K): boolean {
+		const flag = this.#flags.get(key);
+		if (flag) return flag.value;
+		void this.#added;
+		return false;
+	}
+
+	set(key: K, value: boolean): void {
+		untrack(() => {
+			let flag = this.#flags.get(key);
+			if (!flag) {
+				this.#flags.set(key, (flag = new Flag()));
+				if (!this.#added_pending) {
+					this.#added_pending = true;
+					queueMicrotask(() => {
+						this.#added_pending = false;
+						this.#added += 1;
+					});
+				}
+			}
+			if (flag.value === value) return;
+			flag.value = value;
+			if (value) this.#set_keys.add(key);
+			else this.#set_keys.delete(key);
+			this.#changed += 1;
+		});
+	}
+
+	/** Creates the flag of a key, so its readers depend on it alone. */
+	ensure(key: K): void {
+		if (!this.#flags.has(key)) this.set(key, false);
+	}
+
+	clear(): void {
+		for (const key of [...this.#set_keys]) this.set(key, false);
+	}
+
+	/** The keys whose flag is set. Depends on every change. */
+	[Symbol.iterator](): IterableIterator<K> {
+		void this.#changed;
+		return this.#set_keys.values();
+	}
+}
+
+/**
+ * Paths of the nodes holding or containing a selection, which keep their
+ * anchor names wherever they are: the nodes along the selection path, and
+ * the selected nodes (or the nodes around a node caret).
+ */
+function get_selection_node_paths(selection: Selection | null): Set<string> {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
+	const paths = new Set<string>();
+	if (!selection) return paths;
+	const path: DocumentPath = selection.path;
+	for (let index = 1; index < path.length; index++) {
+		if (typeof path[index] === 'number') paths.add(serialize_path(path.slice(0, index + 1)));
+	}
+	if (selection.type === 'node') {
+		const start = Math.min(selection.anchor_offset, selection.focus_offset);
+		const end = Math.max(selection.anchor_offset, selection.focus_offset);
+		for (let index = Math.max(start - 1, 0); index <= end; index++) {
+			paths.add(serialize_path([...path, index]));
+		}
+	}
+	return paths;
+}
+
 class VisibilityRegistry {
 	/** Per array path: whether the first/last node reached the container edge. */
 	edge_map = new SvelteMap<string, EdgeState>();
@@ -81,12 +178,17 @@ class VisibilityRegistry {
 	 */
 	visibility_culling = true;
 
-	#array_indices = new Map<string, SvelteSet<number>>();
-	#node_paths = new Map<HTMLElement, string>();
+	#array_indices = new Map<string, KeyedFlags<number>>();
+	#pins = new KeyedFlags<string>();
+	#pinned = new Set<string>();
+	// Per element registrations, and the element currently owning each path
+	#nodes = new Map<HTMLElement, Registration>();
 	#node_owners = new Map<string, HTMLElement>();
 	#near_nodes = new Set<HTMLElement>();
-	#arrays = new Set<Element>();
+	#arrays = new Map<Element, Registration>();
 	#array_owners = new Map<string, Element>();
+	#detached = new Set<Element>();
+	#sweep: ReturnType<typeof setTimeout> | 0 = 0;
 	#io: IntersectionObserver | null = null;
 	#view_io: IntersectionObserver | null = null;
 	#resize_observer: ResizeObserver | null = null;
@@ -113,8 +215,11 @@ class VisibilityRegistry {
 		this.#view_io?.disconnect();
 		this.#resize_observer?.disconnect();
 		this.#io = this.#view_io = this.#resize_observer = null;
+		clearTimeout(this.#sweep);
+		this.#sweep = 0;
 		for (const map of [
-			this.#node_paths,
+			this.#detached,
+			this.#nodes,
 			this.#node_owners,
 			this.#near_nodes,
 			this.#arrays,
@@ -123,34 +228,66 @@ class VisibilityRegistry {
 			map.clear();
 		}
 		this.edge_map.clear();
-		for (const set of this.#array_indices.values()) set.clear();
+		for (const flags of this.#array_indices.values()) flags.clear();
 	}
 
 	/**
-	 * The stable SvelteSet of near node indices of an array, created lazily.
+	 * The stable flags of near node indices of an array, created lazily.
 	 *
-	 * IMPORTANT: hold the returned set in its own $derived and read
-	 * membership in another one (see NodeGap). Svelte doesn't track state
-	 * created inside the reaction that reads it, so creating the set and
-	 * reading `.has()` in one derived would never re-evaluate.
+	 * IMPORTANT: hold the returned flags in their own $derived and read
+	 * them in another one (see NodeGap). Svelte doesn't track state created
+	 * inside the reaction that reads it, so creating the flags and reading
+	 * `.has()` in one derived would never re-evaluate.
 	 */
-	get_array_indices(array_path: string): SvelteSet<number> {
-		let set = this.#array_indices.get(array_path);
-		if (!set) this.#array_indices.set(array_path, (set = new SvelteSet()));
-		return set;
+	get_array_indices(array_path: string): KeyedFlags<number> {
+		let flags = this.#array_indices.get(array_path);
+		if (!flags) this.#array_indices.set(array_path, (flags = new KeyedFlags()));
+		return flags;
 	}
 
-	/** Attachment for node elements (Node.svelte and the empty-array placeholder). */
+	/** Whether the node at a path holds or contains the selection. */
+	is_pinned(path: string): boolean {
+		return this.#pins.has(path);
+	}
+
+	/** Pins the nodes holding or containing the selection, see is_pinned. */
+	pin_selection(selection: Selection | null): void {
+		const paths = get_selection_node_paths(selection);
+		for (const path of this.#pinned) if (!paths.has(path)) this.#pins.set(path, false);
+		for (const path of paths) this.#pins.set(path, true);
+		this.#pinned = paths;
+	}
+
+	/**
+	 * Attachment for node elements (Node.svelte and the empty-array placeholder).
+	 *
+	 * Inserting or deleting a node shifts the paths of all following nodes,
+	 * which re-attaches their elements. A re-attached element keeps its
+	 * registration and observed state and only moves to its new path, so a
+	 * shift costs no layout reads (see #detach).
+	 */
 	track_node(path: string) {
 		return (el: HTMLElement) => {
 			this.start();
 			untrack(() => {
-				this.#node_paths.set(el, path);
-				this.#node_owners.set(path, el);
+				const registration = this.#nodes.get(el);
+				if (registration) {
+					registration.attached = true;
+					if (registration.path === path) return;
+					this.#release_node(el, registration.path);
+					registration.path = path;
+					return this.#claim_node(el, path);
+				}
+				this.#nodes.set(el, { path, attached: true });
 				this.#io?.observe(el);
 				this.#view_io?.observe(el);
-				// Seed synchronously; the observers own later transitions
-				if (!this.visibility_culling && !this.view_classes) return this.#set_near(el, path, true);
+				// Seed synchronously; the observers own later transitions. A new
+				// element takes over its path, even before the element it
+				// displaced moved on.
+				if (!this.visibility_culling && !this.view_classes) {
+					this.#near_nodes.add(el);
+					return this.#claim_node(el, path);
+				}
 				const rect = el.getBoundingClientRect();
 				const { innerWidth: width, innerHeight: height } = window;
 				const intersects = (margin: number) =>
@@ -158,37 +295,69 @@ class VisibilityRegistry {
 					rect.top < height + margin &&
 					rect.right > -margin &&
 					rect.left < width + margin;
-				this.#set_near(el, path, !this.visibility_culling || intersects(OVERSCAN_PX));
+				if (!this.visibility_culling || intersects(OVERSCAN_PX)) this.#near_nodes.add(el);
+				this.#claim_node(el, path);
 				if (this.view_classes) apply_view_classes(el, intersects(0), rect);
 			});
-			return () => {
-				this.#node_paths.delete(el);
-				this.#io?.unobserve(el);
-				this.#view_io?.unobserve(el);
-				untrack(() => this.#set_near(el, path, false));
-				if (this.#node_owners.get(path) === el) this.#node_owners.delete(path);
-			};
+			return () => this.#detach(el, this.#nodes.get(el));
 		};
 	}
 
-	/** Attachment for node array containers. */
+	/**
+	 * A connected element is being re-attached with a new path, which Svelte
+	 * does in a later effect. Removed elements are disconnected first.
+	 */
+	#detach(el: Element, registration: Registration | undefined): void {
+		if (!registration) return;
+		registration.attached = false;
+		if (!el.isConnected) return this.#forget(el);
+		this.#detached.add(el);
+		// Safety net for an element that is not re-attached after all
+		this.#sweep ||= setTimeout(() => {
+			this.#sweep = 0;
+			for (const detached of this.#detached) this.#forget(detached);
+		});
+	}
+
+	#forget(el: Element): void {
+		this.#detached.delete(el);
+		const node = this.#nodes.get(el as HTMLElement);
+		if (node && !node.attached) {
+			this.#nodes.delete(el as HTMLElement);
+			this.#near_nodes.delete(el as HTMLElement);
+			this.#io?.unobserve(el);
+			this.#view_io?.unobserve(el);
+			untrack(() => this.#release_node(el as HTMLElement, node.path));
+		}
+		const array = this.#arrays.get(el);
+		if (array && !array.attached) {
+			this.#arrays.delete(el);
+			this.#resize_observer?.unobserve(el);
+			untrack(() => this.#release_array(el, array.path));
+		}
+	}
+
+	/** Attachment for node array containers. Re-attaching moves the registration, like track_node. */
 	track_array(path: string) {
 		return (el: Element) => {
 			this.start();
-			this.#arrays.add(el);
-			this.#array_owners.set(path, el);
-			this.#resize_observer?.observe(el);
-			// Synchronously, as the ResizeObserver's first callback comes a frame later
-			this.sync_edge_state(el);
-			return () => {
-				this.#arrays.delete(el);
-				this.#resize_observer?.unobserve(el);
-				untrack(() => {
-					if (this.#array_owners.get(path) !== el) return;
-					this.#array_owners.delete(path);
-					this.edge_map.delete(path);
-				});
-			};
+			const registration = this.#arrays.get(el);
+			if (registration) {
+				registration.attached = true;
+				if (registration.path !== path) {
+					untrack(() => {
+						this.#release_array(el, registration.path);
+						registration.path = path;
+						this.#claim_array(el, registration);
+					});
+				}
+			} else {
+				this.#arrays.set(el, { path, attached: true });
+				this.#resize_observer?.observe(el);
+				// Synchronously, as the ResizeObserver's first callback comes a frame later
+				this.sync_edge_state(el);
+			}
+			return () => this.#detach(el, this.#arrays.get(el));
 		};
 	}
 
@@ -199,7 +368,7 @@ class VisibilityRegistry {
 
 	/** Re-sync the edge state of all arrays (content changes alter scroll extents). */
 	sync_all_edge_states() {
-		for (const el of this.#arrays) if (el.isConnected) this.sync_edge_state(el);
+		for (const el of this.#arrays.keys()) if (el.isConnected) this.sync_edge_state(el);
 	}
 
 	/**
@@ -208,8 +377,8 @@ class VisibilityRegistry {
 	 * from computed style alone (no forced layout). Returns true on change.
 	 */
 	sync_edge_state(array_el: Element): boolean {
-		const path = (array_el as HTMLElement)?.dataset?.path;
-		if (!path) return false;
+		const registration = this.#arrays.get(array_el);
+		if (!registration) return false;
 		const style = getComputedStyle(array_el);
 		let first = true;
 		let last = true;
@@ -223,38 +392,58 @@ class VisibilityRegistry {
 			first &&= scrollTop <= EDGE_TOLERANCE_PX;
 			last &&= scrollTop + clientHeight >= scrollHeight - EDGE_TOLERANCE_PX;
 		}
-		return untrack(() => {
-			const previous = this.edge_map.get(path);
-			if (previous?.first === first && previous?.last === last) return false;
-			this.edge_map.set(path, { first, last });
-			return true;
-		});
+		const previous = registration.edge;
+		if (previous?.first === first && previous?.last === last) return false;
+		registration.edge = { first, last };
+		untrack(() => this.#claim_array(array_el, registration));
+		return true;
 	}
 
-	#set_near(el: HTMLElement, path: string, near: boolean): void {
-		if (near) this.#near_nodes.add(el);
-		else this.#near_nodes.delete(el);
-		// Another element may already own the path after a keyed update
-		if (!near && this.#node_owners.get(path) !== el) return;
+	#claim_array(el: Element, registration: Registration): void {
+		this.#array_owners.set(registration.path, el);
+		if (registration.edge) this.edge_map.set(registration.path, registration.edge);
+	}
+
+	#release_array(el: Element, path: string): void {
+		if (this.#array_owners.get(path) !== el) return;
+		this.#array_owners.delete(path);
+		this.edge_map.delete(path);
+	}
+
+	/** A path's index is near exactly when the element owning the path is near. */
+	#claim_node(el: HTMLElement, path: string): void {
+		this.#node_owners.set(path, el);
+		this.#pins.ensure(path);
+		this.#update_index(path, this.#near_nodes.has(el));
+	}
+
+	// Another element may already own the path after a keyed update
+	#release_node(el: HTMLElement, path: string): void {
+		if (this.#node_owners.get(path) !== el) return;
+		this.#node_owners.delete(path);
+		this.#update_index(path, false);
+	}
+
+	#update_index(path: string, near: boolean): void {
 		const split = split_path(path);
-		if (!split) return;
-		if (near) this.get_array_indices(split.array_path).add(split.index);
-		else this.#array_indices.get(split.array_path)?.delete(split.index);
+		if (split) this.get_array_indices(split.array_path).set(split.index, near);
 	}
 
 	#process_near(entries: IntersectionObserverEntry[]): void {
 		for (const { target, isIntersecting } of entries) {
 			const el = target as HTMLElement;
-			const path = this.#node_paths.get(el);
+			const path = this.#nodes.get(el)?.path;
 			if (!path || !el.isConnected || isIntersecting === this.#near_nodes.has(el)) continue;
-			this.#set_near(el, path, isIntersecting);
+			if (isIntersecting) this.#near_nodes.add(el);
+			else this.#near_nodes.delete(el);
+			if (this.#node_owners.get(path) === el) this.#claim_node(el, path);
 		}
 	}
 
 	#process_view(entries: IntersectionObserverEntry[]): void {
 		for (const { target, isIntersecting, boundingClientRect } of entries) {
 			const el = target as HTMLElement;
-			if (this.#node_paths.has(el) && el.isConnected)
+			if (this.#nodes.has(el) && el.isConnected)
 				apply_view_classes(el, isIntersecting, boundingClientRect);
 		}
 	}
@@ -269,6 +458,7 @@ export function create_node_visibility(svedit: {
 	session: {
 		config?: { view_classes?: boolean; visibility_culling?: boolean };
 		doc: unknown;
+		selection: Selection | null;
 	};
 	editable: boolean;
 	visibility_registry?: VisibilityRegistryApi;
@@ -306,6 +496,11 @@ export function create_node_visibility(svedit: {
 		};
 	});
 
+	$effect.pre(() => {
+		const selection = svedit.session.selection;
+		untrack(() => registry.pin_selection(selection));
+	});
+
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		// Content changes alter array scroll extents without recreating arrays
@@ -323,7 +518,8 @@ export function create_node_visibility(svedit: {
 
 export type VisibilityRegistryApi = {
 	edge_map: SvelteMap<string, EdgeState>;
-	get_array_indices(array_path_str: string): SvelteSet<number>;
+	get_array_indices(array_path_str: string): KeyedFlags<number>;
+	is_pinned(path: string): boolean;
 	track_node(path: string): (el: HTMLElement) => () => void;
 	track_array(path: string): (el: Element) => () => void;
 };
@@ -336,7 +532,7 @@ export type VisibilityRegistryApi = {
  * `near` must come from get_array_indices, held in a separate $derived.
  */
 export function should_position_gap(
-	near: SvelteSet<number>,
+	near: KeyedFlags<number>,
 	edge_state: EdgeState | undefined,
 	offset: number,
 	is_last: boolean,
@@ -347,4 +543,22 @@ export function should_position_gap(
 	if (offset === 0) return near.has(0) && edge_state?.first === true;
 	if (is_last) return near.has(offset - 1) && edge_state?.last === true;
 	return near.has(offset - 1) && near.has(offset);
+}
+
+/**
+ * Whether a node (or a property of it) carries its anchor name: outside
+ * node arrays always, else while near the viewport, pinned by the
+ * selection, or as one of the first two nodes of an anchored array.
+ *
+ * `near` must come from get_array_indices, held in a separate $derived.
+ */
+export function is_anchored(
+	registry: VisibilityRegistryApi,
+	near: KeyedFlags<number> | null,
+	array_anchored: boolean,
+	index: number,
+	path: string
+): boolean {
+	if (!near) return true;
+	return (array_anchored && index < 2) || near.has(index) || registry.is_pinned(path);
 }

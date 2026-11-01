@@ -596,6 +596,10 @@ export type NodeArrayAttachmentContext = {
 /** Internal context shared by a node array and its rendered child nodes. */
 export type NodeArrayRenderContext = {
 	length: number;
+	/** The serialized path of the node array */
+	path_str: string;
+	/** Whether the node array carries its anchor name (see is_anchored) */
+	anchored: boolean;
 	mark_for: (node_index: number) => NodeArrayAttachmentContext | null;
 	annotations_for: (node_index: number) => NodeArrayAttachmentContext[];
 };

@@ -16,6 +16,7 @@
 	} from './types.js';
 
 	const svedit = getContext<SveditContext>('svedit');
+	const node_anchor = getContext<{ anchored: boolean } | undefined>('node_anchor');
 	let {
 		path,
 		class: css_class,
@@ -70,7 +71,7 @@
 	this={tag}
 	data-type="text"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style}"
+	style="{(node_anchor?.anchored ?? true) ? `anchor-name: --${path_str};` : ''}{style}"
 	class="text svedit-selectable {css_class}"
 	class:empty={is_empty}
 	class:focused={is_focused}

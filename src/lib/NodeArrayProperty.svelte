@@ -15,6 +15,7 @@
 
 	const NO_ANNOTATIONS: NodeArrayAttachmentContext[] = [];
 	const svedit = getContext<SveditRenderContext>('svedit');
+	const node_anchor = getContext<{ anchored: boolean } | undefined>('node_anchor');
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
 	let NodeGapMarkers = $derived(
 		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
@@ -29,6 +30,7 @@
 	}: NodeArrayPropertyProps = $props();
 
 	let path_str = $derived(serialize_path(path));
+	let anchored = $derived(node_anchor?.anchored ?? true);
 	let value: NodeArray = $derived(svedit.session.get(path));
 	let count = $derived(value.nodes.length);
 	// The `focused` class follows a node selection in this array. CSS uses it
@@ -89,6 +91,12 @@
 		get length() {
 			return count;
 		},
+		get path_str() {
+			return path_str;
+		},
+		get anchored() {
+			return anchored;
+		},
 		mark_for,
 		annotations_for
 	});
@@ -101,7 +109,7 @@
 	class:focused={is_focused}
 	data-type="node_array"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	style="{anchored ? `anchor-name: --${path_str};` : ''}{style ? ` ${style}` : ''}"
 	{...rest}
 	{@attach svedit.visibility_registry.track_array(path_str)}
 >

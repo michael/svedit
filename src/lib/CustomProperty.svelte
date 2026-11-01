@@ -1,9 +1,19 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
 	import type { CustomPropertyProps } from './types.js';
 
-	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
+	let {
+		path,
+		tag = 'div',
+		class: css_class,
+		children,
+		style,
+		...rest
+	}: CustomPropertyProps = $props();
 	let path_str = $derived(serialize_path(path));
+	const node_anchor = getContext<{ anchored: boolean } | undefined>('node_anchor');
+	let anchored = $derived(node_anchor?.anchored ?? true);
 </script>
 
 <svelte:element
@@ -11,7 +21,7 @@
 	class={css_class}
 	data-type="property"
 	data-path={path_str}
-	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	style="{anchored ? `anchor-name: --${path_str};` : ''}{style ? ` ${style}` : ''}"
 	{...rest}
 >
 	<!-- A single caret position that represents the selected property in the DOM -->
