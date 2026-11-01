@@ -202,7 +202,6 @@ export function is_path_string_segment_valid(segment: string): boolean {
 	return valid;
 }
 
-
 /** Assert that a string can be used as a Svedit path segment. */
 export function assert_path_string_segment(segment: string, label = 'Path segment'): void {
 	if (!is_path_string_segment_valid(segment)) {
