@@ -31,13 +31,12 @@
  * the first two nodes of their array (gap markers measure row gaps with
  * them). See `is_anchored`.
  *
- * State lives in per-key flags and a SvelteMap, which track reads per key,
- * so only components whose own entries changed re-evaluate.
+ * State lives in KeyedState stores, which track reads per key, so only
+ * components whose own entries changed re-evaluate.
  *
  * @module
  */
 
-import { SvelteMap } from 'svelte/reactivity';
 import { tick, untrack } from 'svelte';
 import { PATH_SEPARATOR, serialize_path } from './utils.js';
 import type { DocumentPath, Selection } from './types.js';
@@ -78,39 +77,45 @@ function apply_view_classes(el: HTMLElement, in_viewport: boolean, rect: DOMRect
 
 type Registration = { path: string; attached: boolean; edge?: EdgeState };
 
-class Flag {
-	value = $state.raw(false);
+class Cell<V> {
+	value: V | undefined = $state.raw();
 }
 
 /**
- * Reactive boolean flags, read per key: only readers of a changed key
- * re-run (a SvelteSet makes every miss depend on every change). Flags are
- * created by writers, since Svelte doesn't track state created inside the
- * reaction that reads it. A reader of a key without a flag yet re-checks
- * once new flags were added, notified once per microtask: during a mount,
+ * Reactive values, read per key: only readers of a changed key re-run (a
+ * SvelteMap or SvelteSet makes every miss depend on every change). Cells
+ * are created by writers, since Svelte doesn't track state created inside
+ * the reaction that reads it. A reader of a key without a cell yet re-checks
+ * once new cells were added, notified once per microtask: during a mount,
  * every reader misses and is notified only once.
  */
-export class KeyedFlags<K> {
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in the flags.
-	#flags = new Map<K, Flag>();
+export class KeyedState<K, V> {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in the cells.
+	#cells = new Map<K, Cell<V>>();
+	// Keys holding a value other than undefined or false
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in #changed.
-	#set_keys = new Set<K>();
+	#keys = new Set<K>();
 	#added = $state.raw(0);
 	#added_pending = false;
 	#changed = $state.raw(0);
 
-	has(key: K): boolean {
-		const flag = this.#flags.get(key);
-		if (flag) return flag.value;
+	get(key: K): V | undefined {
+		const cell = this.#cells.get(key);
+		if (cell) return cell.value;
 		void this.#added;
-		return false;
+		return undefined;
 	}
 
-	set(key: K, value: boolean): void {
+	has(key: K): boolean {
+		const value = this.get(key);
+		return value !== undefined && value !== false;
+	}
+
+	set(key: K, value: V | undefined): void {
 		untrack(() => {
-			let flag = this.#flags.get(key);
-			if (!flag) {
-				this.#flags.set(key, (flag = new Flag()));
+			let cell = this.#cells.get(key);
+			if (!cell) {
+				this.#cells.set(key, (cell = new Cell()));
 				if (!this.#added_pending) {
 					this.#added_pending = true;
 					queueMicrotask(() => {
@@ -119,27 +124,31 @@ export class KeyedFlags<K> {
 					});
 				}
 			}
-			if (flag.value === value) return;
-			flag.value = value;
-			if (value) this.#set_keys.add(key);
-			else this.#set_keys.delete(key);
+			if (cell.value === value) return;
+			cell.value = value;
+			if (value === undefined || value === false) this.#keys.delete(key);
+			else this.#keys.add(key);
 			this.#changed += 1;
 		});
 	}
 
-	/** Creates the flag of a key, so its readers depend on it alone. */
-	ensure(key: K): void {
-		if (!this.#flags.has(key)) this.set(key, false);
+	delete(key: K): void {
+		if (this.#cells.has(key)) this.set(key, undefined);
+	}
+
+	/** Creates the cell of a key, so its readers depend on it alone. */
+	ensure(key: K, value: V): void {
+		if (!this.#cells.has(key)) this.set(key, value);
 	}
 
 	clear(): void {
-		for (const key of [...this.#set_keys]) this.set(key, false);
+		for (const key of [...this.#keys]) this.set(key, undefined);
 	}
 
-	/** The keys whose flag is set. Depends on every change. */
+	/** The keys holding a value. Depends on every change. */
 	[Symbol.iterator](): IterableIterator<K> {
 		void this.#changed;
-		return this.#set_keys.values();
+		return this.#keys.values();
 	}
 }
 
@@ -168,7 +177,7 @@ function get_selection_node_paths(selection: Selection | null): Set<string> {
 
 class VisibilityRegistry {
 	/** Per array path: whether the first/last node reached the container edge. */
-	edge_map = new SvelteMap<string, EdgeState>();
+	edge_map = new KeyedState<string, EdgeState>();
 	/** Toggle view classes on nodes (opt out via config.view_classes = false). */
 	view_classes = true;
 	/**
@@ -178,8 +187,8 @@ class VisibilityRegistry {
 	 */
 	visibility_culling = true;
 
-	#array_indices = new Map<string, KeyedFlags<number>>();
-	#pins = new KeyedFlags<string>();
+	#array_indices = new Map<string, KeyedState<number, boolean>>();
+	#pins = new KeyedState<string, boolean>();
 	#pinned = new Set<string>();
 	// Per element registrations, and the element currently owning each path
 	#nodes = new Map<HTMLElement, Registration>();
@@ -239,9 +248,9 @@ class VisibilityRegistry {
 	 * inside the reaction that reads it, so creating the flags and reading
 	 * `.has()` in one derived would never re-evaluate.
 	 */
-	get_array_indices(array_path: string): KeyedFlags<number> {
+	get_array_indices(array_path: string): KeyedState<number, boolean> {
 		let flags = this.#array_indices.get(array_path);
-		if (!flags) this.#array_indices.set(array_path, (flags = new KeyedFlags()));
+		if (!flags) this.#array_indices.set(array_path, (flags = new KeyedState()));
 		return flags;
 	}
 
@@ -413,7 +422,7 @@ class VisibilityRegistry {
 	/** A path's index is near exactly when the element owning the path is near. */
 	#claim_node(el: HTMLElement, path: string): void {
 		this.#node_owners.set(path, el);
-		this.#pins.ensure(path);
+		this.#pins.ensure(path, false);
 		this.#update_index(path, this.#near_nodes.has(el));
 	}
 
@@ -517,8 +526,8 @@ export function create_node_visibility(svedit: {
 }
 
 export type VisibilityRegistryApi = {
-	edge_map: SvelteMap<string, EdgeState>;
-	get_array_indices(array_path_str: string): KeyedFlags<number>;
+	edge_map: KeyedState<string, EdgeState>;
+	get_array_indices(array_path_str: string): KeyedState<number, boolean>;
 	is_pinned(path: string): boolean;
 	track_node(path: string): (el: HTMLElement) => () => void;
 	track_array(path: string): (el: Element) => () => void;
@@ -532,7 +541,7 @@ export type VisibilityRegistryApi = {
  * `near` must come from get_array_indices, held in a separate $derived.
  */
 export function should_position_gap(
-	near: KeyedFlags<number>,
+	near: KeyedState<number, boolean>,
 	edge_state: EdgeState | undefined,
 	offset: number,
 	is_last: boolean,
@@ -554,7 +563,7 @@ export function should_position_gap(
  */
 export function is_anchored(
 	registry: VisibilityRegistryApi,
-	near: KeyedFlags<number> | null,
+	near: KeyedState<number, boolean> | null,
 	array_anchored: boolean,
 	index: number,
 	path: string

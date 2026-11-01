@@ -78,6 +78,9 @@
 	});
 	// The node this gap belongs to: the first node for the gap before it, else the previous node
 	let owner_anchor = $derived(`${path_str}${PATH_SEPARATOR}${is_first ? 0 : offset - 1}`);
+	// Only gaps with a box need their anchor references. Leaving them out
+	// elsewhere spares off-screen gaps a style change when indexes shift.
+	let has_box = $derived(positioned || is_selection_endpoint || empty);
 </script>
 
 {#if svedit.editable}
@@ -92,12 +95,16 @@
 		data-type={is_first ? 'gap-before' : 'gap-after'}
 		data-gap-array-path={path_str}
 		data-gap-offset={offset}
-		style="--_pa:--{owner_anchor};--_next:--{path_str}{PATH_SEPARATOR}{offset};--_container:--{path_str}"
+		style={has_box
+			? `--_pa:--${owner_anchor};--_next:--${path_str}${PATH_SEPARATOR}${offset};--_container:--${path_str}`
+			: undefined}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="svedit-selectable"
-			style="anchor-name:--g-{owner_anchor}-{is_first ? 'gap-before' : 'gap-after'}"
+			style={has_box
+				? `anchor-name:--g-${owner_anchor}-${is_first ? 'gap-before' : 'gap-after'}`
+				: undefined}
 			onpointerdown={cycle_z_index}
 		>
 			<br />
