@@ -85,7 +85,7 @@ function apply_view_classes(el: HTMLElement, in_viewport: boolean, rect: DOMRect
 	classes.toggle('visible-bottom', top_clipped && !bottom_clipped);
 }
 
-type Registration = { path: string; attached: boolean; edge?: EdgeState };
+type Registration = { path: string; attached: boolean; near?: boolean; edge?: EdgeState };
 
 class Cell<V> {
 	value: V | undefined = $state.raw();
@@ -208,7 +208,6 @@ class VisibilityRegistry {
 	// Per element registrations, and the element currently owning each path
 	#nodes = new Map<HTMLElement, Registration>();
 	#node_owners = new Map<string, HTMLElement>();
-	#near_nodes = new Set<HTMLElement>();
 	#arrays = new Map<Element, Registration>();
 	#array_owners = new Map<string, Element>();
 	#detached = new Set<Element>();
@@ -245,7 +244,6 @@ class VisibilityRegistry {
 			this.#detached,
 			this.#nodes,
 			this.#node_owners,
-			this.#near_nodes,
 			this.#arrays,
 			this.#array_owners
 		]) {
@@ -302,20 +300,15 @@ class VisibilityRegistry {
 					registration.path = path;
 					return this.#claim_node(el, path);
 				}
-				this.#nodes.set(el, { path, attached: true });
-				this.#io?.observe(el);
 				// Seed synchronously; the observers own later transitions. A new
 				// element takes over its path, even before the element it
 				// displaced moved on.
-				if (!this.visibility_culling && !this.view_classes) {
-					this.#near_nodes.add(el);
-					return this.#claim_node(el, path);
-				}
-				const rect = el.getBoundingClientRect();
-				const near = !this.visibility_culling || intersects_viewport(rect, OVERSCAN_PX);
-				if (near) this.#near_nodes.add(el);
+				const rect = this.#io || this.#view_io ? el.getBoundingClientRect() : null;
+				const near = !this.#io || intersects_viewport(rect!, OVERSCAN_PX);
+				this.#nodes.set(el, { path, attached: true, near });
+				this.#io?.observe(el);
 				this.#claim_node(el, path);
-				this.#watch_view(el, near, rect);
+				if (rect) this.#watch_view(el, near, rect);
 			});
 			return () => this.#detach(el, this.#nodes.get(el));
 		};
@@ -342,7 +335,6 @@ class VisibilityRegistry {
 		const node = this.#nodes.get(el as HTMLElement);
 		if (node && !node.attached) {
 			this.#nodes.delete(el as HTMLElement);
-			this.#near_nodes.delete(el as HTMLElement);
 			this.#io?.unobserve(el);
 			this.#view_io?.unobserve(el);
 			untrack(() => this.#release_node(el as HTMLElement, node.path));
@@ -398,11 +390,11 @@ class VisibilityRegistry {
 	/**
 	 * Update an array's edge state from its own scroll metrics. Arrays that
 	 * don't clip their overflow are always at both edges, which is resolved
-	 * from computed style alone (no forced layout). Returns true on change.
+	 * from computed style alone (no forced layout).
 	 */
-	sync_edge_state(array_el: Element): boolean {
+	sync_edge_state(array_el: Element): void {
 		const registration = this.#arrays.get(array_el);
-		if (!registration) return false;
+		if (!registration) return;
 		const style = getComputedStyle(array_el);
 		let first = true;
 		let last = true;
@@ -417,10 +409,9 @@ class VisibilityRegistry {
 			last &&= scrollTop + clientHeight >= scrollHeight - EDGE_TOLERANCE_PX;
 		}
 		const previous = registration.edge;
-		if (previous?.first === first && previous?.last === last) return false;
+		if (previous?.first === first && previous?.last === last) return;
 		registration.edge = { first, last };
 		untrack(() => this.#claim_array(array_el, registration));
-		return true;
 	}
 
 	#claim_array(el: Element, registration: Registration): void {
@@ -438,7 +429,7 @@ class VisibilityRegistry {
 	#claim_node(el: HTMLElement, path: string): void {
 		this.#node_owners.set(path, el);
 		this.#pins.ensure(path, false);
-		this.#update_index(path, this.#near_nodes.has(el));
+		this.#update_index(path, !!this.#nodes.get(el)?.near);
 	}
 
 	// Another element may already own the path after a keyed update
@@ -458,10 +449,10 @@ class VisibilityRegistry {
 		const arrays = new Set<Element>();
 		for (const { target, isIntersecting, boundingClientRect } of entries) {
 			const el = target as HTMLElement;
-			const path = this.#nodes.get(el)?.path;
-			if (!path || !el.isConnected || isIntersecting === this.#near_nodes.has(el)) continue;
-			if (isIntersecting) this.#near_nodes.add(el);
-			else this.#near_nodes.delete(el);
+			const registration = this.#nodes.get(el);
+			if (!registration || !el.isConnected || isIntersecting === registration.near) continue;
+			const { path } = registration;
+			registration.near = isIntersecting;
 			if (this.#node_owners.get(path) === el) this.#claim_node(el, path);
 			this.#watch_view(el, isIntersecting, boundingClientRect);
 			// The edge state of an array without near nodes may be outdated
