@@ -4,7 +4,6 @@
 
 	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
 	let path_str = $derived(serialize_path(path));
-
 </script>
 
 <svelte:element
@@ -15,10 +14,10 @@
 	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
 	{...rest}
 >
+	<!-- A single caret position that represents the selected property in the DOM -->
 	<div class="property-selectable">
 		<div class="svedit-selectable"><br /></div>
 	</div>
-
 	{@render children()}
 </svelte:element>
 

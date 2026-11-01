@@ -1,8 +1,6 @@
 /**
- * Shared document utilities used by both Session and Transaction.
- *
- * These functions operate on the core document state (schema, doc, selection, config)
- * without any history management or transaction tracking.
+ * Document utilities shared by Session and Transaction. They operate on
+ * plain schema and document data, without history or reactivity.
  */
 
 import {
@@ -11,7 +9,8 @@ import {
 	get_selection_range,
 	get_char_length,
 	serialize_path,
-	are_ranges_exclusive
+	are_ranges_exclusive,
+	for_each_reference
 } from './utils.js';
 import type {
 	NodeId,
@@ -25,21 +24,20 @@ import type {
 	DocumentSchema,
 	Selection,
 	Attachment,
-	Mark,
-	Annotation,
 	Document,
 	DocumentNode,
-	TextProperty,
-	Text,
 	ValidateDocumentSchema,
 	Inspection,
 	DocumentOperation,
 	SessionConfig
 } from './types.js';
 
+/** Resolves a node id to a node (or undefined when it does not exist). */
+export type NodeLookup = (node_id: NodeId) => DocumentNode | undefined;
+
 /**
- * Identity function — keeps schema at runtime & makes IDE infer types.
- * Similar to your define_schema pattern but for document schemas.
+ * Identity function that keeps the schema at runtime and lets the IDE
+ * infer literal schema types.
  */
 export function define_document_schema<S extends Record<string, NodeSchema>>(
 	schema: S & ValidateDocumentSchema<S>
@@ -47,202 +45,151 @@ export function define_document_schema<S extends Record<string, NodeSchema>>(
 	return schema;
 }
 
-/**
- * Check if a string represents a valid primitive type.
- */
+const PRIMITIVE_TYPES = new Set([
+	'string',
+	'number',
+	'boolean',
+	'integer',
+	'datetime',
+	'text',
+	'string_array',
+	'number_array',
+	'boolean_array',
+	'integer_array'
+]);
+
+/** Check if a string represents a valid primitive type. */
 export function is_primitive_type(type: string): type is PrimitiveType {
-	return [
-		'string',
-		'number',
-		'boolean',
-		'integer',
-		'datetime',
-		'text',
-		'string_array',
-		'number_array',
-		'boolean_array',
-		'integer_array'
-	].includes(type);
+	return PRIMITIVE_TYPES.has(type);
 }
 
 /**
- * Get the default node type for a property that references nodes.
- * Returns null if none specified.
+ * The default node type of a property that references nodes: the explicit
+ * default_node_type, or the only allowed node type. Null if ambiguous.
  */
 export function get_default_node_type(
 	property_definition: NodeProperty | NodeArrayProperty
 ): string | null {
-	if (!property_definition || !property_definition.node_types) {
-		return null;
-	}
-
-	return (
-		property_definition.default_node_type ||
-		(property_definition.node_types.length === 1 ? property_definition.node_types[0] : null)
-	);
+	if (!property_definition?.node_types) return null;
+	const { default_node_type, node_types } = property_definition;
+	return default_node_type || (node_types.length === 1 ? node_types[0] : null);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function get_property_default(property_definition: PropertyDefinition): any {
 	if ('default' in property_definition) return structuredClone(property_definition.default);
-
-	if (property_definition.type === 'string') return '';
-	if (property_definition.type === 'integer') return 0;
-	if (property_definition.type === 'number') return 0;
-	if (property_definition.type === 'boolean') return false;
-	if (property_definition.type === 'text') return { content: '', marks: [], annotations: [] };
-	if (property_definition.type === 'node_array') return { nodes: [], marks: [], annotations: [] };
-	if (
-		property_definition.type === 'string_array' ||
-		property_definition.type === 'number_array' ||
-		property_definition.type === 'boolean_array' ||
-		property_definition.type === 'integer_array'
-	) {
-		return [];
+	switch (property_definition.type) {
+		case 'string':
+			return '';
+		case 'integer':
+		case 'number':
+			return 0;
+		case 'boolean':
+			return false;
+		case 'text':
+			return { content: '', marks: [], annotations: [] };
+		case 'node_array':
+			return { nodes: [], marks: [], annotations: [] };
+		case 'string_array':
+		case 'number_array':
+		case 'boolean_array':
+		case 'integer_array':
+			return [];
 	}
-
-	return undefined;
 }
 
 /**
- * Fill omitted properties with schema defaults and Svedit's built-in type defaults.
- *
- * This is a convenience helper for schema evolution, not a complete document
- * migration system. Callers are still responsible for proper migrations when
- * schema changes cannot be represented by defaults, such as property renames or
- * data transformations.
+ * Fill omitted properties with schema defaults and Svedit's built-in type
+ * defaults. A convenience for schema evolution, not a migration system:
+ * renames or data transformations still need explicit migrations.
  *
  * @returns A shallow copy of the node with cloned default values filled in
  */
 export function fill_node_defaults(node: DocumentNode, schema: DocumentSchema): DocumentNode {
-	const node_schema = schema[node.type];
-	if (!node_schema) return { ...node };
-
-	const node_with_defaults = { ...node };
-
-	for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
-		if (node_with_defaults[property_name] === undefined) {
-			const property_default = get_property_default(property_definition);
-			if (property_default !== undefined) node_with_defaults[property_name] = property_default;
-		}
+	const filled = { ...node };
+	const properties = schema[node.type]?.properties ?? {};
+	for (const [name, definition] of Object.entries(properties)) {
+		if (filled[name] !== undefined) continue;
+		const value = get_property_default(definition);
+		if (value !== undefined) filled[name] = value;
 	}
-
-	return node_with_defaults;
+	return filled;
 }
 
 /**
- * Fill omitted properties with schema defaults and Svedit's built-in type defaults across a document.
- *
- * This does not infer values, rename fields, or make an invalid migration valid
- * by itself. Call this as one step in an explicit document migration when it is
- * appropriate.
+ * Fill omitted properties with defaults across a document. This does not
+ * infer values or rename fields; use it as one step of an explicit migration.
  *
  * @returns A document copy with cloned default values filled in
  */
 export function fill_document_defaults(doc: Document, schema: DocumentSchema): Document {
 	const nodes: Record<string, DocumentNode> = {};
-
-	for (const [node_id, node] of Object.entries(doc.nodes)) {
-		nodes[node_id] = fill_node_defaults(node, schema);
-	}
-
-	return {
-		...doc,
-		nodes
-	};
+	for (const [id, node] of Object.entries(doc.nodes)) nodes[id] = fill_node_defaults(node, schema);
+	return { ...doc, nodes };
 }
 
 /**
- * Validate a document schema to ensure all referenced node types exist.
+ * Validate a document schema: property names, enumerated string values,
+ * integer bounds, referenced node types, and mark/annotation type kinds.
+ *
  * @throws {Error} Throws if the document schema is invalid
  */
 export function validate_document_schema(document_schema: DocumentSchema): void {
-	// Check that all referenced node types exist
 	for (const [node_type, node_schema] of Object.entries(document_schema)) {
 		for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
 			assert_path_string_segment(prop_name, `Property name "${prop_name}"`);
+			const fail = (message: string) => {
+				throw new Error(`Node type "${node_type}" property "${prop_name}" ${message}`);
+			};
+
 			if (prop_def.type === 'string' && prop_def.values !== undefined) {
-				if (
-					!Array.isArray(prop_def.values) ||
-					prop_def.values.some((value) => typeof value !== 'string')
-				) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" values must be an array of strings.`
-					);
+				const { values } = prop_def;
+				if (!Array.isArray(values) || values.some((value) => typeof value !== 'string')) {
+					fail('values must be an array of strings.');
 				}
-				if (prop_def.values.length === 0) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" values must not be empty.`
-					);
-				}
-				if (new Set(prop_def.values).size !== prop_def.values.length) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" values must be unique.`
-					);
-				}
-				if (prop_def.default !== undefined && !prop_def.values.includes(prop_def.default)) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" default must be one of its allowed values.`
-					);
+				if (values.length === 0) fail('values must not be empty.');
+				if (new Set(values).size !== values.length) fail('values must be unique.');
+				if (prop_def.default !== undefined && !values.includes(prop_def.default)) {
+					fail('default must be one of its allowed values.');
 				}
 			}
+
 			if (prop_def.type === 'integer') {
-				if (prop_def.default !== undefined && !Number.isInteger(prop_def.default)) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" default must be an integer.`
-					);
-				}
-				if (prop_def.min !== undefined && !Number.isInteger(prop_def.min)) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" min must be an integer.`
-					);
-				}
-				if (prop_def.max !== undefined && !Number.isInteger(prop_def.max)) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" max must be an integer.`
-					);
+				const { default: value, min, max } = prop_def;
+				if (value !== undefined && !Number.isInteger(value)) fail('default must be an integer.');
+				if (min !== undefined && !Number.isInteger(min)) fail('min must be an integer.');
+				if (max !== undefined && !Number.isInteger(max)) fail('max must be an integer.');
+				if (min !== undefined && max !== undefined && min > max) {
+					fail('min must not be greater than max.');
 				}
 				if (
-					prop_def.min !== undefined &&
-					prop_def.max !== undefined &&
-					prop_def.min > prop_def.max
+					value !== undefined &&
+					((min !== undefined && value < min) || (max !== undefined && value > max))
 				) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" min must not be greater than max.`
-					);
-				}
-				if (
-					prop_def.default !== undefined &&
-					((prop_def.min !== undefined && prop_def.default < prop_def.min) ||
-						(prop_def.max !== undefined && prop_def.default > prop_def.max))
-				) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" default must be within its min/max range.`
-					);
+					fail('default must be within its min/max range.');
 				}
 			}
+
 			if (prop_def.type === 'node' || prop_def.type === 'node_array') {
-				const missing_types = prop_def.node_types.filter(
-					(ref_type) => !(ref_type in document_schema)
-				);
-				if (missing_types.length > 0) {
-					throw new Error(
-						`Node type "${node_type}" property "${prop_name}" references unknown node types: ${missing_types.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`
+				const missing = prop_def.node_types.filter((type) => !(type in document_schema));
+				if (missing.length > 0) {
+					fail(
+						`references unknown node types: ${missing.join(', ')}. Available node types: ${Object.keys(document_schema).join(', ')}`
 					);
 				}
 			}
+
 			if (prop_def.type === 'text' || prop_def.type === 'node_array') {
-				// mark_types must reference kind 'mark', annotation_types kind 'annotation'
 				for (const [key, expected_kind] of [
 					['mark_types', 'mark'],
 					['annotation_types', 'annotation']
 				] as const) {
-					const invalid_types = (prop_def[key] ?? []).filter(
-						(ref_type) => document_schema[ref_type]?.kind !== expected_kind
+					const invalid = (prop_def[key] ?? []).filter(
+						(type) => document_schema[type]?.kind !== expected_kind
 					);
-					if (invalid_types.length > 0) {
-						throw new Error(
-							`Node type "${node_type}" property "${prop_name}" ${key} must reference node types of kind '${expected_kind}', got: ${invalid_types.join(', ')}.`
+					if (invalid.length > 0) {
+						fail(
+							`${key} must reference node types of kind '${expected_kind}', got: ${invalid.join(', ')}.`
 						);
 					}
 				}
@@ -252,10 +199,8 @@ export function validate_document_schema(document_schema: DocumentSchema): void 
 }
 
 /**
- * Validate that no annotation node type has a registered component.
- *
- * Marks render in-place via components; annotations are data-only overlay
- * ranges that must be interpreted by the app (via CSS classes or props).
+ * Annotations are data-only overlay ranges interpreted by the app; only
+ * marks render in place through components.
  *
  * @throws {Error} Throws if a kind 'annotation' type has a registered component
  */
@@ -269,174 +214,42 @@ export function validate_config_components(schema: DocumentSchema, config: Sessi
 	}
 }
 
-/**
- * Validate a primitive value against its schema type.
- */
+const is_text_value = (value: unknown) =>
+	typeof value === 'object' &&
+	value !== null &&
+	typeof (value as { content: unknown }).content === 'string' &&
+	Array.isArray((value as { marks: unknown }).marks) &&
+	Array.isArray((value as { annotations: unknown }).annotations);
+
+const is_number = (value: unknown) => typeof value === 'number' && !isNaN(value);
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function validate_primitive_value(type: PrimitiveType, value: any): boolean {
-	switch (type) {
-		case 'string':
-			return typeof value === 'string';
-		case 'number':
-			return typeof value === 'number' && !isNaN(value);
-		case 'boolean':
-			return typeof value === 'boolean';
-		case 'integer':
-			return Number.isInteger(value);
-		case 'datetime':
-			return typeof value === 'string' && !isNaN(Date.parse(value));
-		case 'text':
-			return (
-				typeof value === 'object' &&
-				value !== null &&
-				typeof value.content === 'string' &&
-				Array.isArray(value.marks) &&
-				Array.isArray(value.annotations)
-			);
-		case 'string_array':
-			return Array.isArray(value) && value.every((v) => typeof v === 'string');
-		case 'number_array':
-			return Array.isArray(value) && value.every((v) => typeof v === 'number' && !isNaN(v));
-		case 'boolean_array':
-			return Array.isArray(value) && value.every((v) => typeof v === 'boolean');
-		case 'integer_array':
-			return Array.isArray(value) && value.every((v) => Number.isInteger(v));
-		default:
-			return false;
-	}
-}
-
-/**
- * Validate ranges (marks or annotations) for bounds, references, and allowed types.
- *
- * @throws {Error} Throws if ranges are invalid
- */
-function validate_range_array(
-	node_id: string,
-	prop_name: string,
-	label: 'mark' | 'annotation',
-	ranges: Array<Attachment>,
-	container_length: number,
-	allowed_types: Array<string> | null | undefined,
-	all_nodes: Record<string, DocumentNode>,
-	require_references: boolean
-): void {
-	for (const [index, range] of ranges.entries()) {
-		if (
-			typeof range !== 'object' ||
-			range === null ||
-			!Number.isInteger(range.start_offset) ||
-			!Number.isInteger(range.end_offset) ||
-			!is_id_valid(range.node_id)
-		) {
-			throw new Error(
-				`Node ${node_id} property ${prop_name} has an invalid ${label} at index ${index}. Ranges must have integer start_offset/end_offset and a valid node_id.`
-			);
-		}
-
-		if (range.start_offset < 0 || range.end_offset > container_length) {
-			throw new Error(
-				`Node ${node_id} property ${prop_name} ${label} ${range.node_id} is out of bounds: ${range.start_offset}-${range.end_offset}, container length is ${container_length}.`
-			);
-		}
-
-		if (range.start_offset >= range.end_offset) {
-			throw new Error(
-				`Node ${node_id} property ${prop_name} ${label} ${range.node_id} must not be empty or reversed: ${range.start_offset}-${range.end_offset}.`
-			);
-		}
-
-		const referenced_node = all_nodes[range.node_id];
-		if (!referenced_node) {
-			if (require_references) {
-				throw new Error(
-					`Node ${node_id} property ${prop_name} ${label} references missing node ${range.node_id}.`
-				);
-			}
-			continue;
-		}
-
-		if (allowed_types?.length && !allowed_types.includes(referenced_node.type)) {
-			throw new Error(
-				`Node ${node_id} property ${prop_name} ${label} references node ${range.node_id} of type ${referenced_node.type}, but only types [${allowed_types.join(', ')}] are allowed.`
-			);
-		}
-	}
-}
-
-/**
- * Validate marks and annotations of an annotated container (text or node array).
- *
- * Marks must be mutually exclusive; annotations may overlap.
- *
- * @throws {Error} Throws if marks or annotations are invalid
- */
-function validate_marks_and_annotations(
-	node_id: string,
-	prop_name: string,
-	value: { marks: Array<Mark>; annotations: Array<Annotation> },
-	prop_def: { mark_types?: string[]; annotation_types?: string[] },
-	container_length: number,
-	all_nodes: Record<string, DocumentNode>,
-	require_references: boolean
-): void {
-	validate_range_array(
-		node_id,
-		prop_name,
-		'mark',
-		value.marks,
-		container_length,
-		prop_def.mark_types,
-		all_nodes,
-		require_references
-	);
-
-	if (!are_ranges_exclusive(value.marks, container_length)) {
-		throw new Error(
-			`Node ${node_id} property ${prop_name} has overlapping marks. Marks must be mutually exclusive.`
-		);
-	}
-
-	validate_range_array(
-		node_id,
-		prop_name,
-		'annotation',
-		value.annotations,
-		container_length,
-		prop_def.annotation_types,
-		all_nodes,
-		require_references
-	);
-}
-
-/**
- * Validate text property marks and annotations for bounds, references, allowed
- * types, and mark exclusivity.
- *
- * @throws {Error} Throws if marks or annotations are invalid
- */
-function validate_text_property(
-	node_id: string,
-	prop_name: string,
-	value: Text,
-	prop_def: TextProperty,
-	all_nodes: Record<string, DocumentNode>,
-	require_references: boolean
-): void {
-	const char_length = get_char_length(value.content);
-	validate_marks_and_annotations(
-		node_id,
-		prop_name,
-		value,
-		prop_def,
-		char_length,
-		all_nodes,
-		require_references
-	);
-}
+const PRIMITIVE_VALIDATORS: Record<PrimitiveType, (value: any) => boolean> = {
+	string: (value) => typeof value === 'string',
+	number: is_number,
+	boolean: (value) => typeof value === 'boolean',
+	integer: Number.isInteger,
+	datetime: (value) => typeof value === 'string' && !isNaN(Date.parse(value)),
+	text: is_text_value,
+	string_array: (value) => Array.isArray(value) && value.every((v) => typeof v === 'string'),
+	number_array: (value) => Array.isArray(value) && value.every(is_number),
+	boolean_array: (value) => Array.isArray(value) && value.every((v) => typeof v === 'boolean'),
+	integer_array: (value) => Array.isArray(value) && value.every(Number.isInteger)
+};
 
 export function is_id_valid(id: string): boolean {
 	return typeof id === 'string' && id.length > 0 && is_path_string_segment_valid(id);
+}
+
+/** Generate a node id with config.generate_id (or a random UUID-based id). */
+export function generate_id(config: SessionConfig): string {
+	const id = config?.generate_id ? config.generate_id() : `node_${crypto.randomUUID()}`;
+	if (!is_id_valid(id)) {
+		throw new Error(
+			`Generated node id ${JSON.stringify(id)} is invalid. Node ids must be non-empty strings that start with a letter or underscore, contain only letters, numbers, underscores, or dashes, and must not contain "__".`
+		);
+	}
+	return id;
 }
 
 /**
@@ -452,79 +265,86 @@ export function validate_node(
 	node: DocumentNode,
 	schema: DocumentSchema,
 	all_nodes: Record<string, DocumentNode> = {},
-	options: { require_references?: boolean } = {}
+	{ require_references = true }: { require_references?: boolean } = {}
 ): void {
-	const require_references = options.require_references ?? true;
-	if (!is_id_valid(node.id)) {
-		throw new Error(`Node ${node.id} has an invalid id.`);
-	}
+	const id = node.id;
+	if (!is_id_valid(id)) throw new Error(`Node ${id} has an invalid id.`);
+	if (!node.type || !schema[node.type])
+		throw new Error(`Node ${id} has an invalid type: ${node.type}`);
 
-	if (!node.type || !schema[node.type]) {
-		throw new Error(`Node ${node.id} has an invalid type: ${node.type}`);
-	}
-
-	const node_schema = schema[node.type];
-
-	for (const [prop_name, prop_def] of Object.entries(node_schema.properties)) {
-		const value = node[prop_name];
-
-		// Check primitive types
-		if (is_primitive_type(prop_def.type)) {
-			if (!validate_primitive_value(prop_def.type, value)) {
-				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be of type ${prop_def.type}.`
-				);
-			}
-			if (prop_def.type === 'string' && prop_def.values && !prop_def.values.includes(value)) {
-				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be one of [${prop_def.values.join(', ')}].`
-				);
-			}
-			if (
-				prop_def.type === 'integer' &&
-				((prop_def.min !== undefined && value < prop_def.min) ||
-					(prop_def.max !== undefined && value > prop_def.max))
-			) {
-				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be between ${prop_def.min ?? '-Infinity'} and ${prop_def.max ?? 'Infinity'}.`
-				);
-			}
+	// Checks one reference; returns false for a tolerated missing node.
+	const check_reference = (prefix: string, ref_id: NodeId, allowed: string[] | undefined) => {
+		const referenced = all_nodes[ref_id];
+		if (!referenced) {
+			if (require_references) throw new Error(`${prefix} references missing node ${ref_id}.`);
+			return;
 		}
-		if (prop_def.type === 'text') {
-			validate_text_property(
-				node.id,
-				prop_name,
-				value,
-				prop_def as TextProperty,
-				all_nodes,
-				require_references
+		if (allowed && !allowed.includes(referenced.type)) {
+			throw new Error(
+				`${prefix} references node ${ref_id} of type ${referenced.type}, but only types [${allowed.join(', ')}] are allowed.`
 			);
 		}
-		// Check node references
-		if (prop_def.type === 'node') {
-			if (!is_id_valid(value)) {
+	};
+
+	const check_ranges = (
+		prop_name: string,
+		label: 'mark' | 'annotation',
+		ranges: Attachment[],
+		length: number,
+		allowed: string[] | undefined
+	) => {
+		for (const [index, range] of ranges.entries()) {
+			if (
+				typeof range !== 'object' ||
+				range === null ||
+				!Number.isInteger(range.start_offset) ||
+				!Number.isInteger(range.end_offset) ||
+				!is_id_valid(range.node_id)
+			) {
 				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be a valid node id.`
+					`Node ${id} property ${prop_name} has an invalid ${label} at index ${index}. Ranges must have integer start_offset/end_offset and a valid node_id.`
 				);
 			}
-			// Check if referenced node exists and is of allowed type
-			const referenced_node = all_nodes[value];
-			if (!referenced_node) {
-				if (require_references) {
-					throw new Error(
-						`Node ${node.id} property ${prop_name} references missing node ${value}.`
-					);
-				}
-				continue;
+			const prefix = `Node ${id} property ${prop_name} ${label} ${range.node_id}`;
+			const span = `${range.start_offset}-${range.end_offset}`;
+			if (range.start_offset < 0 || range.end_offset > length) {
+				throw new Error(`${prefix} is out of bounds: ${span}, container length is ${length}.`);
 			}
-			if (!prop_def.node_types.includes(referenced_node.type)) {
-				throw new Error(
-					`Node ${node.id} property ${prop_name} references node ${value} of type ${referenced_node.type}, but only types [${(prop_def as NodeProperty).node_types.join(', ')}] are allowed.`
-				);
+			if (range.start_offset >= range.end_offset) {
+				throw new Error(`${prefix} must not be empty or reversed: ${span}.`);
 			}
+			check_reference(
+				`Node ${id} property ${prop_name} ${label}`,
+				range.node_id,
+				allowed?.length ? allowed : undefined
+			);
 		}
-		// Check node arrays
-		else if (prop_def.type === 'node_array') {
+	};
+
+	const check_attachments = (
+		prop_name: string,
+		value: { marks: Attachment[]; annotations: Attachment[] },
+		prop_def: { mark_types?: string[]; annotation_types?: string[] },
+		length: number
+	) => {
+		check_ranges(prop_name, 'mark', value.marks, length, prop_def.mark_types);
+		if (!are_ranges_exclusive(value.marks, length)) {
+			throw new Error(
+				`Node ${id} property ${prop_name} has overlapping marks. Marks must be mutually exclusive.`
+			);
+		}
+		check_ranges(prop_name, 'annotation', value.annotations, length, prop_def.annotation_types);
+	};
+
+	for (const [prop_name, prop_def] of Object.entries(schema[node.type].properties)) {
+		const value = node[prop_name];
+		const invalid = (expectation: string) =>
+			new Error(`Node ${id} has an invalid property: ${prop_name} must ${expectation}.`);
+
+		if (prop_def.type === 'node') {
+			if (!is_id_valid(value)) throw invalid('be a valid node id');
+			check_reference(`Node ${id} property ${prop_name}`, value, prop_def.node_types);
+		} else if (prop_def.type === 'node_array') {
 			if (
 				!value ||
 				typeof value !== 'object' ||
@@ -532,45 +352,31 @@ export function validate_node(
 				!Array.isArray(value.marks) ||
 				!Array.isArray(value.annotations)
 			) {
-				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must be an object with nodes, marks and annotations.`
+				throw invalid('be an object with nodes, marks and annotations');
+			}
+			if (!value.nodes.every(is_id_valid)) throw invalid('contain valid node ids');
+			for (const ref_id of value.nodes) {
+				check_reference(`Node ${id} property ${prop_name}`, ref_id, prop_def.node_types);
+			}
+			check_attachments(prop_name, value, prop_def, value.nodes.length);
+		} else {
+			const is_valid = PRIMITIVE_VALIDATORS[prop_def.type];
+			if (is_valid && !is_valid(value)) throw invalid(`be of type ${prop_def.type}`);
+			if (prop_def.type === 'string' && prop_def.values && !prop_def.values.includes(value)) {
+				throw invalid(`be one of [${prop_def.values.join(', ')}]`);
+			}
+			if (
+				prop_def.type === 'integer' &&
+				((prop_def.min !== undefined && value < prop_def.min) ||
+					(prop_def.max !== undefined && value > prop_def.max))
+			) {
+				throw invalid(
+					`be between ${prop_def.min ?? '-Infinity'} and ${prop_def.max ?? 'Infinity'}`
 				);
 			}
-
-			const node_array_nodes = value.nodes;
-
-			if (!node_array_nodes.every((id: unknown) => typeof id === 'string' && is_id_valid(id))) {
-				throw new Error(
-					`Node ${node.id} has an invalid property: ${prop_name} must contain valid node ids.`
-				);
+			if (prop_def.type === 'text') {
+				check_attachments(prop_name, value, prop_def, get_char_length(value.content));
 			}
-
-			// Check if all referenced nodes exist and are of allowed types
-			for (const ref_id of node_array_nodes) {
-				const referenced_node = all_nodes[ref_id];
-				if (!referenced_node) {
-					if (require_references) {
-						throw new Error(
-							`Node ${node.id} property ${prop_name} references missing node ${ref_id}.`
-						);
-					}
-					continue;
-				}
-				if (!prop_def.node_types.includes(referenced_node.type)) {
-					throw new Error(
-						`Node ${node.id} property ${prop_name} references node ${ref_id} of type ${referenced_node.type}, but only types [${prop_def.node_types.join(', ')}] are allowed.`
-					);
-				}
-			}
-			validate_marks_and_annotations(
-				node.id,
-				prop_name,
-				value,
-				prop_def,
-				node_array_nodes.length,
-				all_nodes,
-				require_references
-			);
 		}
 	}
 }
@@ -581,13 +387,11 @@ export function validate_node(
  * @throws {Error} Throws if the document is invalid
  */
 export function validate_document(doc: Document, schema: DocumentSchema): void {
-	if (!is_id_valid(doc.document_id)) {
+	if (!is_id_valid(doc.document_id))
 		throw new Error(`Document ${doc.document_id} has an invalid id.`);
-	}
 	for (const [node_id, node] of Object.entries(doc.nodes)) {
-		if (!is_id_valid(node_id)) {
+		if (!is_id_valid(node_id))
 			throw new Error(`Document node map contains an invalid id: ${node_id}.`);
-		}
 		if (node.id !== node_id) {
 			throw new Error(`Document node map key ${node_id} does not match node id ${node.id}.`);
 		}
@@ -596,525 +400,271 @@ export function validate_document(doc: Document, schema: DocumentSchema): void {
 }
 
 /**
- * Gets a value from the document at the specified path.
- *
- * @param schema - The document schema
- * @param doc - The document containing nodes
- * @param path - Array path to the value, or a string node ID
- * @returns The value at the specified path
+ * Resolve a path (or a single node id) to a node or property value.
+ * Nodes are looked up through `lookup`, which lets callers observe exactly
+ * which nodes a path depends on.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): any {
-	if (typeof path === 'string') {
-		path = [path];
-	}
-	if (!(Array.isArray(path) && path.length >= 1)) {
+export function resolve(
+	schema: DocumentSchema,
+	path: DocumentPath | string,
+	lookup: NodeLookup
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+	if (typeof path === 'string') return lookup(path);
+	if (!Array.isArray(path) || path.length === 0) {
 		throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 	}
-
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let val: any = doc.nodes[path[0]];
-	let val_type = 'node';
-
-	for (let i = 1; i < path.length; i++) {
-		const path_segment = path[i];
-		const path_segment_str = String(path_segment);
-		if (val_type === 'node') {
-			if (property_type(schema, val.type, path_segment_str) === 'node_array') {
-				val = val[path_segment];
-				val_type = 'node_array';
-			} else if (property_type(schema, val.type, path_segment_str) === 'text') {
-				val = val[path_segment];
-				val_type = 'text';
-			} else if (property_type(schema, val.type, path_segment_str) === 'node') {
-				val = doc.nodes[val[path_segment]];
-				val_type = 'node';
-			} else if (
-				['string_array', 'integer_array'].includes(
-					property_type(schema, val.type, path_segment_str)
-				)
-			) {
-				val = val[path_segment];
-				val_type = 'value_array';
+	let value: any = lookup(path[0] as string);
+	let kind = 'node';
+	for (let index = 1; index < path.length; index++) {
+		const segment = path[index];
+		if (kind === 'node') {
+			const type = property_type(schema, value.type, String(segment));
+			if (type === 'node') {
+				value = lookup(value[segment]);
 			} else {
-				val = val[path_segment];
-				val_type = 'value';
+				value = value[segment];
+				kind =
+					type === 'node_array' || type === 'text'
+						? type
+						: type === 'string_array' || type === 'integer_array'
+							? 'values'
+							: 'value';
 			}
-		} else if (val_type === 'node_array') {
-			if (path_segment === 'nodes') {
-				val = val.nodes;
-				val_type = 'node_id_array';
-			} else if (path_segment === 'marks') {
-				val = val.marks;
-				val_type = 'range_array';
-			} else if (path_segment === 'annotations') {
-				val = val.annotations;
-				val_type = 'range_array';
-			} else if (typeof path_segment === 'number' || /^\d+$/.test(String(path_segment))) {
-				val = doc.nodes[val.nodes[path_segment]];
-				val_type = 'node';
+		} else if (kind === 'node_array') {
+			if (segment === 'nodes') {
+				value = value.nodes;
+				kind = 'node_ids';
+			} else if (segment === 'marks' || segment === 'annotations') {
+				value = value[segment];
+				kind = 'ranges';
+			} else if (typeof segment === 'number' || /^\d+$/.test(segment)) {
+				value = lookup(value.nodes[segment]);
+				kind = 'node';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for node_array. Use "nodes", "marks" or "annotations".`
+					`Invalid path segment "${segment}" for node_array. Use "nodes", "marks" or "annotations".`
 				);
 			}
-		} else if (val_type === 'node_id_array') {
-			val = doc.nodes[val[path_segment]];
-			val_type = 'node';
-		} else if (val_type === 'value_array') {
-			val = val[path_segment];
-			val_type = 'value';
-		} else if (val_type === 'text') {
-			if (path_segment === 'content') {
-				val = val.content;
-				val_type = 'value';
-			} else if (path_segment === 'marks') {
-				val = val.marks;
-				val_type = 'range_array';
-			} else if (path_segment === 'annotations') {
-				val = val.annotations;
-				val_type = 'range_array';
-			} else {
+		} else if (kind === 'node_ids') {
+			value = lookup(value[segment]);
+			kind = 'node';
+		} else if (kind === 'values') {
+			value = value[segment];
+			kind = 'value';
+		} else if (kind === 'text') {
+			if (segment !== 'content' && segment !== 'marks' && segment !== 'annotations') {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for text. Use "content", "marks" or "annotations".`
+					`Invalid path segment "${segment}" for text. Use "content", "marks" or "annotations".`
 				);
 			}
-		} else if (val_type === 'range_array') {
-			val = val[path_segment];
-			val_type = 'range';
-		} else if (val_type === 'range') {
-			if (path_segment === 'node_id') {
-				val = doc.nodes[val.node_id];
-				val_type = 'node';
-			} else if (path_segment === 'start_offset') {
-				val = val.start_offset;
-				val_type = 'value';
-			} else if (path_segment === 'end_offset') {
-				val = val.end_offset;
-				val_type = 'value';
+			value = value[segment];
+			kind = segment === 'content' ? 'value' : 'ranges';
+		} else if (kind === 'ranges') {
+			value = value[segment];
+			kind = 'range';
+		} else if (kind === 'range') {
+			if (segment === 'node_id') {
+				value = lookup(value.node_id);
+				kind = 'node';
+			} else if (segment === 'start_offset' || segment === 'end_offset') {
+				value = value[segment];
+				kind = 'value';
 			} else {
 				throw new Error(
-					`Invalid path segment "${path_segment}" for range. Use "start_offset", "end_offset", or "node_id".`
+					`Invalid path segment "${segment}" for range. Use "start_offset", "end_offset", or "node_id".`
 				);
 			}
 		}
 	}
-	return val;
+	return value;
 }
 
 /**
- * Gets the type of a property from the schema.
+ * Gets a value from the document at the specified path.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function get(schema: DocumentSchema, doc: Document, path: DocumentPath | string): any {
+	return resolve(schema, path, (id) => doc.nodes[id]);
+}
+
+/** The type of a property: property_type('page', 'body') => 'node_array' */
 export function property_type(schema: DocumentSchema, type: string, property: string): string {
 	if (typeof type !== 'string') throw new Error(`Invalid type ${type} provided`);
 	if (typeof property !== 'string') throw new Error(`Invalid property ${property} provided`);
-
-	if (property === 'type') return 'string';
-	if (property === 'id') return 'string';
-
+	if (property === 'type' || property === 'id') return 'string';
 	if (!schema[type]) throw new Error(`Type ${type} not found in schema`);
-	if (!schema[type].properties[property])
-		throw new Error(`Property ${property} not found in type ${type}`);
-
-	return schema[type].properties[property].type;
+	const definition = schema[type].properties[property];
+	if (!definition) throw new Error(`Property ${property} not found in type ${type}`);
+	return definition.type;
 }
 
-/**
- * Determines the kind of a node ('document', 'block', 'text', 'mark', or 'annotation').
- */
+/** The kind of a node ('document', 'block', 'text', 'mark', or 'annotation'). */
 export function kind(schema: DocumentSchema, node: DocumentNode): NodeKind {
 	return schema[node.type].kind;
 }
 
-/**
- * Inspects a path to get metadata about the value at that location.
- */
-export function inspect(schema: DocumentSchema, doc: Document, path: DocumentPath): Inspection {
-	const parent = path.length > 1 ? get(schema, doc, path.slice(0, -1)) : undefined;
+/** Type information about the value at a path (see Session.inspect). */
+export function inspect(
+	schema: DocumentSchema,
+	path: DocumentPath,
+	lookup: NodeLookup
+): Inspection {
+	const parent = path.length > 1 ? resolve(schema, path.slice(0, -1), lookup) : undefined;
 	if (parent?.type) {
-		const property_name = path.at(-1) as string;
-		return {
-			kind: 'property',
-			name: property_name,
-			...schema[parent.type].properties[property_name]
-		};
-	} else {
-		const node = get(schema, doc, path);
-		return {
-			kind: 'node',
-			id: node.id,
-			type: node.type,
-			properties: schema[node.type]
-		};
+		const name = path.at(-1) as string;
+		return { kind: 'property', name, ...schema[parent.type].properties[name] };
 	}
+	const node = resolve(schema, path, lookup);
+	return { kind: 'node', id: node.id, type: node.type, properties: schema[node.type] };
 }
 
 /**
- * Creates a mutable draft of a document: a new document object with a new
- * nodes map, sharing the (immutable) node objects with the original.
- *
- * apply_op_to_draft mutates the draft's nodes map but copies node objects
- * before changing them, so node identity is preserved for unchanged nodes
- * (fine-grained rendering relies on this) and the original document is
- * never touched.
- *
- * @returns A draft document safe to mutate via apply_op_to_draft
+ * Apply an operation to a document draft in place. Node objects are
+ * replaced, never mutated, so unchanged nodes keep their identity. Values
+ * pass through `copy`, so documents don't share objects with history ops.
  */
-export function create_document_draft(doc: Document): Document {
-	return {
-		...doc,
-		nodes: { ...doc.nodes }
-	};
+export function apply_op(
+	draft: Document,
+	op: DocumentOperation,
+	copy: <T>(value: T) => T = (value) => value
+): void {
+	const [type, arg, value] = op;
+	if (type === 'set') draft.nodes[arg[0]] = { ...draft.nodes[arg[0]], [arg[1]]: copy(value) };
+	else if (type === 'create') draft.nodes[arg.id] = copy(arg);
+	else if (type === 'delete') delete draft.nodes[arg];
 }
 
-/**
- * Applies an operation to a document draft in place.
- *
- * The draft's nodes map is mutated, but node objects are copied on write —
- * one nodes-map copy per draft (see create_document_draft) replaces the
- * previous one-copy-per-op behavior, which made transactions with many ops
- * (paste, cascade delete) O(N·ops).
- *
- * @param draft - A draft created via create_document_draft
- * @param op - The operation to apply [type, ...args]
- * @returns The same draft, for convenience
- */
-export function apply_op_to_draft(draft: Document, op: DocumentOperation): Document {
-	const [type, ...args] = op;
-	if (type === 'set') {
-		const [node_id, property] = args[0];
-		draft.nodes[node_id] = {
-			...draft.nodes[node_id],
-			[property]: structuredClone(args[1])
-		};
-	} else if (type === 'create') {
-		draft.nodes[args[0].id] = structuredClone(args[0]);
-	} else if (type === 'delete') {
-		delete draft.nodes[args[0]];
-	}
-	return draft;
+/** The ids of the nodes an operation touches. */
+export function op_node_id(op: DocumentOperation): NodeId {
+	return op[0] === 'set' ? op[1][0] : op[0] === 'create' ? op[1].id : op[1];
 }
 
-/**
- * Applies an operation to a document and returns the new document.
- * Uses copy-on-write semantics.
- *
- * @param doc - The document to apply the operation to
- * @param op - The operation to apply [type, ...args]
- * @returns The new document with the operation applied
- */
-export function apply_op(doc: Document, op: DocumentOperation): Document {
-	return apply_op_to_draft(create_document_draft(doc), op);
-}
-
-/**
- * Counts how many times a node is referenced in the document.
- */
+/** Counts how many times a node is referenced in the document. */
 export function count_references(schema: DocumentSchema, doc: Document, node_id: NodeId): number {
 	let count = 0;
-
 	for (const node of Object.values(doc.nodes)) {
-		for (const [property, value] of Object.entries(node)) {
-			if (property === 'id' || property === 'type') continue;
-
-			const prop_type = property_type(schema, node.type, property);
-
-			if (prop_type === 'node_array') {
-				count += value.nodes.filter((id: NodeId) => id === node_id).length;
-			} else if (prop_type === 'node' && value === node_id) {
-				count += 1;
-			}
-
-			if ((prop_type === 'text' || prop_type === 'node_array') && value) {
-				count += [...value.marks, ...value.annotations].filter(
-					(range) => range.node_id === node_id
-				).length;
-			}
-		}
-	}
-
-	return count;
-}
-
-/**
- * Whether a mark can be switched between these types.
- */
-export function can_switch_mark_type(
-	schema: DocumentSchema,
-	from_type: string,
-	to_type: string
-): boolean {
-	const from_schema = schema[from_type];
-	const to_schema = schema[to_type];
-	return (
-		from_schema?.kind === 'mark' &&
-		to_schema?.kind === 'mark' &&
-		Object.keys(from_schema.properties ?? {}).length === 0 &&
-		Object.keys(to_schema.properties ?? {}).length === 0
-	);
-}
-
-/**
- * An attachment (mark or annotation) enriched with its index in the parent
- * attachment array and the resolved payload node.
- */
-export type SelectedAttachment = Attachment & { index: number; node: DocumentNode };
-
-/**
- * Gets ranges of the given key ('marks' or 'annotations') touched by the
- * current selection.
- *
- * Non-collapsed selections use strict half-open range intersection, so merely
- * adjacent boundaries do not count as touching. Collapsed text carets are only
- * inside a range when they are strictly between start and end; a caret at
- * either boundary is not active.
- */
-function get_selected_ranges(
-	schema: DocumentSchema,
-	doc: Document,
-	selection: Selection | null | undefined,
-	key: 'marks' | 'annotations'
-): SelectedAttachment[] {
-	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
-	const range = get_selection_range(selection);
-	if (!range) return [];
-
-	const annotated_prop = get(schema, doc, selection.path);
-	const ranges = annotated_prop?.[key] ?? [];
-	const is_collapsed = range.start_offset === range.end_offset;
-
-	return ranges
-		.map((attachment: Attachment, index: number) => {
-			const node = doc.nodes[attachment.node_id];
-			return {
-				...attachment,
-				index,
-				node
-			};
-		})
-		.filter(({ start_offset, end_offset }: SelectedAttachment) => {
-			if (is_collapsed) {
-				return start_offset < range.start_offset && end_offset > range.start_offset;
-			}
-			return start_offset < range.end_offset && end_offset > range.start_offset;
+		for_each_reference(schema, node, (id) => {
+			if (id === node_id) count++;
 		});
-}
-
-/**
- * Gets marks touched by the current selection.
- */
-export function get_selected_marks(
-	schema: DocumentSchema,
-	doc: Document,
-	selection?: Selection | null
-): SelectedAttachment[] {
-	return get_selected_ranges(schema, doc, selection, 'marks');
-}
-
-/**
- * Gets annotations touched by the current selection.
- */
-export function get_selected_annotations(
-	schema: DocumentSchema,
-	doc: Document,
-	selection?: Selection | null
-): SelectedAttachment[] {
-	return get_selected_ranges(schema, doc, selection, 'annotations');
-}
-
-/**
- * Node types represented in the selected ranges.
- */
-export function get_selected_range_types(selected_ranges: SelectedAttachment[]): Set<string> {
-	return new Set(
-		selected_ranges.map(({ node }) => node?.type).filter((type): type is string => Boolean(type))
-	);
-}
-
-/**
- * Counts references to a node, excluding nodes marked for deletion.
- */
-export function count_references_excluding_deleted(
-	schema: DocumentSchema,
-	doc: Document,
-	target_node_id: NodeId,
-	nodes_to_delete: Record<NodeId, boolean>
-): number {
-	let count = 0;
-
-	for (const node of Object.values(doc.nodes)) {
-		if (nodes_to_delete[node.id]) continue;
-
-		for (const [property, value] of Object.entries(node)) {
-			if (property === 'id' || property === 'type') continue;
-
-			const prop_type = property_type(schema, node.type, property);
-
-			if (prop_type === 'node_array') {
-				count += value.nodes.filter((id: NodeId) => id === target_node_id).length;
-			} else if (prop_type === 'node' && value === target_node_id) {
-				count += 1;
-			}
-
-			if ((prop_type === 'text' || prop_type === 'node_array') && value) {
-				count += [...value.marks, ...value.annotations].filter(
-					(range) => range.node_id === target_node_id
-				).length;
-			}
-		}
 	}
-
 	return count;
 }
 
-/**
- * Iterates all node references going out of a node, invoking the visitor
- * once per occurrence (multiplicity matters for reference counting).
- * Covers the same reference kinds as count_references_excluding_deleted:
- * a `node` property, `node_array` .nodes ids, and the mark/annotation
- * node_ids carried on `text` and `node_array` properties.
- */
-export function visit_node_references(
-	schema: DocumentSchema,
-	node: DocumentNode,
-	visit: (referenced_id: NodeId) => void
-): void {
-	const node_schema = schema[node.type];
-	if (!node_schema) return;
-
-	for (const [property, prop_def] of Object.entries(node_schema.properties)) {
-		const value = node[property];
-		if (value === undefined || value === null) continue;
-
-		const prop_type = prop_def.type;
-
-		if (prop_type === 'node_array') {
-			for (const id of value.nodes) visit(id);
-		} else if (prop_type === 'node' && typeof value === 'string') {
-			visit(value);
-		}
-
-		if ((prop_type === 'text' || prop_type === 'node_array') && value) {
-			for (const range of value.marks) visit(range.node_id);
-			for (const range of value.annotations) visit(range.node_id);
-		}
-	}
-}
-
-/**
- * Builds reference counts for every referenced node in one full-document
- * scan. Used by cascade deletion so the fixpoint can decrement counts
- * incrementally instead of re-scanning the document per candidate node.
- */
+/** Reference counts for every referenced node, in one document scan. */
 export function build_reference_counts(schema: DocumentSchema, doc: Document): Map<NodeId, number> {
-	const counts: Map<NodeId, number> = new Map();
+	const counts = new Map<NodeId, number>();
 	for (const node of Object.values(doc.nodes)) {
-		visit_node_references(schema, node, (id) => {
-			counts.set(id, (counts.get(id) || 0) + 1);
-		});
+		for_each_reference(schema, node, (id) => counts.set(id, (counts.get(id) ?? 0) + 1));
 	}
 	return counts;
 }
 
-/**
- * Gets ids of nodes that reference any of the target nodes.
- */
+/** Ids of the nodes that reference any of the target nodes. */
 export function get_referencing_node_ids(
 	schema: DocumentSchema,
 	doc: Document,
 	target_node_ids: Iterable<NodeId>
 ): NodeId[] {
-	const target_ids = new Set(target_node_ids);
-	const referencing_node_ids: Set<NodeId> = new Set();
-	if (target_ids.size === 0) return [];
-
+	const targets = new Set(target_node_ids);
+	if (targets.size === 0) return [];
+	const result: NodeId[] = [];
 	for (const node of Object.values(doc.nodes)) {
-		for (const [property, value] of Object.entries(node)) {
-			if (property === 'id' || property === 'type') continue;
-
-			const prop_type = property_type(schema, node.type, property);
-
-			if (prop_type === 'node_array') {
-				if (value.nodes.some((id: NodeId) => target_ids.has(id))) {
-					referencing_node_ids.add(node.id);
-				}
-			} else if (prop_type === 'node' && target_ids.has(value)) {
-				referencing_node_ids.add(node.id);
-			}
-
-			if (
-				(prop_type === 'text' || prop_type === 'node_array') &&
-				value &&
-				[...value.marks, ...value.annotations].some((range) => target_ids.has(range.node_id))
-			) {
-				referencing_node_ids.add(node.id);
-			}
-		}
+		let references = false;
+		for_each_reference(schema, node, (id) => {
+			references ||= targets.has(id);
+		});
+		if (references) result.push(node.id);
 	}
+	return result;
+}
 
-	return [...referencing_node_ids];
+/** Only property-less marks can switch their type. */
+export function can_switch_mark_type(
+	schema: DocumentSchema,
+	from_type: string,
+	to_type: string
+): boolean {
+	const is_plain_mark = (type: string) =>
+		schema[type]?.kind === 'mark' && Object.keys(schema[type].properties ?? {}).length === 0;
+	return is_plain_mark(from_type) && is_plain_mark(to_type);
 }
 
 /**
- * Validates a selection against the current document state.
- * Works with any object that implements get() and inspect() (Session or Transaction).
+ * A mark or annotation enriched with its index in the attachment array and
+ * the resolved payload node.
+ */
+export type SelectedAttachment = Attachment & { index: number; node: DocumentNode };
+
+/**
+ * Marks or annotations of `value` touched by a text or node selection.
+ * Ranges must strictly intersect the selection: adjacent boundaries do not
+ * count, and a collapsed caret must lie strictly inside a range.
+ */
+export function get_selected_attachments(
+	value: { marks?: Attachment[]; annotations?: Attachment[] } | undefined,
+	selection: Selection | null | undefined,
+	key: 'marks' | 'annotations',
+	lookup: NodeLookup
+): SelectedAttachment[] {
+	if (selection?.type !== 'text' && selection?.type !== 'node') return [];
+	const { start_offset, end_offset } = get_selection_range(selection)!;
+	const selected: SelectedAttachment[] = [];
+	(value?.[key] ?? []).forEach((attachment, index) => {
+		if (attachment.start_offset < end_offset && attachment.end_offset > start_offset) {
+			selected.push({ ...attachment, index, node: lookup(attachment.node_id) });
+		}
+	});
+	return selected;
+}
+
+/** Node types represented in the selected attachments. */
+export function get_selected_range_types(selected: SelectedAttachment[]): Set<string> {
+	return new Set(selected.map(({ node }) => node?.type).filter(Boolean));
+}
+
+/**
+ * Validates a selection against a document (through a Session or Transaction).
  *
  * @throws {Error} Throws if the selection is invalid
  */
 export function validate_selection(
 	selection: Selection | null | undefined,
-	session_or_transaction: {
+	target: {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		get: (path: DocumentPath) => any;
 		inspect: (path: DocumentPath) => Inspection;
 	}
 ): void {
 	if (!selection) return;
-
-	const selection_type = selection.type;
-	if (!['node', 'text', 'property'].includes(selection_type)) {
-		throw new Error(`Invalid selection type: ${selection_type}`);
+	const { type } = selection;
+	if (type !== 'node' && type !== 'text' && type !== 'property') {
+		throw new Error(`Invalid selection type: ${type}`);
 	}
-
-	if (selection_type === 'node') {
-		const node_array_prop = session_or_transaction.get(selection.path);
-
-		if (!node_array_prop || !Array.isArray(node_array_prop.nodes)) {
-			throw new Error('Node selection path must point to a node_array');
-		}
-
-		const max_offset = node_array_prop.nodes.length;
-		if (selection.anchor_offset < 0 || selection.anchor_offset > max_offset) {
-			throw new Error(
-				`Node selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${max_offset}.`
-			);
-		}
-		if (selection.focus_offset < 0 || selection.focus_offset > max_offset) {
-			throw new Error(
-				`Node selection focus_offset (${selection.focus_offset}) is out of bounds. Max is ${max_offset}.`
-			);
-		}
-	} else if (selection_type === 'text') {
-		const text = session_or_transaction.get(selection.path);
-
-		if (!text || typeof text.content !== 'string') {
-			throw new Error('Text selection path must point to text');
-		}
-
-		const char_length = get_char_length(text.content);
-		if (selection.anchor_offset < 0 || selection.anchor_offset > char_length) {
-			throw new Error(
-				`Text selection anchor_offset (${selection.anchor_offset}) is out of bounds. Max is ${char_length}.`
-			);
-		}
-		if (selection.focus_offset < 0 || selection.focus_offset > char_length) {
-			throw new Error(
-				`Text selection focus_offset (${selection.focus_offset}) is out of bounds. Max is ${char_length}.`
-			);
-		}
-	} else if (selection_type === 'property') {
-		if (!session_or_transaction.inspect(selection.path)) {
+	if (type === 'property') {
+		if (!target.inspect(selection.path)) {
 			throw new Error(`Property selection path not found: ${serialize_path(selection.path)}`);
+		}
+		return;
+	}
+	const value = target.get(selection.path);
+	let max_offset: number;
+	if (type === 'node') {
+		if (!value || !Array.isArray(value.nodes))
+			throw new Error('Node selection path must point to a node_array');
+		max_offset = value.nodes.length;
+	} else {
+		if (!value || typeof value.content !== 'string')
+			throw new Error('Text selection path must point to text');
+		max_offset = get_char_length(value.content);
+	}
+	const label = type === 'node' ? 'Node' : 'Text';
+	for (const key of ['anchor_offset', 'focus_offset'] as const) {
+		if (selection[key] < 0 || selection[key] > max_offset) {
+			throw new Error(
+				`${label} selection ${key} (${selection[key]}) is out of bounds. Max is ${max_offset}.`
+			);
 		}
 	}
 }

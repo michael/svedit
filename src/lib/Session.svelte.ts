@@ -1,21 +1,20 @@
 import Transaction from './Transaction.svelte.js';
-import { char_slice, traverse, traverse_ids } from './utils.js';
+import { char_slice, traverse, traverse_ids, get_selection_range, paths_equal } from './utils.js';
 import {
-	get as doc_get,
-	property_type as doc_property_type,
-	kind as doc_kind,
-	inspect as doc_inspect,
-	create_document_draft,
-	apply_op_to_draft,
-	count_references as doc_count_references,
+	resolve,
+	property_type,
+	kind,
+	inspect,
+	apply_op,
+	op_node_id,
+	count_references,
 	validate_document_schema,
 	validate_document,
 	validate_config_components,
 	validate_node,
-	is_id_valid,
+	generate_id,
 	get_referencing_node_ids,
-	get_selected_marks,
-	get_selected_annotations,
+	get_selected_attachments,
 	validate_selection
 } from './doc_utils.js';
 import type { SelectedAttachment } from './doc_utils.js';
@@ -38,7 +37,7 @@ import type {
 } from './types.js';
 import type { Keymap } from './KeyMapper.svelte.js';
 
-const BATCH_WINDOW_MS = 1000; // 1 second
+const BATCH_WINDOW_MS = 1000;
 
 type HistoryEntry = {
 	ops: Transaction['ops'];
@@ -47,37 +46,50 @@ type HistoryEntry = {
 	selection_after: Selection | null;
 };
 
+/**
+ * Reactive state of a single node. Reading a node through Session.get only
+ * subscribes to the cells of the nodes along the path, so an edit re-renders
+ * only the components that depend on the changed nodes. `focus` holds the
+ * selection while it lies in one of the node's properties.
+ */
+class NodeCell {
+	node: DocumentNode | undefined = $state.raw();
+	focus: Selection | null = $state.raw(null);
+	constructor(node: DocumentNode) {
+		this.node = node;
+	}
+}
+
 export default class Session<S extends DocumentSchema = DocumentSchema> {
-	#selection: Selection | null = $state.raw(null);
-
 	schema: S = $state.raw() as S;
-
-	doc: Document = $state.raw() as Document;
-
 	config: SessionConfig = $state.raw({});
-
 	history: HistoryEntry[] = $state.raw([]);
 	history_index = $state.raw(-1);
-	last_batch_started: number | undefined = $state.raw(undefined); // Timestamp for debounced batching
+	/** Timestamp of the open batch (see apply). Reset it to force a new history entry. */
+	last_batch_started: number | undefined = $state.raw(undefined);
 
-	// Commands and keymap - initialized by Svedit when ready
-	// NOTE: Assumes single Svedit instance per session
+	// Commands and keymap, initialized by Svedit (one Svedit instance per session)
 	commands: CommandRegistry = $state.raw({});
 	keymap: Keymap = $state.raw({});
 
-	// Reactive helpers for UI state
+	#doc: Document = $state.raw() as Document;
+	#selection: Selection | null = $state.raw(null);
+	// Untracked mirror of #doc for internal reads
+	#current!: Document;
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Reactivity lives in the cells.
+	#cells = new Map<NodeId, NodeCell>();
+	#focus_owner: NodeId | null = null;
+
 	can_undo = $derived(this.history_index >= 0);
 	can_redo = $derived(this.history_index < this.history.length - 1);
-
-	// Reactive variable for selected node
 	selected_node: AnyNode<S> | null = $derived(this.get_selected_node());
 	available_mark_types = $derived(this.get_available_mark_types());
 	available_annotation_types = $derived(this.get_available_annotation_types());
-	selected_marks = $derived(get_selected_marks(this.schema, this.doc, this.selection));
+	selected_marks: SelectedAttachment[] = $derived(this.#get_selected('marks'));
 	active_mark: SelectedAttachment | null = $derived(
 		this.selected_marks.length === 1 ? this.selected_marks[0] : null
 	);
-	selected_annotations = $derived(get_selected_annotations(this.schema, this.doc, this.selection));
+	selected_annotations: SelectedAttachment[] = $derived(this.#get_selected('annotations'));
 	active_annotation: SelectedAttachment | null = $derived(
 		this.selected_annotations.length === 1 ? this.selected_annotations[0] : null
 	);
@@ -94,412 +106,341 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		config: SessionConfig,
 		options: { selection?: Selection | null } = {}
 	) {
-		// Validate the schema first
 		validate_document_schema(schema);
-
 		this.schema = schema;
-		this.doc = doc;
 		this.config = config;
-		validate_document(this.doc, this.schema);
-		validate_config_components(this.schema, this.config);
-
-		// Set selection after doc is initialized so validation can work properly
+		validate_document(doc, schema);
+		validate_config_components(schema, config);
+		this.#commit(doc);
 		this.selection = options.selection ?? null;
 	}
 
-	/**
-	 * Gets the current selection
-	 */
+	/** Tracked node lookup: subscribes to the node's cell only. */
+	#lookup = (node_id: NodeId): DocumentNode | undefined => {
+		const cell = this.#cells.get(node_id);
+		if (cell) return cell.node;
+		// Unknown ids depend on the whole document, as they may appear later
+		void this.#doc;
+		return undefined;
+	};
+
+	/** Swap in a new document and notify the cells of changed nodes. */
+	#commit(doc: Document, changed_ids?: Iterable<NodeId>): void {
+		const previous = this.#current;
+		this.#current = doc;
+		this.#doc = doc;
+		const ids =
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
+			changed_ids ?? new Set([...Object.keys(previous?.nodes ?? {}), ...Object.keys(doc.nodes)]);
+		for (const id of ids) {
+			const node = doc.nodes[id];
+			const cell = this.#cells.get(id);
+			if (cell) cell.node = node;
+			else if (node) this.#cells.set(id, new NodeCell(node));
+		}
+	}
+
+	/** The document. Assigning a new document re-renders changed nodes. */
+	get doc(): Document {
+		return this.#doc;
+	}
+
+	set doc(doc: Document) {
+		this.#commit(doc);
+		this.#update_focus(this.#selection);
+	}
+
 	get selection(): Selection | null {
 		return this.#selection;
 	}
 
-	/**
-	 * Sets the selection with validation
-	 * @throws {Error} Throws if the selection is invalid
-	 */
+	/** @throws {Error} Throws if the selection is invalid */
 	set selection(value: Selection | null) {
-		this._validate_selection(value);
+		validate_selection(value, this);
 		this.#selection = value;
+		this.#update_focus(value);
+	}
+
+	#update_focus(selection: Selection | null): void {
+		let owner: NodeId | null = null;
+		try {
+			const path = selection?.path.slice(0, -1);
+			if (path?.length)
+				owner = resolve(this.schema, path, (id) => this.#current.nodes[id])?.id ?? null;
+		} catch {
+			// A selection that no longer resolves (e.g. after `session.doc = ...`) has no owner
+		}
+		if (this.#focus_owner !== owner) {
+			const previous = this.#focus_owner && this.#cells.get(this.#focus_owner);
+			if (previous) previous.focus = null;
+			this.#focus_owner = owner ?? null;
+		}
+		const cell = owner && this.#cells.get(owner);
+		if (cell) cell.focus = selection;
 	}
 
 	/**
-	 * Validates that a selection is within bounds and refers to valid paths.
-	 *
-	 * @throws {Error} Throws if the selection is invalid
+	 * The selection if its path is exactly `path`, otherwise null. Only
+	 * re-evaluates when the selection enters, moves within, or leaves the
+	 * node owning that path, which keeps per-component selection checks O(1).
 	 */
-	private _validate_selection(selection: Selection | null): void {
-		validate_selection(selection, this);
+	selection_at(path: DocumentPath): Selection | null {
+		const owner = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
+		const selection = owner?.id ? this.#cells.get(owner.id)?.focus : null;
+		return selection && paths_equal(selection.path, path) ? selection : null;
 	}
 
-	/**
-	 * Gets the document_id from the doc
-	 */
 	get document_id(): string {
-		return this.doc.document_id;
+		return this.#doc.document_id;
 	}
 
 	/**
-	 * Validates the parts of a transaction result that can be affected by the transaction.
-	 *
-	 * This is intentionally narrower than full document validation. It validates all
-	 * created/modified nodes, plus nodes that still reference created, modified, or
-	 * deleted nodes. That catches local node invariants and dangling references left
-	 * behind by deletes without scanning every node on every apply.
+	 * Validates the nodes a transaction can have invalidated: created and
+	 * modified nodes, plus nodes still referencing deleted nodes or nodes
+	 * whose type changed. This avoids scanning the document on every apply.
 	 *
 	 * @throws {Error} Throws if the transaction result is invalid
 	 */
 	validate_transaction_result(transaction: Transaction): void {
 		const doc = transaction.doc;
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
-		const affected_node_ids: Set<NodeId> = new Set([
-			...transaction.created_node_ids,
-			...transaction.modified_node_ids
-		]);
-
-		// A full-document referrer scan is only needed when a reference held
-		// by an UNTOUCHED node can have become invalid:
-		// - deletions can leave dangling references behind
-		// - a 'type' change can violate a referrer's node/mark/annotation type
-		//   constraint
-		// References to created nodes can only live in nodes that were
-		// themselves created or modified in this transaction (the reference
-		// did not exist before), and modifying a node's other properties
-		// cannot invalidate its referrers — so those cases are already
-		// covered by the affected set and need no scan.
-		if (transaction.deleted_node_ids.length > 0 || transaction.changed_node_types) {
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local dedup set.
-			const scan_targets = new Set([
-				...transaction.created_node_ids,
-				...transaction.modified_node_ids,
-				...transaction.deleted_node_ids
-			]);
-			for (const node_id of get_referencing_node_ids(this.schema, doc, scan_targets)) {
-				affected_node_ids.add(node_id);
-			}
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
+		const affected = new Set([...transaction.created_node_ids, ...transaction.modified_node_ids]);
+		// References to created nodes can only live in created or modified
+		// nodes, so only deletions and type changes need a referrer scan.
+		if (transaction.deleted_node_ids.size > 0 || transaction.changed_node_types) {
+			const targets = [...affected, ...transaction.deleted_node_ids];
+			for (const id of get_referencing_node_ids(this.schema, doc, targets)) affected.add(id);
 		}
-
-		for (const node_id of affected_node_ids) {
-			const node = doc.nodes[node_id];
+		for (const id of affected) {
+			const node = doc.nodes[id];
 			if (node) validate_node(node, this.schema, doc.nodes);
 		}
 	}
 
 	generate_id(): string {
-		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
-		if (!is_id_valid(id)) {
-			throw new Error(
-				`Generated node id ${JSON.stringify(id)} is invalid. Node ids must be non-empty strings that start with a letter or underscore, contain only letters, numbers, underscores, or dashes, and must not contain "__".`
-			);
-		}
-		return id;
+		return generate_id(this.config);
 	}
 
 	/**
-	 * Initialize commands and keymap for this session.
-	 * Called by Svedit component when it has the necessary context.
-	 *
-	 * NOTE: This assumes a single Svedit instance per session.
-	 * For multiple editors on the same document, this architecture would need
-	 * to be refactored to support multiple sessions per document.
-	 *
-	 * @param context - The svedit context with session, editable, canvas, etc.
+	 * Initialize commands and keymap from config.create_commands_and_keymap.
+	 * Called by Svedit with its context (one Svedit instance per session).
 	 */
 	initialize_commands(context: SveditContext<S>): void {
-		if (this.config?.create_commands_and_keymap) {
-			const { commands, keymap } = this.config.create_commands_and_keymap(context);
-			this.commands = commands;
-			this.keymap = keymap;
-		}
+		if (!this.config?.create_commands_and_keymap) return;
+		const { commands, keymap } = this.config.create_commands_and_keymap(context);
+		this.commands = commands;
+		this.keymap = keymap;
+	}
+
+	#allowed_types(key: 'mark_types' | 'annotation_types'): string[] {
+		const selection = this.selection;
+		if (selection?.type !== 'text' && selection?.type !== 'node') return [];
+		return this.inspect(selection.path)[key] || [];
 	}
 
 	get_available_mark_types(): string[] {
-		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
-		const property_definition = this.inspect(this.selection.path);
-		return property_definition.mark_types || [];
+		return this.#allowed_types('mark_types');
 	}
 
 	get_available_annotation_types(): string[] {
-		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
-		const property_definition = this.inspect(this.selection.path);
-		return property_definition.annotation_types || [];
+		return this.#allowed_types('annotation_types');
 	}
 
-	// Helper function to get the currently selected node
-	get_selected_node(): AnyNode<S> | null {
-		if (!this.selection) return null;
-
-		if (this.selection.type === 'node') {
-			const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-			const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-			// Only consider selection of a single node
-			if (end - start !== 1) return null;
-			const node_array: NodeArray = this.get(this.selection.path);
-			const node_id = node_array.nodes[start];
-			return node_id ? this.get(node_id) : null;
-		} else {
-			// we are assuming we are either in a text or property (=custom) selection
-			const owner_node_path = this.selection?.path?.slice(0, -1);
-			if (!owner_node_path) return null;
-			const owner_node = this.get(owner_node_path);
-			return owner_node;
-		}
+	#get_selected(key: 'marks' | 'annotations'): SelectedAttachment[] {
+		const selection = this.selection;
+		if (selection?.type !== 'text' && selection?.type !== 'node') return [];
+		return get_selected_attachments(this.get(selection.path), selection, key, this.#lookup);
 	}
 
 	/**
-	 * Creates a new transaction for making atomic changes to the document.
+	 * The single selected node of a node selection, or the node owning the
+	 * property of a text or property selection.
 	 */
+	get_selected_node(): AnyNode<S> | null {
+		const selection = this.selection;
+		if (!selection) return null;
+		if (selection.type !== 'node') return this.get(selection.path.slice(0, -1)) ?? null;
+		const { start_offset, end_offset } = get_selection_range(selection)!;
+		if (end_offset - start_offset !== 1) return null;
+		const node_id = this.get(selection.path).nodes[start_offset];
+		return node_id ? this.get(node_id) : null;
+	}
+
+	/** A new transaction for making atomic changes to the document. */
 	get tr(): Transaction {
-		// We create a copy of the current state to avoid modifying the original
-		return new Transaction(this.schema, this.doc, this.selection, this.config);
+		return new Transaction(this.schema, this.#doc, this.selection, this.config);
 	}
 
 	/**
-	 * Applies a transaction to the document.
-	 * Auto-batches history entries with debounced behavior (max one entry per second) when batch is true.
-	 *
-	 * @param transaction - The transaction to apply
-	 * @param options - Optional configuration (batch: whether to allow batching with previous transaction)
+	 * Applies a transaction to the document. With `batch: true`, it merges
+	 * into the previous history entry while within the batch window.
 	 */
 	apply(transaction: Transaction, { batch = false }: { batch?: boolean } = {}): this {
 		this.validate_transaction_result(transaction);
-		// Only swap the doc when something changed. The transaction draft is
-		// always a fresh object, and assigning it for an ops-less transaction
-		// (e.g. selection-only) would needlessly invalidate every doc-dependent
-		// derived in the component tree.
 		if (transaction.ops.length > 0) {
-			this.doc = transaction.doc;
+			this.#commit(transaction.doc, [
+				...transaction.created_node_ids,
+				...transaction.modified_node_ids,
+				...transaction.deleted_node_ids
+			]);
 		}
-		// Make sure selection gets a new reference (is rerendered)
+		// A fresh reference, so the selection gets rerendered
 		this.selection = structuredClone(transaction.selection);
-		if (this.history_index < this.history.length - 1) {
-			this.history = this.history.slice(0, this.history_index + 1);
-		}
 
+		const history = this.history.slice(0, this.history_index + 1);
 		const now = Date.now();
-		const should_batch =
+		const entry = history[this.history_index];
+		if (
 			batch &&
+			entry &&
 			this.last_batch_started !== undefined &&
-			now - this.last_batch_started < BATCH_WINDOW_MS;
-
-		if (should_batch) {
-			// Append to existing history entry (within the batch window)
-			const last_entry = this.history[this.history_index];
-			last_entry.ops.push(...transaction.ops);
-			last_entry.inverse_ops.push(...transaction.inverse_ops);
-			last_entry.selection_after = this.selection;
-			// Trigger update
-			this.history = [...this.history];
+			now - this.last_batch_started < BATCH_WINDOW_MS
+		) {
+			history[this.history_index] = {
+				...entry,
+				ops: [...entry.ops, ...transaction.ops],
+				inverse_ops: [...entry.inverse_ops, ...transaction.inverse_ops],
+				selection_after: this.selection
+			};
 		} else {
-			// Create new history entry (batch window elapsed, first edit, or batch not requested)
-			this.history = [
-				...this.history,
-				{
-					ops: transaction.ops,
-					inverse_ops: transaction.inverse_ops,
-					selection_before: transaction.selection_before,
-					selection_after: this.selection
-				}
-			];
-			this.history_index = this.history_index + 1;
-			// Only set last_batch_started if batching was requested
-			if (batch) {
-				this.last_batch_started = now;
-			} else {
-				this.last_batch_started = undefined;
-			}
+			history.push({
+				ops: transaction.ops,
+				inverse_ops: transaction.inverse_ops,
+				selection_before: transaction.selection_before,
+				selection_after: this.selection
+			});
+			this.history_index = history.length - 1;
+			this.last_batch_started = batch ? now : undefined;
 		}
-
+		this.history = history;
 		return this;
 	}
 
-	undo(): this | undefined {
-		if (this.history_index < 0) {
-			return;
-		}
-		const change = this.history[this.history_index];
-		// One draft for the whole change set — ops mutate the draft with
-		// node-level copy-on-write instead of copying the nodes map per op.
-		const doc = create_document_draft(this.doc);
-		change.inverse_ops
-			.slice()
-			.reverse()
-			.forEach((op) => {
-				apply_op_to_draft(doc, op);
-			});
-		this.doc = doc;
-		this.selection = change.selection_before;
-		this.history_index = this.history_index - 1;
-		// History navigation ends any open typing batch, so the next batched
-		// apply starts a fresh entry instead of appending to a stale one.
+	#replay(ops: Transaction['ops'], selection: Selection | null): void {
+		const draft = { ...this.#current, nodes: { ...this.#current.nodes } };
+		for (const op of ops) apply_op(draft, op, (value) => $state.snapshot(value) as typeof value);
+		this.#commit(draft, ops.map(op_node_id));
+		this.selection = selection;
+		// History navigation ends any open typing batch
 		this.last_batch_started = undefined;
+	}
+
+	undo(): this | undefined {
+		if (this.history_index < 0) return;
+		const entry = this.history[this.history_index];
+		this.#replay([...entry.inverse_ops].reverse(), entry.selection_before);
+		this.history_index -= 1;
 		return this;
 	}
 
 	redo(): this | undefined {
-		if (this.history_index >= this.history.length - 1) {
-			return;
-		}
-		this.history_index = this.history_index + 1;
-		const change = this.history[this.history_index];
-		const doc = create_document_draft(this.doc);
-		change.ops.forEach((op) => {
-			apply_op_to_draft(doc, op);
-		});
-		this.doc = doc;
-		this.selection = change.selection_after;
-		// Redo ends any open typing batch, matching undo().
-		this.last_batch_started = undefined;
+		if (this.history_index >= this.history.length - 1) return;
+		this.history_index += 1;
+		const entry = this.history[this.history_index];
+		this.#replay(entry.ops, entry.selection_after);
 		return this;
 	}
 
 	/**
-	 * Gets a node instance or property value at the specified path.
-	 *
-	 * The result type defaults to `any` because a path can address a node or
-	 * any property value. Annotate the target to type the result.
+	 * Gets a node or property value at a path. The result type defaults to
+	 * `any`, since a path can address any value; annotate the target to type it.
 	 *
 	 * @example
-	 * // Get a node by ID
 	 * session.get('list_1') // => { type: 'list', id: 'list_1', ... }
-	 *
-	 * @example
-	 * // Get a node array property
-	 * session.get(['list_1', 'list_items']) // => [ 'list_item_1', 'list_item_2' ]
-	 *
-	 * @example
-	 * // Get a specific node from an array
+	 * session.get(['list_1', 'list_items']) // => { nodes: ['list_item_1'], marks: [], annotations: [] }
 	 * session.get(['page_1', 'body', 3, 'list_items', 0]) // => { type: 'list_item', id: 'list_item_1', ... }
-	 *
-	 * @example
-	 * // Get a text property
 	 * session.get(['page_1', 'cover', 'title']) // => {content: 'Hello world', marks: [], annotations: []}
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	get<T = any>(path: DocumentPath | string): T {
-		return doc_get(this.schema, this.doc, path);
+		return resolve(this.schema, path, this.#lookup);
 	}
 
 	/**
-	 * While .get gives you the value of a path, inspect gives you
-	 * the type info of that value.
-	 *
-	 * @todo The layout of these should be improved and more explictly typed
+	 * Type information about the value at a path.
 	 *
 	 * @example
 	 * session.inspect(['page_1', 'body']) => {
-	 *   kind: 'property',
-	 *   name: 'body',
-	 *   type: 'node_array',
-	 *   node_types: ['text', 'story', 'list'],
-	 *   default_node_type: 'text'
+	 *   kind: 'property', name: 'body', type: 'node_array',
+	 *   node_types: ['text', 'story', 'list'], default_node_type: 'text'
 	 * }
-	 *
-	 * @example
 	 * session.inspect(['page_1', 'body', 1]) => {
-	 *   kind: 'node',
-	 *   id: 'paragraph_234',
-	 *   type: 'paragraph',
-	 *   properties: {...}
+	 *   kind: 'node', id: 'paragraph_234', type: 'paragraph', properties: {...}
 	 * }
 	 */
 	inspect(path: DocumentPath): Inspection {
-		return doc_inspect(this.schema, this.doc, path);
+		return inspect(this.schema, path, this.#lookup);
 	}
 
-	/**
-	 * Determines the kind of a node ('document' for root nodes, 'block' for
-	 * structured blocks, 'text' for pure text nodes, 'mark' for mark nodes or
-	 * 'annotation' for annotation nodes).
-	 */
+	/** The kind of a node: 'document', 'block', 'text', 'mark' or 'annotation'. */
 	kind(node: DocumentNode): NodeKind {
-		return doc_kind(this.schema, node);
+		return kind(this.schema, node);
 	}
 
-	/**
-	 * Determines whether a node type can be inserted at a given selection.
-	 *
-	 * @param node_type - The type of node to insert.
-	 * @param selection - The selection at which to insert the node.
-	 * @returns True if the node type can be inserted, false otherwise.
-	 */
+	/** Whether a node type can be inserted at the selection or an ancestor caret. */
 	can_insert(node_type: string, selection: Selection | null = this.selection): boolean {
-		if (selection?.type === 'node') {
-			const property_definition = this.inspect(selection.path);
-			if (property_definition.node_types.includes(node_type)) {
+		for (let caret = selection; caret; caret = this.get_next_node_insert_caret(caret)) {
+			if (caret.type === 'node' && this.inspect(caret.path).node_types.includes(node_type))
 				return true;
-			}
 		}
-
-		// No insert position found yet, and root not reached, try one level up if possible
-		let next_node_insert_caret = this.get_next_node_insert_caret(selection);
-		if (!next_node_insert_caret) return false;
-		return this.can_insert(node_type, next_node_insert_caret);
+		return false;
 	}
 
 	/**
-	 * Compute next possible insert position from a given selection
-	 *
-	 * @param selection - Reference selection
-	 * @returns The next node insert caret selection, or null if none is available
+	 * The next possible node insert position after the innermost node array
+	 * entry along the selection path, or null if there is none.
 	 */
 	get_next_node_insert_caret(selection: Selection | null = this.selection): Selection | null {
 		if (!selection) return null;
-
-		// Array indexes identify insertion positions. Single-node references can
-		// occur between arrays, so removing a fixed pair of segments is unsafe.
+		// Single-node references can sit between arrays, so look for indexes
 		for (let index = selection.path.length - 1; index >= 1; index--) {
 			const node_index = selection.path[index];
 			if (typeof node_index !== 'number') continue;
-			const parent_path = selection.path.slice(0, index);
-			if (this.inspect(parent_path).type !== 'node_array') continue;
-			return {
-				type: 'node',
-				path: parent_path,
-				anchor_offset: node_index + 1,
-				focus_offset: node_index + 1
-			};
+			const path = selection.path.slice(0, index);
+			if (this.inspect(path).type !== 'node_array') continue;
+			return { type: 'node', path, anchor_offset: node_index + 1, focus_offset: node_index + 1 };
 		}
 		return null;
 	}
 
+	/**
+	 * Clip ranges to the selected range [start, end) and collect the payload
+	 * subgraphs of the remaining ranges into `nodes`.
+	 */
+	#clip_ranges(
+		ranges: Attachment[],
+		start: number,
+		end: number,
+		nodes: Record<string, DocumentNode>
+	): Attachment[] {
+		return ranges.flatMap((range) => {
+			if (start >= range.end_offset || end <= range.start_offset) return [];
+			this.#collect(range.node_id, nodes);
+			return [
+				{
+					start_offset: Math.max(range.start_offset - start, 0),
+					end_offset: Math.min(range.end_offset - start, end - start),
+					node_id: range.node_id
+				}
+			];
+		});
+	}
+
+	#collect(node_id: NodeId, nodes: Record<string, DocumentNode>): void {
+		for (const node of this.traverse(node_id)) nodes[node.id] ??= node;
+	}
+
 	get_selected_text(): (Text & { nodes: Record<string, DocumentNode> }) | null {
 		if (this.selection?.type !== 'text') return null;
-
-		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text_value: Text = this.get(this.selection.path);
-		const selected_text = char_slice(text_value.content, selection_start, selection_end);
+		const { start_offset, end_offset } = get_selection_range(this.selection)!;
+		const text: Text = this.get(this.selection.path);
 		const nodes: Record<string, DocumentNode> = {};
-
-		const clip_ranges = (ranges: Attachment[]) =>
-			ranges
-				.map((range) => {
-					if (selection_start < range.end_offset && selection_end > range.start_offset) {
-						const sub_graph = this.traverse(range.node_id);
-						for (const node of sub_graph) {
-							if (!nodes[node.id]) {
-								nodes[node.id] = node;
-							}
-						}
-						return {
-							start_offset: Math.max(range.start_offset - selection_start, 0),
-							end_offset: Math.min(
-								range.end_offset - selection_start,
-								selection_end - selection_start
-							),
-							node_id: range.node_id
-						};
-					} else {
-						return null;
-					}
-				})
-				.filter((range): range is Attachment => range !== null);
-
-		const marks = clip_ranges(text_value.marks);
-		const annotations = clip_ranges(text_value.annotations);
-
-		return { content: selected_text, marks, annotations, nodes };
+		return {
+			content: char_slice(text.content, start_offset, end_offset),
+			marks: this.#clip_ranges(text.marks, start_offset, end_offset, nodes),
+			annotations: this.#clip_ranges(text.annotations, start_offset, end_offset, nodes),
+			nodes
+		};
 	}
 
 	get_selected_annotated_nodes(): {
@@ -509,153 +450,78 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		annotations: Attachment[];
 	} | null {
 		if (this.selection?.type !== 'node') return null;
-
-		const selection_start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		const selection_end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
+		const { start_offset, end_offset } = get_selection_range(this.selection)!;
 		const node_array: NodeArray = this.get(this.selection.path);
-		const main_nodes = node_array.nodes.slice(selection_start, selection_end);
+		const main_nodes = node_array.nodes.slice(start_offset, end_offset);
 		const nodes: Record<string, DocumentNode> = {};
-
-		const add_subgraph = (node_id: NodeId) => {
-			for (const node of this.traverse(node_id)) {
-				if (!nodes[node.id]) nodes[node.id] = node;
-			}
+		for (const node_id of main_nodes) this.#collect(node_id, nodes);
+		return {
+			nodes,
+			main_nodes,
+			marks: this.#clip_ranges(node_array.marks, start_offset, end_offset, nodes),
+			annotations: this.#clip_ranges(node_array.annotations, start_offset, end_offset, nodes)
 		};
-
-		for (const node_id of main_nodes) add_subgraph(node_id);
-
-		const clip_ranges = (ranges: Attachment[]) =>
-			ranges
-				.map((range) => {
-					if (selection_start >= range.end_offset || selection_end <= range.start_offset) {
-						return null;
-					}
-
-					add_subgraph(range.node_id);
-					return {
-						start_offset: Math.max(range.start_offset - selection_start, 0),
-						end_offset: Math.min(
-							range.end_offset - selection_start,
-							selection_end - selection_start
-						),
-						node_id: range.node_id
-					};
-				})
-				.filter((range): range is Attachment => range !== null);
-
-		const marks = clip_ranges(node_array.marks);
-		const annotations = clip_ranges(node_array.annotations);
-
-		return { nodes, main_nodes, marks, annotations };
 	}
 
-	// TODO: think about ways how we can also turn a node selection into plain text.
 	get_selected_plain_text(): string | null {
 		if (this.selection?.type !== 'text') return null;
-
-		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const text: Text = this.get(this.selection.path);
-		return char_slice(text.content, start, end);
+		const { start_offset, end_offset } = get_selection_range(this.selection)!;
+		return char_slice(this.get(this.selection.path).content, start_offset, end_offset);
 	}
 
 	get_selected_nodes(): NodeId[] | null {
 		if (this.selection?.type !== 'node') return null;
-
-		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		const end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		const node_array: NodeArray = this.get(this.selection.path);
-		// node_array.nodes is a plain array of id strings (doc is $state.raw),
-		// so a slice is already a safe fresh copy.
-		return node_array.nodes.slice(start, end);
+		const { start_offset, end_offset } = get_selection_range(this.selection)!;
+		return this.get(this.selection.path).nodes.slice(start_offset, end_offset);
 	}
 
+	/** Select the node that contains the current selection (or clear it at the top). */
 	select_parent(): void {
-		if (!this.selection) return;
-		if (['text', 'property'].includes(this.selection.type)) {
-			// For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
-			// in the path
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = this.selection.path[this.selection.path.length - 2] as number;
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else if (this.selection.type === 'node') {
-			// For node selections, we go up one level
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = this.selection.path[this.selection.path.length - 2] as number;
-
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else {
+		const path = this.selection?.path;
+		if (!path) return;
+		if (path.length <= 3) {
 			this.selection = null;
+			return;
 		}
-	}
-
-	/**
-	 * Traverses the document and returns a list of nodes in depth-first order.
-	 *
-	 * The traversal order is:
-	 * 1. Leaf nodes first
-	 * 2. Branch nodes second
-	 * 3. Root node (entry point) last
-	 *
-	 * Nodes that are not reachable from the entry point node will not be included.
-	 */
-	traverse(node_id: string): Array<DocumentNode> {
-		// doc is $state.raw, so doc.nodes is a plain (non-proxied) object —
-		// traverse() reads it directly and deep-clones each visited node.
-		// The previous $state.snapshot(this.doc.nodes) here deep-cloned the
-		// ENTIRE document per call, which made copying M nodes O(M·N).
-		return traverse(node_id, this.schema, this.doc.nodes);
-	}
-
-	/**
-	 * Convert the document to a clean format for persistence.
-	 *
-	 * We make a traversal to ensure that orphaned nodes are not included,
-	 * and that leaf nodes go first, followed by branches and the root node at last.
-	 */
-	to_json(): Document {
-		// this will order the nodes (depth-first traversal)
-		const nodes_array = this.traverse(this.document_id);
-		// convert nodes array to object with node IDs as keys
-		const nodes = Object.fromEntries(nodes_array.map((node) => [node.id, node]));
-		return {
-			document_id: this.document_id,
-			nodes
+		const index = path.at(-2) as number;
+		this.selection = {
+			type: 'node',
+			path: path.slice(0, -2),
+			anchor_offset: index,
+			focus_offset: index + 1
 		};
 	}
 
+	/**
+	 * Deep copies of the nodes reachable from a node in depth-first order:
+	 * leaves first, branches second, the entry point last.
+	 */
+	traverse(node_id: string): Array<DocumentNode> {
+		return traverse(node_id, this.schema, this.#doc.nodes);
+	}
+
+	/**
+	 * The document in a clean format for persistence: orphaned nodes are
+	 * dropped, leaves come first and the root node last.
+	 */
+	to_json(): Document {
+		const nodes = Object.fromEntries(
+			this.traverse(this.document_id).map((node) => [node.id, node])
+		);
+		return { document_id: this.document_id, nodes };
+	}
+
 	// property_type('page', 'body') => 'node_array'
-	// property_type('paragraph', 'content') => 'text'
 	property_type(type: string, property: string): string {
-		return doc_property_type(this.schema, type, property);
+		return property_type(this.schema, type, property);
 	}
 
-	// Count how many times a node is referenced in the document
 	count_references(node_id: NodeId): number {
-		return doc_count_references(this.schema, this.doc, node_id);
+		return count_references(this.schema, this.#doc, node_id);
 	}
 
-	// Get all nodes referenced by a given node (recursively)
+	/** All nodes referenced by a node, recursively. */
 	get_referenced_nodes(node_id: NodeId): NodeId[] {
-		// Id-only traversal — no need to deep-clone the subgraph for ids.
-		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
+		return traverse_ids(node_id, this.schema, this.#doc.nodes).slice(0, -1);
 	}
 }

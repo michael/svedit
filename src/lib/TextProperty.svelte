@@ -3,22 +3,19 @@
 	import {
 		char_slice,
 		get_char_length,
-		paths_equal,
 		serialize_path,
 		get_selection_range,
 		calculate_fragment_ranges
 	} from './utils.js';
-
 	import type {
 		TextPropertyProps,
-		Mark,
+		Text,
 		Fragment,
 		SelectionRange,
 		SveditContext
 	} from './types.js';
 
 	const svedit = getContext<SveditContext>('svedit');
-
 	let {
 		path,
 		class: css_class,
@@ -29,105 +26,46 @@
 	}: TextPropertyProps = $props();
 
 	let path_str = $derived(serialize_path(path));
+	let text: Text = $derived(svedit.session.get(path));
+	// Only re-evaluates while the selection is in the node owning this text
+	let selection = $derived(svedit.session.selection_at(path));
+	let is_focused = $derived(selection?.type === 'text');
+	let is_empty = $derived(text.content.length === 0 && !(is_focused && svedit.is_composing));
 
-	let is_focused = $derived.by(() => {
-		return (
-			svedit.session.selection?.type === 'text' && paths_equal(path, svedit.session.selection.path)
-		);
+	// While the canvas is blurred, a highlight span stands in for the native
+	// selection (and serves as an anchor for popovers). It is never rendered
+	// while focused: splitting text nodes during native selection causes
+	// selection feedback loops. It is skipped when the selection touches marks.
+	let highlight_range = $derived.by(() => {
+		if (selection?.type !== 'text' || selection.anchor_offset === selection.focus_offset)
+			return null;
+		if (svedit.canvas_focused || svedit.session.selected_marks.length > 0) return null;
+		return get_selection_range(selection);
 	});
 
-	let plain_text = $derived(svedit.session.get(path).content);
-	// A string has zero grapheme clusters iff it has zero code units, so a
-	// plain length check avoids a full Intl.Segmenter pass (this derived
-	// re-runs for every text property on every document change).
-	let is_empty = $derived(plain_text.length === 0 && !(svedit.is_composing && is_focused));
+	let fragments = $derived(get_fragments(text, highlight_range));
 
-	let is_collapsed = $derived.by(() => {
-		const selection = svedit.session.selection;
-		return (
-			is_focused && selection?.type === 'text' && selection.anchor_offset === selection.focus_offset
-		);
-	});
-
-	// Get selection highlight range if it does not touch marks.
-	// Only render selection highlight when canvas is NOT focused.
-	// This avoids DOM mutations (splitting text nodes for highlight spans)
-	// while the user is actively selecting, which would cause selection
-	// feedback loops and scroll-to-focus issues.
-	let selection_highlight_range = $derived.by(() => {
-		if (svedit.canvas_focused) return null;
-		if (is_collapsed) return null;
-		if (!is_focused) return null;
-		if (svedit.session.selected_marks.length > 0) return null;
-		const sel = svedit.session.selection;
-		if (!sel || sel.type !== 'text') return null;
-		return get_selection_range(sel);
-	});
-
-	let fragments = $derived(
-		get_fragments(
-			svedit.session.get(path).content,
-			svedit.session.get(path).marks,
-			selection_highlight_range
-		)
-	);
-
-	/**
-	 * Converts text with marks into renderable fragments for display.
-	 * Annotations never fragment the text; they are data-only.
-	 */
-	function get_fragments(
-		text: string,
-		marks: Array<Mark>,
-		selection_highlight_range?: SelectionRange | null
-	): Array<Fragment> {
-		// Fast path: no marks and no selection highlight means the whole text
-		// is a single content fragment. This runs for EVERY text property on
-		// EVERY document change, so skipping the two full Intl.Segmenter passes
-		// (get_char_length + char_slice over the whole text) matters at scale.
-		if (marks.length === 0 && !selection_highlight_range) {
-			return text.length > 0 ? [text] : [];
-		}
-
-		const ranges = calculate_fragment_ranges(
-			get_char_length(text),
-			marks,
-			selection_highlight_range
-		);
-		const fragments: Array<Fragment> = [];
-
-		for (const range of ranges) {
-			const content = char_slice(text, range.start_offset, range.end_offset);
-
-			if (range.type === 'mark') {
-				const node = svedit.session.get(range.node_id);
-				if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
-
-				fragments.push({
-					type: 'mark',
-					node,
-					content,
-					mark_index: range.mark_index!
-				});
-			} else if (range.type === 'selection_highlight') {
-				fragments.push({
-					type: 'selection_highlight',
-					content
-				});
-			} else {
-				fragments.push(content);
-			}
-		}
-
-		return fragments;
+	/** Split text into plain, mark and highlight fragments. Annotations never fragment text. */
+	function get_fragments(text: Text, highlight_range: SelectionRange | null): Fragment[] {
+		if (text.marks.length === 0 && !highlight_range) return text.content ? [text.content] : [];
+		return calculate_fragment_ranges(
+			get_char_length(text.content),
+			text.marks,
+			highlight_range
+		).map((range): Fragment => {
+			const content = char_slice(text.content, range.start_offset, range.end_offset);
+			if (range.type === 'content') return content;
+			if (range.type === 'selection_highlight') return { type: 'selection_highlight', content };
+			const node = svedit.session.get(range.node_id!);
+			if (!node) throw new Error(`Node not found for mark ${range.node_id}`);
+			return { type: 'mark', node, content, mark_index: range.mark_index! };
+		});
 	}
 </script>
 
-<!-- ATTENTION: The comments are needed to prevent unwanted text nodes with whitespace. -->
-<!-- We need to use <br> so the element is reachable by Arrow Up/Down navigation. -->
-<!-- But as soon as the element is focused, we get rid of the <br> as it causes issues with caret positioning. -->
-<!-- Before, we were just hiding it on focus, but that caused the caret to disappear on Safari Desktop (tested with v26). -->
-<!-- Edge Case: Shift Enter stops working if <br> is not present on a non-empty text property. -->
+<!-- ATTENTION: No whitespace between fragments, it would become text nodes. -->
+<!-- The <br> keeps the element reachable by Arrow Up/Down navigation, and makes Shift+Enter work on non-empty text. -->
+<!-- It is removed while the empty text is focused, since it breaks caret positioning (hiding it makes the caret disappear in Safari). -->
 <svelte:element
 	this={tag}
 	data-type="text"
@@ -139,21 +77,15 @@
 	{placeholder}
 	{...rest}
 >
-	{#each fragments as fragment, index (index)}
-		{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
+	{#each fragments as fragment, index (index)}{#if typeof fragment === 'string'}{fragment}{:else if fragment.type === 'selection_highlight'}<span
 				class="selection-highlight"
 				style="anchor-name: --selection-highlight;">{fragment.content}</span
-			>{:else if fragment.type === 'mark'}
-			{@const MarkComponent = svedit.session.config.node_components[fragment.node.type]}
-			{#if MarkComponent}
-				<MarkComponent
+			>{:else}{@const MarkComponent =
+				svedit.session.config.node_components[fragment.node.type]}{#if MarkComponent}<MarkComponent
 					path={[...path, 'marks', fragment.mark_index, 'node_id']}
 					content={fragment.content}
-				/>
-			{:else}<span class="mark-{fragment.node.type}">{fragment.content}</span>{/if}
-		{/if}
-	{/each}<!--
-  -->{#if !is_focused || !is_empty}<br />{/if}
+				/>{:else}<span class="mark-{fragment.node.type}">{fragment.content}</span
+				>{/if}{/if}{/each}{#if !is_focused || !is_empty}<br />{/if}
 </svelte:element>
 
 <style>

@@ -1,24 +1,21 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { serialize_path } from './utils.js';
-	import type { DocumentPath, SveditContext } from './types.js';
+	import { serialize_path, get_selection_range } from './utils.js';
+	import type { SveditContext } from './types.js';
 
 	const svedit = getContext<SveditContext>('svedit');
-	let selected_node_paths = $derived(get_selected_node_paths());
 
-	function get_selected_node_paths(): DocumentPath[] | undefined {
-		const paths: DocumentPath[] = [];
+	// Anchor names of the selected nodes of a non-collapsed node selection
+	let selected_node_anchors = $derived.by(() => {
 		const selection = svedit.session.selection;
-		if (!selection) return;
-		if (selection.type !== 'node' || selection.anchor_offset === selection.focus_offset) return;
-
-		const start = Math.min(selection.anchor_offset, selection.focus_offset);
-		const end = Math.max(selection.anchor_offset, selection.focus_offset);
-		for (let index = start; index < end; index++) {
-			paths.push([...selection.path, index]);
-		}
-		return paths;
-	}
+		if (selection?.type !== 'node') return [];
+		const { start_offset, end_offset } = get_selection_range(selection)!;
+		const array_path = serialize_path(selection.path);
+		return Array.from(
+			{ length: end_offset - start_offset },
+			(_, index) => `${array_path}__${start_offset + index}`
+		);
+	});
 </script>
 
 {#if svedit.session.selection?.type === 'property'}
@@ -29,15 +26,13 @@
 	></div>
 {/if}
 
-{#if selected_node_paths}
-	{#each selected_node_paths as path (serialize_path(path))}
-		<div
-			class="selected-node-overlay"
-			class:unfocused={!svedit.canvas_focused}
-			style="position-anchor: --{serialize_path(path)};"
-		></div>
-	{/each}
-{/if}
+{#each selected_node_anchors as anchor (anchor)}
+	<div
+		class="selected-node-overlay"
+		class:unfocused={!svedit.canvas_focused}
+		style="position-anchor: --{anchor};"
+	></div>
+{/each}
 
 <style>
 	.selected-node-overlay,

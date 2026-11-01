@@ -9,49 +9,39 @@
 	} from './types.js';
 
 	const svedit = getContext<SveditRenderContext>('svedit');
+	const node_array = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
 
 	let { path, children, tag = 'div', class: css_class, style = '', ...rest }: NodeProps = $props();
 
 	let node = $derived(svedit.session.get(path));
 	let path_str = $derived(serialize_path(path));
+	let index = $derived(node_array ? (path.at(-1) as number) : -1);
 
-	const node_array_meta = getContext<NodeArrayRenderContext | undefined>('node_array_meta');
-	let child_index = $derived(node_array_meta ? (path.at(-1) as number) : -1);
-	let is_first = $derived(node_array_meta && child_index === 0);
-	let is_last = $derived(node_array_meta && child_index === node_array_meta.length - 1);
-
-	// Marks and annotations covering this node become classes automatically:
-	// `mark-<type>`/`anno-<type>`, plus `-start`/`-end` variants on the run's
-	// first/last covered node. This allows styling ranges (including
-	// annotations, which never render wrapper components) with pure CSS. For
-	// richer rendering, node components still receive the `mark` and
-	// `annotations` props.
-	let range_classes = $derived.by(() => {
-		if (child_index < 0 || !node_array_meta?.annotations_for) return '';
-		const classes: string[] = [];
-
-		const add_classes = (range: NodeArrayAttachmentContext | null | undefined, prefix: string) => {
-			const range_type = range?.node?.type;
-			if (!range_type) return;
-			classes.push(`${prefix}-${range_type}`);
-			if (range.is_start) classes.push(`${prefix}-${range_type}-start`);
-			if (range.is_end) classes.push(`${prefix}-${range_type}-end`);
+	// Marks and annotations covering this node become classes:
+	// `mark-<type>`/`anno-<type>`, plus `-start`/`-end` on the first/last
+	// covered node, so ranges (including data-only annotations) can be
+	// styled with pure CSS. Node components also receive them as props.
+	let classes = $derived.by(() => {
+		if (!node_array || index < 0) return '';
+		let result = index === 0 ? ' first' : '';
+		if (index === node_array.length - 1) result += ' last';
+		const add = (range: NodeArrayAttachmentContext | null, prefix: string) => {
+			const type = range?.node?.type;
+			if (!type) return;
+			result += ` ${prefix}-${type}`;
+			if (range.is_start) result += ` ${prefix}-${type}-start`;
+			if (range.is_end) result += ` ${prefix}-${type}-end`;
 		};
-
-		add_classes(node_array_meta.mark_for?.(child_index), 'mark');
-		for (const annotation of node_array_meta.annotations_for(child_index)) {
-			add_classes(annotation, 'anno');
-		}
-		return classes.join(' ');
+		add(node_array.mark_for(index), 'mark');
+		for (const annotation of node_array.annotations_for(index)) add(annotation, 'anno');
+		return result;
 	});
 </script>
 
 <svelte:element
 	this={tag}
 	id={node.id}
-	class="node-{node.type} {css_class}{range_classes ? ` ${range_classes}` : ''}{is_first
-		? ' first'
-		: ''}{is_last ? ' last' : ''}"
+	class="node-{node.type} {css_class}{classes}"
 	data-node-id={node.id}
 	data-path={path_str}
 	data-type="node"
