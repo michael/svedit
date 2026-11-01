@@ -17,7 +17,7 @@ import {
 	get_selected_attachments,
 	validate_selection
 } from './doc_utils.js';
-import type { SelectedAttachment } from './doc_utils.js';
+import type { ResolveTracker, SelectedAttachment } from './doc_utils.js';
 import type {
 	NodeId,
 	DocumentPath,
@@ -51,12 +51,26 @@ type HistoryEntry = {
  * subscribes to the cells of the nodes along the path, so an edit re-renders
  * only the components that depend on the changed nodes. `focus` holds the
  * selection while it lies in one of the node's properties.
+ *
+ * Passing through a node array by index subscribes to the node id at that
+ * index only (its slot), so inserting a node doesn't re-render the nodes
+ * before it.
  */
 class NodeCell {
 	node: DocumentNode | undefined = $state.raw();
+	type: string | undefined = $state.raw();
 	focus: Selection | null = $state.raw(null);
+	slots = new Map<string, Slot[]>();
 	constructor(node: DocumentNode) {
 		this.node = node;
+		this.type = node.type;
+	}
+}
+
+class Slot {
+	id: NodeId | undefined = $state.raw();
+	constructor(id: NodeId) {
+		this.id = id;
 	}
 }
 
@@ -124,6 +138,24 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		return undefined;
 	};
 
+	/** Untracked node lookup for path resolution, which subscribes via #tracker. */
+	#peek = (node_id: NodeId): DocumentNode | undefined => {
+		const node = this.#current.nodes[node_id];
+		if (!node) void this.#doc;
+		return node;
+	};
+
+	#tracker: ResolveTracker = {
+		node: (node) => void this.#cells.get(node.id)?.node,
+		type: (node) => void this.#cells.get(node.id)?.type,
+		slot: (owner, property, index) => {
+			const cell = this.#cells.get(owner.id);
+			const slot = cell?.slots.get(property)?.[index];
+			// Without a slot at the index, depend on the whole node
+			void (slot ? slot.id : cell?.node);
+		}
+	};
+
 	/** Swap in a new document and notify the cells of changed nodes. */
 	#commit(doc: Document, changed_ids?: Iterable<NodeId>): void {
 		const previous = this.#current;
@@ -134,9 +166,35 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 			changed_ids ?? new Set([...Object.keys(previous?.nodes ?? {}), ...Object.keys(doc.nodes)]);
 		for (const id of ids) {
 			const node = doc.nodes[id];
-			const cell = this.#cells.get(id);
-			if (cell) cell.node = node;
-			else if (node) this.#cells.set(id, new NodeCell(node));
+			let cell = this.#cells.get(id);
+			if (cell) {
+				cell.node = node;
+				cell.type = node?.type;
+			} else if (node) {
+				this.#cells.set(id, (cell = new NodeCell(node)));
+			}
+			if (cell) this.#update_slots(cell, node);
+		}
+	}
+
+	/** Update the slots of a node's arrays, notifying only changed indexes. */
+	#update_slots(cell: NodeCell, node: DocumentNode | undefined): void {
+		const properties = node ? this.schema[node.type]?.properties : undefined;
+		for (const [property, slots] of cell.slots) {
+			if (properties?.[property]?.type !== 'node_array') {
+				for (const slot of slots) slot.id = undefined;
+			}
+		}
+		if (!properties) return;
+		for (const [property, definition] of Object.entries(properties)) {
+			if (definition.type !== 'node_array') continue;
+			const ids: NodeId[] = node![property]?.nodes ?? [];
+			let slots = cell.slots.get(property);
+			if (!slots) cell.slots.set(property, (slots = []));
+			for (let index = 0; index < ids.length || index < slots.length; index++) {
+				if (index >= slots.length) slots.push(new Slot(ids[index]));
+				else if (slots[index].id !== ids[index]) slots[index].id = ids[index];
+			}
 		}
 	}
 
@@ -185,7 +243,9 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 * node owning that path, which keeps per-component selection checks O(1).
 	 */
 	selection_at(path: DocumentPath): Selection | null {
-		const owner = path.length > 1 ? this.get(path.slice(0, -1)) : undefined;
+		if (path.length < 2) return null;
+		// Only which node owns the path matters, not its content
+		const owner = resolve(this.schema, path.slice(0, -1), this.#peek, this.#tracker, false);
 		const selection = owner?.id ? this.#cells.get(owner.id)?.focus : null;
 		return selection && paths_equal(selection.path, path) ? selection : null;
 	}
@@ -353,7 +413,7 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	get<T = any>(path: DocumentPath | string): T {
-		return resolve(this.schema, path, this.#lookup);
+		return resolve(this.schema, path, this.#peek, this.#tracker);
 	}
 
 	/**

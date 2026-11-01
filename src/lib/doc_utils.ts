@@ -36,6 +36,20 @@ import type {
 export type NodeLookup = (node_id: NodeId) => DocumentNode | undefined;
 
 /**
+ * Receives what a resolved value depends on, so the Session can subscribe
+ * at the finest grain: the node id at a node array index instead of the
+ * whole node owning the array.
+ */
+export type ResolveTracker = {
+	/** A property of the node is read, or the node itself is the result */
+	node(node: DocumentNode): void;
+	/** Only the node's type is read */
+	type(node: DocumentNode): void;
+	/** The node id at an index of a node array property is read */
+	slot(owner: DocumentNode, property: string, index: number): void;
+};
+
+/**
  * Identity function that keeps the schema at runtime and lets the IDE
  * infer literal schema types.
  */
@@ -407,23 +421,40 @@ export function validate_document(doc: Document, schema: DocumentSchema): void {
 export function resolve(
 	schema: DocumentSchema,
 	path: DocumentPath | string,
-	lookup: NodeLookup
+	lookup: NodeLookup,
+	track?: ResolveTracker,
+	// Whether a node result is tracked (or only how it was reached)
+	track_result = true
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
-	if (typeof path === 'string') return lookup(path);
+	if (typeof path === 'string') {
+		const node = lookup(path);
+		if (node && track_result) track?.node(node);
+		return node;
+	}
 	if (!Array.isArray(path) || path.length === 0) {
 		throw new Error(`Invalid path provided ${JSON.stringify(path)}`);
 	}
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let value: any = lookup(path[0] as string);
 	let kind = 'node';
+	// The node and property holding the current node_array value
+	let owner: DocumentNode | undefined;
+	let property = '';
 	for (let index = 1; index < path.length; index++) {
 		const segment = path[index];
 		if (kind === 'node') {
 			const type = property_type(schema, value.type, String(segment));
+			const next = path[index + 1];
+			// An index into a node array only depends on the id at that index
+			if (type === 'node_array' && (typeof next === 'number' || /^\d+$/.test(String(next))))
+				track?.type(value);
+			else track?.node(value);
 			if (type === 'node') {
 				value = lookup(value[segment]);
 			} else {
+				owner = value;
+				property = String(segment);
 				value = value[segment];
 				kind =
 					type === 'node_array' || type === 'text'
@@ -440,6 +471,7 @@ export function resolve(
 				value = value[segment];
 				kind = 'ranges';
 			} else if (typeof segment === 'number' || /^\d+$/.test(segment)) {
+				track?.slot(owner!, property, Number(segment));
 				value = lookup(value.nodes[segment]);
 				kind = 'node';
 			} else {
@@ -478,6 +510,7 @@ export function resolve(
 			}
 		}
 	}
+	if (kind === 'node' && value && track_result) track?.node(value);
 	return value;
 }
 

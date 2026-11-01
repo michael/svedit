@@ -155,6 +155,11 @@ export class KeyedState<K, V> {
 		for (const key of [...this.#keys]) this.set(key, undefined);
 	}
 
+	/** Whether any key holds a value. Not tracked. */
+	any(): boolean {
+		return this.#keys.size > 0;
+	}
+
 	/** The keys holding a value. Depends on every change. */
 	[Symbol.iterator](): IterableIterator<K> {
 		void this.#changed;
@@ -379,9 +384,15 @@ class VisibilityRegistry {
 		return this.#arrays.has(el);
 	}
 
-	/** Re-sync the edge state of all arrays (content changes alter scroll extents). */
+	/**
+	 * Re-sync the edge state of arrays (content changes alter scroll
+	 * extents). Only arrays with near nodes matter; the others sync once one
+	 * of their nodes comes near.
+	 */
 	sync_all_edge_states() {
-		for (const el of this.#arrays.keys()) if (el.isConnected) this.sync_edge_state(el);
+		for (const [el, { path }] of this.#arrays) {
+			if (el.isConnected && this.#array_indices.get(path)?.any()) this.sync_edge_state(el);
+		}
 	}
 
 	/**
@@ -443,6 +454,8 @@ class VisibilityRegistry {
 	}
 
 	#process_near(entries: IntersectionObserverEntry[]): void {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
+		const arrays = new Set<Element>();
 		for (const { target, isIntersecting, boundingClientRect } of entries) {
 			const el = target as HTMLElement;
 			const path = this.#nodes.get(el)?.path;
@@ -451,7 +464,12 @@ class VisibilityRegistry {
 			else this.#near_nodes.delete(el);
 			if (this.#node_owners.get(path) === el) this.#claim_node(el, path);
 			this.#watch_view(el, isIntersecting, boundingClientRect);
+			// The edge state of an array without near nodes may be outdated
+			const array_path = isIntersecting ? split_path(path)?.array_path : undefined;
+			const array_el = array_path !== undefined && this.#array_owners.get(array_path);
+			if (array_el) arrays.add(array_el);
 		}
+		for (const array_el of arrays) this.sync_edge_state(array_el);
 	}
 
 	/**

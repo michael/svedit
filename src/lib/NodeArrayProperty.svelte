@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, setContext } from 'svelte';
+	import { getContext, setContext, untrack } from 'svelte';
 	import UnknownNode from './UnknownNode.svelte';
 	import { serialize_path, calculate_fragment_ranges, PATH_SEPARATOR } from './utils.js';
 	import DefaultNodeGap from './NodeGap.svelte';
@@ -48,6 +48,17 @@
 	});
 	// Nodes are grouped by the (mutually exclusive) marks wrapping them
 	let fragments = $derived(calculate_fragment_ranges(count, value.marks));
+	// Every node reads the ranges covering it, so they live in their own
+	// state, which changes only along with them, not with every array change
+	let marks = $state.raw(untrack(() => value.marks));
+	let annotations = $state.raw(untrack(() => value.annotations));
+	$effect.pre(() => {
+		const { marks: next_marks, annotations: next_annotations } = value;
+		untrack(() => {
+			if (marks !== next_marks) marks = next_marks;
+			if (annotations !== next_annotations) annotations = next_annotations;
+		});
+	});
 
 	function attachment_context(
 		range: Attachment,
@@ -78,12 +89,12 @@
 
 	/** The single mark wrapping a node, if any (marks are mutually exclusive). */
 	function mark_for(node_index: number): NodeArrayAttachmentContext | null {
-		return value.marks.length ? (covering(value.marks, node_index)[0] ?? null) : null;
+		return marks.length ? (covering(marks, node_index)[0] ?? null) : null;
 	}
 
 	/** All annotations covering a node. Annotations never wrap nodes. */
 	function annotations_for(node_index: number): NodeArrayAttachmentContext[] {
-		return value.annotations.length ? covering(value.annotations, node_index) : NO_ANNOTATIONS;
+		return annotations.length ? covering(annotations, node_index) : NO_ANNOTATIONS;
 	}
 
 	// Lets Node self-serve its position and covering ranges
@@ -128,7 +139,7 @@
 	{#snippet render_nodes(start: number, end: number)}
 		{#each keys.slice(start, end) as key, slice_index (key)}
 			{@const index = start + slice_index}
-			{@const node = svedit.session.get(value.nodes[index])}
+			{@const node = svedit.session.get(key.slice(0, key.lastIndexOf(':')))}
 			{@const Component = svedit.session.config.node_components[node.type]}
 			{@const mark = mark_for(index)}
 			{@const annotations = annotations_for(index)}
@@ -146,11 +157,12 @@
 				? svedit.session.config.node_components[svedit.session.get(fragment.node_id).type]
 				: null}
 		{#if MarkComponent}
+			<!-- The first fragment always starts at 0: its nodes don't depend on the fragment -->
 			<MarkComponent path={[...path, 'marks', fragment.mark_index, 'node_id']}>
-				{@render render_nodes(fragment.start_offset, fragment.end_offset)}
+				{@render render_nodes(fragment_index && fragment.start_offset, fragment.end_offset)}
 			</MarkComponent>
 		{:else}
-			{@render render_nodes(fragment.start_offset, fragment.end_offset)}
+			{@render render_nodes(fragment_index && fragment.start_offset, fragment.end_offset)}
 		{/if}
 	{/each}
 	{#if count > 0}
