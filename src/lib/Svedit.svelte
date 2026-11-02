@@ -23,6 +23,7 @@
 	import { escape_html } from './html_utils.js';
 	import { parse_html_paste, map_html_text, map_html_blocks } from './html_paste.js';
 	import { create_node_visibility } from './node_visibility.svelte.js';
+	import { hold_dev_reloads } from './dev_hold_reloads.js';
 	import DefaultNodeSelectionMarkers from './NodeSelectionMarkers.svelte';
 	import './styles/svedit-colors.css';
 	import './styles/svedit-animations.css';
@@ -137,6 +138,9 @@
 	$effect(() => {
 		session.initialize_commands(context);
 	});
+
+	// In vite dev, hold code updates while this session has unsaved edits
+	$effect(() => hold_dev_reloads(session));
 
 	/**
 	 * @param {InputEvent} event
