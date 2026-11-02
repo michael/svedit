@@ -1,20 +1,26 @@
 <script module lang="ts">
-	function cycle_z_index(e: MouseEvent) {
-		const el = e.currentTarget as HTMLElement;
+	// A click sends the hit area to the back, so overlapping gaps take turns
+	function cycle_z_index(event: MouseEvent) {
+		const el = event.currentTarget as HTMLElement;
 		if (el.hasAttribute('data-sent-to-back')) {
-			document.querySelectorAll('.svedit-selectable[data-sent-to-back]').forEach((prev) => {
-				prev.removeAttribute('data-sent-to-back');
-			});
+			for (const previous of document.querySelectorAll('.svedit-selectable[data-sent-to-back]')) {
+				previous.removeAttribute('data-sent-to-back');
+			}
 		}
 		el.setAttribute('data-sent-to-back', '');
 	}
 </script>
 
 <script lang="ts">
-	import { serialize_path } from './utils.js';
 	import { getContext } from 'svelte';
-	import { should_position_gap } from './node_visibility.svelte.js';
-	import type { DocumentPath, SveditRenderContext } from './types.js';
+	import { PATH_SEPARATOR } from './utils.js';
+	import { EMPTY_KEY } from './node_visibility.svelte.js';
+	import type {
+		DocumentPath,
+		NodeArrayRenderContext,
+		NodeItemContext,
+		SveditRenderContext
+	} from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -30,109 +36,83 @@
 	 * │    array bounds (edge gaps). Never on top of a node.            │
 	 * └─────────────────────────────────────────────────────────────────┘
 	 *
-	 * Invisible keyboard caret selectable and gap hit area.
+	 * Invisible keyboard caret selectable and gap hit area, rendered as a
+	 * sibling of the nodes inside NodeArrayProperty, so DOM order supports
+	 * native drag-to-select across nodes.
 	 *
-	 * Rendered as a sibling of Node elements inside NodeArrayProperty,
-	 * interleaved between nodes in DOM order. This ensures:
-	 * - Correct DOM order for native drag-to-select across nodes
-	 * - No containing-block issues from transform/filter/will-change on nodes
+	 * Always present while editable. Anchor positioning is only activated
+	 * through `.positioned` for gaps near the viewport (see
+	 * node_visibility), since every positioned gap costs anchor resolution
+	 * on each layout pass. Row/column flow is detected with var(--row, 1).
 	 *
-	 * Always present in the DOM when editable (stable structure for
-	 * selection anchoring, scrollTo, etc.). Anchor positioning is
-	 * activated lazily via the `.positioned` class, derived reactively
-	 * from the visibility registry's array_indices / edge_map. Svelte's
-	 * reactive collections track reads at per-key granularity, so a
-	 * registry write only
-	 * re-evaluates the adjacent gaps. Applying the class declaratively
-	 * (instead of imperative classList toggles) means it survives DOM
-	 * recreation without a document change (e.g. dev-mode HMR).
-	 *
-	 * `position-visibility: anchors-visible` does NOT skip anchor
-	 * resolution — the browser resolves all anchor() then hides the
-	 * result. The `.positioned` class toggle is required to prevent
-	 * O(N) anchor resolution on every layout pass.
-	 *
-	 * Row/column detection uses var(--row, 1) with the * 99999 multiplier
-	 * trick — no @container style() queries, works in all browsers.
-	 *
-	 * If you override this component via `system_components.node_gap`, make
-	 * sure your custom component also handles read-only mode by rendering a
-	 * plain `.node-gap` placeholder without editable internals.
+	 * If you override this component via `system_components.node_gap`, also
+	 * handle read-only mode by rendering a plain `.node-gap` placeholder.
 	 */
 	const svedit = getContext<SveditRenderContext>('svedit');
+	// The array's path, items and node selection, shared by its gaps
+	const node_array = getContext<NodeArrayRenderContext>('node_array_meta');
+	// The item this gap comes before, absent for the trailing and empty-array gaps
+	const item = getContext<NodeItemContext | undefined>('node_item');
 	let {
-		array_path,
 		offset,
 		count,
 		empty = false
 	}: { array_path: DocumentPath; offset: number; count: number; empty?: boolean } = $props();
-	let is_editable = $derived(svedit.editable);
 
-	let is_first = $derived(offset === 0);
-	let is_last = $derived(offset === count);
-	let type = $derived(is_first ? 'gap-before' : 'gap-after');
-
-	let path_str = $derived(serialize_path(array_path));
-	// Two-derived split is load-bearing: get_array_indices lazily
-	// creates the set, and Svelte doesn't track deps on state created
-	// inside the reading derived — so acquire here, read in `positioned`.
-	let near_indices = $derived(svedit.visibility_registry.get_array_indices(path_str));
-	let positioned = $derived(
-		is_editable &&
-			should_position_gap(
-				near_indices,
-				svedit.visibility_registry.edge_map.get(path_str),
-				offset,
-				is_last,
-				empty
-			)
-	);
-
-	// The gap holding the anchor or focus of a node selection is never
-	// hidden, even when culled. The browser moves a selection endpoint out
-	// of a display:none element on the next drag or shift+click, which
-	// pulls the adjacent node into the selection (issue #372).
+	let is_last = $derived(!item && offset === count);
+	// Mid gaps need both adjacent nodes near; edge gaps need their edge node
+	// near and at the container edge (scroll-aware, see NodeArrayState.edge).
+	// Read by key, so index shifts don't re-evaluate it.
+	let positioned = $derived.by(() => {
+		if (!svedit.editable) return false;
+		const items = node_array.items;
+		if (empty) return items.near.has(EMPTY_KEY);
+		if (!item) return items.near.has(items.keys.at(-1)!) && items.edge?.last === true;
+		const previous = items.prev.get(item.key);
+		if (previous === undefined) return false;
+		if (previous === null) return items.near.has(item.key) && items.edge?.first === true;
+		return items.near.has(previous) && items.near.has(item.key);
+	});
+	// A gap holding a node selection endpoint is never culled: the browser
+	// moves a selection endpoint out of a display:none element on the next
+	// drag or shift+click, which pulls the adjacent node into the selection.
 	let is_selection_endpoint = $derived.by(() => {
-		const selection = svedit.session.selection;
-		if (selection?.type !== 'node') return false;
-		if (selection.anchor_offset !== offset && selection.focus_offset !== offset) return false;
-		return serialize_path(selection.path) === path_str;
+		const selection = node_array.node_selection;
+		return !!selection && (selection.anchor_offset === offset || selection.focus_offset === offset);
 	});
-
-	let gap_style = $derived.by(() => {
-		if (!is_editable) return '';
-		const prev_idx = offset - 1;
-		const pa = is_first
-			? `--${serialize_path([...array_path, 0])}`
-			: `--${serialize_path([...array_path, prev_idx])}`;
-		const next = `--${serialize_path([...array_path, offset])}`;
-		const container = `--${serialize_path(array_path)}`;
-		return `--_pa:${pa};--_next:${next};--_container:${container}`;
-	});
-
-	let anchor_name = $derived.by(() => {
-		if (!is_editable) return '';
-		if (is_first) return `--g-${serialize_path([...array_path, 0])}-gap-before`;
-		return `--g-${serialize_path([...array_path, offset - 1])}-gap-after`;
-	});
+	// Only gaps with a box need their anchor references. Leaving them out
+	// elsewhere spares off-screen gaps a style change when indexes shift.
+	let has_box = $derived(positioned || is_selection_endpoint || empty);
+	// The node this gap belongs to: the first node for the gap before it, else the previous node
+	let owner_anchor = $derived(
+		`${node_array.path_str}${PATH_SEPARATOR}${offset === 0 ? 0 : offset - 1}`
+	);
 </script>
 
-{#if is_editable}
+{#if svedit.editable}
 	<div
 		class="node-gap"
-		class:gap-before={is_first}
-		class:gap-after={!is_first}
+		class:gap-before={offset === 0}
+		class:gap-after={offset !== 0}
 		class:empty
 		class:last={is_last}
 		class:positioned
 		class:selection-endpoint={is_selection_endpoint}
-		data-type={type}
-		data-gap-array-path={path_str}
+		data-type={offset === 0 ? 'gap-before' : 'gap-after'}
+		data-gap-array-path={node_array.path_str}
 		data-gap-offset={offset}
-		style={gap_style}
+		style={has_box
+			? `--_pa:--${owner_anchor};--_next:--${node_array.path_str}${PATH_SEPARATOR}${offset};--_container:--${node_array.path_str}`
+			: undefined}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="svedit-selectable" style="anchor-name:{anchor_name}" onpointerdown={cycle_z_index}>
+		<div
+			class="svedit-selectable"
+			style={has_box
+				? `anchor-name:--g-${owner_anchor}-${offset === 0 ? 'gap-before' : 'gap-after'}`
+				: undefined}
+			onpointerdown={cycle_z_index}
+		>
 			<br />
 		</div>
 	</div>

@@ -21,8 +21,11 @@
 		flex-direction: column;
 		gap: var(--s-4);
 	}
-	/* Use `of [data-type="node"]` to skip interleaved .node-gap elements */
-	.list :global(.list-node-array > :nth-child(2n of [data-type="node"]) .list-item) {
+	/* Use `of [data-type="node"]` to skip interleaved .node-gap elements. The
+	   `>` after :nth-child keeps the browser from testing every ancestor of
+	   .list-item, which would make inserting any node into the document
+	   restyle all nodes after it. */
+	.list :global(.list-node-array > :nth-child(2n of [data-type='node']) > .list-item) {
 		background: color-mix(in oklab, var(--accent) 5%, transparent);
 	}
 </style>

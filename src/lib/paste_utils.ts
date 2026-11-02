@@ -1,55 +1,32 @@
 import type { Text, DocumentNode, DocumentSchema } from './types.js';
 
-function is_record(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
+const is_record = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null;
 
-function is_text(value: unknown): value is Text {
-	return (
-		is_record(value) &&
-		typeof value.content === 'string' &&
-		Array.isArray(value.marks) &&
-		Array.isArray(value.annotations)
-	);
-}
+const is_text = (value: unknown): value is Text =>
+	is_record(value) &&
+	typeof value.content === 'string' &&
+	Array.isArray(value.marks) &&
+	Array.isArray(value.annotations);
+
+const leading_whitespace = (line: string) => line.match(/^[\t ]*/)![0].length;
 
 export function normalize_line_endings(text: string): string {
-	return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+	return text.replace(/\r\n?/g, '\n');
 }
 
+/** Remove common indentation when at least 80% of the non-empty lines are indented. */
 export function dedent_plain_text(plain_text: string): string {
 	const lines = normalize_line_endings(plain_text).split('\n');
-	if (lines.length < 2) return plain_text;
-
 	const non_empty_lines = lines.filter((line) => line.trim().length > 0);
-	if (non_empty_lines.length === 0) return plain_text;
-
-	const indented_non_empty_lines = non_empty_lines.filter((line) => /^[\t ]+/.test(line));
-	const indented_line_ratio = indented_non_empty_lines.length / non_empty_lines.length;
-	if (indented_line_ratio < 0.8) return plain_text;
-
-	const leading_whitespace_lengths = indented_non_empty_lines
-		.map((line) => line.match(/^[\t ]+/)?.[0].length || 0)
-		.filter(Boolean);
-	if (leading_whitespace_lengths.length === 0) return plain_text;
-
-	const dedent_size = Math.min(...leading_whitespace_lengths);
-	if (dedent_size <= 0) return plain_text;
-
+	if (lines.length < 2 || non_empty_lines.length === 0) return plain_text;
+	const indents = non_empty_lines.map(leading_whitespace).filter(Boolean);
+	if (indents.length / non_empty_lines.length < 0.8) return plain_text;
+	const dedent_size = Math.min(...indents);
 	return lines
-		.map((line) => {
-			if (line.trim().length === 0) return line;
-			let removable_count = 0;
-			while (removable_count < dedent_size && removable_count < line.length) {
-				const char = line[removable_count];
-				if (char === ' ' || char === '\t') {
-					removable_count += 1;
-				} else {
-					break;
-				}
-			}
-			return line.slice(removable_count);
-		})
+		.map((line) =>
+			line.trim() ? line.slice(Math.min(dedent_size, leading_whitespace(line))) : line
+		)
 		.join('\n');
 }
 
@@ -64,35 +41,27 @@ export function normalize_plain_text_for_single_line_property(plain_text: string
 	return normalize_line_endings(plain_text).replace(/\s*\n+\s*/g, ' ');
 }
 
+/** The text property of a text node type ('content' by convention). */
 export function get_text_property_name(
 	node_type: string | null | undefined,
 	schema: DocumentSchema
 ): string | null {
-	if (!node_type) return null;
-	const node_schema = schema[node_type];
-	if (!node_schema || node_schema.kind !== 'text') return null;
+	const node_schema = node_type ? schema[node_type] : null;
+	if (node_schema?.kind !== 'text') return null;
 	if (node_schema.properties?.content?.type === 'text') return 'content';
 	return (
-		Object.entries(node_schema.properties).find(([, property_definition]) => {
-			return property_definition.type === 'text';
-		})?.[0] || null
+		Object.keys(node_schema.properties).find(
+			(name) => node_schema.properties[name].type === 'text'
+		) || null
 	);
 }
 
+/** The text value of a (possibly foreign) node payload. */
 export function get_text_content(node: unknown, schema: DocumentSchema): Text | null {
 	if (!is_record(node)) return null;
-
-	const node_type = typeof node.type === 'string' ? node.type : null;
-	const text_property_name = get_text_property_name(node_type, schema);
-	if (text_property_name && is_text(node[text_property_name])) {
-		return node[text_property_name];
-	}
-
-	if (is_text(node.content)) {
-		return node.content;
-	}
-
-	return null;
+	const name = get_text_property_name(typeof node.type === 'string' ? node.type : null, schema);
+	if (name && is_text(node[name])) return node[name];
+	return is_text(node.content) ? node.content : null;
 }
 
 export function is_text_like_node_payload(node: unknown, schema: DocumentSchema): boolean {
@@ -101,59 +70,47 @@ export function is_text_like_node_payload(node: unknown, schema: DocumentSchema)
 	return !!get_text_content(node, schema);
 }
 
+/** The default node type of a node array, if it is a text node type, else its first text node type. */
 export function get_default_text_node(
 	node_array_property_definition: unknown,
 	schema: DocumentSchema
 ): string | null {
+	const definition = node_array_property_definition;
 	if (
-		!is_record(node_array_property_definition) ||
-		node_array_property_definition.type !== 'node_array' ||
-		!Array.isArray(node_array_property_definition.node_types)
+		!is_record(definition) ||
+		definition.type !== 'node_array' ||
+		!Array.isArray(definition.node_types)
 	) {
 		return null;
 	}
-
-	const default_node_type = node_array_property_definition.default_node_type;
-	if (typeof default_node_type === 'string' && schema[default_node_type]?.kind === 'text') {
-		return default_node_type;
-	}
-
-	return (node_array_property_definition.node_types.find(
-		(node_type: unknown) => typeof node_type === 'string' && schema[node_type]?.kind === 'text'
-	) || null) as string | null;
+	const is_text_type = (type: unknown): type is string =>
+		typeof type === 'string' && schema[type]?.kind === 'text';
+	if (is_text_type(definition.default_node_type)) return definition.default_node_type;
+	return definition.node_types.find(is_text_type) || null;
 }
 
+/** A node payload with one text node per paragraph. */
 export function create_plain_text_nodes_payload(
 	paragraph_fragments: string[],
 	node_type: string | null | undefined,
 	schema: DocumentSchema
 ): { main_nodes: string[]; nodes: Record<string, DocumentNode> } | null {
-	if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0 || !node_type) {
+	if (!Array.isArray(paragraph_fragments) || paragraph_fragments.length === 0 || !node_type)
 		return null;
-	}
-
 	const text_property_name = get_text_property_name(node_type, schema);
 	if (!text_property_name) return null;
-
 	const payload: { main_nodes: string[]; nodes: Record<string, DocumentNode> } = {
 		main_nodes: [],
 		nodes: {}
 	};
-
-	for (let i = 0; i < paragraph_fragments.length; i++) {
-		const fragment = paragraph_fragments[i];
-		const node_id = 'fragment_' + i;
-		payload.nodes[node_id] = {
-			id: node_id,
+	paragraph_fragments.forEach((content, index) => {
+		const id = `fragment_${index}`;
+		payload.nodes[id] = {
+			id,
 			type: node_type,
-			[text_property_name]: {
-				content: fragment,
-				marks: [],
-				annotations: []
-			}
+			[text_property_name]: { content, marks: [], annotations: [] }
 		};
-		payload.main_nodes.push(node_id);
-	}
-
+		payload.main_nodes.push(id);
+	});
 	return payload;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable svelte/prefer-svelte-reactivity -- A transaction is plain, non-reactive state */
 import {
 	get_char_length,
 	char_slice,
@@ -7,24 +8,22 @@ import {
 	is_selection_collapsed,
 	adjust_ranges_for_deletion,
 	adjust_ranges_for_insertion,
-	are_ranges_exclusive
+	are_ranges_exclusive,
+	for_each_reference
 } from './utils.js';
 import { join_text_node } from './transforms.svelte.js';
 import {
-	get as doc_get,
-	property_type as doc_property_type,
-	kind as doc_kind,
-	inspect as doc_inspect,
-	create_document_draft,
-	apply_op_to_draft,
+	resolve,
+	property_type,
+	kind,
+	inspect,
+	apply_op,
 	build_reference_counts,
-	visit_node_references,
 	validate_node,
-	is_id_valid,
+	generate_id,
 	fill_node_defaults,
 	can_switch_mark_type,
-	get_selected_marks,
-	get_selected_annotations,
+	get_selected_attachments,
 	get_selected_range_types,
 	validate_selection
 } from './doc_utils.js';
@@ -46,25 +45,15 @@ import type {
 	SessionConfig
 } from './types.js';
 
-/**
- * Check whether a selection-relative range fits within a container length.
- */
-function is_range_within_bounds(range: Attachment, length: number): boolean {
-	return (
-		Number.isInteger(range.start_offset) &&
-		Number.isInteger(range.end_offset) &&
-		range.start_offset >= 0 &&
-		range.start_offset < range.end_offset &&
-		range.end_offset <= length
-	);
-}
+type AttachmentKey = 'marks' | 'annotations';
 
 /**
- * Transaction class for managing atomic document operations with undo/redo support.
+ * Groups document operations (create, delete, set) into one atomic,
+ * undoable unit. Every operation records its inverse for undo.
  *
- * A Transaction provides a way to group multiple document operations (create, delete, set)
- * into a single atomic unit that can be applied or rolled back as one. It maintains
- * both forward operations and their inverse operations for undo functionality.
+ * The transaction works on a draft of the document: the nodes map is copied
+ * on the first write and node objects are replaced, never mutated, so the
+ * original document stays untouched and unchanged nodes keep their identity.
  *
  * @example
  * ```js
@@ -76,28 +65,21 @@ function is_range_within_bounds(range: Attachment, length: number): boolean {
  */
 export default class Transaction {
 	schema: DocumentSchema;
-	doc: Document;
-	// NOTE: Typed non-null for historical reasons — most methods assume a
-	// selection is present. A null selection is cast here and would surface at
-	// runtime exactly as before the TypeScript conversion.
+	// Typed non-null: most operations require a selection.
 	selection: Selection;
 	config: SessionConfig;
-	ops: DocumentOperation[];
-	inverse_ops: DocumentOperation[];
+	ops: DocumentOperation[] = [];
+	inverse_ops: DocumentOperation[] = [];
 	selection_before: Selection | null;
-	created_node_ids: NodeId[];
-	modified_node_ids: NodeId[];
-	deleted_node_ids: NodeId[];
-	changed_node_types: boolean;
+	created_node_ids = new Set<NodeId>();
+	modified_node_ids = new Set<NodeId>();
+	deleted_node_ids = new Set<NodeId>();
+	/** True when an op set a node's 'type', so referrers need re-validation. */
+	changed_node_types = false;
+	#doc: Document;
+	#is_draft = false;
+	#lookup = (node_id: NodeId) => this.#doc.nodes[node_id];
 
-	/**
-	 * Creates a new Transaction with the given state.
-	 *
-	 * @param schema - The document schema
-	 * @param doc - The document state {document_id, nodes}
-	 * @param selection - The current selection
-	 * @param config - The document config (including generate_id)
-	 */
 	constructor(
 		schema: DocumentSchema,
 		doc: Document,
@@ -105,329 +87,214 @@ export default class Transaction {
 		config: SessionConfig
 	) {
 		this.schema = schema;
-		// The transaction works on a draft: one shallow copy of the nodes map
-		// up front, then ops mutate the draft in place (copying node objects
-		// on write). This keeps the original document untouched and node
-		// identity stable for unchanged nodes, without the previous
-		// one-full-map-copy-per-op cost.
-		this.doc = create_document_draft(doc);
+		this.#doc = doc;
 		this.selection = selection as Selection;
-		this.config = config;
-		// Here we track the ops during the transaction
-		this.ops = [];
-		this.inverse_ops = [];
-		// Remember the selection before the transaction started
 		this.selection_before = selection;
-
-		this.created_node_ids = [];
-		this.modified_node_ids = [];
-		this.deleted_node_ids = [];
-		// True when any op set a node's 'type' property — referrers must be
-		// re-validated against type constraints in that case.
-		this.changed_node_types = false;
+		this.config = config;
 	}
 
-	/**
-	 * Gets a value from the document at the specified path.
-	 *
-	 * @param path - The path to the value in the document, or a string node ID
-	 * @returns The value at the specified path
-	 */
+	/** The document state including all operations of this transaction. */
+	get doc(): Document {
+		return this.#doc;
+	}
+
+	/** Gets a value from the document at a path, or a node by id. */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	get(path: DocumentPath | string): any {
-		return doc_get(this.schema, this.doc, path);
+		return resolve(this.schema, path, this.#lookup);
 	}
 
-	/**
-	 * Gets the type of a property from the schema.
-	 */
 	property_type(type: string, property: string): string {
-		return doc_property_type(this.schema, type, property);
+		return property_type(this.schema, type, property);
 	}
 
-	/**
-	 * Determines the kind of a node ('document', 'block', 'text', 'mark', or 'annotation').
-	 */
 	kind(node: DocumentNode): NodeKind {
-		return doc_kind(this.schema, node);
+		return kind(this.schema, node);
 	}
 
-	/**
-	 * Inspects a path to get metadata about the value at that location.
-	 */
 	inspect(path: DocumentPath): Inspection {
-		return doc_inspect(this.schema, this.doc, path);
+		return inspect(this.schema, path, this.#lookup);
 	}
 
-	/**
-	 * Generates a new unique ID using the config's generate_id function.
-	 */
 	generate_id(): string {
-		const id = this.config?.generate_id ? this.config.generate_id() : `node_${crypto.randomUUID()}`;
-		if (!is_id_valid(id)) {
-			throw new Error(
-				`Generated node id ${JSON.stringify(id)} is invalid. Node ids must be non-empty strings that start with a letter or underscore, contain only letters, numbers, underscores, or dashes, and must not contain "__".`
-			);
-		}
-		return id;
+		return generate_id(this.config);
 	}
 
-	/**
-	 * Validates a node against the document schema.
-	 *
-	 * @throws {Error} Throws if the node is invalid
-	 */
+	/** @throws {Error} Throws if the node is invalid */
 	validate_node(node: DocumentNode): void {
-		validate_node(node, this.schema, this.doc.nodes, { require_references: false });
+		validate_node(node, this.schema, this.#doc.nodes, { require_references: false });
 	}
 
-	/**
-	 * Gets all nodes referenced by a given node (recursively).
-	 */
+	/** All nodes referenced by a node, recursively. */
 	get_referenced_nodes(node_id: NodeId): NodeId[] {
-		return traverse_ids(node_id, this.schema, this.doc.nodes).slice(0, -1);
+		return traverse_ids(node_id, this.schema, this.#doc.nodes).slice(0, -1);
 	}
 
-	/**
-	 * Gets the available mark types for the current selection.
-	 */
 	get available_mark_types(): string[] {
-		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
-		const property_definition = this.inspect(this.selection.path);
-		return property_definition.mark_types || [];
+		return this.#allowed_types('mark_types');
 	}
 
-	/**
-	 * Gets the available annotation types for the current selection.
-	 */
 	get available_annotation_types(): string[] {
-		if (this.selection?.type !== 'text' && this.selection?.type !== 'node') return [];
-		const property_definition = this.inspect(this.selection.path);
-		return property_definition.annotation_types || [];
+		return this.#allowed_types('annotation_types');
 	}
 
-	/**
-	 * Returns marks touched by the current selection.
-	 */
 	get selected_marks(): SelectedAttachment[] {
-		return get_selected_marks(this.schema, this.doc, this.selection);
+		return this.#selected('marks');
 	}
 
 	get active_mark(): SelectedAttachment | null {
-		return this.selected_marks.length === 1 ? this.selected_marks[0] : null;
+		const marks = this.selected_marks;
+		return marks.length === 1 ? marks[0] : null;
 	}
 
-	/**
-	 * Returns annotations touched by the current selection.
-	 */
 	get selected_annotations(): SelectedAttachment[] {
-		return get_selected_annotations(this.schema, this.doc, this.selection);
+		return this.#selected('annotations');
 	}
 
 	get active_annotation(): SelectedAttachment | null {
-		return this.selected_annotations.length === 1 ? this.selected_annotations[0] : null;
+		const annotations = this.selected_annotations;
+		return annotations.length === 1 ? annotations[0] : null;
+	}
+
+	#allowed_types(key: 'mark_types' | 'annotation_types'): string[] {
+		const selection = this.selection;
+		if (selection?.type !== 'text' && selection?.type !== 'node') return [];
+		return this.inspect(selection.path)[key] || [];
+	}
+
+	#selected(key: AttachmentKey): SelectedAttachment[] {
+		const selection = this.selection;
+		if (selection?.type !== 'text' && selection?.type !== 'node') return [];
+		return get_selected_attachments(this.get(selection.path), selection, key, this.#lookup);
+	}
+
+	/** Applies an operation to the draft document (internal). */
+	_apply_op(op: DocumentOperation): void {
+		if (!this.#is_draft) {
+			this.#doc = { ...this.#doc, nodes: { ...this.#doc.nodes } };
+			this.#is_draft = true;
+		}
+		apply_op(this.#doc, op, (value) => $state.snapshot(value) as typeof value);
+	}
+
+	#record(op: DocumentOperation, inverse_op: DocumentOperation): void {
+		this.ops.push(op);
+		this.inverse_ops.push(inverse_op);
+		this._apply_op(op);
 	}
 
 	/**
-	 * Applies an operation to the document (internal).
-	 */
-	private _apply_op(op: DocumentOperation): void {
-		apply_op_to_draft(this.doc, op);
-	}
-
-	private _track_node_id(node_ids: NodeId[], node_id: NodeId): void {
-		if (!node_ids.includes(node_id)) node_ids.push(node_id);
-	}
-
-	/**
-	 * Sets a property of a node to a new value.
-	 *
-	 * This is the core operation for modifying document properties. It records
-	 * both the forward operation and its inverse for undo support.
-	 *
-	 * @param path - Array path to the property (e.g., ["node_1", "title"])
-	 * @param value - The new value to set
-	 * @returns This transaction instance for method chaining
+	 * Sets a property of a node. Nodes that were only referenced through the
+	 * replaced value are deleted.
 	 *
 	 * @example
 	 * ```js
-	 * tr.set(["list_1", "list_items"], [1, 2, 3]);
-	 * tr.set(["page_1", "body", "0", "description"], {content: "Hello world", marks: [], annotations: []});
+	 * tr.set(["page_1", "body", 0, "description"], {content: "Hello world", marks: [], annotations: []});
 	 * ```
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	set(path: DocumentPath, value: any): this {
-		const path_info = this.inspect(path);
-		if (path_info?.kind !== 'property') {
+		if (this.inspect(path)?.kind !== 'property') {
 			throw new Error(
 				`Transaction.set requires a path that points to a property, got ${JSON.stringify(path)}`
 			);
 		}
-
 		const node = this.get(path.slice(0, -1));
+		const property = String(path.at(-1));
+		const previous_value = node[property];
 
-		// Turns ["page_1", "body", "0", "description"]
-		// into ["paragraph_1", "description"].
-		// Important to keep changes of multiple ops invertible.
-		const normalized_path = [node.id, path.at(-1)];
-
-		// Just to be sure, make a deep copy of the old value
-		const property_key = path.at(-1);
-		const property_key_str = String(property_key);
-		const previous_value = structuredClone($state.snapshot(node[property_key_str]));
-
-		// Collect node IDs that might need to be deleted after the set operation
-		const prop_type = this.property_type(node.type, property_key_str);
+		// Ref-count-aware cleanup: a node dropped here may still be referenced
+		// elsewhere, e.g. by a wrapper created earlier in this transaction.
+		const type = this.property_type(node.type, property);
 		let removed_node_ids: NodeId[] = [];
-
-		if (prop_type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
+		if (type === 'node' && typeof previous_value === 'string' && previous_value !== value) {
 			removed_node_ids = [previous_value];
-		} else if (prop_type === 'node_array') {
-			const previous_node_ids = previous_value.nodes;
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local lookup set.
-			const next_node_ids = new Set(value.nodes);
-
-			// Only include node IDs that were in previous_value but are not in the new value
-			removed_node_ids = previous_node_ids.filter((id: NodeId) => !next_node_ids.has(id));
+		} else if (type === 'node_array') {
+			const next_ids = new Set(value.nodes);
+			removed_node_ids = previous_value.nodes.filter((id: NodeId) => !next_ids.has(id));
 		}
 
-		const op: DocumentOperation = ['set', normalized_path, value];
-		this.ops.push(op);
-		this.inverse_ops.push(['set', normalized_path, previous_value]);
-		this._apply_op(op);
-		this._track_node_id(this.modified_node_ids, node.id);
-		if (property_key_str === 'type') this.changed_node_types = true;
-
-		// Garbage-collect nodes whose only reference was via this property.
-		// We must use a ref-count-aware sweep instead of unconditional deletion
-		// because a node ID removed from this array may still be referenced
-		// elsewhere — either from a pre-existing reference (e.g. shared nodes)
-		// or from a node created earlier in the same transaction (the
-		// wrap-in-group pattern: create a wrapper that points at the children,
-		// then set the parent array to drop them).
-		if (removed_node_ids.length > 0) {
-			this._cascade_delete_unreferenced_nodes(removed_node_ids);
-		}
-
+		// Normalized to [node_id, property], so ops stay invertible.
+		this.#record(['set', [node.id, property], value], ['set', [node.id, property], previous_value]);
+		this.modified_node_ids.add(node.id);
+		if (property === 'type') this.changed_node_types = true;
+		this._cascade_delete_unreferenced_nodes(removed_node_ids);
 		return this;
 	}
 
-	// Takes a subgraph and constructs new nodes from it
-	// IDs are regenerated by default; paste can preserve a collision-free subgraph.
-	// NOTE: Omitted properties will be populated with default values.
+	/**
+	 * Creates new nodes from a subgraph and returns the id of the new root.
+	 * Ids are regenerated unless preserve_ids is set and no node of the
+	 * subgraph exists yet. Repeated attachment occurrences become independent
+	 * copies. Omitted properties are filled with defaults.
+	 */
 	build(
 		node_id: NodeId,
 		nodes: Record<string, DocumentNode>,
 		{ preserve_ids = false }: { preserve_ids?: boolean } = {}
 	): NodeId {
-		const depth_first_nodes = traverse(node_id, this.schema, nodes);
-		const keep_ids = preserve_ids && depth_first_nodes.every((node) => !this.doc.nodes[node.id]);
-		// This maps original ids to newly generated ids
+		const subgraph = traverse(node_id, this.schema, nodes);
+		const keep_ids = preserve_ids && subgraph.every((node) => !this.#doc.nodes[node.id]);
 		const id_map: Record<string, string> = {};
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Transaction-local ownership lookup.
 		const used_attachment_ids = new Set<NodeId>();
+		const remap = (ranges: Attachment[] = []) =>
+			ranges.map(({ start_offset, end_offset, node_id }) => {
+				const next_id = used_attachment_ids.has(node_id)
+					? this.build(node_id, nodes)
+					: id_map[node_id] || node_id;
+				used_attachment_ids.add(node_id);
+				return { start_offset, end_offset, node_id: next_id };
+			});
 
-		for (const node of depth_first_nodes) {
-			const new_id = keep_ids ? node.id : this.generate_id();
-			id_map[node.id] = new_id;
-			let new_node: DocumentNode = { ...node, id: new_id };
-			const node_schema = this.schema[node.type];
-
-			// Update all property references to use new IDs
-			for (const [property_name, property_definition] of Object.entries(node_schema.properties)) {
-				const prop_type = property_definition.type;
-				const value = new_node[property_name];
-
-				const remap_ranges = (ranges: Attachment[] | undefined) =>
-					(ranges ?? []).map(({ start_offset, end_offset, node_id }) => {
-						// Clipboard subtrees may contain legacy shared attachments; detach each occurrence.
-						const next_id = used_attachment_ids.has(node_id)
-							? this.build(node_id, nodes)
-							: id_map[node_id] || node_id;
-						used_attachment_ids.add(node_id);
-						return { start_offset, end_offset, node_id: next_id };
-					});
-
-				if (prop_type === 'node_array' && value && typeof value === 'object') {
-					new_node[property_name] = {
-						nodes: value.nodes.map((ref_id: NodeId) => id_map[ref_id]),
-						marks: remap_ranges(value.marks),
-						annotations: remap_ranges(value.annotations)
+		for (const node of subgraph) {
+			const new_node: DocumentNode = {
+				...node,
+				id: (id_map[node.id] = keep_ids ? node.id : this.generate_id())
+			};
+			for (const [name, definition] of Object.entries(this.schema[node.type].properties)) {
+				const value = new_node[name];
+				if (definition.type === 'node_array' && value && typeof value === 'object') {
+					new_node[name] = {
+						nodes: value.nodes.map((id: NodeId) => id_map[id]),
+						marks: remap(value.marks),
+						annotations: remap(value.annotations)
 					};
-				} else if (prop_type === 'node' && typeof value === 'string') {
-					new_node[property_name] = id_map[value];
-				} else if (prop_type === 'text' && value) {
-					new_node[property_name] = {
+				} else if (definition.type === 'node' && typeof value === 'string') {
+					new_node[name] = id_map[value];
+				} else if (definition.type === 'text' && value) {
+					new_node[name] = {
 						content: value.content,
-						marks: remap_ranges(value.marks),
-						annotations: remap_ranges(value.annotations)
+						marks: remap(value.marks),
+						annotations: remap(value.annotations)
 					};
 				}
 			}
-
-			new_node = fill_node_defaults(new_node, this.schema);
 			this.create(new_node);
 		}
-
-		return id_map[depth_first_nodes.at(-1)!.id];
+		return id_map[subgraph.at(-1)!.id];
 	}
 
 	/**
-	 * Creates a new node in the document.
+	 * Creates a new node. Omitted properties with schema defaults are filled
+	 * before validation.
 	 *
-	 * The node must have a valid id and must not already exist in the document.
-	 * Omitted properties with schema defaults are filled before validation.
-	 *
-	 * @param node - The node object to create (must include id, type, and required properties)
-	 * @returns This transaction instance for method chaining
-	 * @throws {Error} If the node ID is invalid or if the node already exists
-	 *
-	 * @example
-	 * ```js
-	 * tr.create({
-	 *   id: 'para_123',
-	 *   type: 'paragraph',
-	 *   content: ['Hello world', []]
-	 * });
-	 * ```
+	 * @throws {Error} If the node id is invalid or the node already exists
 	 */
 	create(node: DocumentNode): this {
-		const node_with_defaults = fill_node_defaults(node, this.schema);
-
-		// Validate node against schema
-		this.validate_node(node_with_defaults);
-
-		if (this.get(node_with_defaults.id)) {
-			throw new Error('Node with id ' + node_with_defaults.id + ' already exists');
-		}
-
-		const op: DocumentOperation = ['create', node_with_defaults];
-		this.ops.push(op);
-		this.inverse_ops.push(['delete', node_with_defaults.id]);
-		this._apply_op(op);
-		this._track_node_id(this.created_node_ids, node_with_defaults.id);
+		const new_node = fill_node_defaults(node, this.schema);
+		this.validate_node(new_node);
+		if (this.get(new_node.id)) throw new Error('Node with id ' + new_node.id + ' already exists');
+		this.#record(['create', new_node], ['delete', new_node.id]);
+		this.created_node_ids.add(new_node.id);
 		return this;
 	}
 
 	/**
-	 * Deletes a node from the document by its ID.
+	 * Deletes a node and every node that becomes unreferenced through it.
 	 *
-	 * The node's current state is captured for undo support before deletion.
-	 *
-	 * NOTE: This is a force-delete and intentionally does NOT check whether
-	 * the node is still referenced from elsewhere — callers (e.g.
-	 * `toggle_mark`) sometimes need to remove a node while a stale
-	 * reference to it still exists in the property they are about to update.
-	 * For ref-count-aware cleanup, see how `set` calls
-	 * `_cascade_delete_unreferenced_nodes`.
-	 *
-	 * @param id - The ID of the node to delete
-	 * @returns This transaction instance for method chaining
-	 *
-	 * @example
-	 * ```js
-	 * tr.delete('node_123');
-	 * ```
+	 * NOTE: This is a force-delete. It does not check whether the node is
+	 * still referenced, since callers sometimes remove a node while a stale
+	 * reference still exists in a property they are about to update.
 	 */
 	delete(id: NodeId): this {
 		const previous_value = this.get(id);
@@ -435,340 +302,222 @@ export default class Transaction {
 			console.warn(`Deletion of node ${id} skipped, as it does not exist.`);
 			return this;
 		}
-		// Get nodes referenced by this node BEFORE deleting it.
 		const referenced_nodes = this.get_referenced_nodes(id);
-		const op: DocumentOperation = ['delete', id];
-		this.ops.push(op);
-		this.inverse_ops.push(['create', previous_value]);
-		this._apply_op(op);
-		this._track_node_id(this.deleted_node_ids, id);
-		// Cascade delete any nodes that are now orphaned after removing this node
+		this.#record(['delete', id], ['create', previous_value]);
+		this.deleted_node_ids.add(id);
 		this._cascade_delete_unreferenced_nodes(referenced_nodes);
 		return this;
 	}
 
-	/**
-	 * Sets the document selection.
-	 *
-	 * @param selection - The new selection object
-	 * @returns This transaction instance for method chaining
-	 * @throws {Error} Throws if the selection is invalid or out of bounds
-	 */
+	/** @throws {Error} Throws if the selection is invalid or out of bounds */
 	set_selection(selection: Selection): this {
-		this._validate_selection(selection);
+		validate_selection(selection, this);
 		this.selection = selection;
 		return this;
 	}
 
-	/**
-	 * Validates a selection against the current document state.
-	 *
-	 * @throws {Error} Throws if the selection is invalid
-	 */
-	private _validate_selection(selection: Selection | null): void {
-		validate_selection(selection, this);
+	#can_attach(types: string[], type: string, label: string): boolean {
+		const selection = this.selection;
+		if (selection.type !== 'text' && selection.type !== 'node') return false;
+		if (selection.type === 'node' && is_selection_collapsed(selection)) return false;
+		if (types.includes(type)) return true;
+		console.warn(`${label} type ${type} is not allowed here.`);
+		return false;
 	}
 
-	/**
-	 * Toggles a mark on the current text or node selection.
-	 *
-	 * Marks are mutually exclusive. Whole marks are toggled, removed, or
-	 * switched; ranges are never truncated or expanded by this command.
-	 *
-	 * @param mark_type - The type of mark (e.g., 'link', 'strong', 'emphasis')
-	 * @param mark_properties - Additional data for the mark (e.g., href for links)
-	 * @returns This transaction instance for method chaining
-	 *
-	 * @example
-	 * ```js
-	 * // Add a link mark
-	 * tr.toggle_mark('link', { href: 'https://example.com' });
-	 *
-	 * // Add emphasis
-	 * tr.toggle_mark('emphasis', {});
-	 * ```
-	 */
-	toggle_mark(mark_type: string, mark_properties?: DynamicRecord): this {
-		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
-		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
-		if (!this.available_mark_types.includes(mark_type)) {
-			console.warn(`Mark type ${mark_type} is not allowed here.`);
-			return this;
-		}
+	#add_attachment(key: AttachmentKey, type: string, properties: DynamicRecord | undefined): this {
+		if (is_selection_collapsed(this.selection)) return this;
+		const { path } = this.selection;
+		const value = $state.snapshot(this.get(path));
+		const id = this.generate_id();
+		this.create({ id, type, ...properties });
+		value[key].push({ ...get_selection_range(this.selection), node_id: id });
+		return this.set(path, value);
+	}
 
-		const range = get_selection_range(this.selection);
-		if (!range) return this;
-
-		const annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-
-		// All marks compete for toggling, since marks are mutually exclusive.
-		// Annotations never block a mark toggle.
-		const selected_marks = this.selected_marks;
-		const selected_mark_types = get_selected_range_types(selected_marks);
-
-		if (selected_mark_types.size > 1) return this;
-
-		if (selected_marks.length === 0) {
-			if (is_selection_collapsed(this.selection)) {
-				return this;
-			}
-			const new_mark_node = {
-				id: this.generate_id(),
-				type: mark_type,
-				...mark_properties
-			};
-			this.create(new_mark_node);
-			// If there's no existing mark, add the new one
-			annotated_value.marks.push({
-				start_offset: range.start_offset,
-				end_offset: range.end_offset,
-				node_id: new_mark_node.id
-			});
-			this.set(this.selection.path, annotated_value);
-			return this;
-		}
-
-		const first_selected_mark = selected_marks[0];
-		const selected_mark_type = first_selected_mark.node.type;
-
-		if (selected_mark_type === mark_type) {
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity
-			const selected_indices = new Set(selected_marks.map(({ index }) => index));
-			const removed_node_ids = selected_marks.map(({ node_id }) => node_id);
-			annotated_value.marks = annotated_value.marks.filter(
-				(_: Attachment, index: number) => !selected_indices.has(index)
-			);
-			this.set(this.selection.path, annotated_value);
-			this._cascade_delete_unreferenced_nodes(removed_node_ids);
-			return this;
-		}
-
-		if (
-			selected_marks.length === 1 &&
-			can_switch_mark_type(this.schema, selected_mark_type, mark_type)
-		) {
-			const selected_mark = first_selected_mark;
-			this.set([selected_mark.node_id, 'type'], mark_type);
-			this.set_selection({
-				type: this.selection.type,
-				path: this.selection.path,
-				anchor_offset: selected_mark.start_offset,
-				focus_offset: selected_mark.end_offset
-			});
-			return this;
-		}
-
+	#remove_attachments(key: AttachmentKey, selected: SelectedAttachment[]): this {
+		const { path } = this.selection;
+		const value = $state.snapshot(this.get(path));
+		const indices = new Set(selected.map(({ index }) => index));
+		value[key] = value[key].filter((_: Attachment, index: number) => !indices.has(index));
+		this.set(path, value);
+		this._cascade_delete_unreferenced_nodes(selected.map(({ node_id }) => node_id));
 		return this;
 	}
 
 	/**
-	 * Toggles an annotation on the current text or node selection.
-	 *
-	 * Annotations only compete with touched annotations of the same type:
-	 * touched same-type annotations are removed, otherwise a new annotation is
-	 * created. Marks and other annotation types never block a toggle, and
-	 * same-type annotations may still overlap when created through lower-level
-	 * APIs.
-	 *
-	 * @param annotation_type - The type of annotation (e.g., 'comment', 'marker')
-	 * @param annotation_properties - Additional data for the annotation
-	 * @returns This transaction instance for method chaining
+	 * Toggles a mark on the current text or node selection. Marks are
+	 * mutually exclusive: whole marks are added, removed or switched, ranges
+	 * are never truncated or expanded.
 	 *
 	 * @example
 	 * ```js
-	 * // Add a comment annotation
+	 * tr.toggle_mark('link', { href: 'https://example.com' });
+	 * ```
+	 */
+	toggle_mark(mark_type: string, mark_properties?: DynamicRecord): this {
+		if (!this.#can_attach(this.available_mark_types, mark_type, 'Mark')) return this;
+		const selected = this.selected_marks;
+		if (get_selected_range_types(selected).size > 1) return this;
+		if (selected.length === 0) return this.#add_attachment('marks', mark_type, mark_properties);
+
+		const [mark] = selected;
+		if (mark.node.type === mark_type) return this.#remove_attachments('marks', selected);
+		if (selected.length === 1 && can_switch_mark_type(this.schema, mark.node.type, mark_type)) {
+			this.set([mark.node_id, 'type'], mark_type);
+			this.set_selection({
+				...this.selection,
+				anchor_offset: mark.start_offset,
+				focus_offset: mark.end_offset
+			} as Selection);
+		}
+		return this;
+	}
+
+	/**
+	 * Toggles an annotation on the current text or node selection. Only
+	 * touched annotations of the same type compete: they are removed,
+	 * otherwise a new annotation is created.
+	 *
+	 * @example
+	 * ```js
 	 * tr.toggle_annotation('comment', { text: 'Please review' });
 	 * ```
 	 */
 	toggle_annotation(annotation_type: string, annotation_properties?: DynamicRecord): this {
-		if (this.selection.type !== 'text' && this.selection.type !== 'node') return this;
-		if (this.selection.type === 'node' && is_selection_collapsed(this.selection)) return this;
-		if (!this.available_annotation_types.includes(annotation_type)) {
-			console.warn(`Annotation type ${annotation_type} is not allowed here.`);
+		if (!this.#can_attach(this.available_annotation_types, annotation_type, 'Annotation'))
 			return this;
-		}
-
-		const range = get_selection_range(this.selection);
-		if (!range) return this;
-
-		const annotated_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-
-		// Only touched annotations of the same type compete
-		const selected_annotations = this.selected_annotations.filter(
-			({ node }) => node?.type === annotation_type
-		);
-
-		if (selected_annotations.length === 0) {
-			if (is_selection_collapsed(this.selection)) {
-				return this;
-			}
-			const new_annotation_node = {
-				id: this.generate_id(),
-				type: annotation_type,
-				...annotation_properties
-			};
-			this.create(new_annotation_node);
-			annotated_value.annotations.push({
-				start_offset: range.start_offset,
-				end_offset: range.end_offset,
-				node_id: new_annotation_node.id
-			});
-			this.set(this.selection.path, annotated_value);
-			return this;
-		}
-
-		// Remove touched same-type annotations
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const selected_indices = new Set(selected_annotations.map(({ index }) => index));
-		const removed_node_ids = selected_annotations.map(({ node_id }) => node_id);
-		annotated_value.annotations = annotated_value.annotations.filter(
-			(_: Attachment, index: number) => !selected_indices.has(index)
-		);
-		this.set(this.selection.path, annotated_value);
-		this._cascade_delete_unreferenced_nodes(removed_node_ids);
-		return this;
+		const selected = this.selected_annotations.filter(({ node }) => node?.type === annotation_type);
+		return selected.length === 0
+			? this.#add_attachment('annotations', annotation_type, annotation_properties)
+			: this.#remove_attachments('annotations', selected);
 	}
 
 	/**
-	 * Deletes the currently selected text, node, or property.
-	 *
-	 * Behavior depends on selection type:
-	 * - For node selections: Removes selected nodes and cascades deletion of unreferenced nodes
-	 * - For text selections: Removes selected text and adjusts annotations accordingly
-	 * - For collapsed selections: Deletes the previous character/node (backward) or next character/node (forward)
-	 * - For property selections: Delegates to the config's handle_property_deletion hook
-	 *
-	 * @param direction - Direction of deletion for collapsed selections
-	 * @returns This transaction instance for method chaining
+	 * Deletes the selected text, nodes, or property. A collapsed selection
+	 * deletes the previous (backward) or next (forward) character or node,
+	 * and joins text nodes at their boundaries. Property selections are
+	 * delegated to config.handle_property_deletion.
 	 */
 	delete_selection(direction: 'backward' | 'forward' = 'backward'): this {
-		if (!this.selection) return this;
-
-		if (this.selection.type === 'property') {
-			this.config.handle_property_deletion?.(this, this.selection.path);
+		const selection = this.selection;
+		if (!selection) return this;
+		if (selection.type === 'property') {
+			this.config.handle_property_deletion?.(this, selection.path);
 			return this;
 		}
 
-		const path = this.selection.path;
+		const { path, type } = selection;
+		const value = this.get(path);
+		const length = type === 'text' ? get_char_length(value.content) : value.nodes.length;
+		let { start_offset: start, end_offset: end } = get_selection_range(selection)!;
 
-		// Get the start and end indices for the selection
-		let start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-		let end = Math.max(this.selection.anchor_offset, this.selection.focus_offset);
-		let length = 0;
-
-		if (this.selection?.type === 'text') {
-			const text_content = this.get(this.selection.path).content;
-			length = get_char_length(text_content);
-		} else if (this.selection?.type === 'node') {
-			const node_array = this.get(this.selection.path);
-			length = node_array.nodes.length;
-		}
-
-		// If selection is collapsed we delete the previous char/node (backward)
-		// or the next char/node (forward)
 		if (start === end) {
 			if (direction === 'backward' && start > 0) {
-				start = start - 1;
+				start--;
 			} else if (direction === 'forward' && end < length) {
-				end = end + 1;
-			} else if (direction === 'backward' && start === 0) {
+				end++;
+			} else if (direction === 'backward') {
 				join_text_node(this);
 				return this;
-			} else if (direction === 'forward' && end === length) {
-				// At end of text - try to join with next text node
-				const node_index = this.selection.path.at(-2) as number;
-				const successor_node = this.get([...this.selection.path.slice(0, -2), node_index + 1]);
-				// Check if next node is a text node
-				if (successor_node && this.kind(successor_node) === 'text') {
-					// Set selection to beginning of next text node
+			} else {
+				// At the end of the text, join the next text node into this one
+				const successor_path = [...path.slice(0, -2), (path.at(-2) as number) + 1];
+				const successor = this.get(successor_path);
+				if (successor && this.kind(successor) === 'text') {
 					this.set_selection({
 						type: 'text',
-						path: [...this.selection.path.slice(0, -2), node_index + 1, 'content'],
+						path: [...successor_path, 'content'],
 						anchor_offset: 0,
 						focus_offset: 0
 					});
-					// Use join_text_node to merge with previous node
 					join_text_node(this);
 				}
 				return this;
 			}
 		}
 
-		if (this.selection.type === 'node') {
-			const current_value = structuredClone($state.snapshot(this.get(path)));
-			const node_array = [...current_value.nodes];
-			const deletion_length = end - start;
-
-			// Remove the selected nodes from the node_array
-			node_array.splice(start, deletion_length);
-			const marks_result = adjust_ranges_for_deletion(current_value.marks, start, end);
-			const annotations_result = adjust_ranges_for_deletion(current_value.annotations, start, end);
-
-			// Update the node_array in the entry (this implicitly records an op via this.set)
-			// Note: this.set() will automatically cascade delete unreferenced nodes
-			this.set(path, {
-				nodes: node_array,
-				marks: marks_result.ranges,
-				annotations: annotations_result.ranges
-			});
-			this._cascade_delete_unreferenced_nodes([
-				...marks_result.removed_node_ids,
-				...annotations_result.removed_node_ids
-			]);
-
-			// Update the selection to point to the start of the deleted range
-			this.selection = {
-				type: 'node',
-				path,
-				anchor_offset: start,
-				focus_offset: start
-			};
-		} else if (this.selection.type === 'text') {
-			const path = this.selection.path;
-			const text = structuredClone($state.snapshot(this.get(path)));
-
-			// Update the text content using character-based operations
-			const original_text = text.content;
-			text.content =
-				char_slice(original_text, 0, start) +
-				char_slice(original_text, end, get_char_length(original_text));
-
-			const marks_result = adjust_ranges_for_deletion(text.marks, start, end);
-			const annotations_result = adjust_ranges_for_deletion(text.annotations, start, end);
-			text.marks = marks_result.ranges;
-			text.annotations = annotations_result.ranges;
-
-			this.set(path, text);
-
-			// Delete removed mark/annotation nodes only if no other references remain.
-			this._cascade_delete_unreferenced_nodes([
-				...marks_result.removed_node_ids,
-				...annotations_result.removed_node_ids
-			]);
-
-			// Update the selection to the new caret position
-			this.selection = {
-				type: 'text',
-				path,
-				anchor_offset: start,
-				focus_offset: start
-			};
-		}
-
+		const marks = adjust_ranges_for_deletion(value.marks, start, end);
+		const annotations = adjust_ranges_for_deletion(value.annotations, start, end);
+		this.set(path, {
+			...value,
+			...(type === 'text'
+				? { content: char_slice(value.content, 0, start) + char_slice(value.content, end) }
+				: { nodes: [...value.nodes.slice(0, start), ...value.nodes.slice(end)] }),
+			marks: marks.ranges,
+			annotations: annotations.ranges
+		});
+		this._cascade_delete_unreferenced_nodes([
+			...marks.removed_node_ids,
+			...annotations.removed_node_ids
+		]);
+		this.selection = { type, path, anchor_offset: start, focus_offset: start } as Selection;
 		return this;
 	}
 
 	/**
-	 * Inserts nodes at the current node selection position.
-	 *
-	 * If the selection is expanded (not collapsed), first deletes the selected nodes
-	 * before inserting the new ones.
-	 *
-	 * @param node_ids - Array of node IDs to insert
-	 * @param marks - Selection-relative marks to restore
-	 * @param annotations - Selection-relative annotations to restore
-	 * @param nodes - Node graph for restored marks and annotations
-	 * @returns This transaction instance for method chaining
+	 * Copies clipboard marks or annotations onto an inserted range at
+	 * `offset`, building their payload nodes from `nodes`.
+	 */
+	#restore_attachments(
+		ranges: Attachment[],
+		offset: number,
+		length: number,
+		allowed_types: string[] | undefined,
+		nodes: Record<NodeId, DocumentNode>,
+		preserve_ids: boolean
+	): Attachment[] {
+		return ranges.flatMap((range) => {
+			const in_bounds =
+				Number.isInteger(range.start_offset) &&
+				Number.isInteger(range.end_offset) &&
+				range.start_offset >= 0 &&
+				range.start_offset < range.end_offset &&
+				range.end_offset <= length;
+			if (!in_bounds || !allowed_types?.includes(nodes[range.node_id]?.type)) return [];
+			return [
+				{
+					start_offset: offset + range.start_offset,
+					end_offset: offset + range.end_offset,
+					node_id: this.build(range.node_id, nodes, { preserve_ids })
+				}
+			];
+		});
+	}
+
+	/**
+	 * Restores clipboard marks onto an inserted range, but only while marks
+	 * stay mutually exclusive and no existing mark is active.
+	 */
+	#restore_marks(
+		existing: Mark[],
+		marks: Mark[],
+		offset: number,
+		length: number,
+		allowed_types: string[] | undefined,
+		nodes: Record<NodeId, DocumentNode>,
+		preserve_ids: boolean
+	): Mark[] {
+		if (this.active_mark || marks.length === 0 || !are_ranges_exclusive(marks, length))
+			return existing;
+		const restored = this.#restore_attachments(
+			marks,
+			offset,
+			length,
+			allowed_types,
+			nodes,
+			preserve_ids
+		);
+		const combined = existing.concat(restored);
+		if (are_ranges_exclusive(combined)) return combined;
+		for (const mark of restored) this.delete(mark.node_id);
+		return existing;
+	}
+
+	/**
+	 * Inserts nodes at the current node selection, replacing selected nodes.
+	 * Selection-relative marks and annotations (with their payload nodes) are
+	 * restored on the inserted range.
 	 */
 	insert_nodes(
 		node_ids: NodeId[],
@@ -778,96 +527,51 @@ export default class Transaction {
 		{ preserve_ids = false }: { preserve_ids?: boolean } = {}
 	): this {
 		if (this.selection.type !== 'node') return this;
-
-		// Unless caret is collapsed, delete the selected nodes as a first step
-		if (this.selection.anchor_offset !== this.selection.focus_offset) {
-			this.delete_selection();
-		}
+		if (!is_selection_collapsed(this.selection)) this.delete_selection();
 
 		const path = this.selection.path;
-		const current_value = structuredClone($state.snapshot(this.get(path)));
-		const node_array = [...current_value.nodes];
-
-		const start = Math.min(this.selection.anchor_offset, this.selection.focus_offset);
-
-		let next_marks = adjust_ranges_for_insertion(current_value.marks, start, node_ids.length);
-		let next_annotations = adjust_ranges_for_insertion(
-			current_value.annotations,
-			start,
-			node_ids.length
-		);
-
-		// Insert the new nodes
-		node_array.splice(start, 0, ...node_ids);
-
+		const value = this.get(path);
+		const start = get_selection_range(this.selection)!.start_offset;
+		const count = node_ids.length;
+		// Selects the inserted range before restoring marks: an existing mark
+		// touching that range blocks restoring clipboard marks.
 		this.selection = {
 			type: 'node',
-			path: [...this.selection.path],
+			path: [...path],
 			anchor_offset: start,
-			focus_offset: start + node_ids.length
+			focus_offset: start + count
 		};
 
-		const property_definition = this.inspect(path);
-
-		// Restore marks only when they stay mutually exclusive
-		if (!this.active_mark && marks.length > 0 && are_ranges_exclusive(marks, node_ids.length)) {
-			const restored_marks = marks
-				.map((mark) => {
-					const mark_node = nodes[mark.node_id];
-					if (!property_definition.mark_types?.includes(mark_node?.type)) return null;
-
-					const new_mark_node_id = this.build(mark.node_id, nodes, { preserve_ids });
-					return {
-						start_offset: start + mark.start_offset,
-						end_offset: start + mark.end_offset,
-						node_id: new_mark_node_id
-					};
-				})
-				.filter((mark): mark is Attachment => mark !== null);
-			const combined_marks = next_marks.concat(restored_marks);
-			if (are_ranges_exclusive(combined_marks)) {
-				next_marks = combined_marks;
-			} else {
-				for (const mark of restored_marks) {
-					this.delete(mark.node_id);
-				}
-			}
-		}
-
-		// Restore annotations; overlap is allowed
-		const restored_annotations = annotations
-			.map((annotation) => {
-				if (!is_range_within_bounds(annotation, node_ids.length)) return null;
-				const annotation_node = nodes[annotation.node_id];
-				if (!property_definition.annotation_types?.includes(annotation_node?.type)) return null;
-
-				const new_annotation_node_id = this.build(annotation.node_id, nodes, { preserve_ids });
-				return {
-					start_offset: start + annotation.start_offset,
-					end_offset: start + annotation.end_offset,
-					node_id: new_annotation_node_id
-				};
-			})
-			.filter((annotation): annotation is Attachment => annotation !== null);
-		next_annotations = next_annotations.concat(restored_annotations);
-
-		this.set(path, { nodes: node_array, marks: next_marks, annotations: next_annotations });
-		return this;
+		const definition = this.inspect(path);
+		const next_marks = this.#restore_marks(
+			adjust_ranges_for_insertion(value.marks, start, count),
+			marks,
+			start,
+			count,
+			definition.mark_types,
+			nodes,
+			preserve_ids
+		);
+		const next_annotations = adjust_ranges_for_insertion(value.annotations, start, count).concat(
+			this.#restore_attachments(
+				annotations,
+				start,
+				count,
+				definition.annotation_types,
+				nodes,
+				preserve_ids
+			)
+		);
+		const next_nodes = [...value.nodes];
+		next_nodes.splice(start, 0, ...node_ids);
+		return this.set(path, { nodes: next_nodes, marks: next_marks, annotations: next_annotations });
 	}
 
 	/**
-	 * Inserts text at the current text selection position.
-	 *
-	 * Handles mark and annotation adjustments when text is inserted, including:
-	 * - Expanding ranges that contain the insertion point
-	 * - Shifting ranges that come after the insertion point
-	 * - Optionally applying new marks and annotations to the inserted text
-	 *
-	 * @param replaced_text - The text to insert
-	 * @param marks - Optional marks to apply to the inserted text
-	 * @param annotations - Optional annotations to apply to the inserted text
-	 * @param nodes - Optional node definitions for mark and annotation nodes
-	 * @returns This transaction instance for method chaining
+	 * Inserts text at the current text selection, replacing selected text.
+	 * Ranges containing the insertion point are extended, later ranges
+	 * shifted. Optional marks and annotations (relative to the inserted
+	 * text, with payload nodes in `nodes`) are applied to the inserted text.
 	 */
 	insert_text(
 		replaced_text: string,
@@ -876,158 +580,82 @@ export default class Transaction {
 		nodes: Record<NodeId, DocumentNode> = {}
 	): this {
 		if (this.selection?.type !== 'text') return this;
+		if (!is_selection_collapsed(this.selection)) this.delete_selection();
 
-		// Unless selection is collapsed, delete the selected content
-		// NOTE: This makes sure wrapped marks and annotations are disposed correctly
-		if (!is_selection_collapsed(this.selection)) {
-			this.delete_selection();
-		}
-
-		const text_value = structuredClone($state.snapshot(this.get(this.selection.path)));
-		const range = get_selection_range(this.selection)!;
-
-		// Transform the plain text string using character-based operations
-		const current_text = text_value.content;
-		text_value.content =
-			char_slice(current_text, 0, range.start_offset) +
-			replaced_text +
-			char_slice(current_text, range.end_offset);
-
-		// Calculate the change in length
-		const delta = get_char_length(replaced_text);
-
-		text_value.marks = adjust_ranges_for_insertion(text_value.marks, range.start_offset, delta);
-		text_value.annotations = adjust_ranges_for_insertion(
-			text_value.annotations,
-			range.start_offset,
-			delta
-		);
-		this.set(this.selection.path, text_value); // this will update the current state and create a history entry
-
-		// Setting the selection automatically triggers a re-render of the corresponding DOMSelection.
-		const new_selection: Selection = {
-			type: 'text',
-			path: this.selection.path,
-			anchor_offset: range.start_offset + get_char_length(replaced_text),
-			focus_offset: range.start_offset + get_char_length(replaced_text)
+		const path = this.selection.path;
+		const value = this.get(path);
+		const start = get_selection_range(this.selection)!.start_offset;
+		const length = get_char_length(replaced_text);
+		const text = {
+			...value,
+			content:
+				char_slice(value.content, 0, start) + replaced_text + char_slice(value.content, start),
+			marks: adjust_ranges_for_insertion(value.marks, start, length),
+			annotations: adjust_ranges_for_insertion(value.annotations, start, length)
 		};
-		this.selection = new_selection;
+		this.set(path, text);
+		this.selection = {
+			type: 'text',
+			path,
+			anchor_offset: start + length,
+			focus_offset: start + length
+		};
 
-		const text_property_definition = this.inspect(this.selection.path);
-		const next_text = structuredClone(text_value);
-		let text_changed = false;
-
-		// Now we apply marks if there are any, but only if there's no active mark
-		// at the current collapsed caret
-		if (!this.active_mark && marks.length > 0 && are_ranges_exclusive(marks, delta)) {
-			const restored_marks = marks
-				.map((mark) => {
-					const original_mark_node = nodes[mark.node_id];
-					if (text_property_definition.mark_types?.includes(original_mark_node?.type)) {
-						const new_mark_node_id = this.build(mark.node_id, nodes);
-						return {
-							start_offset: range.start_offset + mark.start_offset,
-							end_offset: range.start_offset + mark.end_offset,
-							node_id: new_mark_node_id
-						};
-					}
-					return null;
-				})
-				.filter((mark): mark is Attachment => mark !== null);
-			const combined_marks = text_value.marks.concat(restored_marks);
-			if (are_ranges_exclusive(combined_marks)) {
-				next_text.marks = combined_marks;
-				text_changed = true;
-			} else {
-				for (const mark of restored_marks) {
-					this.delete(mark.node_id);
-				}
-			}
+		const definition = this.inspect(path);
+		const next_marks = this.#restore_marks(
+			text.marks,
+			marks,
+			start,
+			length,
+			definition.mark_types,
+			nodes,
+			false
+		);
+		const restored_annotations = this.#restore_attachments(
+			annotations,
+			start,
+			length,
+			definition.annotation_types,
+			nodes,
+			false
+		);
+		if (next_marks !== text.marks || restored_annotations.length > 0) {
+			this.set(path, {
+				...text,
+				marks: next_marks,
+				annotations: text.annotations.concat(restored_annotations)
+			});
 		}
-
-		// Apply annotations to the inserted text; overlap is allowed
-		if (annotations.length > 0) {
-			const restored_annotations = annotations
-				.map((annotation) => {
-					if (!is_range_within_bounds(annotation, delta)) return null;
-					const original_annotation_node = nodes[annotation.node_id];
-					if (text_property_definition.annotation_types?.includes(original_annotation_node?.type)) {
-						const new_annotation_node_id = this.build(annotation.node_id, nodes);
-						return {
-							start_offset: range.start_offset + annotation.start_offset,
-							end_offset: range.start_offset + annotation.end_offset,
-							node_id: new_annotation_node_id
-						};
-					}
-					return null;
-				})
-				.filter((annotation): annotation is Attachment => annotation !== null);
-			if (restored_annotations.length > 0) {
-				next_text.annotations = text_value.annotations.concat(restored_annotations);
-				text_changed = true;
-			}
-		}
-
-		if (text_changed) {
-			this.set(this.selection.path, next_text);
-		}
-
 		return this;
 	}
 
 	/**
-	 * Recursively deletes nodes that are no longer referenced in the document.
-	 *
-	 * This handles the cascade deletion of child nodes when their parent
-	 * references are removed. Uses reference counting to determine which
-	 * nodes are safe to delete.
-	 *
-	 * @param potentially_orphaned_nodes - Array of node IDs to check
+	 * Deletes the given nodes if nothing references them anymore, and
+	 * recursively the nodes that become unreferenced through them.
 	 */
-	private _cascade_delete_unreferenced_nodes(potentially_orphaned_nodes: NodeId[]): void {
+	_cascade_delete_unreferenced_nodes(potentially_orphaned_nodes: NodeId[]): void {
 		if (potentially_orphaned_nodes.length === 0) return;
-
-		// Build reference counts in ONE full-document scan, then maintain them
-		// incrementally: marking a node deleted decrements the counts of every
-		// node it references (per occurrence). This replaces the previous
-		// per-candidate full-document re-scan, which made deleting M nodes
-		// O(M·N) instead of O(N + M).
-		const ref_counts = build_reference_counts(this.schema, this.doc);
-
-		const nodes_to_delete: Record<NodeId, boolean> = {};
+		// One document scan, then counts are released incrementally
+		const ref_counts = build_reference_counts(this.schema, this.#doc);
+		const orphans = new Set<NodeId>();
 		const to_check = [...potentially_orphaned_nodes];
-
 		while (to_check.length > 0) {
-			const node_id = to_check.pop();
-			if (!node_id || nodes_to_delete[node_id]) continue;
-
-			if ((ref_counts.get(node_id) || 0) === 0) {
-				// No more references, safe to delete this node
-				nodes_to_delete[node_id] = true;
-
-				// Release this node's outgoing references and re-check the
-				// nodes it pointed at — they may have become unreferenced.
-				const node = this.doc.nodes[node_id];
-				if (node) {
-					visit_node_references(this.schema, node, (referenced_id) => {
-						const count = ref_counts.get(referenced_id);
-						if (count !== undefined) ref_counts.set(referenced_id, count - 1);
-						to_check.push(referenced_id);
-					});
-				}
-			}
+			const node_id = to_check.pop()!;
+			if (orphans.has(node_id) || (ref_counts.get(node_id) ?? 0) > 0) continue;
+			orphans.add(node_id);
+			const node = this.#doc.nodes[node_id];
+			if (!node) continue;
+			for_each_reference(this.schema, node, (referenced_id) => {
+				const count = ref_counts.get(referenced_id);
+				if (count !== undefined) ref_counts.set(referenced_id, count - 1);
+				to_check.push(referenced_id);
+			});
 		}
-
-		// Now perform the actual deletions
-		for (const node_id of Object.keys(nodes_to_delete)) {
-			const previous_value = this.get([node_id]);
-			if (previous_value) {
-				const op: DocumentOperation = ['delete', node_id];
-				this.ops.push(op);
-				this.inverse_ops.push(['create', previous_value]);
-				this._apply_op(op);
-				this._track_node_id(this.deleted_node_ids, node_id);
-			}
+		for (const node_id of orphans) {
+			const previous_value = this.#doc.nodes[node_id];
+			if (!previous_value) continue;
+			this.#record(['delete', node_id], ['create', previous_value]);
+			this.deleted_node_ids.add(node_id);
 		}
 	}
 }

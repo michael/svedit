@@ -1,24 +1,32 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { serialize_path } from './utils.js';
-	import type { CustomPropertyProps } from './types.js';
+	import type { CustomPropertyProps, NodeRenderContext } from './types.js';
 
-	let { path, tag = 'div', class: css_class, children, style, ...rest }: CustomPropertyProps = $props();
-	let path_str = $derived(serialize_path(path));
-
+	let {
+		path,
+		tag = 'div',
+		class: css_class,
+		children,
+		style,
+		...rest
+	}: CustomPropertyProps = $props();
+	const owner = getContext<NodeRenderContext | undefined>('node_anchor');
+	let anchored = $derived(owner?.anchored ?? true);
 </script>
 
 <svelte:element
 	this={tag}
 	class={css_class}
 	data-type="property"
-	data-path={path_str}
-	style="anchor-name: --{path_str};{style ? ` ${style}` : ''}"
+	data-path={serialize_path(path)}
+	style="{anchored ? `anchor-name: --${serialize_path(path)};` : ''}{style ? ` ${style}` : ''}"
 	{...rest}
 >
+	<!-- A single caret position that represents the selected property in the DOM -->
 	<div class="property-selectable">
 		<div class="svedit-selectable"><br /></div>
 	</div>
-
 	{@render children()}
 </svelte:element>
 

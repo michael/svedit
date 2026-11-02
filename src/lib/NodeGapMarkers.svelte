@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import NodeCaret from './NodeCaret.svelte';
 	import { PATH_SEPARATOR, serialize_path } from './utils.js';
-	import type { DocumentPath, SveditRenderContext } from './types.js';
+	import type { DocumentPath, NodeArrayRenderContext, SveditRenderContext } from './types.js';
 
 	/**
 	 * ┌─────────────────────────────────────────────────────────────────┐
@@ -18,147 +18,97 @@
 	 * │    node array bounds (edge markers). Never on top of a node.  │
 	 * └─────────────────────────────────────────────────────────────────┘
 	 *
-	 * Renders insertion gap markers for a single node_array.
+	 * Insertion gap markers of a single node_array, rendered for the gaps
+	 * near the viewport. Lives inside NodeArrayProperty to inherit --row.
 	 *
-	 * Lives inside NodeArrayProperty so it inherits the --row CSS variable.
-	 * Uses var(--row, 1) with the * 9999999 multiplier trick to switch between
-	 * column and row positioning/visuals in pure CSS — no container queries.
-	 *
-	 * Reads visibility state directly from the registry. SvelteSet's per-key
-	 * tracking on `.has()` and iteration means this component only
-	 * re-evaluates when THIS array's visible-index set changes.
-	 *
-	 * The active marker (the one carrying the caret) additionally renders the
-	 * consumer's `system_components.node_gap_tools` component when configured
-	 * — an extension point for gap-scoped tools (e.g. an insert button).
-	 * Rendering inside the marker means the tool inherits --row for
-	 * orientation-aware styling and shows/hides together with the caret.
-	 * The marker has pointer-events: none — interactive tools must set
-	 * pointer-events: auto themselves.
+	 * The active marker (carrying the caret) also renders the consumer's
+	 * `system_components.node_gap_tools` component, which inherits --row and
+	 * shows/hides with the caret. The marker has pointer-events: none, so
+	 * interactive tools must set pointer-events: auto themselves.
 	 */
-
 	let { path, count }: { path: DocumentPath; count: number } = $props();
 
+	const NO_GAPS: GapMarker[] = [];
+
+	type GapMarker = {
+		key: string;
+		offset: number;
+		type: string;
+		vars: string;
+		is_first: boolean;
+		is_last: boolean;
+		has_pair: boolean;
+	};
+
 	const svedit = getContext<SveditRenderContext>('svedit');
+	// The node array this belongs to (rendered inside it)
+	const node_array = getContext<NodeArrayRenderContext>('node_array_meta');
 	let NodeGapTools = $derived(svedit.session.config.system_components?.node_gap_tools);
 	let path_str = $derived(serialize_path(path));
-	let visible = $derived(svedit.visibility_registry.get_array_indices(path_str));
 
 	let caret_gap_key = $derived.by(() => {
-		const s = svedit.session.selection;
-		if (s?.type !== 'node' || s.anchor_offset !== s.focus_offset) return null;
-		return `${serialize_path(s.path)}-gap-${s.anchor_offset}`;
+		const selection = node_array.node_selection;
+		if (!selection || selection.anchor_offset !== selection.focus_offset) return null;
+		return `${path_str}-gap-${selection.anchor_offset}`;
 	});
 
-	let my_gaps = $derived.by(() => {
-		const registry = svedit.visibility_registry;
-		const edge_state = registry.edge_map.get(path_str);
-		const anchor_prefix = `--${path_str}`;
-		const g_prefix = `--g-${path_str}`;
-		const container_var = `;--_c:${anchor_prefix}`;
-		const has_pair = count >= 2;
-		const pair_vars = has_pair
-			? `;--_f:${anchor_prefix}${PATH_SEPARATOR}0;--_s:${anchor_prefix}${PATH_SEPARATOR}1`
-			: '';
-
-		type GapMarker = {
-			key: string;
-			offset: number;
-			type: string;
-			vars: string;
-			is_first: boolean;
-			is_last: boolean;
-			has_pair: boolean;
-		};
-		const result: GapMarker[] = [];
+	let gaps = $derived.by((): GapMarker[] => {
+		// Read first, so arrays far from the viewport don't depend on their path,
+		// which changes when their owner moves
+		const near_indices = node_array.items.near_indices();
+		if (near_indices.length === 0) return NO_GAPS;
+		const anchor = (index: number) => `--${path_str}${PATH_SEPARATOR}${index}`;
+		const container = `;--_c:--${path_str}`;
+		const marker = (offset: number, type: string, vars: string): GapMarker => ({
+			key: `${path_str}-gap-${offset}`,
+			offset,
+			type,
+			vars: `${vars}${container}`,
+			is_first: offset === 0,
+			is_last: offset === count,
+			has_pair: count >= 2
+		});
 
 		if (count === 0) {
-			if (visible.has(0)) {
-				result.push({
-					key: `${path_str}-gap-0`,
-					offset: 0,
-					type: 'gap-empty',
-					vars: `--_ct:${g_prefix}${PATH_SEPARATOR}0-gap-before;--_a:${anchor_prefix}${PATH_SEPARATOR}0${container_var}`,
-					is_first: true,
-					is_last: true,
-					has_pair: false
-				});
-			}
-			return result;
+			return near_indices[0] === 0
+				? [marker(0, 'gap-empty', `--_ct:--g-${path_str}${PATH_SEPARATOR}0-gap-before;--_a:${anchor(0)}`)]
+				: NO_GAPS;
 		}
 
-		// Iterate visible indices (O(K)) instead of 0..count (O(N)) — at
-		// 1000 nodes with ~30 visible, this drops 1001 SvelteSet/SvelteMap
-		// reads per re-derivation to ~30. Filter stale indices >= count
-		// that may briefly remain after a node delete (until MO fires).
-		const sorted: number[] = [];
-		for (const i of visible) {
-			if (i >= 0 && i < count) sorted.push(i);
+		// Iterating the near indices (O(visible)) instead of 0..count
+		const near = near_indices.filter((index) => index < count);
+		if (near.length === 0) return NO_GAPS;
+
+		const edge_state = node_array.items.edge;
+		const pair = count >= 2 ? `;--_f:${anchor(0)};--_s:${anchor(1)}` : '';
+		const edge = (offset: number, adjacent: number) => {
+			const gap_anchor = offset === 0 ? `0-gap-before` : `${offset - 1}-gap-after`;
+			return marker(offset, 'gap-edge', `--_ct:--g-${path_str}${PATH_SEPARATOR}${gap_anchor};--_a:${anchor(adjacent)}${pair}`);
+		};
+
+		const result: GapMarker[] = [];
+		// Edge gaps also require the edge node to have reached the container edge
+		if (near[0] === 0 && edge_state?.first === true) result.push(edge(0, 0));
+		// Mid gaps between consecutive near nodes
+		for (let index = 1; index < near.length; index++) {
+			const offset = near[index];
+			if (offset !== near[index - 1] + 1) continue;
+			result.push(
+				marker(
+					offset,
+					'gap-mid',
+					`--_ct:--g-${path_str}${PATH_SEPARATOR}${offset - 1}-gap-after;--_p:${anchor(offset - 1)};--_n:${anchor(offset)}${pair}`
+				)
+			);
 		}
-		sorted.sort((a, b) => a - b);
-		if (sorted.length === 0) return result;
-
-		const offsets: number[] = [];
-		function add_offset(offset: number) {
-			if (!offsets.includes(offset)) offsets.push(offset);
-		}
-
-		// Emissions accumulate in ascending offset order, so iterating
-		// `offsets` later doesn't need a sort.
-		// Edge gap-before: emit if node 0 is in the near set AND the
-		// edge_map says the first node has reached the array's leading
-		// edge. edge_map is the scroll-aware BCR check that replaces
-		// the stale IO clip_map for edge nodes.
-		if (sorted[0] === 0 && edge_state?.first === true) {
-			add_offset(0);
-		}
-		// Mid gaps: between consecutive visible nodes. The gap at offset N
-		// sits between node N-1 and node N — emit when both are visible.
-		for (let i = 0; i < sorted.length - 1; i++) {
-			if (sorted[i + 1] === sorted[i] + 1) add_offset(sorted[i + 1]);
-		}
-		// Edge gap-after.last: same gate as gap-before but on the trailing edge.
-		if (sorted[sorted.length - 1] === count - 1 && edge_state?.last === true) {
-			add_offset(count);
-		}
-
-		for (const offset of offsets) {
-			const is_first = offset === 0;
-			const is_last = offset === count;
-
-			const g_anchor = is_first
-				? `${g_prefix}${PATH_SEPARATOR}0-gap-before`
-				: `${g_prefix}${PATH_SEPARATOR}${offset - 1}-gap-after`;
-
-			let type: string, vars: string;
-			if (is_first || is_last) {
-				type = 'gap-edge';
-				const adjacent = is_first
-					? `${anchor_prefix}${PATH_SEPARATOR}0`
-					: `${anchor_prefix}${PATH_SEPARATOR}${count - 1}`;
-				vars = `--_ct:${g_anchor};--_a:${adjacent}${container_var}${pair_vars}`;
-			} else {
-				type = 'gap-mid';
-				const p_anchor = `${anchor_prefix}${PATH_SEPARATOR}${offset - 1}`;
-				const n_anchor = `${anchor_prefix}${PATH_SEPARATOR}${offset}`;
-				vars = `--_ct:${g_anchor};--_p:${p_anchor};--_n:${n_anchor}${container_var}${pair_vars}`;
-			}
-
-			result.push({
-				key: `${path_str}-gap-${offset}`,
-				offset,
-				type,
-				vars,
-				is_first,
-				is_last,
-				has_pair
-			});
+		if (near.at(-1) === count - 1 && edge_state?.last === true) {
+			result.push(edge(count, count - 1));
 		}
 		return result;
 	});
 </script>
 
-{#each my_gaps as gap (gap.key)}
+{#each gaps as gap (gap.key)}
 	<div
 		class="gap-marker {gap.type}"
 		class:active={gap.key === caret_gap_key}

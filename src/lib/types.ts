@@ -1,12 +1,12 @@
 import type Session from './Session.svelte.js';
-import type { VisibilityRegistryApi } from './node_visibility.svelte.js';
+import type { NodeArrayState, VisibilityRegistryApi } from './node_visibility.svelte.js';
 
 // ===== SVELTE TYPE IMPORTS =====
 
 /**
  * Import Svelte's Snippet type for properly typing children in components
  */
-import type { Snippet } from 'svelte';
+import type { Component, Snippet } from 'svelte';
 
 // ===== SELECTION TYPE DEFINITIONS =====
 
@@ -596,8 +596,45 @@ export type NodeArrayAttachmentContext = {
 /** Internal context shared by a node array and its rendered child nodes. */
 export type NodeArrayRenderContext = {
 	length: number;
+	/** The serialized path of the node array */
+	path_str: string;
+	/** Whether the node array carries its anchor name */
+	anchored: boolean;
+	/** The node selection in the node array, if any */
+	node_selection: NodeSelection | null;
+	/**
+	 * Identifies the rendered node array for pinning: its path with node
+	 * array indexes replaced by item keys, e.g. `page_1.body.story_1:0.buttons`
+	 */
+	pin_scope: string;
+	/** Whether marks or annotations cover nodes of the node array */
+	has_ranges: boolean;
+	/** The gap component */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	NodeGap: Component<any>;
+	/** Neighbors, ends and visibility of the items, by key */
+	items: NodeArrayState;
 	mark_for: (node_index: number) => NodeArrayAttachmentContext | null;
 	annotations_for: (node_index: number) => NodeArrayAttachmentContext[];
+};
+
+/** Internal context of a node array item, for its node and gap. */
+export type NodeItemContext = {
+	/** Node id and occurrence, unique within the node array */
+	key: string;
+	node: DocumentNode;
+	index: number;
+	path: DocumentPath;
+};
+
+/** Internal context of a node for its properties. */
+export type NodeRenderContext = {
+	/** Whether the node carries its anchor name (its properties follow it) */
+	anchored: boolean;
+	id: NodeId;
+	path: DocumentPath;
+	/** The pin key of the node array item the node renders, see pin_key */
+	pin: string | undefined;
 };
 
 /**
