@@ -17,8 +17,8 @@
  *
  * Sources of truth:
  * - An overscan IntersectionObserver (500px margin) sets the near flags of
- *   items. Registration seeds them synchronously from one
- *   getBoundingClientRect, so there's no flash.
+ *   items. New nodes are measured right after the update that rendered
+ *   them, all in one pass, so they share one layout and there's no flash.
  * - An optional viewport IntersectionObserver toggles view classes
  *   (`.in-view`, `.seen`, `.fully-in-view`, `.visible-top`,
  *   `.visible-bottom`) of near nodes. Opt out with
@@ -40,8 +40,8 @@
  * @module
  */
 
-import { tick, untrack } from 'svelte';
-import type { NodeId, Selection } from './types.js';
+import { untrack } from 'svelte';
+import type { DocumentPath, NodeId, Selection } from './types.js';
 
 /** Nodes within this distance (px) of the viewport count as near. */
 const OVERSCAN_PX = 500;
@@ -146,6 +146,14 @@ export class KeyedState<K, V> {
 		if (this.#cells.has(key)) this.set(key, undefined);
 	}
 
+	/** Drops the cell of a key. Only for a key nothing reads anymore. */
+	drop(key: K): void {
+		untrack(() => {
+			if (!this.#cells.delete(key)) return;
+			if (this.#keys.delete(key)) this.#changed += 1;
+		});
+	}
+
 	/** Creates the cell of a key, so its readers depend on it alone. */
 	ensure(key: K, value: V): void {
 		if (!this.#cells.has(key)) this.set(key, value);
@@ -223,6 +231,11 @@ export class NodeArrayState {
 		this.keys = keys;
 	}
 
+	/** The index of an item, -1 if absent. Depends on every change. */
+	index_of(key: string): number {
+		return this.#index_of.get(key) ?? -1;
+	}
+
 	/** The indexes of the near items, ascending. Depends on every change. */
 	near_indices(): number[] {
 		const indices: number[] = [];
@@ -239,12 +252,41 @@ type Pin = 'pinned' | 'selected';
 type Lookup = <T>(path: Selection['path']) => T;
 
 /**
- * Identifies an item for pinning by the node owning its node array, the
- * array property and the item key (e.g. `page_1.body.p_3:0`), which, unlike
- * its path, survive index shifts. See NodeArrayRenderContext.pin_scope.
+ * Identifies an item for pinning by the scope of its node array (see
+ * pin_scope_of) and its item key, e.g. `page_1.body.p_3:0`. Unlike its
+ * path, it survives index shifts, and unlike its node id, it tells apart
+ * the places a node is rendered.
  */
 export function pin_key(scope: string, key: string): string {
 	return `${scope}.${key}`;
+}
+
+/** The item key of a node array's node at an index: its id and occurrence. */
+function item_key(nodes: NodeId[], index: number): string {
+	let occurrence = 0;
+	for (let i = 0; i < index; i++) if (nodes[i] === nodes[index]) occurrence++;
+	return `${nodes[index]}:${occurrence}`;
+}
+
+/**
+ * The pin scope of a rendered node array: its path with node array indexes
+ * replaced by item keys, e.g. `page_1.body.story_1:0.buttons`. Continues
+ * the pin key of an owning item, whose path is a prefix of the path, so
+ * only indexes below it are looked up.
+ */
+export function pin_scope_of(
+	path: DocumentPath,
+	get: Lookup,
+	owner?: { pin: string; path: DocumentPath }
+): string {
+	let scope = owner ? owner.pin : String(path[0]);
+	for (let index = owner ? owner.path.length : 1; index < path.length; index++) {
+		const segment = path[index];
+		if (typeof segment === 'number')
+			scope += `.${item_key(get<{ nodes: NodeId[] }>(path.slice(0, index)).nodes, segment)}`;
+		else scope += `.${segment}`;
+	}
+	return scope;
 }
 
 /**
@@ -257,32 +299,32 @@ function get_selection_pins(selection: Selection | null, get: Lookup): Map<strin
 	const pins = new Map<string, Pin>();
 	if (!selection) return pins;
 	const path = selection.path;
-	// Items from..to of an array, keyed as NodeArrayProperty keys them
-	const pin = (
-		array_path: Selection['path'],
-		from: number,
-		to: number,
-		pin_of: (i: number) => Pin
-	) => {
-		const nodes = get<{ nodes: NodeId[] }>(array_path).nodes;
-		const scope = `${get<{ id: NodeId }>(array_path.slice(0, -1)).id}.${array_path.at(-1)}`;
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
-		const occurrences = new Map<NodeId, number>();
-		for (let index = 0; index <= to && index < nodes.length; index++) {
-			const occurrence = occurrences.get(nodes[index]) ?? 0;
-			occurrences.set(nodes[index], occurrence + 1);
-			if (index >= from) pins.set(pin_key(scope, `${nodes[index]}:${occurrence}`), pin_of(index));
-		}
-	};
 	try {
-		for (let index = 2; index < path.length; index++) {
+		// The scope of each node array along the path, built like pin_scope_of
+		let scope = String(path[0]);
+		for (let index = 1; index < path.length; index++) {
 			const segment = path[index];
-			if (typeof segment === 'number') pin(path.slice(0, index), segment, segment, () => 'pinned');
+			if (typeof segment !== 'number') {
+				scope += `.${segment}`;
+				continue;
+			}
+			const key = item_key(get<{ nodes: NodeId[] }>(path.slice(0, index)).nodes, segment);
+			pins.set(pin_key(scope, key), 'pinned');
+			scope += `.${key}`;
 		}
 		if (selection.type === 'node') {
 			const start = Math.min(selection.anchor_offset, selection.focus_offset);
 			const end = Math.max(selection.anchor_offset, selection.focus_offset);
-			pin(path, start - 1, end, (index) => (index >= start && index < end ? 'selected' : 'pinned'));
+			const nodes = get<{ nodes: NodeId[] }>(path).nodes;
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
+			const occurrences = new Map<NodeId, number>();
+			for (let index = 0; index <= end && index < nodes.length; index++) {
+				const occurrence = occurrences.get(nodes[index]) ?? 0;
+				occurrences.set(nodes[index], occurrence + 1);
+				if (index < start - 1) continue;
+				const pin = index >= start && index < end ? 'selected' : 'pinned';
+				pins.set(pin_key(scope, `${nodes[index]}:${occurrence}`), pin);
+			}
 		}
 	} catch {
 		// A selection that no longer resolves (e.g. after `session.doc = ...`) pins nothing more
@@ -304,11 +346,17 @@ class VisibilityRegistry {
 
 	#pins = new KeyedState<string, Pin | false>();
 	#pinned = new Map<string, Pin>();
+	// The number of registered nodes per pin key, whose cells are kept
+	#pin_users = new Map<string, number>();
 	#nodes = new Map<HTMLElement, NodeRegistration>();
 	#arrays = new Map<Element, NodeArrayState>();
 	#io: IntersectionObserver | null = null;
 	#view_io: IntersectionObserver | null = null;
 	#resize_observer: ResizeObserver | null = null;
+	// Node and array elements to measure after the current update, see #measure
+	#unmeasured = new Set<HTMLElement>();
+	#unsynced = new Set<Element>();
+	#measure_pending = false;
 
 	start() {
 		if (typeof window === 'undefined') return;
@@ -339,6 +387,8 @@ class VisibilityRegistry {
 		}
 		this.#nodes.clear();
 		this.#arrays.clear();
+		this.#unmeasured.clear();
+		this.#unsynced.clear();
 	}
 
 	/** The state of a registered node array element. */
@@ -359,9 +409,21 @@ class VisibilityRegistry {
 	/** Pins the items holding or containing the selection, see is_pinned. */
 	pin_selection(selection: Selection | null, get: Lookup): void {
 		const pins = get_selection_pins(selection, get);
-		for (const key of this.#pinned.keys()) if (!pins.has(key)) this.#pins.set(key, false);
+		for (const key of this.#pinned.keys()) {
+			if (pins.has(key)) continue;
+			if (this.#pin_users.has(key)) this.#pins.set(key, false);
+			else this.#pins.drop(key);
+		}
 		for (const [key, pin] of pins) this.#pins.set(key, pin);
 		this.#pinned = pins;
+	}
+
+	/** Drops the cell of a pin key once no node renders it and it's unpinned. */
+	#release_pin(pin: string): void {
+		const users = (this.#pin_users.get(pin) ?? 1) - 1;
+		if (users > 0) return void this.#pin_users.set(pin, users);
+		this.#pin_users.delete(pin);
+		if (!this.#pinned.has(pin)) this.#pins.drop(pin);
 	}
 
 	/**
@@ -373,21 +435,23 @@ class VisibilityRegistry {
 		return (el: HTMLElement) => {
 			this.start();
 			untrack(() => {
-				// Seed synchronously; the observers own later transitions
-				const rect = this.#io || this.#view_io ? el.getBoundingClientRect() : null;
-				const near = !this.#io || intersects_viewport(rect!, OVERSCAN_PX);
+				const near = !this.#io || (!!array && this.#seed_near(array, key));
 				this.#nodes.set(el, { array, key, near });
 				this.#io?.observe(el);
-				if (pin) this.#pins.ensure(pin, false);
-				// A new element takes over its key, even before the element it replaces is removed
+				if (pin) {
+					this.#pin_users.set(pin, (this.#pin_users.get(pin) ?? 0) + 1);
+					this.#pins.ensure(pin, false);
+				}
 				if (array) {
 					array.owners.set(key, el);
 					array.near.set(key, near);
 				}
-				if (rect) this.#watch_view(el, near, rect);
+				if (this.#io || this.#view_io) this.#schedule_measure(el);
 			});
 			return () => {
 				this.#nodes.delete(el);
+				this.#unmeasured.delete(el);
+				if (pin) this.#release_pin(pin);
 				this.#io?.unobserve(el);
 				this.#view_io?.unobserve(el);
 				if (array?.owners.get(key) !== el) return;
@@ -397,6 +461,24 @@ class VisibilityRegistry {
 		};
 	}
 
+	/**
+	 * The near flag of a new element until it's measured. It takes over its
+	 * key's flag, even before the element it replaces is removed. A new key
+	 * starts near next to a measured near item (e.g. after splitting a
+	 * text), so the measurement rarely changes it, which would cost another
+	 * layout.
+	 */
+	#seed_near(array: NodeArrayState, key: string): boolean {
+		const known = array.near.get(key);
+		if (known !== undefined) return known;
+		const index = array.index_of(key);
+		if (index === -1) return false;
+		return [array.keys[index - 1], array.keys[index + 1]].some((neighbor) => {
+			const el = neighbor === undefined ? undefined : array.owners.get(neighbor);
+			return !!el && !this.#unmeasured.has(el) && array.near.has(neighbor!);
+		});
+	}
+
 	/** Attachment for node array containers. */
 	track_array(array: NodeArrayState) {
 		return (el: Element) => {
@@ -404,8 +486,8 @@ class VisibilityRegistry {
 			array.el = el;
 			this.#arrays.set(el, array);
 			this.#resize_observer?.observe(el);
-			// Synchronously, as the ResizeObserver's first callback comes a frame later
-			untrack(() => this.sync_edge_state(el));
+			// Right after the update, as the ResizeObserver's first callback comes a frame later
+			this.#schedule_measure(null, el);
 			return () => {
 				this.#arrays.delete(el);
 				this.#resize_observer?.unobserve(el);
@@ -415,24 +497,61 @@ class VisibilityRegistry {
 	}
 
 	/**
-	 * Re-sync the edge state of arrays (content changes alter scroll
-	 * extents). Only arrays with near nodes matter; the others sync once one
-	 * of their nodes comes near.
+	 * Re-sync the edge state of arrays after the current update (content
+	 * changes alter scroll extents). Only arrays with near nodes matter; the
+	 * others sync once one of their nodes comes near.
 	 */
 	sync_all_edge_states() {
-		for (const [el, array] of this.#arrays) {
-			if (el.isConnected && array.near.any()) this.sync_edge_state(el);
-		}
+		for (const [el, array] of this.#arrays) if (array.near.any()) this.#schedule_measure(null, el);
 	}
 
 	/**
-	 * Update an array's edge state from its own scroll metrics. Arrays that
-	 * don't clip their overflow are always at both edges, which is resolved
-	 * from computed style alone (no forced layout).
+	 * Measures the new nodes and the arrays to sync once the current update
+	 * is done, together, so they share one layout instead of each forcing
+	 * one between the update's DOM writes. Runs before the next paint.
 	 */
+	#schedule_measure(el: HTMLElement | null, array_el?: Element): void {
+		if (el) this.#unmeasured.add(el);
+		if (array_el) this.#unsynced.add(array_el);
+		if (this.#measure_pending) return;
+		this.#measure_pending = true;
+		queueMicrotask(() => this.#measure());
+	}
+
+	#measure(): void {
+		this.#measure_pending = false;
+		// All reads come before the first write
+		const measured: [HTMLElement, boolean, DOMRectReadOnly][] = [];
+		for (const el of this.#unmeasured) {
+			const registration = this.#nodes.get(el);
+			if (!registration || !el.isConnected) continue;
+			const rect = el.getBoundingClientRect();
+			const near = !this.#io || intersects_viewport(rect, OVERSCAN_PX);
+			measured.push([el, near, rect]);
+			// The edge state of an array without near nodes may be outdated
+			if (near && registration.array?.el) this.#unsynced.add(registration.array.el);
+		}
+		const edges = [...this.#unsynced].map(
+			(array_el) => [array_el, this.#read_edge(array_el)] as const
+		);
+		this.#unmeasured.clear();
+		this.#unsynced.clear();
+		for (const [array_el, edge] of edges) this.#set_edge(array_el, edge);
+		for (const [el, near, rect] of measured) this.#set_near(el, near, rect);
+	}
+
+	/** Update an array's edge state, see #read_edge. */
 	sync_edge_state(array_el: Element): void {
-		const array = this.#arrays.get(array_el);
-		if (!array) return;
+		this.#set_edge(array_el, this.#read_edge(array_el));
+	}
+
+	/**
+	 * An array's edge state from its own scroll metrics. Arrays that don't
+	 * clip their overflow are always at both edges, which is resolved from
+	 * computed style alone (no forced layout).
+	 */
+	#read_edge(array_el: Element): EdgeState | null {
+		if (!array_el.isConnected || !this.#arrays.has(array_el)) return null;
 		const style = getComputedStyle(array_el);
 		let first = true;
 		let last = true;
@@ -446,26 +565,43 @@ class VisibilityRegistry {
 			first &&= scrollTop <= EDGE_TOLERANCE_PX;
 			last &&= scrollTop + clientHeight >= scrollHeight - EDGE_TOLERANCE_PX;
 		}
+		return { first, last };
+	}
+
+	#set_edge(array_el: Element, edge: EdgeState | null): void {
+		const array = this.#arrays.get(array_el);
+		if (!array || !edge) return;
 		const previous = untrack(() => array.edge);
-		if (previous?.first === first && previous?.last === last) return;
-		array.edge = { first, last };
+		if (previous?.first === edge.first && previous?.last === edge.last) return;
+		array.edge = edge;
+	}
+
+	#set_near(el: HTMLElement, near: boolean, rect: DOMRectReadOnly): void {
+		const registration = this.#nodes.get(el)!;
+		const { array, key } = registration;
+		registration.near = near;
+		if (array?.owners.get(key) === el) array.near.set(key, near);
+		this.#watch_view(el, near, rect);
 	}
 
 	#process_near(entries: IntersectionObserverEntry[]): void {
+		// A callback can hold several entries of a target, of which the last counts
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local map.
+		const latest = new Map<HTMLElement, IntersectionObserverEntry>();
+		for (const entry of entries) latest.set(entry.target as HTMLElement, entry);
+		const changed: [HTMLElement, boolean, DOMRectReadOnly][] = [];
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Non-reactive local set.
-		const arrays = new Set<NodeArrayState>();
-		for (const { target, isIntersecting, boundingClientRect } of entries) {
-			const el = target as HTMLElement;
+		const arrays = new Set<Element>();
+		for (const [el, { isIntersecting, boundingClientRect }] of latest) {
 			const registration = this.#nodes.get(el);
 			if (!registration || !el.isConnected || isIntersecting === registration.near) continue;
-			const { array, key } = registration;
-			registration.near = isIntersecting;
-			if (array?.owners.get(key) === el) array.near.set(key, isIntersecting);
-			this.#watch_view(el, isIntersecting, boundingClientRect);
+			changed.push([el, isIntersecting, boundingClientRect]);
 			// The edge state of an array without near nodes may be outdated
-			if (isIntersecting && array) arrays.add(array);
+			if (isIntersecting && registration.array?.el) arrays.add(registration.array.el);
 		}
-		for (const array of arrays) if (array.el) this.sync_edge_state(array.el);
+		// Edge reads before the view class writes, so they don't force a layout
+		for (const array_el of arrays) this.sync_edge_state(array_el);
+		for (const [el, near, rect] of changed) this.#set_near(el, near, rect);
 	}
 
 	/**
@@ -550,13 +686,7 @@ export function create_node_visibility(svedit: {
 		// Content changes alter array scroll extents without recreating arrays
 		void svedit.session.doc;
 		void svedit.editable;
-		let cancelled = false;
-		tick().then(() => {
-			if (!cancelled) registry.sync_all_edge_states();
-		});
-		return () => {
-			cancelled = true;
-		};
+		untrack(() => registry.sync_all_edge_states());
 	});
 }
 

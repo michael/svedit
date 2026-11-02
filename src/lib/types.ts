@@ -602,7 +602,10 @@ export type NodeArrayRenderContext = {
 	anchored: boolean;
 	/** The node selection in the node array, if any */
 	node_selection: NodeSelection | null;
-	/** The id of the node owning the node array and the property, e.g. `page_1.body` */
+	/**
+	 * Identifies the rendered node array for pinning: its path with node
+	 * array indexes replaced by item keys, e.g. `page_1.body.story_1:0.buttons`
+	 */
 	pin_scope: string;
 	/** Whether marks or annotations cover nodes of the node array */
 	has_ranges: boolean;
@@ -630,6 +633,8 @@ export type NodeRenderContext = {
 	anchored: boolean;
 	id: NodeId;
 	path: DocumentPath;
+	/** The pin key of the node array item the node renders, see pin_key */
+	pin: string | undefined;
 };
 
 /**

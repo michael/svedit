@@ -28,6 +28,8 @@
 	 */
 	let { path, count }: { path: DocumentPath; count: number } = $props();
 
+	const NO_GAPS: GapMarker[] = [];
+
 	type GapMarker = {
 		key: string;
 		offset: number;
@@ -51,6 +53,10 @@
 	});
 
 	let gaps = $derived.by((): GapMarker[] => {
+		// Read first, so arrays far from the viewport don't depend on their path,
+		// which changes when their owner moves
+		const near_indices = node_array.items.near_indices();
+		if (near_indices.length === 0) return NO_GAPS;
 		const anchor = (index: number) => `--${path_str}${PATH_SEPARATOR}${index}`;
 		const container = `;--_c:--${path_str}`;
 		const marker = (offset: number, type: string, vars: string): GapMarker => ({
@@ -63,16 +69,15 @@
 			has_pair: count >= 2
 		});
 
-		const near_indices = node_array.items.near_indices();
 		if (count === 0) {
 			return near_indices[0] === 0
 				? [marker(0, 'gap-empty', `--_ct:--g-${path_str}${PATH_SEPARATOR}0-gap-before;--_a:${anchor(0)}`)]
-				: [];
+				: NO_GAPS;
 		}
 
 		// Iterating the near indices (O(visible)) instead of 0..count
 		const near = near_indices.filter((index) => index < count);
-		if (near.length === 0) return [];
+		if (near.length === 0) return NO_GAPS;
 
 		const edge_state = node_array.items.edge;
 		const pair = count >= 2 ? `;--_f:${anchor(0)};--_s:${anchor(1)}` : '';

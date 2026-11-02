@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { tick } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import { settle, make_paragraph_session } from './test_utils.js';
@@ -212,6 +213,97 @@ describe('Anchor names', () => {
 
 		expect_near_state(container);
 		expect(has_anchor(node_el(container, COUNT - 4))).toBe(false);
+	});
+
+	it('are given to nodes inserted in view before the next frame', async () => {
+		const session = make_paragraph_session(COUNT);
+		const { container } = await render(SveditTest, { session });
+		await settle();
+		let frames = 0;
+		requestAnimationFrame(() => (frames += 1));
+
+		// A run of new nodes, most of them without a measured neighbor
+		const ids = Array.from({ length: 6 }, (_, i) => `p_new_${i}`);
+		const tr = session.tr;
+		for (const id of ids) {
+			tr.create({ id, type: 'paragraph', content: { content: id, marks: [], annotations: [] } });
+		}
+		const body = session.get(['page_1', 'body']).nodes;
+		tr.set(['page_1', 'body'], {
+			nodes: [...body.slice(0, 2), ...ids, ...body.slice(2)],
+			marks: [],
+			annotations: []
+		});
+		session.apply(tr);
+		// New nodes are measured right after the update that renders them
+		await tick();
+		await tick();
+
+		expect(frames).toBe(0);
+		const inserted = [2, 3, 4, 5, 6, 7].filter((i) => in_view(node_el(container, i)));
+		expect(inserted.length).toBeGreaterThan(1);
+		for (const i of inserted) {
+			expect(has_anchor(node_el(container, i)), `node ${i}`).toBe(true);
+			expect(has_anchor(text_el(container, i)), `text ${i}`).toBe(true);
+			expect(gap_el(container, i)?.classList.contains('positioned'), `gap ${i}`).toBe(true);
+		}
+	});
+
+	it('are not given to nodes inserted far from the viewport', async () => {
+		const session = make_paragraph_session(COUNT);
+		const { container } = await render(SveditTest, { session });
+		await settle();
+
+		const body = session.get(['page_1', 'body']).nodes;
+		const tr = session.tr;
+		tr.create({
+			id: 'p_new',
+			type: 'paragraph',
+			content: { content: 'New', marks: [], annotations: [] }
+		});
+		tr.set(['page_1', 'body'], {
+			nodes: [...body.slice(0, 70), 'p_new', ...body.slice(70)],
+			marks: [],
+			annotations: []
+		});
+		session.apply(tr);
+		await settle_scroll();
+
+		expect(far(node_el(container, 70))).toBe(true);
+		expect(has_anchor(node_el(container, 70))).toBe(false);
+		expect(has_anchor(text_el(container, 70))).toBe(false);
+		expect(gap_el(container, 70)?.classList.contains('positioned')).toBe(false);
+		expect(gap_el(container, 71)?.classList.contains('positioned')).toBe(false);
+		expect_near_state(container);
+	});
+
+	it('follow the last of several observer entries of a node', async () => {
+		// Capture the overscan observer's callback, to deliver entries the
+		// way a busy page gets them: several per target in one callback
+		const RealObserver = window.IntersectionObserver;
+		let overscan: IntersectionObserverCallback | undefined;
+		window.IntersectionObserver = class extends RealObserver {
+			constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+				super(callback, options);
+				if (options?.rootMargin === '500px') overscan = callback;
+			}
+		};
+		const session = make_paragraph_session(COUNT);
+		const { container } = await render(SveditTest, { session }).finally(() => {
+			window.IntersectionObserver = RealObserver;
+		});
+		await settle();
+		expect(overscan).toBeDefined();
+
+		const target = node_el(container, 70)!;
+		expect(far(target)).toBe(true);
+		const entry = (isIntersecting: boolean) =>
+			({ target, isIntersecting, boundingClientRect: target.getBoundingClientRect() }) as never;
+		// It came near and went far again before the callback ran
+		overscan!([entry(true), entry(false)], {} as IntersectionObserver);
+		await settle();
+		expect(has_anchor(target)).toBe(false);
+		expect(gap_el(container, 71)?.classList.contains('positioned')).toBe(false);
 	});
 
 	it('are carried by every node when visibility culling is disabled', async () => {

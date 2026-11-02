@@ -14,6 +14,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
 import StoryHmrProxy from './testing_components/StoryHmrProxy.svelte';
+import NodelessStory from './testing_components/NodelessStory.svelte';
+import { app_config } from '../routes/demo_config.js';
 import {
 	settle,
 	settle_grid,
@@ -476,6 +478,34 @@ describe('NodeGap visibility & placement', () => {
 			};
 			await settle();
 			expect(getComputedStyle(last_sel).display).toBe('none');
+		});
+	});
+
+	describe('node array of a node component without a Node', () => {
+		// The array sits right inside the item, whose gap context must not
+		// reach the array's own trailing and empty-array gaps
+		const config = { node_components: { ...app_config.node_components, story: NodelessStory } };
+		const find_array = (container: HTMLElement) =>
+			container.querySelector<HTMLElement>('[data-type="node_array"][data-path$="buttons"]')!;
+
+		it('positions its trailing gap', async () => {
+			const session = make_story_session(2, config);
+			const { container } = await render(SveditTest, { session });
+			await settle();
+
+			const last_gap = find_last_gap(find_array(container));
+			expect(last_gap).not.toBeNull();
+			expect(last_gap!.dataset.gapOffset).toBe('2');
+			expect(last_gap!.classList.contains('positioned')).toBe(true);
+		});
+
+		it('marks its empty-array gap as the last one', async () => {
+			const session = make_story_session(0, config);
+			const { container } = await render(SveditTest, { session });
+			await settle();
+
+			const gap = find_array(container).querySelector('.node-gap.empty');
+			expect(gap?.classList.contains('last')).toBe(true);
 		});
 	});
 

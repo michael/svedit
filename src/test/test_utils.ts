@@ -52,8 +52,11 @@ export async function settle({ rafs = 3, ms = 60 }: { rafs?: number; ms?: number
 /** Generous settle for image-grid / wrap-flow scenarios. */
 export const settle_grid = () => settle({ rafs: 8, ms: 150 });
 
-/** Build a session with a single story whose `buttons` array holds `n` buttons. */
-export function make_story_session(n_buttons: number) {
+/**
+ * Build a session with a single story whose `buttons` array holds `n` buttons.
+ * Config overrides (e.g. `node_components`) are merged in.
+ */
+export function make_story_session(n_buttons: number, config: Record<string, unknown> = {}) {
 	const button_ids: string[] = [];
 	const nodes: Document['nodes'] = {};
 	for (let i = 0; i < n_buttons; i++) {
@@ -79,6 +82,49 @@ export function make_story_session(n_buttons: number) {
 		id: 'page_1',
 		type: 'page',
 		body: { nodes: ['story_1'], marks: [], annotations: [] },
+		keywords: [],
+		daily_visitors: [],
+		created_at: '2025-05-30T10:39:59.987Z'
+	};
+	return new Session(
+		document_schema,
+		{ document_id: 'page_1', nodes },
+		{ ...create_test_config(), ...config }
+	);
+}
+
+/**
+ * Build a session whose page body holds `n` nodes: paragraphs `p_<i>`, and
+ * as every third node a story `s_<i>` with the buttons `b_<i>_0` and
+ * `b_<i>_1`, so the body has nested node arrays.
+ */
+export function make_mixed_session(n: number) {
+	const ids: string[] = [];
+	const nodes: Document['nodes'] = {};
+	const text = (content: string) => ({ content, marks: [], annotations: [] });
+	for (let i = 0; i < n; i++) {
+		if (i % 3 === 2) {
+			const button_ids = [`b_${i}_0`, `b_${i}_1`];
+			for (const id of button_ids) nodes[id] = { id, type: 'button', content: text(id), href: '#' };
+			nodes[`s_${i}`] = {
+				id: `s_${i}`,
+				type: 'story',
+				layout: 'image-left',
+				image: '',
+				title: text(`Story ${i}`),
+				description: text(`Description ${i}`),
+				buttons: { nodes: button_ids, marks: [], annotations: [] }
+			};
+			ids.push(`s_${i}`);
+		} else {
+			nodes[`p_${i}`] = { id: `p_${i}`, type: 'paragraph', content: text(`Paragraph ${i}`) };
+			ids.push(`p_${i}`);
+		}
+	}
+	nodes.page_1 = {
+		id: 'page_1',
+		type: 'page',
+		body: { nodes: ids, marks: [], annotations: [] },
 		keywords: [],
 		daily_visitors: [],
 		created_at: '2025-05-30T10:39:59.987Z'

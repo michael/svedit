@@ -9,12 +9,18 @@
  *   and after the change.
  * - Session.selection_at depends on which node owns a path and on that
  *   node's selection, not on the node's content.
+ * - NodeArrayState keeps the state of node array items by key, so index
+ *   shifts only notify the items next to a change.
+ * - Stable and PathTracker only notify their readers when their value
+ *   changes, however often their inputs do.
  */
 
 import { describe, it, expect } from 'vitest';
 import { flushSync } from 'svelte';
-import { KeyedState } from '../lib/node_visibility.svelte.js';
+import { KeyedState, NodeArrayState } from '../lib/node_visibility.svelte.js';
+import { PathTracker, Stable } from '../lib/stable.svelte.js';
 import { make_paragraph_session } from './test_utils.js';
+import type { DocumentPath } from '../lib/types.js';
 
 /**
  * Runs `read(key)` in one effect per key and counts the effect runs after
@@ -103,6 +109,21 @@ describe('KeyedState', () => {
 		flushSync();
 		expect(runs).toEqual([1]);
 		expect(value).toBe(true);
+		destroy();
+	});
+
+	it('drops a cell, after which its key reads as missing', async () => {
+		const state = new KeyedState<string, boolean>();
+		state.set('a', true);
+		state.drop('a');
+		expect(state.has('a')).toBe(false);
+		expect(state.any()).toBe(false);
+
+		const { runs, destroy } = count_runs(['a'], (key) => state.has(key));
+		state.set('a', true);
+		await Promise.resolve();
+		flushSync();
+		expect(runs).toEqual([1]);
 		destroy();
 	});
 
@@ -234,5 +255,132 @@ describe('Session.selection_at', () => {
 		flushSync();
 		expect(runs).toEqual([0]);
 		destroy();
+	});
+});
+
+describe('NodeArrayState', () => {
+	const keys = ['a:0', 'b:0', 'c:0', 'd:0', 'e:0'];
+	const read_item = (items: NodeArrayState) => (key: string) => [
+		items.prev.get(key),
+		items.ends.get(key)
+	];
+
+	it('notifies only the items next to an insertion', () => {
+		const items = new NodeArrayState();
+		items.set_keys(keys);
+		const { runs, destroy, reset } = count_runs(keys, read_item(items));
+		reset();
+
+		items.set_keys(['n:0', ...keys]);
+		flushSync();
+		// a gets a new neighbor and is no longer first, b no longer second
+		expect(runs).toEqual([1, 1, 0, 0, 0]);
+		expect(items.prev.get('a:0')).toBe('n:0');
+
+		reset();
+		items.set_keys(['n:0', ...keys, 'z:0']);
+		flushSync();
+		expect(runs).toEqual([0, 0, 0, 0, 1]);
+		destroy();
+	});
+
+	it('notifies only the item after a deletion', () => {
+		const items = new NodeArrayState();
+		items.set_keys(keys);
+		const { runs, destroy, reset } = count_runs(keys, read_item(items));
+		reset();
+
+		items.set_keys(['a:0', 'b:0', 'd:0', 'e:0']);
+		flushSync();
+		expect(runs).toEqual([0, 0, 0, 1, 0]);
+		expect(items.prev.get('d:0')).toBe('b:0');
+		destroy();
+	});
+
+	it('keeps near flags by key while indexes shift', () => {
+		const items = new NodeArrayState();
+		items.set_keys(keys);
+		items.near.set('c:0', true);
+		items.near.set('d:0', true);
+		expect(items.near_indices()).toEqual([2, 3]);
+
+		items.set_keys(['n:0', 'm:0', ...keys]);
+		expect(items.near_indices()).toEqual([4, 5]);
+		expect(items.index_of('c:0')).toBe(4);
+	});
+});
+
+describe('Stable', () => {
+	it('notifies readers only when the value changes by its equality', () => {
+		let source = $state.raw([1, 2]);
+		let stable!: Stable<number[]>;
+		const destroy_root = $effect.root(() => {
+			stable = new Stable(
+				() => source,
+				(a, b) => a.length === b.length && a.every((value, index) => value === b[index])
+			);
+		});
+		const { runs, destroy, reset } = count_runs([0], () => stable.current);
+		reset();
+
+		source = [1, 2];
+		flushSync();
+		expect(runs).toEqual([0]);
+
+		source = [1, 3];
+		flushSync();
+		expect(runs).toEqual([1]);
+		expect(stable.current).toEqual([1, 3]);
+		destroy();
+		destroy_root();
+	});
+});
+
+describe('PathTracker', () => {
+	it('writes path changes to its element, notifying readers only of changes of its value', () => {
+		let path = $state.raw<DocumentPath>(['page_1', 'body', 1]);
+		let tracker!: PathTracker<number>;
+		const destroy_root = $effect.root(() => {
+			tracker = new PathTracker(
+				() => path,
+				() => path.length
+			);
+		});
+		const el = document.createElement('div');
+		el.setAttribute('data-path', tracker.path_str);
+		tracker.el = el;
+		const { runs, destroy, reset } = count_runs([0], () => tracker.current);
+		reset();
+
+		path = ['page_1', 'body', 2];
+		flushSync();
+		expect(el.getAttribute('data-path')).toBe('page_1__body__2');
+		expect(runs).toEqual([0]);
+
+		path = ['page_1', 'body', 2, 'content'];
+		flushSync();
+		expect(el.getAttribute('data-path')).toBe('page_1__body__2__content');
+		expect(runs).toEqual([1]);
+		destroy();
+		destroy_root();
+	});
+
+	it('syncs the data-path of an element set after its path changed', () => {
+		let path = $state.raw<DocumentPath>(['page_1', 'body', 1]);
+		let tracker!: PathTracker<null>;
+		const destroy_root = $effect.root(() => {
+			tracker = new PathTracker(
+				() => path,
+				() => null
+			);
+		});
+		const el = document.createElement('div');
+		el.setAttribute('data-path', tracker.path_str);
+
+		path = ['page_1', 'body', 4];
+		flushSync();
+		tracker.el = el;
+		expect(el.getAttribute('data-path')).toBe('page_1__body__4');
+		destroy_root();
 	});
 });

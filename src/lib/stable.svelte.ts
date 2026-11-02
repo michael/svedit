@@ -39,8 +39,8 @@ export class Stable<T> {
  */
 export class PathTracker<T> {
 	#current: T = $state.raw()!;
+	#el: Element | undefined;
 	path_str: string;
-	el: Element | undefined;
 
 	constructor(
 		get_path: () => DocumentPath,
@@ -56,12 +56,22 @@ export class PathTracker<T> {
 				if (!equal(this.#current, next)) this.#current = next;
 				if (path_str === this.path_str) return;
 				this.path_str = path_str;
-				this.el?.setAttribute('data-path', path_str);
+				this.#el?.setAttribute('data-path', path_str);
 			});
 		});
 	}
 
 	get current(): T {
 		return this.#current;
+	}
+
+	get el(): Element | undefined {
+		return this.#el;
+	}
+
+	/** The element, whose data-path is synced in case the path changed before it existed. */
+	set el(el: Element) {
+		this.#el = el;
+		if (el.getAttribute('data-path') !== this.path_str) el.setAttribute('data-path', this.path_str);
 	}
 }

@@ -9,7 +9,7 @@
 	} from './utils.js';
 	import { root_path } from './doc_utils.js';
 	import { Stable } from './stable.svelte.js';
-	import { EMPTY_KEY, NodeArrayState } from './node_visibility.svelte.js';
+	import { EMPTY_KEY, NodeArrayState, pin_scope_of } from './node_visibility.svelte.js';
 	import DefaultNodeGap from './NodeGap.svelte';
 	import DefaultNodeGapMarkers from './NodeGapMarkers.svelte';
 	import type {
@@ -25,6 +25,9 @@
 	const NO_ANNOTATIONS: NodeArrayAttachmentContext[] = [];
 	const svedit = getContext<SveditRenderContext>('svedit');
 	const owner = getContext<NodeRenderContext | undefined>('node_anchor');
+	// The trailing and empty-array gaps are no item's, even in a node
+	// component without a Node
+	setContext('node_item', undefined);
 	let NodeGap = $derived(svedit.session.config.system_components?.node_gap ?? DefaultNodeGap);
 	let NodeGapMarkers = $derived(
 		svedit.session.config.system_components?.node_gap_markers ?? DefaultNodeGapMarkers
@@ -44,12 +47,21 @@
 	const root = new Stable(() => root_path(path, owner), paths_equal);
 	let rooted = $derived(root.current);
 	let value: NodeArray = $derived(svedit.session.get(rooted));
-	// The owning node and property, which identify the items for pinning (see
-	// pin_key). Read from the rooted path, as reading the owner would make
-	// every array change reach all item nodes.
-	let pin_scope = $derived(
-		`${rooted.length === 2 ? rooted[0] : svedit.session.get(rooted.slice(0, -1)).id}.${rooted.at(-1)}`
-	);
+	// Identifies the items for pinning, see pin_scope_of. Stable, so the
+	// index shifts of the owner don't reach the items.
+	const pin_scope = new Stable(() => {
+		const pin = owner?.pin;
+		const prefix = owner?.path ?? [];
+		const owned =
+			pin !== undefined &&
+			path.length > prefix.length &&
+			prefix.every((segment, index) => path[index] === segment);
+		return pin_scope_of(
+			path,
+			(path) => svedit.session.get(path),
+			owned ? { pin, path: prefix } : undefined
+		);
+	});
 	let count = $derived(value.nodes.length);
 	// The `focused` class follows a node selection in this array. CSS uses it
 	// to hide the empty-array gap's <br>, so it is no second arrow-key stop.
@@ -145,7 +157,7 @@
 			return node_selection;
 		},
 		get pin_scope() {
-			return pin_scope;
+			return pin_scope.current;
 		},
 		// Checked before mark_for and annotations_for, so items only depend on
 		// their index while ranges exist

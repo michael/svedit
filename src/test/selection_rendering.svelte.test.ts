@@ -14,7 +14,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import SveditTest from './testing_components/SveditTest.svelte';
-import { settle, make_paragraph_session, make_story_session } from './test_utils.js';
+import {
+	settle,
+	make_mixed_session,
+	make_paragraph_session,
+	make_story_session
+} from './test_utils.js';
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 // The node selection highlight is hidden on devices with a fine pointer
@@ -103,6 +108,43 @@ describe('Selection rendering', () => {
 			'page_1__body__0__buttons__0',
 			'page_1__body__0__buttons__1'
 		]);
+	});
+
+	it('marks only the selected occurrence of a node referenced twice in an array', async () => {
+		const session = make_paragraph_session(3);
+		const tr = session.tr;
+		tr.set(['page_1', 'body'], { nodes: ['p_0', 'p_1', 'p_0'], marks: [], annotations: [] });
+		session.apply(tr);
+		const { container } = await render(SveditTest, { session });
+		await settle();
+
+		session.selection = {
+			type: 'node',
+			path: ['page_1', 'body'],
+			anchor_offset: 2,
+			focus_offset: 3
+		};
+		await settle();
+		expect(selected_paths(container)).toEqual(['page_1__body__2']);
+	});
+
+	it('marks only the selected instance of a node shared by two node arrays', async () => {
+		// The stories s_2 and s_5 share the button b_2_0
+		const session = make_mixed_session(6);
+		const tr = session.tr;
+		tr.set(['s_5', 'buttons'], { nodes: ['b_2_0', 'b_5_1'], marks: [], annotations: [] });
+		session.apply(tr);
+		const { container } = await render(SveditTest, { session });
+		await settle();
+
+		session.selection = {
+			type: 'node',
+			path: ['page_1', 'body', 5, 'buttons'],
+			anchor_offset: 0,
+			focus_offset: 1
+		};
+		await settle();
+		expect(selected_paths(container)).toEqual(['page_1__body__5__buttons__0']);
 	});
 
 	it('changes the caret color of the canvas alone when the selection type changes', async () => {

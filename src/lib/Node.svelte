@@ -28,24 +28,25 @@
 		() => (item && (item.path === path || paths_equal(item.path, path)) ? item : null)
 	);
 	let node = $derived(tracker.current ? tracker.current.node : svedit.session.get(path));
+	// Identifies the item for selection pins, see pin_key
+	let pin = $derived(
+		tracker.current ? pin_key(node_array!.pin_scope, tracker.current.key) : undefined
+	);
 	// Outside node arrays nodes always carry their anchor name, else while
 	// near the viewport, pinned by the selection, or as one of the first two
 	// nodes of an anchored array.
 	let anchored = $derived.by(() => {
 		const own = tracker.current;
 		if (!own) return true;
-		const { items, pin_scope } = node_array!;
+		const { items } = node_array!;
 		return (
 			items.near.has(own.key) ||
-			svedit.visibility_registry.is_pinned(pin_key(pin_scope, own.key)) ||
+			svedit.visibility_registry.is_pinned(pin!) ||
 			(node_array!.anchored && ((items.ends.get(own.key) ?? 0) & (FIRST | SECOND)) !== 0)
 		);
 	});
 	// Marks the node inside a node selection, whose native highlight is hidden
-	let selected = $derived(
-		!!tracker.current &&
-			svedit.visibility_registry.is_selected(pin_key(node_array!.pin_scope, tracker.current.key))
-	);
+	let selected = $derived(!!pin && svedit.visibility_registry.is_selected(pin));
 	// The properties of this node carry their anchor names along with it,
 	// and root their paths at it
 	setContext<NodeRenderContext>('node_anchor', {
@@ -57,6 +58,9 @@
 		},
 		get path() {
 			return path;
+		},
+		get pin() {
+			return pin;
 		}
 	});
 
@@ -105,11 +109,7 @@
 	{@attach (el: HTMLElement) => {
 		tracker.el = el;
 		const own = tracker.current;
-		return svedit.visibility_registry.track_node(
-			own && node_array!.items,
-			own?.key ?? '',
-			own ? pin_key(node_array!.pin_scope, own.key) : undefined
-		)(el);
+		return svedit.visibility_registry.track_node(own && node_array!.items, own?.key ?? '', pin)(el);
 	}}
 >
 	{@render children()}
