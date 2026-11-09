@@ -570,41 +570,31 @@ export default class Session<S extends DocumentSchema = DocumentSchema> {
 		return node_array.nodes.slice(start, end);
 	}
 
+	/**
+	 * Selects the closest node around the selection that sits in a node_array, or
+	 * clears the selection at the top. Numbers in a path index node_arrays, so the
+	 * last one marks that node. A node held by a node property has no index and
+	 * cannot be node-selected, so the walk passes over it.
+	 *
+	 * @example
+	 * // ['page_1', 'body', 2, 'start', 'body', 0, 'content'] selects ['page_1', 'body', 2, 'start', 'body'] at 0
+	 * // ['page_1', 'body', 2, 'start', 'body'] selects ['page_1', 'body'] at 2
+	 */
 	select_parent(): void {
-		if (!this.selection) return;
-		if (['text', 'property'].includes(this.selection.type)) {
-			// For text and property selections (e.g. ['page_1', 'body', 0, 'image']), we need to go up two levels
-			// in the path
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = this.selection.path[this.selection.path.length - 2] as number;
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else if (this.selection.type === 'node') {
-			// For node selections, we go up one level
-			if (this.selection.path.length > 3) {
-				const parent_path = this.selection.path.slice(0, -2);
-				const current_index = this.selection.path[this.selection.path.length - 2] as number;
-
-				this.selection = {
-					type: 'node',
-					path: parent_path,
-					anchor_offset: current_index,
-					focus_offset: current_index + 1
-				};
-			} else {
-				this.selection = null;
-			}
-		} else {
+		const path = this.selection?.path;
+		if (!path) return;
+		const index_position = path.findLastIndex((segment) => typeof segment === 'number');
+		if (index_position === -1) {
 			this.selection = null;
+			return;
 		}
+		const index = path[index_position] as number;
+		this.selection = {
+			type: 'node',
+			path: path.slice(0, index_position),
+			anchor_offset: index,
+			focus_offset: index + 1
+		};
 	}
 
 	/**

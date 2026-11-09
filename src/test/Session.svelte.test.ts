@@ -170,6 +170,87 @@ describe('Session.svelte.js', () => {
 		});
 	});
 
+	describe('Select parent', () => {
+		it('should pass over nodes held by node properties', () => {
+			const schema = define_document_schema({
+				page: {
+					kind: 'document',
+					properties: {
+						body: { type: 'node_array', node_types: ['pair'] }
+					}
+				},
+				pair: {
+					kind: 'block',
+					properties: {
+						start: { type: 'node', node_types: ['pair_item'] }
+					}
+				},
+				pair_item: {
+					kind: 'block',
+					properties: {
+						body: { type: 'node_array', node_types: ['text'] }
+					}
+				},
+				text: {
+					kind: 'text',
+					properties: {
+						content: { type: 'text', allow_newlines: true }
+					}
+				}
+			});
+			const session = new Session(
+				schema,
+				{
+					document_id: 'page_1',
+					nodes: {
+						page_1: {
+							id: 'page_1',
+							type: 'page',
+							body: { nodes: ['pair_1'], marks: [], annotations: [] }
+						},
+						pair_1: { id: 'pair_1', type: 'pair', start: 'pair_item_1' },
+						pair_item_1: {
+							id: 'pair_item_1',
+							type: 'pair_item',
+							body: { nodes: ['text_1'], marks: [], annotations: [] }
+						},
+						text_1: {
+							id: 'text_1',
+							type: 'text',
+							content: { content: 'Text', marks: [], annotations: [] }
+						}
+					}
+				},
+				{}
+			);
+
+			session.selection = {
+				type: 'text',
+				path: ['page_1', 'body', 0, 'start', 'body', 0, 'content'],
+				anchor_offset: 0,
+				focus_offset: 0
+			};
+			session.select_parent();
+			expect(session.selection).toEqual({
+				type: 'node',
+				path: ['page_1', 'body', 0, 'start', 'body'],
+				anchor_offset: 0,
+				focus_offset: 1
+			});
+
+			session.select_parent();
+			expect(session.selection).toEqual({
+				type: 'node',
+				path: ['page_1', 'body'],
+				anchor_offset: 0,
+				focus_offset: 1
+			});
+
+			session.select_parent();
+			expect(session.selection).toBeNull();
+		});
+	});
+
 	describe('Path inspection', () => {
 		it('should report node and property kinds correctly', () => {
 			const session = create_test_session();
